@@ -119,6 +119,15 @@ function applyTypography(book: { typography: any }, req: Request): void {
   };
 }
 
+/** Apply the editor's unsaved text without touching disk or the autosave path. */
+function applyPreviewDraft(book: { sections: Array<{ id: string; markdown: string }> }, req: Request): string | null {
+  const sectionId = typeof req.body?.previewSectionId === "string" ? req.body.previewSectionId : null;
+  if (!sectionId) return null;
+  const section = book.sections.find((item) => item.id === sectionId);
+  if (section && typeof req.body?.draft === "string") section.markdown = req.body.draft;
+  return section ? sectionId : null;
+}
+
 export function registerApi(app: Express): void {
   app.get("/api/health", (_req, res) =>
     wrap(res, async () => {
@@ -284,6 +293,8 @@ export function registerApi(app: Express): void {
     wrap(res, async () => {
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
+      const sectionId = applyPreviewDraft(book, req);
+      if (sectionId) book.sections = book.sections.filter((section) => section.id === sectionId);
       res.json({ html: await renderHtml(book, "html") });
     }),
   );
@@ -293,6 +304,7 @@ export function registerApi(app: Express): void {
     wrap(res, async () => {
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
+      applyPreviewDraft(book, req);
       const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
       const { html, meta } = await renderPrintPreviewHtml(book, print);
       res.json({ html, pages: meta.pages, gutter: meta.gutter });

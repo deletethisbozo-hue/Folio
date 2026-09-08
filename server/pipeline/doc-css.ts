@@ -104,7 +104,16 @@ function typographyCss(book: Book): string {
   // reviews/2026-07-02-creative-lens-fable5.md issue #2.
   if (ty.fontSize) bodyDecls.push(`font-size: ${ty.fontSize} !important;`);
   if (ty.lineHeight) bodyDecls.push(`line-height: ${ty.lineHeight} !important;`);
+  if (ty.bodyAlign) bodyDecls.push(`text-align: ${ty.bodyAlign} !important;`);
   if (bodyDecls.length) out.push(`body { ${bodyDecls.join(" ")} }`);
+  if (ty.paragraphIndent !== undefined) out.push(`p { text-indent: ${ty.paragraphIndent} !important; }`);
+  if (ty.paragraphSpacing !== undefined) out.push(`p { margin-bottom: ${ty.paragraphSpacing} !important; }`);
+  if (ty.paragraphAfterBreakIndent !== undefined) {
+    out.push(`.scene-break + p, hr + p { text-indent: ${ty.paragraphAfterBreakIndent} !important; }`);
+  }
+  if (ty.titlePageFont) {
+    out.push(`section.titlepage, section.titlepage > h1 { font-family: ${familyValue(ty.titlePageFont)} !important; }`);
+  }
 
   if (ty.headingFont) {
     out.push(`h1, h2, h3, section.chapter > h1, h1.chapter { font-family: ${familyValue(ty.headingFont)} !important; }`);

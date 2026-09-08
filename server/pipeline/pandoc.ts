@@ -3,12 +3,12 @@ import { promises as fs } from "node:fs";
 import yaml from "js-yaml";
 import type { Book } from "./types.ts";
 import { buildPandocMeta, type Target } from "./build-doc.ts";
-import { FILTERS_DIR, ROOT, makeTempDir } from "./paths.ts";
+import { FILTERS_DIR, makeTempDir, resolveAppResource } from "./paths.ts";
 import { run } from "./exec.ts";
 import { AppError, tailLines } from "../errors.ts";
 
 export const PANDOC = process.env.PANDOC_BIN || "pandoc";
-export const BOOK_TEMPLATE = path.join(ROOT, "server", "templates", "book.html");
+export const BOOK_TEMPLATE = resolveAppResource("server", "templates", "book.html");
 export const BOOK_FILTER = path.join(FILTERS_DIR, "book.lua");
 
 export interface Workspace {
@@ -48,7 +48,7 @@ export async function runPandoc(args: string[], input: string): Promise<string> 
     if ((e as NodeJS.ErrnoException)?.code === "ENOENT") {
       throw new AppError(
         "PANDOC_MISSING",
-        "Pandoc isn't installed or isn't on your PATH. Install Pandoc 3.x from https://pandoc.org/installing.html, then restart the app.",
+        "Folio's bundled conversion engine is missing. Reinstall Folio from the official Windows release.",
         { cause: e },
       );
     }

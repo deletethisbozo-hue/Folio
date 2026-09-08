@@ -1,11 +1,25 @@
 # Changelog
 
-All notable changes to Byte-Sized Book Formatter are documented here.
+All notable changes to Folio are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-09-08
+
+### Added
+- Vellum-style desktop workspace with structure, manuscript editor, and live Kindle/print preview.
+- Visual gallery of 20 complete book themes and grouped advanced typography controls.
+- Self-contained Windows installer and portable executable with bundled Pandoc and PDF engine.
+- Packaged-runtime smoke tests covering health, themes, sample editing, preview, EPUB, and PDF.
+
+### Fixed
+- Packaged resources are resolved outside `app.asar`, so Pandoc can read themes, templates, filters, and samples.
+- Live preview renders the current unsaved draft and selected section instead of waiting for autosave.
+- Sample editing uses copy-on-write storage; section saves retain exact source paths and cannot collide on duplicate titles.
+- Product, window, taskbar, installer, and artifact branding now consistently uses Folio.
 
 ## [1.3.0] - 2026-09-01
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   Byte-Sized Book Formatter — blues base (paged media)
+   Folio — blues base (paged media)
    Injected only for the blues export, after base.css and the
    book's own theme, so it wins on equal specificity. The
    dynamic @page rules (geometry, running head) are built per

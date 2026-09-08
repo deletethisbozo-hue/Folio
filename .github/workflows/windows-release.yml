@@ -1,5 +1,4 @@
-# Folio Windows release builder. A push to main rebuilds and replaces the windows-latest release.
-name: Build Windows Release
+name: Build and Release Folio for Windows
 
 on:
   push:
@@ -16,8 +15,10 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 60
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
 
     steps:
       - name: Check out Folio
@@ -27,10 +28,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      - name: Install dependencies
+      - name: Install locked dependencies
         shell: pwsh
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Download bundled Pandoc
         shell: pwsh
@@ -40,46 +42,111 @@ jobs:
           New-Item -ItemType Directory -Force build\pandoc | Out-Null
           New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
           $url = gh api repos/jgm/pandoc/releases/latest --jq '.assets[] | select(.name | test("windows-x86_64\\.zip$")) | .browser_download_url' | Select-Object -First 1
-          if (-not $url) { throw "Could not find the current Pandoc Windows zip." }
+          if (-not $url) { throw "Could not find the current Pandoc Windows archive." }
           Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
           Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
           $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
           if (-not $exe) { throw "Pandoc executable was not found after extraction." }
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
-          $copying = Get-ChildItem build\pandoc-unpack -Include COPYING*,LICENSE* -File -Recurse | Select-Object -First 1
-          if ($copying) { Copy-Item $copying.FullName build\pandoc\PANDOC_LICENSE.txt }
+          $license = Get-ChildItem build\pandoc-unpack -Include COPYING*,LICENSE* -File -Recurse | Select-Object -First 1
+          if ($license) { Copy-Item $license.FullName build\pandoc\PANDOC_LICENSE.txt }
 
       - name: Download bundled PDF engine
         shell: pwsh
         run: npx puppeteer browsers install chrome-headless-shell
 
       - name: Typecheck
-        shell: pwsh
         run: npm run typecheck
 
-      - name: Build Folio.exe
-        shell: pwsh
-        run: npm run dist:win
+      - name: Test formatter and export pipeline
+        run: npm test
 
-      - name: Show build output
-        shell: pwsh
-        run: Get-ChildItem release -Recurse | Select-Object FullName,Length
+      - name: Build web and server
+        run: npm run build
 
-      - name: Upload Windows build artifact
+      - name: Build installer and portable app
+        run: npx electron-builder --win nsis portable --x64
+
+      - name: Smoke-test packaged Folio
+        shell: pwsh
+        run: |
+          $env:FOLIO_E2E_PORT = "43127"
+          $exe = Resolve-Path "release\Folio-0.2.0-portable.exe"
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            $base = "http://127.0.0.1:43127"
+            $health = $null
+            for ($i = 0; $i -lt 120; $i++) {
+              try { $health = Invoke-RestMethod "$base/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged /api/health did not become ready with bundled Pandoc." }
+
+            $themes = Invoke-RestMethod "$base/api/themes"
+            if ($themes.Count -lt 20) { throw "Packaged app returned only $($themes.Count) themes." }
+
+            $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
+            $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
+            if (-not $chapter) { throw "Packaged sample has no chapter." }
+            $sectionId = [uri]::EscapeDataString($chapter.id)
+            $draft = "Packaged preview probe: live text before autosave."
+            $previewBody = @{ meta = $sample.meta; theme = "blackletter"; typography = @{}; previewSectionId = $chapter.id; draft = $draft } | ConvertTo-Json -Depth 10
+            $preview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $previewBody "$base/api/projects/$($sample.projectId)/preview"
+            if ($preview.html -notmatch "ackaged preview probe" -or $preview.html -notmatch "Old English Text MT") { throw "Packaged live preview omitted draft text or theme CSS." }
+
+            $saveBody = @{ markdown = "$draft`n`nSaved copy-on-write." } | ConvertTo-Json
+            $saved = Invoke-RestMethod -Method Put -ContentType "application/json" -Body $saveBody "$base/api/projects/$($sample.projectId)/sections/$sectionId"
+            if ($saved.markdown -notmatch "Saved copy-on-write") { throw "Packaged sample PUT failed." }
+
+            $printBody = @{ meta = $sample.meta; theme = "folio"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
+            $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
+            if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page") { throw "Packaged print preview did not paginate." }
+
+            $epubBody = @{ format = "epub"; preset = "kdp"; meta = $sample.meta; theme = "folio" } | ConvertTo-Json -Depth 10
+            $epub = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $epubBody "$base/api/projects/$($sample.projectId)/export"
+            if ($epub.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($epub.dataBase64)) { throw "Packaged EPUB export is empty." }
+
+            $readingBody = @{ format = "pdf"; meta = $sample.meta; theme = "folio" } | ConvertTo-Json -Depth 10
+            $reading = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $readingBody "$base/api/projects/$($sample.projectId)/export"
+            if ($reading.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($reading.dataBase64)) { throw "Packaged reading PDF export is empty." }
+
+            $printExportBody = @{ format = "print"; meta = $sample.meta; theme = "folio"; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
+            $printExport = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printExportBody "$base/api/projects/$($sample.projectId)/export"
+            if ($printExport.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($printExport.dataBase64)) { throw "Packaged print PDF export is empty." }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Verify release assets
+        shell: pwsh
+        run: |
+          $required = @("release\Folio-0.2.0-setup.exe", "release\Folio-0.2.0-portable.exe")
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing release asset: $file" }
+            if ((Get-Item $file).Length -lt 1MB) { throw "Release asset is unexpectedly small: $file" }
+          }
+          Get-Item $required | Select-Object Name,Length
+
+      - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-Windows
-          path: release/Folio.exe
+          name: Folio-0.2.0-Windows
+          path: |
+            release/Folio-0.2.0-setup.exe
+            release/Folio-0.2.0-portable.exe
           if-no-files-found: error
 
-      - name: Publish latest Windows release
+      - name: Publish GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view windows-latest 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            gh release delete windows-latest --cleanup-tag --yes
-          }
-          if (-not (Test-Path release\Folio.exe)) { throw "Folio.exe was not built." }
-          gh release create windows-latest release\Folio.exe --target "$env:GITHUB_SHA" --title "Folio for Windows" --notes "Download Folio.exe and double-click it. No Node.js, Pandoc, terminal, or installer is required. Pandoc and the PDF rendering engine are bundled. This first build is unsigned, so Windows SmartScreen may show an Unknown publisher warning."
+          gh release view v0.2.0 2>$null
+          if ($LASTEXITCODE -eq 0) { gh release delete v0.2.0 --cleanup-tag --yes }
+          gh release create v0.2.0 `
+            release\Folio-0.2.0-setup.exe `
+            release\Folio-0.2.0-portable.exe `
+            --target "$env:GITHUB_SHA" `
+            --title "Folio 0.2.0 for Windows" `
+            --notes "Vellum-style three-pane UI; true live Kindle and print previews; 20 complete book themes with a visual style library; reliable copy-on-write autosave; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export; bundled Pandoc and PDF engine."

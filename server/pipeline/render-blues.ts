@@ -262,7 +262,7 @@ export async function renderBlues(book: Book, opts: BluesOptions): Promise<{ buf
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "load" });
     const r = await paginate(page, opts.maxPages);
 
     const truncated = r.pages < r.totalPages;

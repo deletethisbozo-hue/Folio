@@ -114,18 +114,33 @@ export const api = {
     return fetch(`/api/projects/${projectId}/cover`, { method: "POST", body: fd }).then((r) => json<ProjectSummary>(r));
   },
 
-  preview: (projectId: string, meta: Partial<BookMeta>, theme: string, typography: Typography) =>
+  preview: (
+    projectId: string,
+    meta: Partial<BookMeta>,
+    theme: string,
+    typography: Typography,
+    previewSectionId?: string,
+    draft?: string,
+  ) =>
     fetch(`/api/projects/${projectId}/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ meta, theme, typography }),
+      body: JSON.stringify({ meta, theme, typography, previewSectionId, draft }),
     }).then((r) => json<{ html: string }>(r)),
 
-  previewPrint: (projectId: string, meta: Partial<BookMeta>, theme: string, print: PrintOptions, typography: Typography) =>
+  previewPrint: (
+    projectId: string,
+    meta: Partial<BookMeta>,
+    theme: string,
+    print: PrintOptions,
+    typography: Typography,
+    previewSectionId?: string,
+    draft?: string,
+  ) =>
     fetch(`/api/projects/${projectId}/preview-print`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ meta, theme, print, typography }),
+      body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft }),
     }).then((r) => json<PrintPreviewResult>(r)),
 
   saveExportSettings: (projectId: string, bluesOutput: string) =>

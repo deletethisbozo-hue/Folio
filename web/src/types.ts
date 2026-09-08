@@ -51,6 +51,11 @@ export interface Typography {
   dropcap?: boolean;
   sceneOrnament?: string;
   chapterTitle?: ChapterTitleStyle;
+  bodyAlign?: "left" | "justify";
+  paragraphIndent?: string;
+  paragraphSpacing?: string;
+  paragraphAfterBreakIndent?: string;
+  titlePageFont?: string;
 }
 
 export interface ProjectSummary {
@@ -102,6 +107,11 @@ export interface Theme {
   description: string;
   sceneOrnament: string;
   dropcap: boolean;
+  chapterLabel: string;
+  previewFont: string;
+  previewHeadingFont: string;
+  previewAccent: string;
+  previewPaper: string;
 }
 
 export interface Preset {

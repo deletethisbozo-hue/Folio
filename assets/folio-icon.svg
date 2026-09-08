@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffdf7"/>
+      <stop offset="1" stop-color="#e8e1d2"/>
+    </linearGradient>
+  </defs>
+  <rect x="38" y="26" width="436" height="460" rx="72" fill="#252522"/>
+  <path d="M120 70h272c26 0 46 20 46 46v318c0 8-7 15-15 15H120c-25 0-46-20-46-46V116c0-26 21-46 46-46Z" fill="url(#paper)"/>
+  <path d="M121 70v379" stroke="#b3a991" stroke-width="14"/>
+  <path d="M146 116h232M146 402h232" stroke="#c8beaa" stroke-width="5"/>
+  <text x="277" y="340" text-anchor="middle" font-family="Georgia,serif" font-size="238" font-style="italic" fill="#302e29">F</text>
+</svg>

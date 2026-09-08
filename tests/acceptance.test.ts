@@ -47,7 +47,7 @@ const html = (await renderHtml(bluesBook, "print")).replace(
 );
 const browser = await getBrowser();
 const page = await browser.newPage();
-await page.setContent(html, { waitUntil: "networkidle0" });
+await page.setContent(html, { waitUntil: "load" });
 const pag = await paginate(page, opts.maxPages);
 await page.evaluate(
   (shown, total, isTrunc) => {

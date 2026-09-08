@@ -15,7 +15,6 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
-const TSX = path.join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 
 // Slowest last: the ones that render the whole book take minutes, and a fast
 // failure in ingestion should surface before you wait for them.
@@ -25,6 +24,7 @@ const ORDER = [
   "destinations.test.ts",
   "review-folder.test.ts",
   "dropcap.test.ts",
+  "folio-runtime.test.ts",
   "web-export.test.ts",
   "acceptance.test.ts",
   "blues-format.test.ts",
@@ -42,7 +42,7 @@ const suites = [...ORDER.filter((f) => present.includes(f)), ...unknown].filter(
 
 function run(file: string): Promise<{ code: number; out: string }> {
   return new Promise((resolve) => {
-    const child = spawn("node", [TSX, path.join(HERE, file)], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn("node", ["--import", "tsx", path.join(HERE, file)], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));

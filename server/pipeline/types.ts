@@ -1,6 +1,26 @@
 // Core data model shared across the pipeline.
 
-export type ThemeName = "classic" | "modern" | "decorative";
+export type ThemeName =
+  | "classic"
+  | "modern"
+  | "decorative"
+  | "literary"
+  | "editorial"
+  | "heritage"
+  | "scholar"
+  | "folio"
+  | "ivory"
+  | "nocturne"
+  | "cloister"
+  | "blackletter"
+  | "parchment"
+  | "atlas"
+  | "stanza"
+  | "aubade"
+  | "ember"
+  | "cinder"
+  | "solstice"
+  | "timber";
 export type PresetName = "kdp" | "universal";
 
 export interface BookMeta {
@@ -36,6 +56,10 @@ export interface Section {
   showTitle: boolean; // render the title as a visible heading
   markdown: string; // body markdown (no leading H1, no YAML frontmatter)
   generated?: boolean; // produced from metadata (titlepage / copyright)
+  /** Exact source retained during ingest; never exposed by the public API. */
+  sourcePath?: string;
+  /** H1 index when several editable sections live in one Markdown source. */
+  sourceOrdinal?: number;
 }
 
 export interface FontDef {
@@ -67,6 +91,11 @@ export interface Typography {
   dropcap?: boolean; // override the theme default
   sceneOrnament?: string; // override the theme ornament
   chapterTitle?: ChapterTitleStyle;
+  bodyAlign?: "left" | "justify";
+  paragraphIndent?: string;
+  paragraphSpacing?: string;
+  paragraphAfterBreakIndent?: string;
+  titlePageFont?: string;
 }
 
 export interface Book {

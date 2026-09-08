@@ -5,7 +5,7 @@ import type { Book } from "./types.ts";
 import { renderHtml } from "./render-html.ts";
 import { insertPrintToc } from "./build-doc.ts";
 import { getBrowser } from "./render-pdf.ts";
-import { ROOT, THEMES_DIR } from "./paths.ts";
+import { ROOT, THEMES_DIR, resolveAppResource } from "./paths.ts";
 import { alignDropCaps } from "./dropcap.ts";
 import { autoGutter, buildPageCss, estimatePages, getTrim, type PrintOptions } from "../print.ts";
 
@@ -14,7 +14,9 @@ export interface PrintMeta {
   gutter: number; // inner margin used (inches)
 }
 
-const POLYFILL = path.join(ROOT, "node_modules", "pagedjs", "dist", "paged.polyfill.min.js");
+const POLYFILL = process.env.FOLIO_RESOURCE_ROOT
+  ? resolveAppResource("vendor", "paged.polyfill.min.js")
+  : path.join(ROOT, "node_modules", "pagedjs", "dist", "paged.polyfill.min.js");
 const PRINT_BASE = path.join(THEMES_DIR, "print-base.css");
 
 declare global {
@@ -66,7 +68,7 @@ async function withPaginated<T>(
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "load" });
     // Seat the drop caps before pagination — the correction changes how text
     // wraps around the float, so it has to settle before pages are measured.
     await alignDropCaps(page);

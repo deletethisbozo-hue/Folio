@@ -15,8 +15,7 @@ import type {
 } from "./types.ts";
 import { extractSubtitle, extractTitle, slugify, splitOnH1, uniqueId } from "./util.ts";
 import { AppError } from "../errors.ts";
-
-const THEMES: ThemeName[] = ["classic", "modern", "decorative"];
+import { hasTheme } from "./themes.ts";
 
 interface RawConfig {
   title?: string;
@@ -74,7 +73,7 @@ async function isDir(p: string): Promise<boolean> {
 }
 
 function normalizeMeta(cfg: RawConfig, overrides?: Partial<BookMeta>): BookMeta {
-  const theme = (cfg.theme && THEMES.includes(cfg.theme as ThemeName) ? cfg.theme : "classic") as ThemeName;
+  const theme = (cfg.theme && hasTheme(cfg.theme) ? cfg.theme : "classic") as ThemeName;
   const meta: BookMeta = {
     title: cfg.title?.trim() || "Untitled",
     subtitle: cfg.subtitle?.trim() || undefined,
@@ -178,6 +177,7 @@ async function sectionFromFile(
     toc: typeof fm.toc === "boolean" ? fm.toc : defaults.toc,
     showTitle: typeof fm.showTitle === "boolean" ? fm.showTitle : defaults.showTitle,
     markdown: ex.body.trim(),
+    sourcePath: filePath,
   };
 }
 
@@ -327,7 +327,7 @@ export async function loadBook(inputPath: string, overrides?: Partial<BookMeta>)
     const chapters = splitOnH1(parsed.content);
     const sections: Section[] =
       chapters.length > 0
-        ? chapters.map((c) => {
+        ? chapters.map((c, sourceOrdinal) => {
             const ex = extractSubtitle(c.body);
             return {
               id: uniqueId(slugify(c.title), used),
@@ -337,6 +337,8 @@ export async function loadBook(inputPath: string, overrides?: Partial<BookMeta>)
               toc: true,
               showTitle: true,
               markdown: ex.body,
+              sourcePath: abs,
+              sourceOrdinal,
             };
           })
         : [
@@ -347,6 +349,7 @@ export async function loadBook(inputPath: string, overrides?: Partial<BookMeta>)
               toc: true,
               showTitle: true,
               markdown: parsed.content.trim(),
+              sourcePath: abs,
             },
           ];
     return {
@@ -441,7 +444,7 @@ export async function loadBook(inputPath: string, overrides?: Partial<BookMeta>)
       }
     } else {
       const raw = await fs.readFile(chaptersRef, "utf8");
-      for (const c of splitOnH1(matter(raw).content)) {
+      for (const [sourceOrdinal, c] of splitOnH1(matter(raw).content).entries()) {
         const ex = extractSubtitle(c.body);
         sections.push({
           id: uniqueId(slugify(c.title), used),
@@ -451,6 +454,8 @@ export async function loadBook(inputPath: string, overrides?: Partial<BookMeta>)
           toc: true,
           showTitle: true,
           markdown: ex.body,
+          sourcePath: chaptersRef,
+          sourceOrdinal,
         });
       }
     }

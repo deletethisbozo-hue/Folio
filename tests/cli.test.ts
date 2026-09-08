@@ -21,7 +21,7 @@ const sourceBefore = await sourceSnapshot();
 
 function runCli(args: string[]): Promise<{ code: number; out: string }> {
   return new Promise((resolve) => {
-    const child = spawn("node", [path.join(ROOT, "node_modules", "tsx", "dist", "cli.mjs"), path.join(ROOT, "server", "cli-blues.ts"), ...args], {
+    const child = spawn("node", ["--import", "tsx", path.join(ROOT, "server", "cli-blues.ts"), ...args], {
       cwd: ROOT,
       stdio: ["ignore", "pipe", "pipe"],
     });

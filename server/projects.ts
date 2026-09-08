@@ -2,7 +2,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { promises as fs } from "node:fs";
 import { loadBook } from "./pipeline/ingest.ts";
-import { makeTempDir, ROOT } from "./pipeline/paths.ts";
+import { makeTempDir, resolveAppResource } from "./pipeline/paths.ts";
 import type { Book, BookMeta } from "./pipeline/types.ts";
 
 export interface UploadedFile {
@@ -111,7 +111,7 @@ export async function createProjectFromFolderPath(folderPath: string): Promise<s
 /** Register the bundled sample book as a project. */
 export function createSampleProject(): string {
   const id = crypto.randomUUID();
-  const dir = path.join(ROOT, "samples", "clockwork-garden");
+  const dir = resolveAppResource("samples", "clockwork-garden");
   projects.set(id, { id, inputPath: dir, bookDir: dir, source: "sample", onDisk: false, tempToClean: null, copied: false });
   return id;
 }

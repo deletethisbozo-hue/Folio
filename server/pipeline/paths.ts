@@ -5,11 +5,24 @@ import os from "node:os";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = process.env.FOLIO_ROOT ? path.resolve(process.env.FOLIO_ROOT) : path.resolve(here, "..", "..");
-export const THEMES_DIR = path.join(ROOT, "themes");
-export const FILTERS_DIR = path.join(ROOT, "server", "filters");
+export const RESOURCE_ROOT = process.env.FOLIO_RESOURCE_ROOT
+  ? path.resolve(process.env.FOLIO_RESOURCE_ROOT)
+  : ROOT;
+
+/**
+ * Resolve a runtime asset in one place. In development assets live at repo root;
+ * electron-builder copies them outside app.asar for packaged builds so Pandoc
+ * and Chromium can read real filesystem paths.
+ */
+export function resolveAppResource(...segments: string[]): string {
+  return path.join(RESOURCE_ROOT, ...segments);
+}
+
+export const THEMES_DIR = resolveAppResource("themes");
+export const FILTERS_DIR = resolveAppResource("server", "filters");
 export const OUTPUT_DIR = path.join(ROOT, "output");
 export const VENDOR_DIR = path.join(ROOT, "vendor");
-export const MATTER_TEMPLATES_DIR = path.join(ROOT, "templates", "matter");
+export const MATTER_TEMPLATES_DIR = resolveAppResource("templates", "matter");
 
 export function themeCss(theme: string): string {
   return path.join(THEMES_DIR, theme, "theme.css");
@@ -26,7 +39,9 @@ export function printCss(theme: string): string {
 
 /** Create a fresh temp working directory for one render. Caller cleans up. */
 export async function makeTempDir(prefix = "book-formatter-"): Promise<string> {
-  const base = path.join(os.tmpdir(), "book-formatter");
+  const base = process.env.FOLIO_WRITABLE_ROOT
+    ? path.join(path.resolve(process.env.FOLIO_WRITABLE_ROOT), "temp")
+    : path.join(os.tmpdir(), "folio");
   await fs.mkdir(base, { recursive: true });
   return fs.mkdtemp(path.join(base, prefix));
 }

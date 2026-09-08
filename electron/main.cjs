@@ -63,12 +63,17 @@ function waitForServer(url, attempts = 100) {
 }
 
 async function startFolio() {
-  const port = await freePort();
+  const requestedPort = Number(process.env.FOLIO_E2E_PORT || 0);
+  const port = requestedPort > 0 ? requestedPort : await freePort();
   const appRoot = app.getAppPath();
 
   process.env.PORT = String(port);
   process.env.HOST = "127.0.0.1";
   process.env.FOLIO_ROOT = appRoot;
+  process.env.FOLIO_RESOURCE_ROOT = app.isPackaged
+    ? path.join(process.resourcesPath, "app-resources")
+    : appRoot;
+  process.env.FOLIO_WRITABLE_ROOT = app.getPath("userData");
   process.env.BOOK_FORMATTER_NO_OPEN = "1";
 
   if (app.isPackaged) {
@@ -119,6 +124,7 @@ async function startFolio() {
 }
 
 const gotLock = app.requestSingleInstanceLock();
+app.setName("Folio");
 if (!gotLock) {
   app.quit();
 } else {
@@ -129,7 +135,10 @@ if (!gotLock) {
     }
   });
 
-  app.whenReady().then(startFolio).catch((error) => {
+  app.whenReady().then(() => {
+    app.setAppUserModelId("com.folio.bookformatter");
+    return startFolio();
+  }).catch((error) => {
     dialog.showErrorBox(
       "Folio could not start",
       `${error instanceof Error ? error.message : String(error)}\n\nTry downloading the Windows release again.`,

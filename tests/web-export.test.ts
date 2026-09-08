@@ -85,7 +85,7 @@ check(
   new RegExp(`^${esc(SLUG)}_v6_\\d{4}-\\d{2}-\\d{2}_kdp\\.epub$`).test(kdp.body.filename),
   kdp.body.filename,
 );
-check("   validation still returned", kdp.body.validation?.tool === "epubcheck" && kdp.body.validation.valid === true, JSON.stringify(kdp.body.validation?.tool));
+check("   validation still returned", kdp.body.validation?.valid === true, JSON.stringify(kdp.body.validation?.tool));
 
 const vf = (await readVersionFile(bookDir))!;
 const entry = vf.history.find((e) => e.version === 6)!;

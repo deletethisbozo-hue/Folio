@@ -38,7 +38,7 @@ export async function renderPdf(book: Book): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "load" });
     await alignDropCaps(page);
     const pdf = await page.pdf({
       printBackground: true,

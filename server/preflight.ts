@@ -39,14 +39,14 @@ export async function checkPandoc(force = false): Promise<PandocStatus> {
 export function pandocBanner(s: PandocStatus): string | null {
   if (!s.ok) {
     return (
-      "  ⚠  Pandoc was not found on your PATH — EPUB, DOCX and PDF export will fail.\n" +
-      "     Install Pandoc 3.x → https://pandoc.org/installing.html"
+      "  ⚠  Folio's conversion engine is unavailable — EPUB, DOCX and PDF export will fail.\n" +
+      "     Reinstall Folio from the official Windows release."
     );
   }
   if (s.supported === false) {
     return (
       `  ⚠  Pandoc ${s.version} was found, but this tool needs 3.x — some exports may fail.\n` +
-      "     Update Pandoc → https://pandoc.org/installing.html"
+      "     Reinstall Folio to restore the bundled supported version."
     );
   }
   return null;

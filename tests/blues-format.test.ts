@@ -79,7 +79,7 @@ const html = baseHtml.replace("</head>", `<style>\n${css}\n${pageCss}\n</style>\
 
 const browser = await getBrowser();
 const p = await browser.newPage();
-await p.setContent(html, { waitUntil: "networkidle0" });
+await p.setContent(html, { waitUntil: "load" });
 // Drive the renderer's own pagination + stamping, so these assertions run
 // against the shipping code path rather than a reimplementation of it.
 await paginate(p, undefined);
