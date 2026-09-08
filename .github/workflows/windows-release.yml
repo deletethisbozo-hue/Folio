@@ -1,3 +1,4 @@
+# Folio Windows release builder. A push to main rebuilds and replaces the windows-latest release.
 name: Build Windows Release
 
 on:
