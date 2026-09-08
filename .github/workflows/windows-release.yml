@@ -65,7 +65,7 @@ jobs:
         run: npm run build
 
       - name: Build installer and portable app
-        run: npx electron-builder --win nsis portable --x64
+        run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Smoke-test packaged Folio
         shell: pwsh
