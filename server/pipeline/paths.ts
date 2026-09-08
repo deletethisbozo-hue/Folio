@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const ROOT = path.resolve(here, "..", ".."); // project root
+export const ROOT = process.env.FOLIO_ROOT ? path.resolve(process.env.FOLIO_ROOT) : path.resolve(here, "..", "..");
 export const THEMES_DIR = path.join(ROOT, "themes");
 export const FILTERS_DIR = path.join(ROOT, "server", "filters");
 export const OUTPUT_DIR = path.join(ROOT, "output");

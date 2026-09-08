@@ -7,9 +7,10 @@ import { registerEditorApi } from "./editor-api.ts";
 import { checkPandoc, pandocBanner } from "./preflight.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const ROOT = path.resolve(__dirname, "..");
+export const ROOT = process.env.FOLIO_ROOT ? path.resolve(process.env.FOLIO_ROOT) : path.resolve(__dirname, "..");
 
 const PORT = Number(process.env.PORT ?? 4242);
+const HOST = process.env.HOST ?? "127.0.0.1";
 const isDev = process.env.BOOK_FORMATTER_DEV === "1";
 
 const app = express();
@@ -25,8 +26,8 @@ if (!isDev) {
   app.get("*", (_req, res) => res.sendFile(path.join(dist, "index.html")));
 }
 
-app.listen(PORT, () => {
-  const url = isDev ? "http://localhost:5173" : `http://localhost:${PORT}`;
+app.listen(PORT, HOST, () => {
+  const url = isDev ? "http://localhost:5173" : `http://${HOST}:${PORT}`;
   console.log(`\n  Folio running at ${url}\n`);
   checkPandoc()
     .then((s) => {

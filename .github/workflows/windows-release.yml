@@ -1,0 +1,85 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: folio-windows-release
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+
+    steps:
+      - name: Check out Folio
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        shell: pwsh
+        run: npm install --no-audit --no-fund
+
+      - name: Download bundled Pandoc
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = gh api repos/jgm/pandoc/releases/latest --jq '.assets[] | select(.name | test("windows-x86_64\\.zip$")) | .browser_download_url' | Select-Object -First 1
+          if (-not $url) { throw "Could not find the current Pandoc Windows zip." }
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable was not found after extraction." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+          $copying = Get-ChildItem build\pandoc-unpack -Include COPYING*,LICENSE* -File -Recurse | Select-Object -First 1
+          if ($copying) { Copy-Item $copying.FullName build\pandoc\PANDOC_LICENSE.txt }
+
+      - name: Download bundled PDF engine
+        shell: pwsh
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Typecheck
+        shell: pwsh
+        run: npm run typecheck
+
+      - name: Build Folio Windows executables
+        shell: pwsh
+        run: npm run dist:win
+
+      - name: Show build output
+        shell: pwsh
+        run: Get-ChildItem release -Recurse | Select-Object FullName,Length
+
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Windows
+          path: release/*.exe
+          if-no-files-found: error
+
+      - name: Publish latest Windows release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view windows-latest 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete windows-latest --cleanup-tag --yes
+          }
+          $files = @(Get-ChildItem release -Filter *.exe | ForEach-Object { $_.FullName })
+          if ($files.Count -eq 0) { throw "No Windows executables were built." }
+          & gh release create windows-latest @files --target "$env:GITHUB_SHA" --title "Folio for Windows" --notes "Windows build of Folio. Download Folio-0.1.0-setup.exe for the normal installer, or Folio-0.1.0-portable.exe to run without installing. This build bundles Pandoc and the PDF rendering engine, so Node.js and Pandoc do not need to be installed separately. The binaries are currently unsigned, so Windows SmartScreen may show an Unknown publisher warning."

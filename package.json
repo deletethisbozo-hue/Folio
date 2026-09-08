@@ -1,17 +1,22 @@
 {
-  "name": "byte-sized-book-formatter",
-  "version": "1.3.0",
+  "name": "folio-book-formatter",
+  "version": "0.1.0",
   "private": true,
-  "description": "Byte-Sized Book Formatter — a Markdown book formatter that turns manuscripts into publish-ready ebooks (EPUB) and print PDFs, plus DOCX & Markdown. Local web app with live preview.",
-  "author": "Angie Hartwell (Byte-Sized Booksmith)",
+  "description": "Folio — a desktop book formatter for Windows with live preview and publish-ready EPUB/PDF export.",
+  "author": "Folio contributors; based on Byte-Sized Book Formatter by Angie Hartwell",
   "license": "MIT",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "cross-env BOOK_FORMATTER_DEV=1 tsx watch server/index.ts",
     "dev:web": "vite",
-    "build": "vite build",
+    "build:web": "vite build",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist-server/server.mjs",
+    "build": "npm run build:web && npm run build:server",
     "start": "npm run build && tsx server/index.ts",
+    "electron": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win portable nsis --x64",
     "blues": "tsx server/cli-blues.ts",
     "test": "tsx tests/run-all.ts",
     "typecheck": "tsc --noEmit"
@@ -34,15 +39,68 @@
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "@types/yauzl": "^2.10.3",
+    "@types/yauzl": "^1.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "esbuild": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
+  },
+  "build": {
+    "appId": "com.folio.bookformatter",
+    "productName": "Folio",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "dist-server/**/*",
+      "web/dist/**/*",
+      "server/filters/**/*",
+      "server/templates/**/*",
+      "themes/**/*",
+      "templates/**/*",
+      "samples/**/*",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/pandoc",
+        "to": "pandoc"
+      },
+      {
+        "from": "build/puppeteer-cache",
+        "to": "chromium"
+      }
+    ],
+    "win": {
+      "executableName": "Folio",
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "portable": {
+      "artifactName": "Folio-${version}-portable.exe"
+    },
+    "nsis": {
+      "artifactName": "Folio-${version}-setup.exe",
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Folio"
+    }
   }
 }
