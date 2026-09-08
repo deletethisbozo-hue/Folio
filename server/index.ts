@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import open from "open";
 import { registerApi } from "./api.ts";
+import { registerEditorApi } from "./editor-api.ts";
 import { checkPandoc, pandocBanner } from "./preflight.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,6 +16,7 @@ const app = express();
 app.use(express.json({ limit: "5mb" }));
 
 registerApi(app);
+registerEditorApi(app);
 
 // In production we serve the built frontend. In dev, Vite serves it on 5173.
 if (!isDev) {
@@ -25,9 +27,7 @@ if (!isDev) {
 
 app.listen(PORT, () => {
   const url = isDev ? "http://localhost:5173" : `http://localhost:${PORT}`;
-  console.log(`\n  Byte-Sized Book Formatter running at ${url}\n`);
-  // Non-fatal: verify Pandoc 3.x is present and warn up front if not, rather than
-  // letting the user discover it as an opaque error on their first export.
+  console.log(`\n  Folio running at ${url}\n`);
   checkPandoc()
     .then((s) => {
       const banner = pandocBanner(s);

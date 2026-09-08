@@ -21,6 +21,15 @@ export interface SectionSummary {
   toc: boolean;
 }
 
+export interface SectionDocument {
+  id: string;
+  title: string;
+  subtitle?: string;
+  kind: string;
+  markdown: string;
+  editable: boolean;
+}
+
 export interface BookConfig {
   frontmatter: string[];
   backmatter: string[];
@@ -57,7 +66,6 @@ export interface ProjectSummary {
   folder: string | null;
   editable: boolean;
   config: BookConfig | null;
-  /** `blues_output` from book.yaml — where this book's blues is written. */
   bluesOutput: string | null;
 }
 
@@ -85,7 +93,7 @@ export interface PrintOptions {
   binding: "paperback" | "hardcover";
   startChaptersRecto: boolean;
   layout: string;
-  gutter?: number; // manual inner-margin override; omit for auto
+  gutter?: number;
 }
 
 export interface Theme {
@@ -117,12 +125,9 @@ export interface ValidationReport {
 }
 
 export interface ExportResult {
-  /** True when the server wrote the file itself; false means download the bytes. */
   written?: boolean;
-  /** Set instead of a result when the artifact already exists at this version. */
   needsConfirm?: boolean;
   message?: string;
-
   filename?: string;
   mime?: string;
   dataBase64?: string;
@@ -131,12 +136,9 @@ export interface ExportResult {
   version?: number;
   archived?: string[];
   overwrote?: boolean;
-
   validation?: ValidationReport;
   pages?: number;
   gutter?: number;
-
-  // Blues only.
   totalPages?: number;
   firstChapter?: number;
   lastChapter?: number;

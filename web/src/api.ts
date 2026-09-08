@@ -1,4 +1,17 @@
-import type { BookMeta, ExportResult, MatterType, Preset, PrintLayout, PrintOptions, PrintPreviewResult, ProjectSummary, Theme, Trim, Typography } from "./types";
+import type {
+  BookMeta,
+  ExportResult,
+  MatterType,
+  Preset,
+  PrintLayout,
+  PrintOptions,
+  PrintPreviewResult,
+  ProjectSummary,
+  SectionDocument,
+  Theme,
+  Trim,
+  Typography,
+} from "./types";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -38,6 +51,16 @@ export const api = {
 
   reload: (projectId: string) =>
     fetch(`/api/projects/${projectId}/reload`, { method: "POST" }).then((r) => json<ProjectSummary>(r)),
+
+  section: (projectId: string, sectionId: string) =>
+    fetch(`/api/projects/${projectId}/sections/${encodeURIComponent(sectionId)}`).then((r) => json<SectionDocument>(r)),
+
+  saveSection: (projectId: string, sectionId: string, markdown: string) =>
+    fetch(`/api/projects/${projectId}/sections/${encodeURIComponent(sectionId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown }),
+    }).then((r) => json<SectionDocument>(r)),
 
   saveMeta: (projectId: string, meta: BookMeta) =>
     fetch(`/api/projects/${projectId}/meta`, {
@@ -81,7 +104,6 @@ export const api = {
       relPaths.push((f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name);
       fd.append("files", f);
     }
-    // Sent explicitly because multer only preserves the file's basename.
     fd.append("relPaths", JSON.stringify(relPaths));
     return fetch("/api/projects", { method: "POST", body: fd }).then((r) => json<ProjectSummary>(r));
   },
@@ -89,9 +111,7 @@ export const api = {
   updateCover: (projectId: string, file: File) => {
     const fd = new FormData();
     fd.append("cover", file, file.name);
-    return fetch(`/api/projects/${projectId}/cover`, { method: "POST", body: fd }).then((r) =>
-      json<ProjectSummary>(r),
-    );
+    return fetch(`/api/projects/${projectId}/cover`, { method: "POST", body: fd }).then((r) => json<ProjectSummary>(r));
   },
 
   preview: (projectId: string, meta: Partial<BookMeta>, theme: string, typography: Typography) =>
@@ -134,7 +154,6 @@ export const api = {
       pages?: number;
       newRound?: boolean;
       note?: string;
-      /** Overwrite an existing artifact at this version, after the user confirms. */
       force?: boolean;
     },
   ) =>
@@ -145,13 +164,6 @@ export const api = {
     }).then((r) => json<ExportResult>(r)),
 };
 
-/**
- * Trigger a browser download from a base64 export result. Only used when the
- * server could NOT write the file itself — a drag-and-dropped project has no
- * permanent folder to write to. Anything opened from a real folder is written
- * server-side to its configured destination instead, because a browser download
- * always lands in Downloads and no code here can change that.
- */
 export function downloadResult(result: ExportResult): void {
   if (!result.dataBase64 || !result.filename) return;
   const bin = atob(result.dataBase64);
