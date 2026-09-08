@@ -16,7 +16,7 @@
     "build": "npm run build:web && npm run build:server",
     "start": "npm run build && tsx server/index.ts",
     "electron": "npm run build && electron .",
-    "dist:win": "npm run build && electron-builder --win portable nsis --x64",
+    "dist:win": "npm run build && electron-builder --win portable --x64",
     "blues": "tsx server/cli-blues.ts",
     "test": "tsx tests/run-all.ts",
     "typecheck": "tsc --noEmit"
@@ -85,22 +85,10 @@
     ],
     "win": {
       "executableName": "Folio",
-      "target": [
-        "portable",
-        "nsis"
-      ]
+      "target": ["portable"]
     },
     "portable": {
-      "artifactName": "Folio-${version}-portable.exe"
-    },
-    "nsis": {
-      "artifactName": "Folio-${version}-setup.exe",
-      "oneClick": true,
-      "perMachine": false,
-      "allowElevation": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Folio"
+      "artifactName": "Folio.exe"
     }
   }
 }
