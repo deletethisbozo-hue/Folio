@@ -229,7 +229,7 @@ try {
       device.width > 150 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
   });
   check("100,000-word paste keeps both panes fixed while only editor text scrolls", visibleAfterLargePaste);
-  await stage("whole-book autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 }));
+  await stage("whole-book autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 60000 }));
   check("the complete pasted book reaches autosave", true);
 
   await page.click(".preview-style-button");

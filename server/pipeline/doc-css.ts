@@ -136,18 +136,6 @@ function typographyCss(book: Book): string {
   text-wrap: pretty;
 }`);
   }
-  // A scene break is display typography, never prose. Keep it centered even
-  // when a book-level alignment override uses stronger selectors/importance.
-  out.push(`
-.book-formatter .scene-break {
-  text-align: center !important;
-  text-align-last: center !important;
-  text-indent: 0 !important;
-  -webkit-hyphens: none !important;
-  hyphens: none !important;
-  word-spacing: normal !important;
-  letter-spacing: normal !important;
-}`);
   if (ty.paragraphIndent !== undefined) out.push(`p { text-indent: ${ty.paragraphIndent} !important; }`);
   if (ty.paragraphSpacing !== undefined) out.push(`p { margin-bottom: ${ty.paragraphSpacing} !important; }`);
   if (ty.paragraphAfterBreakIndent !== undefined) {

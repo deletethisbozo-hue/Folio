@@ -105,7 +105,7 @@ export function buildBluesBook(book: Book, opts: BluesOptions): { book: Book; ch
     book: {
       ...book,
       sections: [coverSection(book, opts, chapters, words), tocSection(chapters, from), ...chapters],
-      typography: { ...book.typography, dropcap: false, sceneOrnament: "* * *" },
+      typography: { ...book.typography, bodyAlign: "left", dropcap: false, sceneOrnament: "* * *" },
     },
     chapters,
     words,

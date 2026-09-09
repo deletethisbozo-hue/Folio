@@ -69,6 +69,7 @@ export default function App() {
   const [meta, setMeta] = useState<BookMeta | null>(null);
   const [typography, setTypography] = useState<Typography>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sectionRevision, setSectionRevision] = useState(0);
   const [document, setDocument] = useState<SectionDocument | null>(null);
   const [draft, setDraft] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -150,7 +151,7 @@ export default function App() {
       setDocument(doc); setDraft(doc.markdown); setDirty(false);
     }).catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => { cancelled = true; };
-  }, [project, selectedId]);
+  }, [project?.projectId, selectedId, sectionRevision]);
 
   useEffect(() => {
     if (!project || !meta || !selectedId || document?.id !== selectedId) return;
@@ -393,6 +394,25 @@ export default function App() {
     }
   }
 
+  async function reloadFiles() {
+    if (!project || !(await saveCurrent())) return;
+    const currentId = selectedId;
+    setBusy(true); setError(null);
+    try {
+      const summary = await api.reload(project.projectId);
+      const selected = summary.sections.find((section) => section.id === currentId)
+        ?? summary.sections.find((section) => section.kind === "chapter")
+        ?? summary.sections[0]
+        ?? null;
+      resetDocumentView();
+      setProject(summary); setMeta(summary.meta); setTypography(summary.typography ?? {});
+      setSelectedId(selected?.id ?? null);
+      selectedRef.current = selected?.id ?? null;
+      setSectionRevision((value) => value + 1);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
   async function selectSection(nextId: string) {
     if (nextId === selectedId) return;
     if (await saveCurrent()) {
@@ -623,7 +643,7 @@ export default function App() {
           {backMatter.length > 0 && <div className="contents-heading back-heading">Back Matter</div>}
           {backMatter.map((section) => <button key={section.id} className={`contents-row ${selectedId === section.id ? "selected" : ""}`} onClick={() => void selectSection(section.id)}><span>{section.title}</span></button>)}
         </nav>
-        <div className="library-footer"><button className="tiny-footer-button footer-add" title="Add chapter or book matter" onClick={() => setShowContent(true)}>＋</button><button className="tiny-footer-button" title="Open another book" onClick={() => void openFolder()}>⌁</button><button className="tiny-footer-button" title="Reload files" onClick={() => void api.reload(project.projectId).then((summary) => adopt(summary, selectedId ?? undefined))}>↻</button><div className="library-footer-spacer"/><button className="tiny-footer-button" title="Book details" onClick={() => setShowBookDetails(true)}>i</button></div>
+        <div className="library-footer"><button className="tiny-footer-button footer-add" title="Add chapter or book matter" onClick={() => setShowContent(true)}>＋</button><button className="tiny-footer-button" title="Open another book" onClick={() => void openFolder()}>⌁</button><button className="tiny-footer-button" title="Reload files" onClick={() => void reloadFiles()}>↻</button><div className="library-footer-spacer"/><button className="tiny-footer-button" title="Book details" onClick={() => setShowBookDetails(true)}>i</button></div>
       </aside>
 
       <section className="editor-pane">

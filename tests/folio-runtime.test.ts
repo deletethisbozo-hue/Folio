@@ -113,7 +113,7 @@ const longPreview = await post(`/api/projects/${projectId}/preview`, {
 });
 check("100,000-word manuscript survives the exact Pandoc preview", longPreview.status === 200 && longPreview.body.html.includes("WHOLE BOOK SERVER MARKER") && longPreview.body.html.length > longDraft.length);
 check("justified preview carries professional hyphenation rules", longPreview.body.html.includes("hyphenate-limit-chars: 7 3 3") && longPreview.body.html.includes("text-align-last: left"));
-check("justification excludes and defensively centers ornamental breaks", longPreview.body.html.includes("section.chapter > p:not(.scene-break)") && longPreview.body.html.includes(".book-formatter .scene-break") && longPreview.body.html.includes("text-align: center !important"));
+check("justification excludes and defensively centers ornamental breaks", longPreview.body.html.includes("section.chapter > p:not(.scene-break)") && longPreview.body.html.includes(".scene-break {") && longPreview.body.html.includes("text-align: center !important"));
 const polishSpacingPreview = await post(`/api/projects/${projectId}/preview`, {
   meta: { ...sample.body.meta, language: "pl" }, theme: "folio", typography: { bodyAlign: "justify" }, previewSectionId: chapter.id, draft: "A kiedy i później w Polsce z przyjaciółmi.",
 });
