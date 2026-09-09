@@ -91,7 +91,7 @@ jobs:
             node scripts\packaged-ui-smoke.mjs
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -lt 20) { throw "Packaged app returned only $($themes.Count) themes." }
+            if ($themes.Count -lt 30) { throw "Packaged app returned only $($themes.Count) themes." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-09
+
+### Added
+- Ten fully composed fantasy, dark, and gothic book styles: Obsidian, Blood Moon, Grimoire, Cathedral, Necropolis, Wyrmwood, Runestone, Witchlight, Ironbound, and Revenant.
+
+### Fixed
+- Word, Pages, and LibreOffice visual line endings now remain soft reflow points instead of forced HTML breaks that stretch short justified lines across the page.
+- Drop caps are strictly limited to chapter body openings and stay outside nested emphasis markup, preventing them from destabilizing justified first lines.
+- Generated title and copyright pages no longer expose internal HTML in the editor or fast preview.
+- Discretionary hyphenation is restricted to chapter and back-matter prose, never title pages or display front matter.
+
+### Tests
+- Browser and runtime regressions cover soft-wrapped pasted prose, title-page markup isolation, chapter-only drop caps, generated-page hyphenation boundaries, all 30 themes, and 24 materially distinct gallery signatures.
+
 ## [1.0.1] - 2026-09-09
 
 ### Added

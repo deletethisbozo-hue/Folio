@@ -17,6 +17,7 @@ function discretionaryWords(book: Book): Record<string, string> {
   const engine = engineFor(book.meta.language);
   const words = new Set<string>();
   for (const section of book.sections) {
+    if (section.kind !== "chapter" && section.kind !== "backmatter") continue;
     for (const match of section.markdown.matchAll(/\p{L}{8,}/gu)) words.add(match[0]);
   }
   const map: Record<string, string> = {};
@@ -41,7 +42,8 @@ export async function applyProfessionalHyphenation(page: Page, book: Book): Prom
       acceptNode(node) {
         const parent = node.parentElement;
         if (!parent || parent.closest("code,pre,a,script,style,h1,h2,h3,.scene-break")) return NodeFilter.FILTER_REJECT;
-        return parent.closest("p,li,blockquote") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        const proseSection = parent.closest("section.chapter, section.backmatter");
+        return proseSection && parent.closest("p,li,blockquote") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       },
     });
     const nodes: Text[] = [];

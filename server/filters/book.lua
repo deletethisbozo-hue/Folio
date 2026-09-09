@@ -130,6 +130,18 @@ local function dropcapify(para)
   return para
 end
 
+-- Earlier Folio builds imported office-suite visual line endings as Markdown
+-- hard breaks. In ordinary justified prose those become <br> and force a short
+-- line to stretch across the full measure. Repair existing manuscripts at
+-- render time without rewriting their source. Deliberate verse/chat blocks are
+-- nested containers and therefore do not pass through this top-level path.
+local function reflow_prose(para)
+  for i, inl in ipairs(para.content) do
+    if inl.t == "LineBreak" then para.content[i] = pandoc.SoftBreak() end
+  end
+  return para
+end
+
 -- Text-message / chat blocks: wrap each line in a bubble, alternating sides by
 -- sender (the first sender becomes the right-aligned "me").
 local CHAT = { text = true, message = true, sms = true, chat = true }
@@ -186,9 +198,11 @@ function Pandoc(doc)
 
   local out = {}
   local awaiting = false
+  local reflow = false
   for _, b in ipairs(doc.blocks) do
     if b.t == "Header" and b.level == 1 then
       awaiting = dropcap and has_class(b, "chapter")
+      reflow = has_class(b, "chapter") or has_class(b, "backmatter")
       table.insert(out, b)
     elseif b.t == "HorizontalRule" then
       table.insert(
@@ -197,8 +211,10 @@ function Pandoc(doc)
       )
     elseif b.t == "Para" and awaiting then
       awaiting = false
+      if reflow then b = reflow_prose(b) end
       table.insert(out, dropcapify(b))
     else
+      if b.t == "Para" and reflow then b = reflow_prose(b) end
       if b.t == "Para" or b.t == "Plain" then awaiting = false end
       table.insert(out, b)
     end

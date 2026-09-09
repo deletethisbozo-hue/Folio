@@ -23,7 +23,8 @@ export function hyphenatePreviewDocument(document: Document, language: string): 
     acceptNode(node) {
       const parent = node.parentElement;
       if (!parent || parent.closest("code,pre,a,script,style,h1,h2,h3,.scene-break")) return NodeFilter.FILTER_REJECT;
-      return parent.closest("p,li,blockquote") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      const proseSection = parent.closest("section.chapter, section.backmatter");
+      return proseSection && parent.closest("p,li,blockquote") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     },
   });
   const nodes: Text[] = [];

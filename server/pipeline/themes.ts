@@ -135,6 +135,56 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
     sceneOrnament: "◆ ◆ ◆", dropcap: false, chapterLabel: "CHAPTER 1", previewFont: "Charter, Georgia, serif",
     previewHeadingFont: "Rockwell, Georgia, serif", previewAccent: "#59452f", previewPaper: "#f7f1e5",
   },
+  obsidian: {
+    name: "obsidian", label: "Obsidian", description: "Razor-black fantasy typography with a faceted ceremonial opening.",
+    sceneOrnament: "◆", dropcap: true, chapterLabel: "SHARD I", previewFont: "Baskerville, Georgia, serif",
+    previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#17171b", previewPaper: "#f1f0ed",
+  },
+  bloodmoon: {
+    name: "bloodmoon", label: "Blood Moon", description: "Crimson lunar accents and dramatic high-contrast gothic chapter pages.",
+    sceneOrnament: "◉", dropcap: true, chapterLabel: "MOON I", previewFont: "Garamond, Georgia, serif",
+    previewHeadingFont: "Bodoni MT, Didot, Georgia, serif", previewAccent: "#771f26", previewPaper: "#f8f1ec",
+  },
+  grimoire: {
+    name: "grimoire", label: "Grimoire", description: "Arcane manuscript proportions, double rules and sigil-like ornaments.",
+    sceneOrnament: "☙ ❦ ❧", dropcap: true, chapterLabel: "BOOK I", previewFont: "Palatino, Georgia, serif",
+    previewHeadingFont: "Book Antiqua, Palatino, serif", previewAccent: "#4b315d", previewPaper: "#f4eddc",
+  },
+  cathedral: {
+    name: "cathedral", label: "Cathedral", description: "Tall architectural headings framed by restrained Gothic tracery.",
+    sceneOrnament: "✠", dropcap: true, chapterLabel: "CHAPTER I", previewFont: "Baskerville, Georgia, serif",
+    previewHeadingFont: "Old English Text MT, Georgia, serif", previewAccent: "#293543", previewPaper: "#f3f1e9",
+  },
+  necropolis: {
+    name: "necropolis", label: "Necropolis", description: "Monumental Roman capitals and stone-cut rules for dark epic fiction.",
+    sceneOrnament: "— ◈ —", dropcap: false, chapterLabel: "TABLET I", previewFont: "Cambria, Georgia, serif",
+    previewHeadingFont: "Trajan Pro, Times New Roman, serif", previewAccent: "#44464b", previewPaper: "#f0efeb",
+  },
+  wyrmwood: {
+    name: "wyrmwood", label: "Wyrmwood", description: "Woodcut-inspired forest fantasy with an asymmetric storybook opening.",
+    sceneOrnament: "❧", dropcap: true, chapterLabel: "TALE ONE", previewFont: "Charter, Georgia, serif",
+    previewHeadingFont: "Palatino, Georgia, serif", previewAccent: "#35503a", previewPaper: "#f2efe2",
+  },
+  runestone: {
+    name: "runestone", label: "Runestone", description: "Angular Nordic display type and carved dividers with a clean reading face.",
+    sceneOrnament: "◇ ◆ ◇", dropcap: false, chapterLabel: "RUNE 01", previewFont: "Georgia, serif",
+    previewHeadingFont: "Copperplate, Arial Narrow, sans-serif", previewAccent: "#405868", previewPaper: "#f2f5f3",
+  },
+  witchlight: {
+    name: "witchlight", label: "Witchlight", description: "Elegant occult fantasy with violet ink, star points and whispered italics.",
+    sceneOrnament: "✦", dropcap: true, chapterLabel: "HEX I", previewFont: "Garamond, Georgia, serif",
+    previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#60446f", previewPaper: "#f7f3f6",
+  },
+  ironbound: {
+    name: "ironbound", label: "Ironbound", description: "Heavy forged headings, boxed numerals and disciplined military-fantasy rhythm.",
+    sceneOrnament: "■", dropcap: false, chapterLabel: "01", previewFont: "Charter, Georgia, serif",
+    previewHeadingFont: "Rockwell, Arial Black, serif", previewAccent: "#333b3d", previewPaper: "#f4f1e9",
+  },
+  revenant: {
+    name: "revenant", label: "Revenant", description: "Pale spectral restraint, narrow titles and a haunting offset chapter mark.",
+    sceneOrnament: "☾", dropcap: true, chapterLabel: "RETURN I", previewFont: "Baskerville, Georgia, serif",
+    previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#52616b", previewPaper: "#f1f4f3",
+  },
 };
 
 export function hasTheme(name: string): name is ThemeName {

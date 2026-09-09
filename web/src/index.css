@@ -214,7 +214,7 @@ button:disabled { cursor: default; opacity: .45; }
 .sample-copy b { font-size: 1em; }
 
 /* Each card mirrors the theme's actual chapter-opening grammar. */
-.theme-modern,.theme-editorial,.theme-scholar,.theme-literary,.theme-parchment,.theme-atlas,.theme-ember,.theme-cinder,.theme-timber { align-items: stretch; text-align: left; }
+.theme-modern,.theme-editorial,.theme-scholar,.theme-literary,.theme-parchment,.theme-atlas,.theme-ember,.theme-cinder,.theme-timber,.theme-necropolis,.theme-wyrmwood,.theme-runestone,.theme-ironbound { align-items: stretch; text-align: left; }
 .theme-modern .sample-title { font: 700 19px "Segoe UI",sans-serif; }
 .theme-modern .sample-copy,.theme-stanza .sample-copy { text-align: left; }
 .theme-modern .sample-ornament { color: #999; }
@@ -245,6 +245,19 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-solstice .sample-chapter { color:#688490; letter-spacing:.23em; }
 .theme-solstice .sample-title { font-style:normal; text-transform:uppercase; letter-spacing:.14em; }
 .theme-timber .sample-title { padding:7px 9px; border-left:5px solid #6d5336; font:700 17px Rockwell,Georgia,serif; }
+.theme-obsidian .sample-title { padding:7px 2px; border-top:1px solid #17171b; border-bottom:4px double #17171b; font:400 18px Didot,Georgia,serif; font-style:normal; letter-spacing:.06em; }
+.theme-bloodmoon .sample-chapter { width:31px; height:31px; margin-top:18px; border:1px solid #771f26; border-radius:50%; line-height:31px; }
+.theme-bloodmoon .sample-title { color:#771f26; font:italic 19px "Bodoni MT",Didot,Georgia,serif; }
+.theme-grimoire .sample-title { padding:7px; border:3px double #6d5873; font-style:normal; font-variant:small-caps; letter-spacing:.08em; }
+.theme-cathedral .sample-title { padding:11px 7px 7px; border:1px solid #536270; border-top:5px double #293543; border-radius:50% 50% 0 0/28% 28% 0 0; font:400 19px "Old English Text MT",Georgia,serif; }
+.theme-necropolis .sample-title { padding:7px 9px; border-top:1px solid #777a7e; border-bottom:1px solid #777a7e; border-left:7px solid #44464b; font:700 16px "Times New Roman",serif; text-transform:uppercase; letter-spacing:.07em; }
+.theme-wyrmwood .sample-title { padding:5px 0 5px 10px; border-left:3px solid #47644c; color:#29442f; font:italic 18px Palatino,Georgia,serif; }
+.theme-runestone .sample-title { padding:7px; border-top:5px solid #405868; border-bottom:2px solid #71838b; font:700 15px Copperplate,"Arial Narrow",sans-serif; text-transform:uppercase; letter-spacing:.12em; }
+.theme-witchlight { align-items:flex-end; text-align:right; }
+.theme-witchlight .sample-title { padding-right:9px; border-right:3px solid #745683; color:#60446f; font:italic 18px Baskerville,Georgia,serif; }
+.theme-ironbound .sample-title { padding:7px; border:3px solid #3e4749; font:700 16px Rockwell,Georgia,serif; text-transform:uppercase; }
+.theme-revenant .sample-chapter { margin-left:-45px; letter-spacing:.22em; }
+.theme-revenant .sample-title { font:400 18px Didot,Georgia,serif; font-style:normal; letter-spacing:.12em; }
 .style-library-footer { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 0 14px 0 18px; border-top: 1px solid #c9c8c3; background: linear-gradient(#f4f3ef,#e8e7e2); }
 .style-library-footer>div { min-width: 0; display: flex; flex-direction: column; }
 .style-library-footer strong { font-size: 10px; }

@@ -20,7 +20,17 @@ export type ThemeName =
   | "ember"
   | "cinder"
   | "solstice"
-  | "timber";
+  | "timber"
+  | "obsidian"
+  | "bloodmoon"
+  | "grimoire"
+  | "cathedral"
+  | "necropolis"
+  | "wyrmwood"
+  | "runestone"
+  | "witchlight"
+  | "ironbound"
+  | "revenant";
 export type PresetName = "kdp" | "universal";
 
 export interface BookMeta {

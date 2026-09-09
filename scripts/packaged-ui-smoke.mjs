@@ -55,7 +55,7 @@ try {
   await page.click(".preview-style-button");
   await page.waitForSelector(".theme-sample");
   const themes = await page.$$eval(".theme-sample", (items) => items.length);
-  if (themes < 20) throw new Error("Packaged style browser contains only " + themes + " themes.");
+  if (themes < 30) throw new Error("Packaged style browser contains only " + themes + " themes.");
   await page.click(".style-category-list button:nth-child(6)");
   const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");

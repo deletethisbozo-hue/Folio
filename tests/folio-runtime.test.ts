@@ -34,7 +34,7 @@ const health = await json("/api/health");
 check("health reports Folio", health.status === 200 && health.body.name === "Folio", JSON.stringify(health.body));
 
 const themes = await json("/api/themes");
-check("at least 20 real themes are registered", themes.body.length >= 20, String(themes.body.length));
+check("at least 30 real themes are registered", themes.body.length >= 30, String(themes.body.length));
 for (const theme of themes.body) {
   const css = await fs.readFile(themeCss(theme.name), "utf8");
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
@@ -88,7 +88,19 @@ const original = await fs.readFile(originalPath, "utf8");
 const sample = await post("/api/sample", {});
 const projectId = sample.body.projectId;
 const chapter = sample.body.sections.find((section: any) => section.kind === "chapter");
+const titlePage = sample.body.sections.find((section: any) => section.kind === "titlepage");
 check("sample opens with a chapter", Boolean(projectId && chapter?.id));
+
+const titlePageDocument = await json(`/api/projects/${projectId}/sections/${encodeURIComponent(titlePage.id)}`);
+const titlePagePreview = await post(`/api/projects/${projectId}/preview`, {
+  meta: sample.body.meta,
+  theme: "decorative",
+  typography: { dropcap: true, bodyAlign: "justify" },
+  previewSectionId: titlePage.id,
+  draft: titlePageDocument.body.markdown,
+});
+check("generated title-page markup renders as elements, never visible source text", titlePagePreview.body.html.includes('class="tp-author"') && !titlePagePreview.body.html.includes("&lt;p class="));
+check("drop caps remain chapter-only even when globally enabled", !titlePagePreview.body.html.includes('class="dropcap"'));
 
 const section = await json(`/api/projects/${projectId}/sections/${encodeURIComponent(chapter.id)}`);
 check("sample section is editable through copy-on-write", section.body.editable === true);
@@ -104,6 +116,15 @@ const preview = await post(`/api/projects/${projectId}/preview`, {
 check("preview contains the transient editor draft", preview.status === 200 && preview.body.html.includes("ransient ink appears before"));
 check("preview contains selected theme CSS", preview.body.html.includes("Old English Text MT"));
 check("preview renders exactly the selected section", (preview.body.html.match(/<section/g) ?? []).length === 1);
+
+const softBreakPreview = await post(`/api/projects/${projectId}/preview`, {
+  meta: { ...sample.body.meta, language: "pl" },
+  theme: "decorative",
+  typography: { dropcap: true, bodyAlign: "justify" },
+  previewSectionId: chapter.id,
+  draft: "Może  \nbył nawet  \nnazbyt dociekliwy, lecz odpowiedział spokojnie.",
+});
+check("legacy office hard breaks are repaired before prose justification", !/<br\s*\/?\s*>/i.test(softBreakPreview.body.html));
 
 const longDraft = Array.from({ length: 5200 }, (_, index) =>
   `Akapit ${index + 1}. Najprawdopodobniej profesjonalne formatowanie całej książki powinno zachowywać wszystkie akapity oraz wyróżnienia bez niekontrolowanych odstępów pomiędzy zwyczajnymi słowami podczas dokładnego podglądu czytnika${index === 5199 ? " WHOLE BOOK SERVER MARKER" : ""}.`,

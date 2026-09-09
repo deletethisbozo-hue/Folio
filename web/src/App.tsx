@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
   detectPastedLanguage,
+  generatedMatterToEditorHtml,
   markdownToEditorHtml,
   markdownToPreviewHtml,
   plainTextToMarkdown,
@@ -42,13 +43,13 @@ function wordCount(text: string): number {
 }
 
 function applyDraftDropcap(section: Element, enabled: boolean): void {
-  if (!enabled) return;
+  if (!enabled || !section.classList.contains("chapter")) return;
   const paragraph = section.querySelector(":scope > p:not(.scene-break)");
   if (!paragraph || paragraph.querySelector(".dropcap")) return;
   const walker = paragraph.ownerDocument.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
-    const match = node.data.match(/^(\s*["'“”‘’«]*)(\p{L})/u);
+    const match = node.data.match(/^\s*(["'“”‘’«]*)(\p{L})/u);
     if (!match) {
       if (node.data.trim()) return;
       continue;
@@ -57,7 +58,10 @@ function applyDraftDropcap(section: Element, enabled: boolean): void {
     span.className = "dropcap";
     span.textContent = match[1] + match[2];
     node.data = node.data.slice(match[0].length);
-    node.parentNode?.insertBefore(span, node);
+    // Keep the float as a direct child of the paragraph. Nesting it inside an
+    // opening <em>/<strong> creates a separate inline formatting context and
+    // can destabilize the first justified lines in Chromium and EPUB readers.
+    paragraph.insertBefore(span, paragraph.firstChild);
     return;
   }
 }
@@ -121,7 +125,9 @@ export default function App() {
     const editor = editorRef.current;
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
     if (!editor || !document || (editor.dataset.markdown === draft && editor.dataset.ornament === ornament)) return;
-    editor.innerHTML = markdownToEditorHtml(draft, ornament);
+    editor.innerHTML = document.editable
+      ? markdownToEditorHtml(draft, ornament)
+      : generatedMatterToEditorHtml(draft);
     editor.dataset.markdown = draft;
     editor.dataset.ornament = ornament;
   }, [document?.id, draft, typography.sceneOrnament, meta?.theme, themes]);
@@ -178,7 +184,10 @@ export default function App() {
   }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, draft]);
 
   function applyLiveDraftToPreview() {
-    if (previewMode === "print" || !selectedId || document?.id !== selectedId) return;
+    // Generated title/copyright pages already have authoritative Pandoc HTML.
+    // Re-rendering their internal markup as Markdown exposed literal <p> tags
+    // and could add chapter-only typography such as drop caps.
+    if (previewMode === "print" || !selectedId || document?.id !== selectedId || !document.editable) return;
     const previewDocument = previewRef.current?.contentDocument;
     if (!previewDocument) return;
     let section = previewDocument.getElementById(selectedId)
@@ -193,7 +202,7 @@ export default function App() {
       const seededHeading = previewDocument.createElement("h1");
       previewDocument.body.classList.add("book-formatter");
       seeded.id = selectedId;
-      seeded.className = "level1 chapter";
+      seeded.className = `level1 ${document.kind === "chapter" ? "chapter" : document.kind === "backmatter" ? "backmatter" : "frontmatter"}`;
       seededHeading.className = "chapter";
       seeded.appendChild(seededHeading);
       main.appendChild(seeded);
@@ -229,7 +238,7 @@ export default function App() {
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
     template.innerHTML = markdownToPreviewHtml(draft, ornament);
     section.appendChild(template.content);
-    applyDraftDropcap(section, typography.dropcap ?? theme?.dropcap ?? false);
+    applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
   }
 

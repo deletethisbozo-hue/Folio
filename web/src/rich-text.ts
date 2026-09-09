@@ -54,7 +54,12 @@ function renderNode(node: Node): string {
 
   if (element.hasAttribute("data-scene-break")) return "\n\n---\n\n";
 
-  if (tag === "BR") return "  \n";
+  // Clipboard HTML from Word, Pages and LibreOffice often contains a <br> at
+  // every visual line ending. A Markdown hard break (two trailing spaces)
+  // forces the browser to justify that artificially short line and produces
+  // enormous gaps between words. Keep it as a Markdown soft break: prose
+  // reflows naturally, while the source boundary is still retained.
+  if (tag === "BR") return "\n";
   if (/^H[1-6]$/.test(tag)) return `${"#".repeat(Number(tag[1]))} ${children(element).trim()}\n\n`;
   // LibreOffice and Word frequently copy headings as styled paragraphs rather
   // than semantic <h1>. Their stable class names are more useful than the many
@@ -199,11 +204,32 @@ export function markdownToEditorHtml(markdown: string, ornament = "❦"): string
   return blocks.join("") || "<p><br></p>";
 }
 
+/** Render server-generated matter in the read-only editor without exposing its
+ * internal HTML implementation. Only plain text and a small set of known
+ * presentation classes survive; arbitrary markup is never trusted. */
+export function generatedMatterToEditorHtml(markup: string): string {
+  const source = new DOMParser().parseFromString(markup, "text/html");
+  const allowedClasses = new Set(["tp-subtitle", "tp-author", "tp-series", "tp-publisher"]);
+  const blocks = Array.from(source.body.querySelectorAll("p, li"))
+    .map((node) => {
+      const className = Array.from(node.classList).find((name) => allowedClasses.has(name));
+      const classAttr = className ? ` class="${className}"` : "";
+      return `<p${classAttr}>${escapeHtml(node.textContent?.trim() ?? "")}</p>`;
+    })
+    .filter((block) => !/^<p(?: class="[^"]+")?><\/p>$/.test(block));
+  if (blocks.length) return blocks.join("");
+  const text = source.body.textContent?.trim() ?? "";
+  return text ? `<p>${escapeHtml(text)}</p>` : "<p><br></p>";
+}
+
 /** Fast in-frame draft rendering. Pandoc remains authoritative and replaces
  * this result after its debounced render; this version makes a 100k-word paste
  * visible immediately instead of leaving a blank reader while Pandoc works. */
 export function markdownToPreviewHtml(markdown: string, ornament = "❦"): string {
-  return markdownToEditorHtml(markdown, ornament)
+  // Also heal hard breaks saved by Folio <=1.0.1. The Pandoc/Lua path applies
+  // the same repair, so immediate and authoritative previews agree.
+  const reflowed = markdown.replace(/ {2,}\n(?=\S)/g, "\n");
+  return markdownToEditorHtml(reflowed, ornament)
     .replace(/class="editor-scene-break"/g, 'class="scene-break" role="separator"')
     .replace(/\scontenteditable="false"/g, "");
 }

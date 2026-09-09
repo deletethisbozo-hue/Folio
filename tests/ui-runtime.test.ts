@@ -65,6 +65,24 @@ try {
   await stage("sample rich editor", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
   check("sample opens in a genuinely editable rich-text surface", await page.$eval(".rich-editor", (el) => (el as HTMLElement).contentEditable === "true"));
 
+  await page.click(".contents-row:not(.chapter-row)");
+  await stage("generated title page", () => page.waitForSelector('.rich-editor[contenteditable="false"]'));
+  await stage("title page authoritative preview", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.titlepage .tp-author"))));
+  const generatedPage = await page.evaluate(() => {
+    const editor = document.querySelector(".rich-editor") as HTMLElement;
+    const frame = document.querySelector("iframe")?.contentDocument;
+    return {
+      visibleEditorText: editor.innerText,
+      visiblePreviewText: frame?.body.innerText ?? "",
+      hasDropcap: Boolean(frame?.querySelector(".dropcap")),
+      hasTitleHyphen: Boolean(frame?.querySelector("section.titlepage")?.textContent?.includes("\u00ad")),
+    };
+  });
+  check("generated title page never exposes internal HTML in editor or preview", !generatedPage.visibleEditorText.includes("<p class=") && !generatedPage.visiblePreviewText.includes("<p class="));
+  check("title/front matter receives neither drop caps nor discretionary hyphens", !generatedPage.hasDropcap && !generatedPage.hasTitleHyphen);
+  await page.click(".chapter-row");
+  await stage("return to manuscript chapter", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
+
   await page.$eval(".rich-editor", (el) => {
     const editor = el as HTMLElement;
     editor.focus();
@@ -98,6 +116,22 @@ try {
     editor.focus();
     const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
     const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+    const transfer = new DataTransfer();
+    transfer.setData("text/html", "<p>Może<br>był nawet<br>nazbyt dociekliwy, lecz odpowiedział spokojnie.</p>");
+    editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
+  });
+  await stage("soft visual line paste", () => page.waitForFunction(() => {
+    const editor = document.querySelector(".rich-editor") as HTMLElement;
+    const preview = document.querySelector("iframe")?.contentDocument;
+    return editor.dataset.markdown?.includes("Może\nbył nawet\nnazbyt dociekliwy") && !preview?.querySelector("section.chapter > p br");
+  }));
+  check("Writer visual line endings reflow instead of forcing stretched justified lines", true);
+
+  await page.$eval(".rich-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.focus();
+    const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
     const transfer = new DataTransfer(); transfer.setData("text/plain", "Plain Writer first paragraph\r\nPlain Writer second paragraph");
     editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
@@ -124,8 +158,8 @@ try {
     });
     return new Set(signatures).size;
   });
-  check("style browser exposes all 20 visual themes", themeCount >= 20, String(themeCount));
-  check("theme cards have materially different visual signatures", distinctCards >= 15, String(distinctCards) + " distinct");
+  check("style browser exposes all 30 visual themes", themeCount >= 30, String(themeCount));
+  check("theme cards have materially different visual signatures", distinctCards >= 24, String(distinctCards) + " distinct");
 
   await page.click(".style-category-list button:nth-child(6)");
   const ornamentCount = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
