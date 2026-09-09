@@ -282,7 +282,7 @@ try {
   await page.click(".section-title-button");
   await stage("chapter title editor", () => page.waitForSelector(".section-title-input"));
   await page.click(".section-title-input");
-  await page.keyboard.press("Control+A");
+  await page.$eval(".section-title-input", (el) => (el as HTMLInputElement).select());
   await page.keyboard.type("Renamed in UI");
   await page.keyboard.press("Enter");
   await stage("chapter renamed", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Renamed in UI")));
