@@ -137,6 +137,7 @@ try {
   await page.keyboard.type("First Real Chapter");
   await page.click(".add-chapter-box button");
   await stage("first chapter editable", () => page.waitForSelector("textarea:not([readonly])"));
+  await page.click("textarea");
   await page.keyboard.type("The book can now be written.");
   await stage("first chapter live preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("The book can now be written.")));
   check("a blank new book can add, edit and preview its first chapter", true);
