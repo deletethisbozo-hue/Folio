@@ -355,7 +355,7 @@ export default function App() {
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
     el.focus();
     window.document.execCommand("insertHTML", false, `<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>${ornament.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span></div><p><br></p>`);
-    requestAnimationFrame(recordEditorDom);
+    recordEditorDom();
   }
 
   function editorPaste(event: React.ClipboardEvent<HTMLDivElement>) {
@@ -367,7 +367,11 @@ export default function App() {
     event.preventDefault();
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
     window.document.execCommand("insertHTML", false, markdownToEditorHtml(markdown, ornament));
-    requestAnimationFrame(recordEditorDom);
+    // Read the mutated DOM synchronously. A large Writer document can keep the
+    // renderer busy past the next animation frame; delaying this state update
+    // left the preview effect with the old draft even though the editor showed
+    // the pasted text.
+    recordEditorDom();
   }
 
   function recordEditorDom() {

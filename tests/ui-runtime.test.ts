@@ -162,7 +162,8 @@ try {
     const transfer = new DataTransfer(); transfer.setData("text/html", html);
     editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
-  await stage("large rich-text preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("LARGE PASTE FINAL MARKER"), { timeout: 30000 }));
+  await stage("large rich-text editor state", () => page.waitForFunction(() => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes("LARGE PASTE FINAL MARKER"), { timeout: 10000 }));
+  await stage("large rich-text preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("LARGE PASTE FINAL MARKER"), { timeout: 60000 }));
   const visibleAfterLargePaste = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage")!.getBoundingClientRect();
     const device = document.querySelector(".reader-device")!.getBoundingClientRect();

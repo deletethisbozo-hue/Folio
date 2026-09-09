@@ -71,7 +71,8 @@ try {
     const transfer = new DataTransfer(); transfer.setData("text/html", html);
     element.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
-  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED LARGE PASTE MARKER"), { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector(".rich-editor")?.dataset.markdown?.includes("PACKAGED LARGE PASTE MARKER"), { timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED LARGE PASTE MARKER"), { timeout: 60000 });
   const deviceVisible = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage").getBoundingClientRect();
     const device = document.querySelector(".reader-device").getBoundingClientRect();
