@@ -189,7 +189,25 @@ export default function App() {
         ?? previewDocument?.querySelector("main.book > section.level1, main.book > section.chapter");
       if (!previewDocument || !section) return;
       const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
-      const subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
+      let subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
+      if (document.subtitle) {
+        if (!subtitle) {
+          const wrapper = previewDocument.createElement("div");
+          const paragraph = previewDocument.createElement("p");
+          wrapper.className = "chapter-subtitle";
+          paragraph.textContent = document.subtitle;
+          wrapper.appendChild(paragraph);
+          if (heading) heading.after(wrapper); else section.prepend(wrapper);
+          subtitle = wrapper;
+        } else {
+          let paragraph = subtitle.querySelector("p");
+          if (!paragraph) { paragraph = previewDocument.createElement("p"); subtitle.appendChild(paragraph); }
+          paragraph.textContent = document.subtitle;
+        }
+      } else {
+        subtitle?.remove();
+        subtitle = null;
+      }
       Array.from(section.children).forEach((node) => {
         if (node !== heading && node !== subtitle) node.remove();
       });

@@ -131,8 +131,8 @@ function typographyCss(book: Book): string {
 .book-formatter section.backmatter li {
   text-align: left !important;
   text-align-last: left !important;
-  -webkit-hyphens: manual;
-  hyphens: manual;
+  -webkit-hyphens: none;
+  hyphens: none;
   text-wrap: pretty;
 }`);
   }
