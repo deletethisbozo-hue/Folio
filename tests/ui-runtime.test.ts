@@ -123,7 +123,9 @@ try {
   await stage("soft visual line paste", () => page.waitForFunction(() => {
     const editor = document.querySelector(".rich-editor") as HTMLElement;
     const preview = document.querySelector("iframe")?.contentDocument;
-    return editor.dataset.markdown?.includes("Może\nbył nawet\nnazbyt dociekliwy") && !preview?.querySelector("section.chapter > p br");
+    const markdown = editor.dataset.markdown ?? "";
+    return markdown.replace(/\s+/g, " ").includes("Może był nawet nazbyt dociekliwy") &&
+      !markdown.includes("Może  \n") && !preview?.querySelector("section.chapter > p br");
   }));
   check("Writer visual line endings reflow instead of forcing stretched justified lines", true);
 
