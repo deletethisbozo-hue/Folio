@@ -145,7 +145,10 @@ try {
   await page.click(".book-identity");
   await stage("open Book Details", () => page.waitForSelector('.folio-dialog[aria-label="Book Details"]'));
   const titleInput = await page.$(".details-grid .dialog-field input");
-  await titleInput!.click({ clickCount: 3 });
+  await titleInput!.click();
+  await page.keyboard.down("Control");
+  await page.keyboard.press("A");
+  await page.keyboard.up("Control");
   await page.keyboard.press("Backspace");
   await page.keyboard.type("Born Tied");
   await page.evaluate(() => {
