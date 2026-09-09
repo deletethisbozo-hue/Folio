@@ -324,7 +324,30 @@ try {
 
   await page.click(".rich-editor");
   await page.keyboard.type(" DELETED CHAPTER PREVIEW MARKER");
-  await stage("deleted-chapter marker preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.replace(/\u00ad/g, "").includes("DELETED CHAPTER PREVIEW MARKER")));
+  check("post-subtitle typing reaches the editor model", await page.$eval(".rich-editor", (el) => (el as HTMLElement).dataset.markdown?.includes("DELETED CHAPTER PREVIEW MARKER") ?? false));
+  await stage("deleted-chapter marker preview", async () => {
+    try {
+      await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.replace(/\u00ad/g, "").includes("DELETED CHAPTER PREVIEW MARKER"));
+    } catch (error) {
+      const snapshot = await page.evaluate(() => {
+        const editor = document.querySelector(".rich-editor") as HTMLElement | null;
+        const frameDoc = (document.querySelector("iframe") as HTMLIFrameElement | null)?.contentDocument;
+        return {
+          active: (document.activeElement as HTMLElement | null)?.className ?? null,
+          editorHasMarker: editor?.dataset.markdown?.includes("DELETED CHAPTER PREVIEW MARKER") ?? null,
+          editorTail: editor?.dataset.markdown?.slice(-120) ?? null,
+          selected: document.querySelector(".contents-row.selected")?.textContent ?? null,
+          subtitle: document.querySelector(".section-subtitle-button")?.textContent ?? null,
+          save: document.querySelector(".save-indicator")?.textContent ?? null,
+          appError: document.querySelector(".global-error")?.textContent ?? null,
+          frameTitle: frameDoc?.querySelector("section.chapter > h1")?.textContent ?? null,
+          frameSubtitle: frameDoc?.querySelector(".chapter-subtitle")?.textContent ?? null,
+          frameTail: frameDoc?.body?.innerText.replace(/\u00ad/g, "").slice(-200) ?? null,
+        };
+      });
+      throw new Error(`${error instanceof Error ? error.message : String(error)}; snapshot=${JSON.stringify(snapshot)}`);
+    }
+  });
 
   page.once("dialog", (dialog) => void dialog.accept());
   await page.click(".section-delete");
