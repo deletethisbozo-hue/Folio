@@ -189,6 +189,7 @@ export default function App() {
         ?? previewDocument?.querySelector("main.book > section.level1, main.book > section.chapter");
       if (!previewDocument || !section) return;
       const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
+      if (heading) heading.textContent = document.title;
       let subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
       if (document.subtitle) {
         if (!subtitle) {
@@ -366,17 +367,18 @@ export default function App() {
         ...(change.subtitle !== undefined ? { subtitle } : {}),
       });
       const summary = await api.reload(project.projectId);
-      if (updated.id === selectedId) {
-        setProject(summary);
-        setMeta(summary.meta);
-        setTypography(summary.typography ?? {});
-        setDocument(updated);
-        setDraft(updated.markdown);
-        draftRef.current = updated.markdown;
-        setPreviewError(null);
-      } else {
-        adopt(summary, updated.id);
-      }
+      if (updated.id !== selectedId) { undoRef.current = []; redoRef.current = []; }
+      setProject(summary);
+      setMeta(summary.meta);
+      setTypography(summary.typography ?? {});
+      setSelectedId(updated.id);
+      selectedRef.current = updated.id;
+      setDocument(updated);
+      setDraft(updated.markdown);
+      draftRef.current = updated.markdown;
+      setDirty(false);
+      setSaveState("saved");
+      setPreviewError(null);
     } catch (e) {
       if (change.subtitle !== undefined && selectedRef.current === selectedId) setDocument(previousDocument);
       setError(e instanceof Error ? e.message : String(e));
