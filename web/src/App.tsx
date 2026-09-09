@@ -177,49 +177,51 @@ export default function App() {
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, draft]);
 
+  function applyLiveDraftToPreview() {
+    if (previewMode === "print" || !selectedId || document?.id !== selectedId) return;
+    const previewDocument = previewRef.current?.contentDocument;
+    const section = previewDocument?.getElementById(selectedId)
+      ?? previewDocument?.querySelector("main.book > section.level1, main.book > section.chapter");
+    if (!previewDocument || !section) return;
+    const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
+    if (heading) heading.textContent = document.title;
+    let subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
+    if (document.subtitle) {
+      if (!subtitle) {
+        const wrapper = previewDocument.createElement("div");
+        const paragraph = previewDocument.createElement("p");
+        wrapper.className = "chapter-subtitle";
+        paragraph.textContent = document.subtitle;
+        wrapper.appendChild(paragraph);
+        if (heading) heading.after(wrapper); else section.prepend(wrapper);
+        subtitle = wrapper;
+      } else {
+        let paragraph = subtitle.querySelector("p");
+        if (!paragraph) { paragraph = previewDocument.createElement("p"); subtitle.appendChild(paragraph); }
+        paragraph.textContent = document.subtitle;
+      }
+    } else {
+      subtitle?.remove();
+      subtitle = null;
+    }
+    Array.from(section.children).forEach((node) => {
+      if (node !== heading && node !== subtitle) node.remove();
+    });
+    const template = previewDocument.createElement("template");
+    const theme = themes.find((item) => item.name === meta?.theme);
+    const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
+    template.innerHTML = markdownToPreviewHtml(draft, ornament);
+    section.appendChild(template.content);
+    applyDraftDropcap(section, typography.dropcap ?? theme?.dropcap ?? false);
+    if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
+  }
+
   // A full-book paste must not wait for Pandoc. Update the already loaded
   // section in the iframe immediately; the authoritative Pandoc render replaces
-  // it after the debounce. This also means a slow/aborted background conversion
-  // can never make the visible reader go blank.
+  // it after the debounce. Re-apply on iframe load too, because a renamed
+  // chapter creates a fresh frame whose document may arrive after this effect.
   useEffect(() => {
-    if (previewMode === "print" || !selectedId || document?.id !== selectedId) return;
-    const frame = window.requestAnimationFrame(() => {
-      const previewDocument = previewRef.current?.contentDocument;
-      const section = previewDocument?.getElementById(selectedId)
-        ?? previewDocument?.querySelector("main.book > section.level1, main.book > section.chapter");
-      if (!previewDocument || !section) return;
-      const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
-      if (heading) heading.textContent = document.title;
-      let subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
-      if (document.subtitle) {
-        if (!subtitle) {
-          const wrapper = previewDocument.createElement("div");
-          const paragraph = previewDocument.createElement("p");
-          wrapper.className = "chapter-subtitle";
-          paragraph.textContent = document.subtitle;
-          wrapper.appendChild(paragraph);
-          if (heading) heading.after(wrapper); else section.prepend(wrapper);
-          subtitle = wrapper;
-        } else {
-          let paragraph = subtitle.querySelector("p");
-          if (!paragraph) { paragraph = previewDocument.createElement("p"); subtitle.appendChild(paragraph); }
-          paragraph.textContent = document.subtitle;
-        }
-      } else {
-        subtitle?.remove();
-        subtitle = null;
-      }
-      Array.from(section.children).forEach((node) => {
-        if (node !== heading && node !== subtitle) node.remove();
-      });
-      const template = previewDocument.createElement("template");
-      const theme = themes.find((item) => item.name === meta?.theme);
-      const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
-      template.innerHTML = markdownToPreviewHtml(draft, ornament);
-      section.appendChild(template.content);
-      applyDraftDropcap(section, typography.dropcap ?? theme?.dropcap ?? false);
-      if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
-    });
+    const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
   }, [draft, document?.id, document?.subtitle, selectedId, previewMode, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, meta?.theme, meta?.language, themes]);
 
@@ -484,6 +486,7 @@ export default function App() {
       style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}" + profileCss[previewMode] + proseComposition;
     }
     doc.head.appendChild(style);
+    applyLiveDraftToPreview();
     if (previewMode !== "print" && typography.bodyAlign !== "left") {
       hyphenatePreviewDocument(doc, meta?.language || "en");
     }
