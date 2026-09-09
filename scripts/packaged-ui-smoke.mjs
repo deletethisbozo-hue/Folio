@@ -25,9 +25,11 @@ try {
 
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.waitForSelector(".empty-actions", { timeout: 15000 });
   await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Open Sample"));
-    button?.click();
+    if (!button) throw new Error("Open Sample button is missing from packaged Folio.");
+    button.click();
   });
   await page.waitForSelector("textarea:not([readonly])", { timeout: 15000 });
   await page.$eval("textarea", (element) => {
