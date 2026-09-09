@@ -326,7 +326,8 @@ try {
   await page.keyboard.type("Renamed in UI");
   await page.keyboard.press("Enter");
   await stage("chapter renamed", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Renamed in UI")));
-  check("chapter name can be edited without deleting its body", await page.$eval(".rich-editor", (el) => (el as HTMLElement).dataset.markdown?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY") ?? false));
+  await stage("renamed chapter body reloaded", () => page.waitForFunction(() => document.querySelector(".rich-editor")?.getAttribute("data-markdown")?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY")));
+  check("chapter name can be edited without deleting its body", true);
 
   await page.click(".section-subtitle-button");
   await stage("chapter subtitle editor", () => page.waitForSelector(".section-subtitle-input"));
