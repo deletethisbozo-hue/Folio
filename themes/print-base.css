@@ -30,8 +30,14 @@ body {
   hyphenate-limit-lines: 2;
   font-kerning: normal;
   font-variant-ligatures: common-ligatures contextual;
+  font-synthesis: none;
 }
-p { widows:3; orphans:3; }
+p {
+  widows: 3;
+  orphans: 3;
+  text-align-last: left;
+  text-wrap: pretty;
+}
 
 /* Each chapter / front-matter section starts on a fresh page (the dynamic
    CSS may upgrade chapters to start on a recto). */

@@ -14,7 +14,10 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 const isDev = process.env.BOOK_FORMATTER_DEV === "1";
 
 const app = express();
-app.use(express.json({ limit: "5mb" }));
+// A complete Writer/Word manuscript can legitimately be several megabytes even
+// after it has been reduced to semantic Markdown. Keep a bounded but book-sized
+// limit instead of Express's API-sized default.
+app.use(express.json({ limit: "64mb" }));
 
 registerApi(app);
 registerEditorApi(app);

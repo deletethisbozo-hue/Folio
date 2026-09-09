@@ -73,14 +73,25 @@ try {
     const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
     selection?.removeAllRanges(); selection?.addRange(range);
     const transfer = new DataTransfer();
-    transfer.setData("text/html", "<p>Libre first <strong>bold</strong></p><p>Libre second</p><ul><li>Writer list</li></ul>");
+    transfer.setData("text/html", "<html><head><style>.T1{font-weight:bold}</style></head><body><p>Libre first <span class=\"T1\">bold</span></p><p>Libre second</p><ul><li>Writer list</li></ul></body></html>");
     editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
   await stage("LibreOffice rich paste", () => page.waitForFunction(() => {
     const markdown = (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown ?? "";
     return markdown.includes("Libre first **bold**") && markdown.includes("Libre second") && markdown.includes("- Writer list");
   }));
-  check("rich-text paste preserves paragraphs, bold and lists as clean source", true);
+  check("Writer class-based rich text preserves paragraphs, bold and lists", true);
+
+  await page.$eval(".rich-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.focus();
+    const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+    const transfer = new DataTransfer(); transfer.setData("text/plain", "Plain Writer first paragraph\r\nPlain Writer second paragraph");
+    editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
+  });
+  await stage("plain Writer paragraphs", () => page.waitForFunction(() => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes("Plain Writer first paragraph\n\nPlain Writer second paragraph")));
+  check("plain-text Writer paste keeps physical paragraphs instead of one run-on block", true);
 
   await page.click('[title="Insert ornamental scene break"]');
   await stage("ornamental break preview", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break"))));
@@ -141,8 +152,8 @@ try {
   await page.select('select[aria-label="Preview device"]', "iphone");
   await stage("switch to iPhone device", () => page.waitForSelector(".reader-device.device-iphone"));
   await stage("phone ragged-right layout", () => page.waitForFunction(() => {
-    const body = document.querySelector("iframe")?.contentDocument?.body;
-    return body ? getComputedStyle(body).textAlign === "left" : false;
+    const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
+    return paragraph ? getComputedStyle(paragraph).textAlign === "left" : false;
   }));
   check("narrow phone preview suppresses stretched justified word gaps", true);
   const centered = await page.evaluate(() => {
@@ -157,19 +168,59 @@ try {
     editor.focus();
     const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
     const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
-    const paragraph = "Long LibreOffice manuscript paragraph with enough ordinary words to verify that the preview device remains visible and the complete text reaches the renderer correctly.";
-    const html = Array.from({ length: 210 }, (_, index) => `<p>${paragraph} ${index === 209 ? "LARGE PASTE FINAL MARKER" : index + 1}</p>`).join("");
+    const paragraph = "Najprawdopodobniej profesjonalne formatowanie całej książki powinno zachowywać wszystkie akapity oraz wyróżnienia bez niekontrolowanych odstępów pomiędzy zwyczajnymi słowami podczas dokładnego podglądu czytnika.";
+    // Writer emits a full HTML document, named paragraph classes, verbose
+    // inline declarations and many spans. This is deliberately over 100,000
+    // words — a clean 4k-word fragment did not reproduce the real failure.
+    const rows = Array.from({ length: 5200 }, (_, index) =>
+      `<p class="P1" style="margin-top:0cm;margin-bottom:0.212cm;line-height:115%;orphans:2;widows:2;text-autospace:ideograph-other"><span class="T1">${paragraph} </span><span class="T2" style="font-weight:bold">${index === 5199 ? "WHOLE BOOK FINAL MARKER" : `fragment ${index + 1}`}</span></p>`,
+    ).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>.P1{font-family:Liberation Serif}.T1{font-style:normal}.T2{font-weight:bold}</style></head><body lang="pl-PL" dir="ltr">${rows}</body></html>`;
     const transfer = new DataTransfer(); transfer.setData("text/html", html);
     editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
-  await stage("large rich-text editor state", () => page.waitForFunction(() => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes("LARGE PASTE FINAL MARKER"), { timeout: 10000 }));
-  await stage("large rich-text preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("LARGE PASTE FINAL MARKER"), { timeout: 60000 }));
+  await stage("whole-book rich-text editor state", () => page.waitForFunction(() => {
+    const markdown = (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown ?? "";
+    return markdown.includes("WHOLE BOOK FINAL MARKER") && (markdown.match(/\S+/g)?.length ?? 0) > 100_000;
+  }, { timeout: 30000 }));
+  await stage("immediate whole-book preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("WHOLE BOOK FINAL MARKER"), { timeout: 30000 }));
   const visibleAfterLargePaste = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage")!.getBoundingClientRect();
     const device = document.querySelector(".reader-device")!.getBoundingClientRect();
     return device.width > 200 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
   });
-  check("4,000-word LibreOffice paste cannot hide or displace the preview", visibleAfterLargePaste);
+  check("100,000-word LibreOffice paste cannot hide or displace the preview", visibleAfterLargePaste);
+  await stage("whole-book autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 }));
+  check("the complete pasted book reaches autosave", true);
+
+  await page.click(".preview-style-button");
+  await stage("whole-book typography controls", () => page.waitForSelector(".style-category-list"));
+  await page.evaluate(() => {
+    const bodyButton = [...document.querySelectorAll(".style-category-list button")].find((button) => button.textContent === "Body");
+    (bodyButton as HTMLButtonElement | undefined)?.click();
+  });
+  await stage("body alignment control", () => page.waitForFunction(() => [...document.querySelectorAll(".customize-row > span")].some((node) => node.textContent === "Alignment")));
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll(".customize-row")].find((node) => node.querySelector("span")?.textContent === "Alignment");
+    const select = row?.querySelector("select") as HTMLSelectElement | null;
+    if (!select) throw new Error("Alignment control is missing");
+    select.value = "justify";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.click(".style-library-header button");
+  await page.select('select[aria-label="Preview device"]', "kindle-oasis");
+  await stage("Polish professional justification", () => page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const paragraph = doc?.querySelector("section.chapter > p");
+    return Boolean(paragraph && getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" && doc?.body.textContent?.includes("\u00ad"));
+  }, { timeout: 30000 }));
+  check("Polish justification uses discretionary word breaks and a ragged final line", true);
+  await page.select('select[aria-label="Preview device"]', "iphone");
+  await stage("safe narrow composition", () => page.waitForFunction(() => {
+    const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
+    return paragraph ? getComputedStyle(paragraph).textAlign === "left" : false;
+  }));
+  check("narrow readers suppress spacing rivers even when print justification is selected", true);
 
   await page.click(".footer-add");
   await stage("open Add Content", () => page.waitForSelector(".add-chapter-box input"));

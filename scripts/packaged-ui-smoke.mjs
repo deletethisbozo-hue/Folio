@@ -66,13 +66,17 @@ try {
     element.focus();
     const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
     const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
-    const words = "Large packaged LibreOffice paragraph verifies that a multi thousand word manuscript cannot make the device or its live preview disappear after paste.";
-    const html = Array.from({ length: 210 }, (_, index) => `<p>${words} ${index === 209 ? "PACKAGED LARGE PASTE MARKER" : index + 1}</p>`).join("");
+    const words = "Najprawdopodobniej profesjonalne formatowanie całej książki powinno zachowywać wszystkie akapity oraz wyróżnienia bez niekontrolowanych odstępów pomiędzy zwyczajnymi słowami podczas dokładnego podglądu czytnika.";
+    const rows = Array.from({ length: 5200 }, (_, index) => `<p class="P1" style="margin-top:0cm;margin-bottom:0.212cm;line-height:115%;orphans:2;widows:2"><span class="T1">${words} </span><span class="T2">${index === 5199 ? "PACKAGED WHOLE BOOK MARKER" : `fragment ${index + 1}`}</span></p>`).join("");
+    const html = `<!doctype html><html><head><style>.P1{font-family:Liberation Serif}.T2{font-weight:bold}</style></head><body lang="pl-PL">${rows}</body></html>`;
     const transfer = new DataTransfer(); transfer.setData("text/html", html);
     element.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
-  await page.waitForFunction(() => document.querySelector(".rich-editor")?.dataset.markdown?.includes("PACKAGED LARGE PASTE MARKER"), { timeout: 10000 });
-  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED LARGE PASTE MARKER"), { timeout: 60000 });
+  await page.waitForFunction(() => {
+    const markdown = document.querySelector(".rich-editor")?.dataset.markdown || "";
+    return markdown.includes("PACKAGED WHOLE BOOK MARKER") && (markdown.match(/\S+/g)?.length || 0) > 100000;
+  }, { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED WHOLE BOOK MARKER"), { timeout: 30000 });
   const deviceVisible = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage").getBoundingClientRect();
     const device = document.querySelector(".reader-device").getBoundingClientRect();
@@ -89,7 +93,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged UI passed: rich-text sample, 4,000-word LibreOffice paste, persistent preview, 20+ ornaments, rename/delete, 20 themes, 6 device profiles.");
+  console.log("Packaged UI passed: rich-text sample, 100,000-word LibreOffice paste, persistent preview, 20+ ornaments, rename/delete, 20 themes, 6 device profiles.");
 } finally {
   browser.disconnect();
 }

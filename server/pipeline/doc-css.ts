@@ -104,8 +104,38 @@ function typographyCss(book: Book): string {
   // reviews/2026-07-02-creative-lens-fable5.md issue #2.
   if (ty.fontSize) bodyDecls.push(`font-size: ${ty.fontSize} !important;`);
   if (ty.lineHeight) bodyDecls.push(`line-height: ${ty.lineHeight} !important;`);
-  if (ty.bodyAlign) bodyDecls.push(`text-align: ${ty.bodyAlign} !important;`);
   if (bodyDecls.length) out.push(`body { ${bodyDecls.join(" ")} }`);
+  if (ty.bodyAlign === "justify") {
+    out.push(`
+.book-formatter section.chapter > p,
+.book-formatter section.chapter > blockquote p,
+.book-formatter section.chapter li,
+.book-formatter section.backmatter > p,
+.book-formatter section.backmatter li {
+  text-align: justify !important;
+  text-align-last: left !important;
+  text-justify: inter-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 7 3 3;
+  hyphenate-limit-lines: 2;
+  overflow-wrap: normal;
+  word-break: normal;
+}`);
+  } else if (ty.bodyAlign === "left") {
+    out.push(`
+.book-formatter section.chapter > p,
+.book-formatter section.chapter > blockquote p,
+.book-formatter section.chapter li,
+.book-formatter section.backmatter > p,
+.book-formatter section.backmatter li {
+  text-align: left !important;
+  text-align-last: left !important;
+  -webkit-hyphens: manual;
+  hyphens: manual;
+  text-wrap: pretty;
+}`);
+  }
   if (ty.paragraphIndent !== undefined) out.push(`p { text-indent: ${ty.paragraphIndent} !important; }`);
   if (ty.paragraphSpacing !== undefined) out.push(`p { margin-bottom: ${ty.paragraphSpacing} !important; }`);
   if (ty.paragraphAfterBreakIndent !== undefined) {

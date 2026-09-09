@@ -45,6 +45,7 @@ body {
   hyphens: manual;
   widows: 2;
   orphans: 2;
+  font-synthesis: none;
 }
 
 @media print {
@@ -101,6 +102,7 @@ p {
   margin: 0;
   text-indent: 1.25em;
   hanging-punctuation: first last;
+  text-wrap: pretty;
 }
 section > h1 + p,
 h1 + p,

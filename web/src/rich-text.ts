@@ -8,8 +8,13 @@ function children(element: Element): string {
 }
 
 function wrapInline(marker: string, value: string): string {
-  const text = value.trim();
-  return text ? marker + text + marker : "";
+  // Writer and Word split a sentence into many styled spans. Trimming each span
+  // glues words together ("one <b>two</b> three" became "one**two**three").
+  // Keep boundary whitespace outside the Markdown marker instead.
+  const leading = value.match(/^\s*/)?.[0] ?? "";
+  const trailing = value.match(/\s*$/)?.[0] ?? "";
+  const text = value.slice(leading.length, value.length - trailing.length || undefined);
+  return text ? leading + marker + text + marker + trailing : value;
 }
 
 function renderList(element: Element, ordered: boolean, depth = 0): string {
@@ -45,10 +50,20 @@ function renderNode(node: Node): string {
   const element = node as Element;
   const tag = element.tagName;
 
+  if (["STYLE", "SCRIPT", "META", "LINK", "TITLE", "XML"].includes(tag)) return "";
+
   if (element.hasAttribute("data-scene-break")) return "\n\n---\n\n";
 
   if (tag === "BR") return "  \n";
   if (/^H[1-6]$/.test(tag)) return `${"#".repeat(Number(tag[1]))} ${children(element).trim()}\n\n`;
+  // LibreOffice and Word frequently copy headings as styled paragraphs rather
+  // than semantic <h1>. Their stable class names are more useful than the many
+  // vendor-specific CSS declarations in the clipboard payload.
+  if (tag === "P") {
+    const cls = `${element.className || ""} ${element.getAttribute("style") || ""}`;
+    const heading = cls.match(/(?:heading|nag[łl][óo]wek|msoheading)[_\s-]*(?:20_)?([1-6])\b/i);
+    if (heading) return `${"#".repeat(Number(heading[1]))} ${children(element).trim()}\n\n`;
+  }
   if (tag === "STRONG" || tag === "B") return wrapInline("**", children(element));
   if (tag === "EM" || tag === "I") return wrapInline("*", children(element));
   if (tag === "U") return children(element).trim() ? `<u>${children(element).trim()}</u>` : "";
@@ -77,6 +92,20 @@ function renderNode(node: Node): string {
 /** Convert HTML clipboard data from LibreOffice/Word/browser editors to clean Markdown. */
 export function richTextToMarkdown(html: string): string {
   const document = new DOMParser().parseFromString(html, "text/html");
+  // Office suites put bold/italic/underline in generated classes (T1,
+  // MsoStrong, …), not necessarily inline. Resolve their simple declarations
+  // once so the semantic conversion does not throw rich formatting away.
+  const classStyles = new Map<string, string>();
+  for (const sheet of Array.from(document.querySelectorAll("style"))) {
+    const css = sheet.textContent ?? "";
+    for (const match of css.matchAll(/\.([_a-zA-Z][\w-]*)[^,{]*\{([^}]*)\}/g)) {
+      classStyles.set(match[1], `${classStyles.get(match[1]) ?? ""};${match[2]}`);
+    }
+  }
+  document.body.querySelectorAll("[class]").forEach((element) => {
+    const fromClasses = Array.from(element.classList).map((name) => classStyles.get(name) ?? "").join(";");
+    if (fromClasses) element.setAttribute("style", `${fromClasses};${element.getAttribute("style") ?? ""}`);
+  });
   return Array.from(document.body.childNodes).map(renderNode).join("")
     .replace(/\u00a0/g, " ")
     .replace(/[\u0000\u200B\uFEFF]/g, "")
@@ -85,6 +114,20 @@ export function richTextToMarkdown(html: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .replace(/ ?([,.;:!?])/g, "$1")
     .trim();
+}
+
+/** Plain clipboard text is not automatically Markdown. Writer copies one
+ * paragraph per physical line; treating those newlines as Markdown soft-wraps
+ * destroys every paragraph. Explicit Markdown constructs keep their original
+ * meaning, while ordinary multi-line prose gets real paragraph boundaries. */
+export function plainTextToMarkdown(value: string): string {
+  const text = value.replace(/\r\n?/g, "\n").replace(/[\u0000\u200B\uFEFF]/g, "").trim();
+  if (!text) return "";
+  const looksLikeMarkdown = /^(?:#{1,6}\s|>\s|[-+*]\s|\d+[.)]\s|```|~~~|---\s*$)/m.test(text)
+    || /(?:\*\*[^*]+\*\*|\[[^\]]+\]\([^\s)]+\)|<u>)/.test(text);
+  if (looksLikeMarkdown || /\n\s*\n/.test(text)) return text;
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  return lines.length > 1 ? lines.join("\n\n") : text;
 }
 
 function escapeHtml(value: string): string {
@@ -154,4 +197,22 @@ export function markdownToEditorHtml(markdown: string, ornament = "❦"): string
   }
   flush();
   return blocks.join("") || "<p><br></p>";
+}
+
+/** Fast in-frame draft rendering. Pandoc remains authoritative and replaces
+ * this result after its debounced render; this version makes a 100k-word paste
+ * visible immediately instead of leaving a blank reader while Pandoc works. */
+export function markdownToPreviewHtml(markdown: string, ornament = "❦"): string {
+  return markdownToEditorHtml(markdown, ornament)
+    .replace(/class="editor-scene-break"/g, 'class="scene-break" role="separator"')
+    .replace(/\scontenteditable="false"/g, "");
+}
+
+/** Conservative language detection used only when the book is still on the
+ * default English metadata but the pasted manuscript is unambiguously Polish. */
+export function detectPastedLanguage(markdown: string): "pl" | null {
+  const sample = markdown.slice(0, 120_000).toLocaleLowerCase();
+  const diacritics = sample.match(/[ąćęłńóśźż]/g)?.length ?? 0;
+  const functionWords = sample.match(/\b(?:się|nie|jest|oraz|który|która|przez|jego|jej|był|była|żeby|może|tylko|jeszcze|tego|tych)\b/g)?.length ?? 0;
+  return sample.length >= 400 && (diacritics >= 8 || (diacritics >= 3 && functionWords >= 8)) ? "pl" : null;
 }

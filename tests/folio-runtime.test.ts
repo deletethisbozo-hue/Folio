@@ -16,7 +16,7 @@ const check = (label: string, ok: boolean, detail = "") => {
 };
 
 const app = express();
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "64mb" }));
 registerApi(app);
 registerEditorApi(app);
 const server = app.listen(0, "127.0.0.1");
@@ -90,13 +90,14 @@ check("preview contains the transient editor draft", preview.status === 200 && p
 check("preview contains selected theme CSS", preview.body.html.includes("Old English Text MT"));
 check("preview renders exactly the selected section", (preview.body.html.match(/<section/g) ?? []).length === 1);
 
-const longDraft = Array.from({ length: 220 }, (_, index) =>
-  `Paragraph ${index + 1}. This is a long imported manuscript with enough ordinary words to exercise the complete live preview pipeline without truncation or layout collapse${index === 219 ? " LONG PASTE FINAL MARKER" : ""}.`,
+const longDraft = Array.from({ length: 5200 }, (_, index) =>
+  `Akapit ${index + 1}. Najprawdopodobniej profesjonalne formatowanie całej książki powinno zachowywać wszystkie akapity oraz wyróżnienia bez niekontrolowanych odstępów pomiędzy zwyczajnymi słowami podczas dokładnego podglądu czytnika${index === 5199 ? " WHOLE BOOK SERVER MARKER" : ""}.`,
 ).join("\n\n");
 const longPreview = await post(`/api/projects/${projectId}/preview`, {
-  meta: sample.body.meta, theme: "folio", typography: {}, previewSectionId: chapter.id, draft: longDraft,
+  meta: { ...sample.body.meta, language: "pl" }, theme: "folio", typography: { bodyAlign: "justify" }, previewSectionId: chapter.id, draft: longDraft,
 });
-check("multi-thousand-word pasted manuscript keeps a non-empty preview", longPreview.status === 200 && longPreview.body.html.includes("LONG PASTE FINAL MARKER") && longPreview.body.html.length > longDraft.length);
+check("100,000-word manuscript survives the exact Pandoc preview", longPreview.status === 200 && longPreview.body.html.includes("WHOLE BOOK SERVER MARKER") && longPreview.body.html.length > longDraft.length);
+check("justified preview carries professional hyphenation rules", longPreview.body.html.includes("hyphenate-limit-chars: 7 3 3") && longPreview.body.html.includes("text-align-last: left"));
 
 const savedText = `${section.body.markdown}\n\nCopy-on-write save probe.`;
 const saved = await json(`/api/projects/${projectId}/sections/${encodeURIComponent(chapter.id)}`, {

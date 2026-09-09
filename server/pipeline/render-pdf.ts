@@ -4,6 +4,7 @@ import type { Book } from "./types.ts";
 import { renderHtml } from "./render-html.ts";
 import { alignDropCaps } from "./dropcap.ts";
 import { AppError } from "../errors.ts";
+import { applyProfessionalHyphenation } from "./hyphenation.ts";
 
 let browserPromise: Promise<Browser> | null = null;
 
@@ -39,6 +40,7 @@ export async function renderPdf(book: Book): Promise<Buffer> {
   const page = await browser.newPage();
   try {
     await page.setContent(html, { waitUntil: "load" });
+    await applyProfessionalHyphenation(page, book);
     await alignDropCaps(page);
     const pdf = await page.pdf({
       printBackground: true,

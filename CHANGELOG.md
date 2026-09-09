@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-09
+
+### Added
+- Deterministic Polish and English hyphenation patterns for live preview, reading PDF, and print PDF composition.
+- Immediate in-frame draft composition followed by the authoritative Pandoc render, so production-size pastes remain visible while exact output is generated.
+- Automatic Polish language recognition for an unambiguously Polish manuscript pasted into a book still using the default English metadata.
+
+### Changed
+- Full-document rich paste now writes the canonical document model directly instead of inserting and re-serializing a six-figure-word DOM.
+- Plain Writer clipboard text preserves every physical paragraph while explicit Markdown remains Markdown.
+- Justification is scoped to body prose, preserves ragged final lines, uses discretionary language-aware breaks, and no longer contaminates title pages, subtitles, ornaments, or other display matter.
+- Preview requests are abortable and use a longer stabilization window for production-size manuscripts.
+- JSON document capacity increased from 5 MB to 64 MB.
+
+### Fixed
+- LibreOffice/Word formatting stored in generated CSS classes is resolved into semantic bold, italic, and underline instead of being discarded.
+- Whitespace surrounding adjacent styled spans is retained, preventing pasted words from being glued together.
+
+### Tests
+- Browser and packaged-Windows acceptance now paste a realistic Writer HTML document exceeding 100,000 words, verify the final marker, autosave, live preview, and persistent centered device geometry.
+- The exact server/Pandoc preview is independently tested with a 100,000-word Polish manuscript and professional justification rules.
+
 ## [0.2.3] - 2026-09-09
 
 ### Fixed

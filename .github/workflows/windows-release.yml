@@ -34,6 +34,12 @@ jobs:
         shell: pwsh
         run: npm ci --no-audit --no-fund
 
+      - name: Read Folio version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Download bundled Pandoc
         shell: pwsh
         env:
@@ -72,7 +78,7 @@ jobs:
         run: |
           $env:FOLIO_E2E_PORT = "43127"
           $env:FOLIO_E2E_DEBUG_PORT = "43128"
-          $exe = Resolve-Path "release\Folio-0.2.3-portable.exe"
+          $exe = Resolve-Path "release\Folio-$env:FOLIO_VERSION-portable.exe"
           $process = Start-Process -FilePath $exe -PassThru
           try {
             $base = "http://127.0.0.1:43127"
@@ -142,7 +148,7 @@ jobs:
       - name: Verify release assets
         shell: pwsh
         run: |
-          $required = @("release\Folio-0.2.3-setup.exe", "release\Folio-0.2.3-portable.exe")
+          $required = @("release\Folio-$env:FOLIO_VERSION-setup.exe", "release\Folio-$env:FOLIO_VERSION-portable.exe")
           foreach ($file in $required) {
             if (-not (Test-Path $file)) { throw "Missing release asset: $file" }
             if ((Get-Item $file).Length -lt 1MB) { throw "Release asset is unexpectedly small: $file" }
@@ -152,10 +158,10 @@ jobs:
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-0.2.3-Windows
+          name: Folio-${{ env.FOLIO_VERSION }}-Windows
           path: |
-            release/Folio-0.2.3-setup.exe
-            release/Folio-0.2.3-portable.exe
+            release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
+            release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -163,11 +169,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.2.3 2>$null
-          if ($LASTEXITCODE -eq 0) { gh release delete v0.2.3 --cleanup-tag --yes }
-          gh release create v0.2.3 `
-            release\Folio-0.2.3-setup.exe `
-            release\Folio-0.2.3-portable.exe `
+          $tag = "v$env:FOLIO_VERSION"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) { gh release delete $tag --cleanup-tag --yes }
+          gh release create $tag `
+            "release\Folio-$env:FOLIO_VERSION-setup.exe" `
+            "release\Folio-$env:FOLIO_VERSION-portable.exe" `
             --target "$env:GITHUB_SHA" `
-            --title "Folio 0.2.3 for Windows" `
-            --notes "Persistent centered live preview after large LibreOffice and Word pastes; last-good-preview fallback with visible errors; WYSIWYG rich-text editor; inline chapter rename and recoverable delete; cover upload; 24 ornamental scene breaks; professional ebook and print typography; 20 themes; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export."
+            --title "Folio $env:FOLIO_VERSION for Windows" `
+            --notes "Production-size Writer and Word paste (100,000+ words); immediate live draft preview with exact Pandoc refinement; Polish and English language-aware hyphenation; controlled justification without stretched final lines; rich-text formatting and paragraph preservation; chapter and cover controls; 24 ornamental breaks; 20 themes; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export."

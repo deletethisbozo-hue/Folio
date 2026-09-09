@@ -8,6 +8,7 @@ import { getBrowser } from "./render-pdf.ts";
 import { ROOT, THEMES_DIR, resolveAppResource } from "./paths.ts";
 import { alignDropCaps } from "./dropcap.ts";
 import { autoGutter, buildPageCss, estimatePages, getTrim, type PrintOptions } from "../print.ts";
+import { applyProfessionalHyphenation } from "./hyphenation.ts";
 
 export interface PrintMeta {
   pages: number; // actual paginated page count
@@ -69,6 +70,7 @@ async function withPaginated<T>(
   const page = await browser.newPage();
   try {
     await page.setContent(html, { waitUntil: "load" });
+    await applyProfessionalHyphenation(page, book);
     // Seat the drop caps before pagination — the correction changes how text
     // wraps around the float, so it has to settle before pages are measured.
     await alignDropCaps(page);

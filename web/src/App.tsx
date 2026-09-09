@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
-import { markdownToEditorHtml, richTextToMarkdown } from "./rich-text";
+import {
+  detectPastedLanguage,
+  markdownToEditorHtml,
+  markdownToPreviewHtml,
+  plainTextToMarkdown,
+  richTextToMarkdown,
+} from "./rich-text";
+import { hyphenatePreviewDocument } from "./hyphenation";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
 type PreviewMode = "kindle-paperwhite" | "kindle-oasis" | "ipad" | "iphone" | "android" | "print";
@@ -113,14 +120,16 @@ export default function App() {
   useEffect(() => {
     if (!project || !meta || !selectedId || document?.id !== selectedId) return;
     let cancelled = false;
+    const controller = new AbortController();
     setPreviewLoading(true);
     const timer = window.setTimeout(async () => {
       try {
         const result = previewMode === "print"
-          ? await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, draft)
-          : await api.preview(project.projectId, meta, meta.theme, typography, selectedId, draft);
+          ? await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, draft, controller.signal)
+          : await api.preview(project.projectId, meta, meta.theme, typography, selectedId, draft, controller.signal);
         if (!cancelled) { setPreviewHtml(result.html); setPreviewError(null); }
       } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
         if (!cancelled) {
           const message = e instanceof Error ? e.message : String(e);
           setPreviewError(message); setError(message);
@@ -128,9 +137,33 @@ export default function App() {
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
-    }, 240);
-    return () => { cancelled = true; window.clearTimeout(timer); };
+    }, draft.length > 250_000 ? 700 : 240);
+    return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, draft]);
+
+  // A full-book paste must not wait for Pandoc. Update the already loaded
+  // section in the iframe immediately; the authoritative Pandoc render replaces
+  // it after the debounce. This also means a slow/aborted background conversion
+  // can never make the visible reader go blank.
+  useEffect(() => {
+    if (previewMode === "print" || !selectedId || document?.id !== selectedId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const previewDocument = previewRef.current?.contentDocument;
+      const section = previewDocument?.getElementById(selectedId);
+      if (!previewDocument || !section) return;
+      const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
+      const subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
+      Array.from(section.children).forEach((node) => {
+        if (node !== heading && node !== subtitle) node.remove();
+      });
+      const template = previewDocument.createElement("template");
+      const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
+      template.innerHTML = markdownToPreviewHtml(draft, ornament);
+      section.appendChild(template.content);
+      if (typography.bodyAlign === "justify") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [draft, document?.id, selectedId, previewMode, typography.sceneOrnament, typography.bodyAlign, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -323,16 +356,20 @@ export default function App() {
       const scale = Math.min(1, (frame.clientWidth - 14) / width);
       style.textContent = `.pagedjs_pages{transform:scale(${scale});transform-origin:top center;width:${100 / scale}%!important;margin-left:${(100 - 100 / scale) / 2}%!important}.pagedjs_page{margin:10px auto!important}`;
     } else {
+      const narrowRagged = "body.book-formatter main.book section.chapter>p,body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:none!important;hyphens:none!important;text-wrap:pretty!important}";
       const profileCss: Record<Exclude<PreviewMode, "print">, string> = {
         "kindle-paperwhite": "body{font-size:13px!important}main.book{padding:42px 32px 64px!important}",
         "kindle-oasis": "body{font-size:13.5px!important}main.book{padding:40px 38px 64px!important}",
         ipad: "body{font-size:14px!important}main.book{padding:56px 52px 76px!important}",
-        iphone: "body{font-size:12.5px!important;text-align:left!important;hyphens:none!important}p,li{text-align-last:left!important}main.book{padding:36px 24px 58px!important}",
-        android: "body{font-size:12.5px!important;text-align:left!important;hyphens:none!important}p,li{text-align-last:left!important}main.book{padding:34px 22px 56px!important}",
+        iphone: `body{font-size:12.5px!important;text-align:left!important;hyphens:none!important}main.book{padding:36px 24px 58px!important}${narrowRagged}`,
+        android: `body{font-size:12.5px!important;text-align:left!important;hyphens:none!important}main.book{padding:34px 22px 56px!important}${narrowRagged}`,
       };
       style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}" + profileCss[previewMode];
     }
     doc.head.appendChild(style);
+    if (previewMode !== "print" && typography.bodyAlign === "justify") {
+      hyphenatePreviewDocument(doc, meta?.language || "en");
+    }
     doc.scrollingElement?.scrollTo(0, 0);
   }
 
@@ -383,15 +420,42 @@ export default function App() {
     if (!document?.editable) return;
     const html = event.clipboardData.getData("text/html");
     const plain = event.clipboardData.getData("text/plain");
-    const markdown = html.trim() ? richTextToMarkdown(html) : plain.replace(/\r\n/g, "\n");
+    const markdown = html.trim() ? richTextToMarkdown(html) : plainTextToMarkdown(plain);
     if (!markdown) return;
     event.preventDefault();
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
-    // execCommand silently truncates/rejects sufficiently large Writer HTML in
-    // Chromium. A real DocumentFragment has no command-buffer limit and keeps
-    // every paragraph before we derive the Markdown source.
-    insertEditorHtml(markdownToEditorHtml(markdown, ornament));
-    recordEditorDom();
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    const editorText = editor?.innerText.trim() ?? "";
+    const selectedText = selection?.toString().trim() ?? "";
+    const replacesDocument = !editorText || (selectedText.length > 0 && selectedText.length >= editorText.length * 0.9);
+
+    if (editor && replacesDocument) {
+      // Do not insert and then serialise a 100k-word DOM a second time. The
+      // clipboard was already converted to the canonical Markdown model.
+      editor.innerHTML = markdownToEditorHtml(markdown, ornament);
+      editor.dataset.markdown = markdown;
+      editor.dataset.ornament = ornament;
+      const range = window.document.createRange();
+      range.selectNodeContents(editor); range.collapse(false);
+      selection?.removeAllRanges(); selection?.addRange(range);
+      recordDraft(markdown);
+    } else {
+      insertEditorHtml(markdownToEditorHtml(markdown, ornament));
+      recordEditorDom();
+    }
+
+    const detected = detectPastedLanguage(markdown);
+    if (detected && meta && project && /^en(?:-|$)/i.test(meta.language || "en")) {
+      const nextMeta = { ...meta, language: detected };
+      setMeta(nextMeta);
+      // Language is a composition input, not a cosmetic hint. Persist a very
+      // confident detection so reopening the project keeps the same Polish
+      // hyphenation and EPUB language metadata.
+      void api.saveMeta(project.projectId, nextMeta)
+        .then((summary) => { setProject(summary); setMeta(summary.meta); })
+        .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    }
   }
 
   function recordEditorDom() {

@@ -147,11 +147,13 @@ export const api = {
     typography: Typography,
     previewSectionId?: string,
     draft?: string,
+    signal?: AbortSignal,
   ) =>
     fetch(`/api/projects/${projectId}/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ meta, theme, typography, previewSectionId, draft }),
+      signal,
     }).then((r) => json<{ html: string }>(r)),
 
   previewPrint: (
@@ -162,11 +164,13 @@ export const api = {
     typography: Typography,
     previewSectionId?: string,
     draft?: string,
+    signal?: AbortSignal,
   ) =>
     fetch(`/api/projects/${projectId}/preview-print`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft }),
+      signal,
     }).then((r) => json<PrintPreviewResult>(r)),
 
   saveExportSettings: (projectId: string, bluesOutput: string) =>
