@@ -40,7 +40,7 @@ try {
   });
   await page.keyboard.press("Enter");
   await page.keyboard.type("PACKAGED UI DRAFT");
-  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED UI DRAFT"), { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes("PACKAGED UI DRAFT"), { timeout: 15000 });
   await page.$eval(".rich-editor", (element) => {
     element.focus();
     const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
@@ -49,7 +49,7 @@ try {
     transfer.setData("text/html", "<p>Packaged Libre paragraph</p><p><strong>Second paragraph</strong></p>");
     element.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
-  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("Packaged Libre paragraph"), { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes("Packaged Libre paragraph"), { timeout: 15000 });
   await page.click('[title="Insert ornamental scene break"]');
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break")), { timeout: 15000 });
   await page.click(".preview-style-button");
@@ -76,7 +76,7 @@ try {
     const markdown = document.querySelector(".rich-editor")?.dataset.markdown || "";
     return markdown.includes("PACKAGED WHOLE BOOK MARKER") && (markdown.match(/\S+/g)?.length || 0) > 100000;
   }, { timeout: 30000 });
-  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED WHOLE BOOK MARKER"), { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes("PACKAGED WHOLE BOOK MARKER"), { timeout: 30000 });
   const deviceVisible = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage").getBoundingClientRect();
     const device = document.querySelector(".reader-device").getBoundingClientRect();
@@ -85,7 +85,7 @@ try {
   if (!deviceVisible) throw new Error("Packaged preview device disappeared after a large rich-text paste.");
   await page.click(".section-title-button");
   await page.waitForSelector(".section-title-input");
-  await page.click(".section-title-input", { clickCount: 3 });
+  await page.$eval(".section-title-input", (element) => element.select());
   await page.keyboard.type("Packaged Renamed Chapter");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Packaged Renamed Chapter"), { timeout: 15000 });
