@@ -281,7 +281,8 @@ try {
 
   await page.click(".section-title-button");
   await stage("chapter title editor", () => page.waitForSelector(".section-title-input"));
-  await page.click(".section-title-input", { clickCount: 3 });
+  await page.click(".section-title-input");
+  await page.keyboard.press("Control+A");
   await page.keyboard.type("Renamed in UI");
   await page.keyboard.press("Enter");
   await stage("chapter renamed", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Renamed in UI")));
@@ -295,7 +296,7 @@ try {
   await page.keyboard.press("Enter");
   await stage("chapter subtitle preview", async () => {
     try {
-      await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.querySelector(".chapter-subtitle")?.textContent?.includes("Editable subtitle"));
+      await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.querySelector(".chapter-subtitle")?.textContent?.replace(/\u00ad/g, "").includes("Editable subtitle"));
     } catch (error) {
       const snapshot = await page.evaluate(() => {
         const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
