@@ -114,10 +114,10 @@ const md = renderMarkdown(sample);
 // test silently had no baseline on any machine but the one that made it.
 const ref = JSON.parse(await fs.readFile(path.join(ROOT, "tests", "fixtures", "pipeline-reference.json"), "utf8"));
 
-// stylesheet1.css is base.css, which now carries the drop-cap seating fix — a
-// requested change, not a regression. Everything else must still match exactly,
-// which is what actually proves nothing else moved.
-const INTENDED = new Set(["EPUB/styles/stylesheet1.css"]);
+// stylesheet1.css is base.css and stylesheet2.css is the selected Classic
+// theme. Both intentionally changed as part of the preview/theme correction;
+// every content, metadata, image, and font entry must remain byte-identical.
+const INTENDED = new Set(["EPUB/styles/stylesheet1.css", "EPUB/styles/stylesheet2.css"]);
 const refUni = new Map<string, number>(Object.entries(ref.epubUniversal));
 const newUni = await entries(path.join(outDir, "sample-universal.epub"));
 const uniDiffs = [...newUni.entries()].filter(
@@ -129,8 +129,8 @@ check(
   uniDiffs.map(([n]) => n).join(", ") || `${newUni.size} entries, ${INTENDED.size} intentionally changed`,
 );
 check(
-  "   the drop-cap stylesheet did change",
-  newUni.get("EPUB/styles/stylesheet1.css") !== refUni.get("EPUB/styles/stylesheet1.css"),
+  "   both intended stylesheets did change",
+  [...INTENDED].every((name) => newUni.get(name) !== refUni.get(name)),
 );
 
 // KDP has no pre-work reference (the preset was inert, so both presets were the

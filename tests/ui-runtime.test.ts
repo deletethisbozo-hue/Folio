@@ -15,6 +15,14 @@ const check = (label: string, ok: boolean, detail = "") => {
   ok ? pass++ : fail++;
 };
 
+async function stage<T>(name: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    throw new Error(`UI stage failed: ${name}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
+}
+
 const app = express();
 app.use(express.json({ limit: "5mb" }));
 registerApi(app);
@@ -30,16 +38,18 @@ console.log("\nFolio browser UI");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  page.setDefaultTimeout(15000);
   await page.setViewport({ width: 1440, height: 900 });
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
 
-  await page.goto(base, { waitUntil: "networkidle0" });
-  await page.evaluate(() => {
+  await stage("load workspace", () => page.goto(base, { waitUntil: "networkidle0" }));
+  await stage("click Open Sample", () => page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Open Sample"));
-    (button as HTMLButtonElement | undefined)?.click();
-  });
-  await page.waitForSelector("textarea:not([readonly])");
+    if (!button) throw new Error("Open Sample button is missing");
+    (button as HTMLButtonElement).click();
+  }));
+  await stage("sample editable textarea", () => page.waitForSelector("textarea:not([readonly])"));
   check("sample opens in a genuinely editable textarea", await page.$eval("textarea", (el) => !(el as HTMLTextAreaElement).readOnly));
 
   await page.$eval("textarea", (el) => {
@@ -48,11 +58,11 @@ try {
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   });
   await page.keyboard.type("\n\nBROWSER LIVE DRAFT");
-  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("BROWSER LIVE DRAFT"));
+  await stage("sample live draft preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("BROWSER LIVE DRAFT")));
   check("typing updates the visible device preview before autosave", true);
 
   await page.click('[title="Insert ornamental scene break"]');
-  await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break")));
+  await stage("ornamental break preview", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break"))));
   check("ornamental break button inserts Markdown and renders the theme ornament", await page.$eval("textarea", (el) => (el as HTMLTextAreaElement).value.includes("---")));
   await page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 10000 });
   check("the browser flow reaches Saved instead of Save failed", true);
