@@ -180,9 +180,26 @@ export default function App() {
   function applyLiveDraftToPreview() {
     if (previewMode === "print" || !selectedId || document?.id !== selectedId) return;
     const previewDocument = previewRef.current?.contentDocument;
-    const section = previewDocument?.getElementById(selectedId)
-      ?? previewDocument?.querySelector("main.book > section.level1, main.book > section.chapter");
-    if (!previewDocument || !section) return;
+    if (!previewDocument) return;
+    let section = previewDocument.getElementById(selectedId)
+      ?? previewDocument.querySelector("main.book > section.level1, main.book > section.chapter");
+    // A newly created/renamed chapter can become editable before the full-book
+    // Pandoc request finishes. Seed a minimal semantic page instead of leaving
+    // the reader blank; the authoritative HTML replaces it when ready.
+    if (!section) {
+      const main = previewDocument.querySelector("main.book") ?? previewDocument.createElement("main");
+      if (!main.isConnected) { main.className = "book"; previewDocument.body.appendChild(main); }
+      const seeded = previewDocument.createElement("section");
+      const seededHeading = previewDocument.createElement("h1");
+      previewDocument.body.classList.add("book-formatter");
+      seeded.id = selectedId;
+      seeded.className = "level1 chapter";
+      seededHeading.className = "chapter";
+      seeded.appendChild(seededHeading);
+      main.appendChild(seeded);
+      section = seeded;
+    }
+    section.id = selectedId;
     const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
     if (heading) heading.textContent = document.title;
     let subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
