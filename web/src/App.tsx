@@ -348,11 +348,17 @@ export default function App() {
 
   async function updateCurrentChapterHeading(change: { title?: string; subtitle?: string }) {
     if (!project || !selectedId || selectedSection?.kind !== "chapter") return;
+    const previousDocument = document;
     const title = change.title?.trim();
     const subtitle = change.subtitle?.trim() ?? "";
     if (change.title !== undefined && (!title || title === selectedSection.title)) return;
     if (change.subtitle !== undefined && subtitle === (document?.subtitle ?? "")) return;
     if (!(await saveCurrent())) return;
+    // Subtitle rendering is a local composition change and must stay instant
+    // even when rewriting/re-ingesting a 100,000-word source takes seconds.
+    if (change.subtitle !== undefined && document) {
+      setDocument({ ...document, subtitle: subtitle || undefined });
+    }
     setBusy(true); setError(null);
     try {
       const updated = await api.updateSectionHeading(project.projectId, selectedId, {
@@ -371,7 +377,10 @@ export default function App() {
       } else {
         adopt(summary, updated.id);
       }
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    } catch (e) {
+      if (change.subtitle !== undefined && selectedRef.current === selectedId) setDocument(previousDocument);
+      setError(e instanceof Error ? e.message : String(e));
+    }
     finally { setBusy(false); }
   }
 

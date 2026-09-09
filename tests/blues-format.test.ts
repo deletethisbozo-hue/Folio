@@ -195,10 +195,15 @@ const stamps = await p.evaluate(() => {
     ).length,
     // The SOP calls for ragged right and no hyphenation: justified rivers and
     // line-end hyphens both read as pencil strokes on a marked-up page.
-    bodyParas: document.querySelectorAll(".pagedjs_page section.chapter p").length,
-    bodyRagged: Array.from(document.querySelectorAll(".pagedjs_page section.chapter p")).filter((el) => {
+    bodyParas: document.querySelectorAll(".pagedjs_page section.chapter p:not(.scene-break)").length,
+    bodyRagged: Array.from(document.querySelectorAll(".pagedjs_page section.chapter p:not(.scene-break)")).filter((el) => {
       const cs = getComputedStyle(el);
       return cs.textAlign === "left" && cs.hyphens === "none";
+    }).length,
+    sceneBreaks: document.querySelectorAll(".pagedjs_page section.chapter p.scene-break").length,
+    centredSceneBreaks: Array.from(document.querySelectorAll(".pagedjs_page section.chapter p.scene-break")).filter((el) => {
+      const cs = getComputedStyle(el);
+      return cs.textAlign === "center" && cs.textAlignLast === "center" && cs.hyphens === "none";
     }).length,
     hyphenatedBreaks: document.querySelectorAll(".pagedjs_hyphen").length,
     coverPageIndex: pages.findIndex((pg) => pg.querySelector(".blues-cover")),
@@ -232,6 +237,11 @@ check(
   "   body text is ragged right with no hyphenation (SOP)",
   stamps.bodyParas > 0 && stamps.bodyRagged === stamps.bodyParas,
   `${stamps.bodyRagged}/${stamps.bodyParas}`,
+);
+check(
+  "   ornamental breaks stay centered outside prose alignment",
+  stamps.sceneBreaks > 0 && stamps.centredSceneBreaks === stamps.sceneBreaks,
+  `${stamps.centredSceneBreaks}/${stamps.sceneBreaks}`,
 );
 check("   no words broken across lines", stamps.hyphenatedBreaks === 0, `${stamps.hyphenatedBreaks} hyphenated breaks`);
 check("   the cover is page 1", stamps.coverPageIndex === 0);
