@@ -69,6 +69,18 @@ export const api = {
       body: JSON.stringify({ markdown }),
     }).then((r) => json<SectionDocument>(r)),
 
+  deleteSection: (projectId: string, sectionId: string) =>
+    fetch(`/api/projects/${projectId}/sections/${encodeURIComponent(sectionId)}`, {
+      method: "DELETE",
+    }).then((r) => json<{ ok: true }>(r)),
+
+  renameSection: (projectId: string, sectionId: string, title: string) =>
+    fetch(`/api/projects/${projectId}/sections/${encodeURIComponent(sectionId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    }).then((r) => json<SectionDocument>(r)),
+
   addChapter: (projectId: string, title: string, meta: Partial<BookMeta>) =>
     fetch("/api/projects/" + projectId + "/chapters", {
       method: "POST",

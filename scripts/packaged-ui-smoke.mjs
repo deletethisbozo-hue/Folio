@@ -31,24 +31,48 @@ try {
     if (!button) throw new Error("Open Sample button is missing from packaged Folio.");
     button.click();
   });
-  await page.waitForSelector("textarea:not([readonly])", { timeout: 15000 });
-  await page.$eval("textarea", (element) => {
+  await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 15000 });
+  await page.$eval(".rich-editor", (element) => {
     element.focus();
-    element.setSelectionRange(element.value.length, element.value.length);
+    const range = document.createRange();
+    range.selectNodeContents(element); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
   });
-  await page.keyboard.type("\n\nPACKAGED UI DRAFT");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("PACKAGED UI DRAFT");
   await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED UI DRAFT"), { timeout: 15000 });
+  await page.$eval(".rich-editor", (element) => {
+    element.focus();
+    const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+    const transfer = new DataTransfer();
+    transfer.setData("text/html", "<p>Packaged Libre paragraph</p><p><strong>Second paragraph</strong></p>");
+    element.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
+  });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("Packaged Libre paragraph"), { timeout: 15000 });
   await page.click('[title="Insert ornamental scene break"]');
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break")), { timeout: 15000 });
   await page.click(".preview-style-button");
   await page.waitForSelector(".theme-sample");
   const themes = await page.$$eval(".theme-sample", (items) => items.length);
   if (themes < 20) throw new Error("Packaged style browser contains only " + themes + " themes.");
+  await page.click(".style-category-list button:nth-child(6)");
+  const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
+  if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
   await page.click(".style-library-header button");
   const devices = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.length);
   if (devices < 6) throw new Error("Packaged preview contains only " + devices + " device modes.");
+  await page.click(".section-title-button");
+  await page.waitForSelector(".section-title-input");
+  await page.click(".section-title-input", { clickCount: 3 });
+  await page.keyboard.type("Packaged Renamed Chapter");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Packaged Renamed Chapter"), { timeout: 15000 });
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.click(".section-delete");
+  await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged UI passed: editable sample, live draft, ornament, 20 themes, 6 device profiles.");
+  console.log("Packaged UI passed: rich-text sample, LibreOffice paste, live draft, 20+ ornaments, rename/delete, 20 themes, 6 device profiles.");
 } finally {
   browser.disconnect();
 }

@@ -22,7 +22,16 @@ body {
   color: #000;
   font-size: 11pt;
   line-height: 1.4;
+  text-align: justify;
+  text-justify: inter-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 6 3 3;
+  hyphenate-limit-lines: 2;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures contextual;
 }
+p { widows:3; orphans:3; }
 
 /* Each chapter / front-matter section starts on a fresh page (the dynamic
    CSS may upgrade chapters to start on a recto). */

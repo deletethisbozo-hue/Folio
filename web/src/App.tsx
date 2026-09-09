@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
+import { markdownToEditorHtml, richTextToMarkdown } from "./rich-text";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
 type PreviewMode = "kindle-paperwhite" | "kindle-oasis" | "ipad" | "iphone" | "android" | "print";
@@ -22,6 +23,11 @@ const previewProfiles: Array<{ value: PreviewMode; label: string }> = [
   { value: "iphone", label: "Apple · iPhone" },
   { value: "android", label: "Android · Phone" },
   { value: "print", label: "Print · Pages" },
+];
+const sceneOrnaments = [
+  "⁂", "❦", "❧", "✦", "◆", "◇", "◈", "❖", "※", "⁕",
+  "✺", "✠", "☾", "☼", "§", "∞", "• • •", "· · ·", "* * *",
+  "— ✦ —", "— ◆ —", "~ ✦ ~", "☙ ❦ ❧", "◆ ◆ ◆",
 ];
 
 function wordCount(text: string): number {
@@ -55,8 +61,9 @@ export default function App() {
   const [styleCategory, setStyleCategory] = useState<StyleCategory>("Book Style");
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [coverVersion, setCoverVersion] = useState(0);
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
-  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
   const draftRef = useRef(draft);
   const selectedRef = useRef(selectedId);
@@ -65,6 +72,14 @@ export default function App() {
 
   useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
+  useEffect(() => {
+    const editor = editorRef.current;
+    const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
+    if (!editor || !document || (editor.dataset.markdown === draft && editor.dataset.ornament === ornament)) return;
+    editor.innerHTML = markdownToEditorHtml(draft, ornament);
+    editor.dataset.markdown = draft;
+    editor.dataset.ornament = ornament;
+  }, [document?.id, draft, typography.sceneOrnament, meta?.theme, themes]);
   useEffect(() => {
     Promise.all([api.themes(), api.matterTypes()])
       .then(([loadedThemes, loadedMatter]) => { setThemes(loadedThemes); setMatterTypes(loadedMatter); })
@@ -140,7 +155,7 @@ export default function App() {
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => onPreviewLoad());
     return () => window.cancelAnimationFrame(frame);
-  }, [previewMode, previewHtml, printOptions.trim]);
+  }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
     setProject(summary); setMeta(summary.meta); setTypography(summary.typography ?? {});
@@ -215,6 +230,42 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  async function deleteCurrentChapter() {
+    if (!project || !selectedId || selectedSection?.kind !== "chapter") return;
+    if (!window.confirm(`Delete “${selectedSection.title}”?\n\nFolio will move the source to .folio-trash so it can be recovered.`)) return;
+    const currentIndex = chapters.findIndex((chapter) => chapter.id === selectedId);
+    setBusy(true); setError(null); setDirty(false); setDocument(null);
+    try {
+      await api.deleteSection(project.projectId, selectedId);
+      const summary = await api.reload(project.projectId);
+      const remaining = summary.sections.filter((section) => section.kind === "chapter");
+      const fallback = remaining[Math.min(Math.max(currentIndex, 0), Math.max(remaining.length - 1, 0))];
+      adopt(summary, fallback?.id);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
+  async function renameCurrentChapter(title: string) {
+    if (!project || !selectedId || selectedSection?.kind !== "chapter" || title.trim() === selectedSection.title) return;
+    if (!(await saveCurrent())) return;
+    setBusy(true); setError(null);
+    try {
+      const renamed = await api.renameSection(project.projectId, selectedId, title);
+      adopt(await api.reload(project.projectId), renamed.id);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
+  async function uploadCover(file: File) {
+    if (!project) return;
+    setBusy(true); setError(null);
+    try {
+      const summary = await api.updateCover(project.projectId, file);
+      setProject(summary); setMeta(summary.meta); setCoverVersion((value) => value + 1);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
   async function saveBookDetails() {
     if (!project || !meta) return;
     setSaveState("saving");
@@ -279,29 +330,46 @@ export default function App() {
     doc.scrollingElement?.scrollTo(0, 0);
   }
 
-  function replaceSelection(before: string, after = "", placeholder = "") {
+  function applyInlineFormat(command: "bold" | "italic" | "underline", placeholder: string) {
     const el = editorRef.current;
     if (!el || !document?.editable) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const current = draftRef.current;
-    const selected = current.slice(start, end) || placeholder;
-    recordDraft(current.slice(0, start) + before + selected + after + current.slice(end));
-    requestAnimationFrame(() => { el.focus(); const at = start + before.length; el.setSelectionRange(at, at + selected.length); });
+    el.focus();
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      window.document.execCommand(command, false);
+      window.document.execCommand("insertText", false, placeholder);
+      window.document.execCommand(command, false);
+    } else window.document.execCommand(command, false);
+    requestAnimationFrame(recordEditorDom);
   }
 
   function insertSceneBreak() {
     const el = editorRef.current;
     if (!el || !document?.editable) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const current = draftRef.current;
-    const left = current.slice(0, start).replace(/[ \t]*\n*$/, "");
-    const right = current.slice(end).replace(/^\n*[ \t]*/, "");
-    const next = (left ? left + "\n\n" : "") + "---" + (right ? "\n\n" + right : "\n\n");
-    const caret = (left ? left.length + 2 : 0) + 3 + 2;
-    recordDraft(next);
-    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(caret, caret); });
+    const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
+    el.focus();
+    window.document.execCommand("insertHTML", false, `<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>${ornament.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span></div><p><br></p>`);
+    requestAnimationFrame(recordEditorDom);
+  }
+
+  function editorPaste(event: React.ClipboardEvent<HTMLDivElement>) {
+    if (!document?.editable) return;
+    const html = event.clipboardData.getData("text/html");
+    const plain = event.clipboardData.getData("text/plain");
+    const markdown = html.trim() ? richTextToMarkdown(html) : plain.replace(/\r\n/g, "\n");
+    if (!markdown) return;
+    event.preventDefault();
+    const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
+    window.document.execCommand("insertHTML", false, markdownToEditorHtml(markdown, ornament));
+    requestAnimationFrame(recordEditorDom);
+  }
+
+  function recordEditorDom() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const markdown = richTextToMarkdown(editor.innerHTML);
+    editor.dataset.markdown = markdown;
+    recordDraft(markdown);
   }
 
   function recordDraft(next: string) {
@@ -320,23 +388,20 @@ export default function App() {
     const to = command === "undo" ? redoRef.current : undoRef.current;
     const next = from.pop();
     if (next === undefined) return;
-    const caret = el?.selectionStart ?? next.length;
     to.push(draftRef.current);
     draftRef.current = next;
     setDraft(next); setDirty(true);
-    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(Math.min(caret, next.length), Math.min(caret, next.length)); });
+    if (el) { el.innerHTML = markdownToEditorHtml(next, typography.sceneOrnament ?? "❦"); el.dataset.markdown = next; el.focus(); }
   }
 
   function findNext() {
     const el = editorRef.current;
     if (!el || !searchQuery) return;
-    const lower = draft.toLocaleLowerCase();
-    let at = lower.indexOf(searchQuery.toLocaleLowerCase(), Math.max(el.selectionEnd, 0));
-    if (at < 0) at = lower.indexOf(searchQuery.toLocaleLowerCase());
-    if (at >= 0) { el.focus(); el.setSelectionRange(at, at + searchQuery.length); }
+    el.focus();
+    (window as Window & { find?: (text: string, caseSensitive?: boolean, backwards?: boolean, wrap?: boolean) => boolean }).find?.(searchQuery, false, false, true);
   }
 
-  function editorKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+  function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (!(event.ctrlKey || event.metaKey)) return;
     const key = event.key.toLowerCase();
     if (key === "z" || key === "y") {
@@ -344,9 +409,9 @@ export default function App() {
       history(key === "y" || event.shiftKey ? "redo" : "undo");
     } else if (key === "b" || key === "i" || key === "u") {
       event.preventDefault();
-      if (key === "b") replaceSelection("**", "**", "bold text");
-      if (key === "i") replaceSelection("*", "*", "italic text");
-      if (key === "u") replaceSelection("<u>", "</u>", "underlined text");
+      if (key === "b") applyInlineFormat("bold", "bold text");
+      if (key === "i") applyInlineFormat("italic", "italic text");
+      if (key === "u") applyInlineFormat("underline", "underlined text");
     } else if (key === "f") { event.preventDefault(); setShowSearch(true); }
     else if (key === "s") { event.preventDefault(); void saveCurrent(); }
   }
@@ -401,14 +466,14 @@ export default function App() {
 
       <section className="editor-pane">
         <div className="editor-topbar"><div className="topbar-title">{meta.title}</div><div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div></div>
-        <div className="section-titlebar"><div className="section-title-wrap">{chapterIndex ? <span className="section-index">{chapterIndex}.</span> : null}<span className="section-title">{selectedSection?.title ?? document?.title ?? ""}</span></div><button className="section-gear" title="Style settings" onClick={() => setShowStyle(true)}>⚙⌄</button></div>
+        <div className="section-titlebar"><ChapterTitle title={selectedSection?.title ?? document?.title ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onRename={(title) => void renameCurrentChapter(title)}/><div className="section-actions">{selectedSection?.kind === "chapter" && <button className="section-delete" title="Delete chapter" disabled={busy} onClick={() => void deleteCurrentChapter()}>Delete</button>}<button className="section-gear" title="Style settings" onClick={() => setShowStyle(true)}>⚙⌄</button></div></div>
         <div className="format-toolbar">
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)">↶</button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)">↷</button></div>
-          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => replaceSelection("**", "**", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => replaceSelection("*", "*", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => replaceSelection("<u>", "</u>", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button></div>
+          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)}>×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" onClick={() => setShowSearch(true)}>⌕</button>}
         </div>
-        <div className="editor-paper">{selectedId ? (document ? <textarea ref={editorRef} autoFocus className="manuscript-editor" value={draft} readOnly={!document.editable} spellCheck placeholder="Start writing…" onKeyDown={editorKeyDown} onChange={(event) => recordDraft(event.target.value)} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</div>
+        <div className="editor-paper">{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</div>
       </section>
 
       <section className="preview-pane">
@@ -421,7 +486,7 @@ export default function App() {
         <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onClose={() => setShowContent(false)}/>}
-      {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
+      {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
       {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}
     </div>
   );
@@ -436,10 +501,23 @@ function NewBookDialog(props: { value: { path: string; title: string; author: st
   return <DialogShell title="New Book" onClose={props.onCancel} footer={<><button className="native-button" onClick={props.onCancel}>Cancel</button><button className="native-button primary" disabled={props.busy || !value.title.trim()} onClick={props.onCreate}>Create Book</button></>}><label className="dialog-field"><span>Title</span><input autoFocus value={value.title} onChange={(e) => setValue({ ...value, title: e.target.value })}/></label><label className="dialog-field"><span>Author</span><input value={value.author} placeholder="Author name" onChange={(e) => setValue({ ...value, author: e.target.value })}/></label><label className="dialog-field"><span>Folder</span><input value={value.path} readOnly/></label></DialogShell>;
 }
 
-function BookDetailsDialog(props: { meta: BookMeta; setMeta: (meta: BookMeta) => void; busy: boolean; onClose: () => void; onSave: () => void }) {
+function ChapterTitle(props: { title: string; index: number | null; editable: boolean; busy: boolean; onRename: (title: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(props.title);
+  useEffect(() => { setValue(props.title); setEditing(false); }, [props.title]);
+  const commit = () => {
+    const title = value.trim();
+    setEditing(false);
+    if (title && title !== props.title) props.onRename(title);
+    else setValue(props.title);
+  };
+  return <div className="section-title-wrap">{props.index ? <span className="section-index">{props.index}.</span> : null}{editing ? <input className="section-title-input" autoFocus value={value} disabled={props.busy} onChange={(event) => setValue(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") commit(); if (event.key === "Escape") { setValue(props.title); setEditing(false); } }}/> : <button className="section-title section-title-button" disabled={!props.editable || props.busy} title={props.editable ? "Rename chapter" : undefined} onClick={() => props.editable && setEditing(true)}>{props.title}</button>}</div>;
+}
+
+function BookDetailsDialog(props: { meta: BookMeta; setMeta: (meta: BookMeta) => void; projectId: string; hasCover: boolean; coverVersion: number; onCover: (file: File) => void; busy: boolean; onClose: () => void; onSave: () => void }) {
   const { meta, setMeta } = props;
   const field = (label: string, key: keyof BookMeta, multiline = false) => <label className="dialog-field"><span>{label}</span>{multiline ? <textarea value={String(meta[key] ?? "")} onChange={(e) => setMeta({ ...meta, [key]: e.target.value })}/> : <input value={String(meta[key] ?? "")} onChange={(e) => setMeta({ ...meta, [key]: e.target.value })}/>}</label>;
-  return <DialogShell title="Book Details" onClose={props.onClose} footer={<><button className="native-button" onClick={props.onClose}>Cancel</button><button className="native-button primary" disabled={props.busy || !meta.title.trim()} onClick={props.onSave}>Save</button></>}><div className="details-grid">{field("Title", "title")}{field("Subtitle", "subtitle")}{field("Author", "author")}{field("Series", "series")}{field("Book number", "series_index")}{field("Publisher", "publisher")}{field("Language", "language")}{field("ISBN", "isbn")}</div>{field("Copyright text", "copyright", true)}{field("Description", "description", true)}</DialogShell>;
+  return <DialogShell title="Book Details" onClose={props.onClose} footer={<><button className="native-button" onClick={props.onClose}>Cancel</button><button className="native-button primary" disabled={props.busy || !meta.title.trim()} onClick={props.onSave}>Save</button></>}><div className="book-details-layout"><div className="cover-field"><div className="cover-thumbnail">{props.hasCover ? <img src={`/api/projects/${props.projectId}/cover?v=${props.coverVersion}`} alt="Book cover"/> : <span>No cover</span>}</div><label className="native-button cover-button">{props.hasCover ? "Replace cover…" : "Add cover…"}<input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onCover(file); }}/></label><small>PNG or JPEG. Embedded in EPUB and used by exports.</small></div><div><div className="details-grid">{field("Title", "title")}{field("Subtitle", "subtitle")}{field("Author", "author")}{field("Series", "series")}{field("Book number", "series_index")}{field("Publisher", "publisher")}{field("Language", "language")}{field("ISBN", "isbn")}</div>{field("Copyright text", "copyright", true)}{field("Description", "description", true)}</div></div></DialogShell>;
 }
 
 function ContentDialog(props: { matterTypes: MatterType[]; title: string; setTitle: (title: string) => void; busy: boolean; onAddChapter: () => void; onAddMatter: (type: MatterType) => void; onClose: () => void }) {
@@ -475,11 +553,11 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
   const row = (label: string, control: React.ReactNode) => <label className="customize-row"><span>{label}</span>{control}</label>;
   const fonts = <><option value="">Theme default</option><option value="Georgia, serif">Georgia</option><option value="Garamond, Georgia, serif">Garamond</option><option value="Baskerville, Georgia, serif">Baskerville</option><option value="Palatino, Georgia, serif">Palatino</option><option value="Cambria, Georgia, serif">Cambria</option><option value="Segoe UI, Arial, sans-serif">Segoe UI</option></>;
   return <div className="customize-panel"><h3>{category}</h3><p>Theme defaults already form a complete design. Override only what the book needs.</p>
-    {category === "Body" && <>{row("Typeface", <select value={ty.bodyFont ?? ""} onChange={(e) => setTy({ ...ty, bodyFont: e.target.value || undefined })}>{fonts}</select>)}{row("Size", <select value={ty.fontSize ?? "1em"} onChange={(e) => setTy({ ...ty, fontSize: e.target.value })}><option value="0.92em">Small</option><option value="1em">Standard</option><option value="1.08em">Large</option><option value="1.16em">Extra large</option></select>)}{row("Line spacing", <input type="range" min="1.3" max="1.8" step="0.05" value={Number(ty.lineHeight ?? 1.5)} onChange={(e) => setTy({ ...ty, lineHeight: Number(e.target.value) })}/>)}{row("Alignment", <select value={ty.bodyAlign ?? "justify"} onChange={(e) => setTy({ ...ty, bodyAlign: e.target.value as "left" | "justify" })}><option value="justify">Justified</option><option value="left">Ragged right</option></select>)}{row("Paragraph spacing", <select value={ty.paragraphSpacing ?? ""} onChange={(e) => setTy({ ...ty, paragraphSpacing: e.target.value || undefined })}><option value="">Theme default</option><option value="0">None</option><option value="0.5em">Compact</option><option value="1em">Open</option></select>)}</>}
+    {category === "Body" && <>{row("Typeface", <select value={ty.bodyFont ?? ""} onChange={(e) => setTy({ ...ty, bodyFont: e.target.value || undefined })}>{fonts}</select>)}{row("Size", <select value={ty.fontSize ?? "1em"} onChange={(e) => setTy({ ...ty, fontSize: e.target.value })}><option value="0.92em">Small</option><option value="1em">Standard</option><option value="1.08em">Large</option><option value="1.16em">Extra large</option></select>)}{row("Line spacing", <input type="range" min="1.3" max="1.8" step="0.05" value={Number(ty.lineHeight ?? 1.5)} onChange={(e) => setTy({ ...ty, lineHeight: Number(e.target.value) })}/>)}{row("Alignment", <select value={ty.bodyAlign ?? "left"} onChange={(e) => setTy({ ...ty, bodyAlign: e.target.value as "left" | "justify" })}><option value="left">Professional ragged right</option><option value="justify">Justified (print-width text)</option></select>)}{row("Paragraph spacing", <select value={ty.paragraphSpacing ?? ""} onChange={(e) => setTy({ ...ty, paragraphSpacing: e.target.value || undefined })}><option value="">Theme default</option><option value="0">None</option><option value="0.5em">Compact</option><option value="1em">Open</option></select>)}</>}
     {category === "Chapter Heading" && <>{row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{fonts}</select>)}{row("Size", <select value={ty.chapterTitle?.size ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, size: e.target.value || undefined } })}><option value="">Theme default</option><option value="1.4em">Compact</option><option value="1.8em">Standard</option><option value="2.2em">Large</option></select>)}{row("Alignment", <select value={ty.chapterTitle?.align ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, align: (e.target.value || undefined) as "left" | "center" | "right" | undefined } })}><option value="">Theme default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>)}{row("Letter case", <select value={ty.chapterTitle?.case ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, case: (e.target.value || undefined) as "normal" | "smallcaps" | "uppercase" | undefined } })}><option value="">Theme default</option><option value="normal">Normal</option><option value="smallcaps">Small caps</option><option value="uppercase">Uppercase</option></select>)}{row("Style", <select value={ty.chapterTitle?.style ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, style: (e.target.value || undefined) as "normal" | "italic" | undefined } })}><option value="">Theme default</option><option value="normal">Roman</option><option value="italic">Italic</option></select>)}</>}
     {category === "First Paragraph" && row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? "0"} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value })}><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
-    {category === "Scene Break" && row("Ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Theme default" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value || undefined })}/>)}
+    {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={!ty.sceneOrnament ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value || undefined })}/>)}</>}
     {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
     {category === "Title Page" && row("Title typeface", <select value={ty.titlePageFont ?? ""} onChange={(e) => setTy({ ...ty, titlePageFont: e.target.value || undefined })}>{fonts}</select>)}
   </div>;

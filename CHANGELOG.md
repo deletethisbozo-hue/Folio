@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-09
+
+### Added
+- WYSIWYG rich-text manuscript editing while retaining portable Markdown source files.
+- Paragraph-safe rich paste from LibreOffice, Word, and browser editors, including emphasis, underline, links, and lists.
+- Inline chapter renaming, recoverable chapter deletion, and cover upload with a real thumbnail.
+- Visual picker with 24 ornamental scene breaks and an additional custom-symbol field.
+
+### Changed
+- Reflowable previews default to professionally spaced ragged-right text; print retains page-width justification, hyphenation, kerning, ligatures, widow/orphan control, and balanced headings.
+- Preview devices are geometrically centered in the right pane.
+
+### Fixed
+- Narrow justified preview columns no longer produce stretched word gaps.
+- Standalone and combined-manuscript chapters are renamed and deleted through their exact retained source location.
+
 ## [0.2.1] - 2026-09-09
 
 ### Added

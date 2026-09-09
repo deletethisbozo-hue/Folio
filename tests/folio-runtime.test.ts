@@ -49,6 +49,19 @@ const createdDocument = await json("/api/projects/" + created.body.projectId + "
 check("new book's first chapter is editable", createdDocument.body.editable === true);
 const addedChapter = await post("/api/projects/" + created.body.projectId + "/chapters", { title: "Second Chapter", meta: created.body.meta });
 check("chapter API adds a second real source document", addedChapter.body.sections.filter((item: any) => item.kind === "chapter").length === 2);
+const secondChapter = addedChapter.body.sections.find((item: any) => item.title === "Second Chapter");
+const renamedChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(secondChapter.id)}`, {
+  method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Renamed Chapter" }),
+});
+check("chapter title can be renamed at its source", renamedChapter.status === 200 && renamedChapter.body.title === "Renamed Chapter");
+const deletedChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(renamedChapter.body.id)}`, { method: "DELETE" });
+const afterDelete = await post(`/api/projects/${created.body.projectId}/reload`, {});
+check("chapter can be deleted without destroying its source", deletedChapter.status === 200 && afterDelete.body.sections.filter((item: any) => item.kind === "chapter").length === 1 && (await fs.readdir(path.join(newBookDir, ".folio-trash"))).length === 1);
+const coverForm = new FormData();
+coverForm.append("cover", new Blob([Buffer.from("89504e470d0a1a0a", "hex")], { type: "image/png" }), "folio-cover.png");
+const covered = await json(`/api/projects/${created.body.projectId}/cover`, { method: "POST", body: coverForm });
+const coverResponse = await fetch(`${base}/api/projects/${created.body.projectId}/cover`);
+check("cover upload is persisted and served to the editor", covered.body.hasCover === true && coverResponse.status === 200 && coverResponse.headers.get("content-type") === "image/png");
 const addedMatter = await post("/api/projects/" + created.body.projectId + "/matter", { type: "dedication", placement: "frontmatter", meta: created.body.meta });
 const dedication = addedMatter.body.sections.find((item: any) => item.title === "Dedication");
 const dedicationDocument = await json("/api/projects/" + created.body.projectId + "/sections/" + encodeURIComponent(dedication.id));
@@ -105,6 +118,21 @@ await json(`/api/projects/${duplicates.body.projectId}/sections/${encodeURICompo
 });
 check("duplicate titles save to the exact ingested file", (await fs.readFile(secondPath, "utf8")).includes("Edited second") && (await fs.readFile(firstPath, "utf8")).includes("First file"));
 await fs.rm(duplicateDir, { recursive: true, force: true });
+
+const combinedDir = path.join(os.tmpdir(), `folio-combined-${crypto.randomUUID()}`);
+await fs.mkdir(combinedDir, { recursive: true });
+await fs.writeFile(path.join(combinedDir, "book.yaml"), "title: Combined\nauthor: Folio Test\nlanguage: en\ntheme: classic\nchapters: manuscript.md\n");
+const combinedPath = path.join(combinedDir, "manuscript.md");
+await fs.writeFile(combinedPath, "# Alpha\n\nAlpha body.\n\n# Beta\n\nBeta body.\n");
+const combined = await post("/api/projects/open-folder", { path: combinedDir });
+const beta = combined.body.sections.find((item: any) => item.title === "Beta");
+const renamedBeta = await json(`/api/projects/${combined.body.projectId}/sections/${encodeURIComponent(beta.id)}`, {
+  method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Gamma" }),
+});
+await json(`/api/projects/${combined.body.projectId}/sections/${encodeURIComponent(renamedBeta.body.id)}`, { method: "DELETE" });
+const combinedSource = await fs.readFile(combinedPath, "utf8");
+check("combined Markdown chapters rename and delete by exact ordinal", /# Alpha/.test(combinedSource) && !/# (?:Beta|Gamma)/.test(combinedSource));
+await fs.rm(combinedDir, { recursive: true, force: true });
 
 server.close();
 console.log(`\n${pass} passed, ${fail} failed`);

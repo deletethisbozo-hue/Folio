@@ -35,9 +35,14 @@ body#cover {
 body {
   margin: 0 5%;
   line-height: 1.5;
-  text-align: justify;
-  -webkit-hyphens: auto;
-  hyphens: auto;
+  text-align: left;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures contextual;
+  overflow-wrap: normal;
+  word-break: normal;
+  -webkit-hyphens: manual;
+  hyphens: manual;
   widows: 2;
   orphans: 2;
 }
@@ -95,6 +100,7 @@ main.book {
 p {
   margin: 0;
   text-indent: 1.25em;
+  hanging-punctuation: first last;
 }
 section > h1 + p,
 h1 + p,
@@ -110,6 +116,7 @@ h3 {
   font-weight: normal;
   line-height: 1.2;
   text-align: left;
+  text-wrap: balance;
 }
 
 /* --- Chapter subtitle (POV name / tagline under the chapter title) --- */
@@ -163,6 +170,8 @@ section.level1 {
   text-align: center;
   text-indent: 0;
   margin: 1.4em 0;
+  break-inside: avoid;
+  break-after: avoid;
 }
 
 /* --- Drop cap ---
