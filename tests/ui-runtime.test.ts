@@ -324,13 +324,13 @@ try {
 
   await page.click(".rich-editor");
   await page.keyboard.type(" DELETED CHAPTER PREVIEW MARKER");
-  await stage("deleted-chapter marker preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("DELETED CHAPTER PREVIEW MARKER")));
+  await stage("deleted-chapter marker preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.replace(/\u00ad/g, "").includes("DELETED CHAPTER PREVIEW MARKER")));
 
   page.once("dialog", (dialog) => void dialog.accept());
   await page.click(".section-delete");
   await stage("chapter deleted", () => page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Renamed in UI"))));
   check("chapter delete removes it from Contents", true);
-  await stage("deleted chapter removed from preview", () => page.waitForFunction(() => !document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("DELETED CHAPTER PREVIEW MARKER")));
+  await stage("deleted chapter removed from preview", () => page.waitForFunction(() => !document.querySelector("iframe")?.contentDocument?.body?.innerText.replace(/\u00ad/g, "").includes("DELETED CHAPTER PREVIEW MARKER")));
   check("deleted chapter text cannot remain in the preview", true);
 
   pickedFolder = emptyBook;
