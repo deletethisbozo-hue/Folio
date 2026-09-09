@@ -256,7 +256,7 @@ export default function App() {
   function onPreviewLoad() {
     const frame = previewRef.current;
     const doc = frame?.contentDocument;
-    if (!doc || !frame) return;
+    if (!doc?.head || !frame) return;
     doc.getElementById("folio-device-profile")?.remove();
     const style = doc.createElement("style");
     style.id = "folio-device-profile";
