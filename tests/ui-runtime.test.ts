@@ -291,8 +291,34 @@ try {
   await stage("chapter subtitle editor", () => page.waitForSelector(".section-subtitle-input"));
   await page.click(".section-subtitle-input");
   await page.keyboard.type("Editable subtitle");
+  check("chapter subtitle field receives keyboard input", await page.$eval(".section-subtitle-input", (el) => (el as HTMLInputElement).value === "Editable subtitle"));
   await page.keyboard.press("Enter");
-  await stage("chapter subtitle preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.querySelector(".chapter-subtitle")?.textContent?.includes("Editable subtitle")));
+  await stage("chapter subtitle preview", async () => {
+    try {
+      await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.querySelector(".chapter-subtitle")?.textContent?.includes("Editable subtitle"));
+    } catch (error) {
+      const snapshot = await page.evaluate(() => {
+        const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+        const frameDoc = frame?.contentDocument;
+        return {
+          active: (document.activeElement as HTMLElement | null)?.className ?? null,
+          selected: document.querySelector(".contents-row.selected")?.textContent ?? null,
+          subtitleButton: document.querySelector(".section-subtitle-button")?.textContent ?? null,
+          subtitleInput: (document.querySelector(".section-subtitle-input") as HTMLInputElement | null)?.value ?? null,
+          subtitleDisabled: (document.querySelector(".section-subtitle-button") as HTMLButtonElement | null)?.disabled ?? null,
+          save: document.querySelector(".save-indicator")?.textContent ?? null,
+          appError: document.querySelector(".global-error")?.textContent ?? null,
+          previewLoading: Boolean(document.querySelector(".preview-loading")),
+          previewError: document.querySelector(".preview-error")?.textContent ?? null,
+          frameReady: frameDoc?.readyState ?? null,
+          frameTitle: frameDoc?.querySelector("section.chapter > h1")?.textContent ?? null,
+          frameSubtitle: frameDoc?.querySelector(".chapter-subtitle")?.textContent ?? null,
+          frameBody: frameDoc?.body?.innerText.slice(0, 300) ?? null,
+        };
+      });
+      throw new Error(`${error instanceof Error ? error.message : String(error)}; snapshot=${JSON.stringify(snapshot)}`);
+    }
+  });
   check("chapter subtitle can be added from the title bar and updates the preview", true);
 
   await page.click(".rich-editor");
