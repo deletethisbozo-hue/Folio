@@ -289,6 +289,7 @@ try {
 
   await page.click(".section-subtitle-button");
   await stage("chapter subtitle editor", () => page.waitForSelector(".section-subtitle-input"));
+  await page.click(".section-subtitle-input");
   await page.keyboard.type("Editable subtitle");
   await page.keyboard.press("Enter");
   await stage("chapter subtitle preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.querySelector(".chapter-subtitle")?.textContent?.includes("Editable subtitle")));

@@ -741,15 +741,17 @@ function ChapterHeading(props: { title: string; subtitle: string; index: number 
   const [editing, setEditing] = useState<"title" | "subtitle" | null>(null);
   const [title, setTitle] = useState(props.title);
   const [subtitle, setSubtitle] = useState(props.subtitle);
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { setTitle(props.title); setSubtitle(props.subtitle); setEditing(null); }, [props.title, props.subtitle]);
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select(); } }, [editing]);
   const cancel = () => { setTitle(props.title); setSubtitle(props.subtitle); setEditing(null); };
   const commitTitle = () => { const value = title.trim(); setEditing(null); if (value && value !== props.title) props.onTitle(value); else setTitle(props.title); };
   const commitSubtitle = () => { const value = subtitle.trim(); setEditing(null); if (value !== props.subtitle) props.onSubtitle(value); else setSubtitle(props.subtitle); };
   const keys = (commit: () => void) => (event: React.KeyboardEvent<HTMLInputElement>) => { if (event.key === "Enter") commit(); if (event.key === "Escape") cancel(); };
   return <div className="section-title-wrap">
     {props.index ? <span className="section-index">{props.index}.</span> : null}
-    {editing === "title" ? <input className="section-title-input" autoFocus value={title} disabled={props.busy} onChange={(event) => setTitle(event.target.value)} onBlur={commitTitle} onKeyDown={keys(commitTitle)}/> : <button className="section-title section-title-button" disabled={!props.editable || props.busy} title={props.editable ? "Rename chapter" : undefined} onClick={() => props.editable && setEditing("title")}>{props.title}</button>}
-    {editing === "subtitle" ? <input className="section-subtitle-input" autoFocus value={subtitle} placeholder="Chapter subtitle" disabled={props.busy} onChange={(event) => setSubtitle(event.target.value)} onBlur={commitSubtitle} onKeyDown={keys(commitSubtitle)}/> : <button className={`section-subtitle-button ${props.subtitle ? "" : "placeholder"}`} disabled={!props.editable || props.busy} title={props.editable ? "Edit chapter subtitle" : undefined} onClick={() => props.editable && setEditing("subtitle")}>{props.subtitle || "+ Add subtitle"}</button>}
+    {editing === "title" ? <input ref={inputRef} className="section-title-input" autoFocus value={title} disabled={props.busy} onChange={(event) => setTitle(event.target.value)} onBlur={commitTitle} onKeyDown={keys(commitTitle)}/> : <button className="section-title section-title-button" disabled={!props.editable || props.busy} title={props.editable ? "Rename chapter" : undefined} onClick={() => props.editable && setEditing("title")}>{props.title}</button>}
+    {editing === "subtitle" ? <input ref={inputRef} className="section-subtitle-input" autoFocus value={subtitle} placeholder="Chapter subtitle" disabled={props.busy} onChange={(event) => setSubtitle(event.target.value)} onBlur={commitSubtitle} onKeyDown={keys(commitSubtitle)}/> : <button className={`section-subtitle-button ${props.subtitle ? "" : "placeholder"}`} disabled={!props.editable || props.busy} title={props.editable ? "Edit chapter subtitle" : undefined} onClick={() => props.editable && setEditing("subtitle")}>{props.subtitle || "+ Add subtitle"}</button>}
   </div>;
 }
 
