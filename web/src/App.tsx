@@ -134,6 +134,14 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [dirty, draft, document?.editable, project?.projectId, selectedId]);
 
+  // Device chrome is a client-side view of the same rendered book HTML. Apply
+  // its layout even when switching profiles produces byte-identical srcDoc and
+  // React therefore has no reason to reload the iframe.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => onPreviewLoad());
+    return () => window.cancelAnimationFrame(frame);
+  }, [previewMode, previewHtml, printOptions.trim]);
+
   function adopt(summary: ProjectSummary, preferredId?: string) {
     setProject(summary); setMeta(summary.meta); setTypography(summary.typography ?? {});
     const preferred = preferredId ? summary.sections.find((s) => s.id === preferredId) : null;
@@ -249,7 +257,9 @@ export default function App() {
     const frame = previewRef.current;
     const doc = frame?.contentDocument;
     if (!doc || !frame) return;
+    doc.getElementById("folio-device-profile")?.remove();
     const style = doc.createElement("style");
+    style.id = "folio-device-profile";
     if (previewMode === "print") {
       const page = doc.querySelector(".pagedjs_page") as HTMLElement | null;
       const width = page?.getBoundingClientRect().width || 576;
