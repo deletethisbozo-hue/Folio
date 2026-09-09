@@ -354,8 +354,29 @@ export default function App() {
     if (!el || !document?.editable) return;
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
     el.focus();
-    window.document.execCommand("insertHTML", false, `<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>${ornament.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span></div><p><br></p>`);
+    insertEditorHtml(`<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>${ornament.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span></div><p><br></p>`);
     recordEditorDom();
+  }
+
+  function insertEditorHtml(html: string) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const selection = window.getSelection();
+    const current = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const range = current && editor.contains(current.commonAncestorContainer) ? current : window.document.createRange();
+    if (!current || !editor.contains(current.commonAncestorContainer)) {
+      range.selectNodeContents(editor);
+      range.collapse(false);
+    }
+    range.deleteContents();
+    const fragment = range.createContextualFragment(html);
+    const last = fragment.lastChild;
+    range.insertNode(fragment);
+    if (last && selection) {
+      range.setStartAfter(last); range.collapse(true);
+      selection.removeAllRanges(); selection.addRange(range);
+    }
   }
 
   function editorPaste(event: React.ClipboardEvent<HTMLDivElement>) {
@@ -366,11 +387,10 @@ export default function App() {
     if (!markdown) return;
     event.preventDefault();
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
-    window.document.execCommand("insertHTML", false, markdownToEditorHtml(markdown, ornament));
-    // Read the mutated DOM synchronously. A large Writer document can keep the
-    // renderer busy past the next animation frame; delaying this state update
-    // left the preview effect with the old draft even though the editor showed
-    // the pasted text.
+    // execCommand silently truncates/rejects sufficiently large Writer HTML in
+    // Chromium. A real DocumentFragment has no command-buffer limit and keeps
+    // every paragraph before we derive the Markdown source.
+    insertEditorHtml(markdownToEditorHtml(markdown, ornament));
     recordEditorDom();
   }
 
