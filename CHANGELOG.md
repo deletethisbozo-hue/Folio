@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-09
+
+### Added
+- Editable chapter subtitles in the main title bar, persisted for standalone and combined Markdown manuscripts.
+- Chapter-label controls for hiding or replacing theme-generated labels such as `CHAPTER`.
+- Recoverable deletion of authored front matter and back matter as well as chapters.
+- Polish nonbreaking spaces after one-letter conjunctions and prepositions across preview, EPUB, and PDF output.
+
+### Changed
+- The workspace is locked to the application viewport: the manuscript and reader content scroll independently inside fixed panes.
+- Justification is now the consistent default composition on Kindle, tablet, phone, EPUB, and PDF profiles, with language-aware discretionary hyphenation and ragged final lines.
+
+### Fixed
+- A production-size pasted chapter can no longer enlarge the application grid, push the device preview below the viewport, or force whole-window scrolling.
+- Switching/opening projects clears the previous editor document and iframe immediately, including when both books contain the same chapter slug.
+- Changing sections or deleting a section can no longer leave stale body text visible in the preview.
+- Ornamental scene breaks remain centered when body alignment is set to Justified.
+- Drop caps survive live draft updates and every preview-device change.
+- Chapter subtitles can be added and removed without disturbing the chapter title or body.
+
+### Tests
+- Browser regression coverage now verifies a 100,000-word rich paste at a constrained viewport, independent editor and preview scrolling, fixed device geometry, project-state isolation, stale-preview removal, subtitle editing, label hiding, drop-cap persistence, justified ornament centering, and front/back matter deletion.
+- Runtime coverage verifies subtitle persistence/removal, matter deletion and config cleanup, label CSS overrides, scene-break isolation, and Polish nonbreaking spaces.
+
 ## [1.0.0] - 2026-09-09
 
 ### Added

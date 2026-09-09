@@ -107,10 +107,10 @@ function typographyCss(book: Book): string {
   if (bodyDecls.length) out.push(`body { ${bodyDecls.join(" ")} }`);
   if (ty.bodyAlign === "justify") {
     out.push(`
-.book-formatter section.chapter > p,
+.book-formatter section.chapter > p:not(.scene-break),
 .book-formatter section.chapter > blockquote p,
 .book-formatter section.chapter li,
-.book-formatter section.backmatter > p,
+.book-formatter section.backmatter > p:not(.scene-break),
 .book-formatter section.backmatter li {
   text-align: justify !important;
   text-align-last: left !important;
@@ -124,10 +124,10 @@ function typographyCss(book: Book): string {
 }`);
   } else if (ty.bodyAlign === "left") {
     out.push(`
-.book-formatter section.chapter > p,
+.book-formatter section.chapter > p:not(.scene-break),
 .book-formatter section.chapter > blockquote p,
 .book-formatter section.chapter li,
-.book-formatter section.backmatter > p,
+.book-formatter section.backmatter > p:not(.scene-break),
 .book-formatter section.backmatter li {
   text-align: left !important;
   text-align-last: left !important;
@@ -136,6 +136,18 @@ function typographyCss(book: Book): string {
   text-wrap: pretty;
 }`);
   }
+  // A scene break is display typography, never prose. Keep it centered even
+  // when a book-level alignment override uses stronger selectors/importance.
+  out.push(`
+.book-formatter .scene-break {
+  text-align: center !important;
+  text-align-last: center !important;
+  text-indent: 0 !important;
+  -webkit-hyphens: none !important;
+  hyphens: none !important;
+  word-spacing: normal !important;
+  letter-spacing: normal !important;
+}`);
   if (ty.paragraphIndent !== undefined) out.push(`p { text-indent: ${ty.paragraphIndent} !important; }`);
   if (ty.paragraphSpacing !== undefined) out.push(`p { margin-bottom: ${ty.paragraphSpacing} !important; }`);
   if (ty.paragraphAfterBreakIndent !== undefined) {
@@ -159,6 +171,11 @@ function typographyCss(book: Book): string {
     else if (ct.case === "uppercase") d.push(`text-transform: uppercase; font-variant: normal;`);
     else if (ct.case === "normal") d.push(`text-transform: none; font-variant: normal;`);
     if (d.length) out.push(`section.chapter > h1, h1.chapter { ${d.join(" ")} }`);
+    if (ct.showLabel === false) {
+      out.push(`section.chapter > h1::before, h1.chapter::before { content: none !important; display: none !important; }`);
+    } else if (ct.labelText?.trim()) {
+      out.push(`section.chapter > h1::before, h1.chapter::before { content: ${JSON.stringify(ct.labelText.trim())} !important; }`);
+    }
   }
 
   return out.join("\n");

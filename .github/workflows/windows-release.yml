@@ -177,4 +177,4 @@ jobs:
             "release\Folio-$env:FOLIO_VERSION-portable.exe" `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Production-size Writer and Word paste (100,000+ words); immediate live draft preview with exact Pandoc refinement; Polish and English language-aware hyphenation; controlled justification without stretched final lines; rich-text formatting and paragraph preservation; chapter and cover controls; 24 ornamental breaks; 20 themes; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export."
+            --notes "Folio 1.0.1 stabilizes the full editing workspace: fixed editor and preview panes with independent scrolling; project-state isolation; immediate removal of deleted text; editable chapter subtitles and theme labels; recoverable chapter/front/back matter deletion; persistent drop caps across device changes; centered ornaments under justification; and professional Polish/English composition. The Windows build is validated with the 100,000+ word browser regression suite, the full export suite, and a packaged-EXE smoke test."

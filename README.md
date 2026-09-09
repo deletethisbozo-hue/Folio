@@ -2,7 +2,7 @@
 
 Folio is a free Windows desktop book formatter: a practical, local alternative to Vellum for authors who want to edit, style, preview, and export a complete book from one application.
 
-[Download Folio for Windows](https://github.com/deletethisbozo-hue/Folio/releases/tag/v1.0.0)
+[Download Folio for Windows](https://github.com/deletethisbozo-hue/Folio/releases/tag/v1.0.1)
 
 The release is self-contained. Readers do not install Node.js, Pandoc, Chromium, Java, or any command-line tools.
 
@@ -14,7 +14,7 @@ The release is self-contained. Readers do not install Node.js, Pandoc, Chromium,
 - Visual style library with 20 complete designs: Classic, Modern, Decorative, Literary, Editorial, Heritage, Scholar, Folio, Ivory, Nocturne, Cloister, Blackletter, Parchment, Atlas, Stanza, Aubade, Ember, Cinder, Solstice, and Timber.
 - Book-level typography controls for body text, chapter headings, first paragraphs, scene breaks, headers/footers, and title pages.
 - WYSIWYG rich-text editing with clean Markdown storage and paragraph-safe paste from LibreOffice/Word.
-- Reliable copy-on-write editing for the bundled sample, exact source-path editing, chapter rename, and recoverable delete.
+- Reliable copy-on-write editing for the bundled sample, exact source-path editing, editable chapter titles/subtitles, and recoverable deletion of chapters and authored front/back matter.
 - Visual library of 24 ornamental scene breaks plus custom symbols.
 - Cover upload and preview, embedded automatically in EPUB exports.
 - EPUB for Kindle/KDP, universal EPUB, print PDF, reading PDF, and DOCX export.

@@ -29,6 +29,9 @@ export function hyphenatePreviewDocument(document: Document, language: string): 
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
   for (const node of nodes) {
+    if (/^pl(?:-|$)/i.test(language)) {
+      node.data = node.data.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
+    }
     if (node.data.includes("\u00ad")) continue;
     node.data = node.data.replace(/\p{L}{8,}/gu, (word) => {
       const pieces = engine.hyphenate(word);

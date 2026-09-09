@@ -43,8 +43,8 @@ body {
   word-break: normal;
   -webkit-hyphens: manual;
   hyphens: manual;
-  widows: 2;
-  orphans: 2;
+  widows: 3;
+  orphans: 3;
   font-synthesis: none;
 }
 
@@ -104,6 +104,21 @@ p {
   hanging-punctuation: first last;
   text-wrap: pretty;
 }
+section.chapter > p:not(.scene-break),
+section.chapter > blockquote p,
+section.chapter li,
+section.backmatter > p:not(.scene-break),
+section.backmatter li {
+  text-align: justify;
+  text-align-last: left;
+  text-justify: inter-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 7 3 3;
+  hyphenate-limit-lines: 2;
+  word-spacing: normal;
+  letter-spacing: normal;
+}
 section > h1 + p,
 h1 + p,
 .scene-break + p,
@@ -132,6 +147,7 @@ h3 {
   /* A single line is also the last line — the base `p` rule would force it
      ragged-left, and a centered display line must never hyphenate. */
   text-align-last: center;
+  text-align: center;
   -webkit-hyphens: none;
   hyphens: none;
   font-style: italic;
@@ -169,8 +185,11 @@ section.level1 {
 
 /* --- Scene break --- */
 .scene-break {
-  text-align: center;
-  text-indent: 0;
+  text-align: center !important;
+  text-align-last: center !important;
+  text-indent: 0 !important;
+  -webkit-hyphens: none !important;
+  hyphens: none !important;
   margin: 1.4em 0;
   break-inside: avoid;
   break-after: avoid;

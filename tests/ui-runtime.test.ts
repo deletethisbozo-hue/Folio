@@ -40,6 +40,17 @@ console.log("\nFolio browser UI");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  let pickedFolder: string | null = null;
+  await page.setRequestInterception(true);
+  page.on("request", (request) => {
+    if (pickedFolder && request.method() === "POST" && request.url().endsWith("/api/pick-folder")) {
+      const path = pickedFolder;
+      pickedFolder = null;
+      void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ path }) });
+    } else {
+      void request.continue();
+    }
+  });
   page.setDefaultTimeout(15000);
   await page.setViewport({ width: 1440, height: 900 });
   const browserErrors: string[] = [];
@@ -145,17 +156,35 @@ try {
     return css.textAlign + "|" + css.borderTopWidth + "|" + css.fontFamily;
   });
   check("selecting themes changes the actual book layout, not only the name", editorial !== blackletter, editorial + " / " + blackletter);
+  await page.evaluate(() => {
+    const headingButton = [...document.querySelectorAll(".style-category-list button")].find((button) => button.textContent === "Chapter Heading");
+    (headingButton as HTMLButtonElement | undefined)?.click();
+  });
+  await stage("chapter label control", () => page.waitForFunction(() => [...document.querySelectorAll(".customize-row > span")].some((node) => node.textContent === "Show theme label")));
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll(".customize-row")].find((node) => node.querySelector("span")?.textContent === "Show theme label");
+    (row?.querySelector('input[type="checkbox"]') as HTMLInputElement | null)?.click();
+  });
+  await stage("hide generated chapter label", () => page.waitForFunction(() => {
+    const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
+    return heading ? getComputedStyle(heading, "::before").display === "none" : false;
+  }));
+  check("theme-generated chapter labels such as CHAPTER can be hidden", true);
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll(".customize-row")].find((node) => node.querySelector("span")?.textContent === "Show theme label");
+    (row?.querySelector('input[type="checkbox"]') as HTMLInputElement | null)?.click();
+  });
   await page.click(".style-library-header button");
 
   const deviceModes = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.map((item) => (item as HTMLOptionElement).value));
   check("preview offers Kindle, tablet, phone, Android and print profiles", deviceModes.length === 6, deviceModes.join(", "));
   await page.select('select[aria-label="Preview device"]', "iphone");
   await stage("switch to iPhone device", () => page.waitForSelector(".reader-device.device-iphone"));
-  await stage("phone ragged-right layout", () => page.waitForFunction(() => {
+  await stage("phone justified layout", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
-    return paragraph ? getComputedStyle(paragraph).textAlign === "left" : false;
+    return paragraph ? getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" : false;
   }));
-  check("narrow phone preview suppresses stretched justified word gaps", true);
+  check("Justified means justified on narrow readers, with a ragged final line", true);
   const centered = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage")!.getBoundingClientRect();
     const device = document.querySelector(".reader-device")!.getBoundingClientRect();
@@ -168,7 +197,7 @@ try {
     editor.focus();
     const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
     const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
-    const paragraph = "Najprawdopodobniej profesjonalne formatowanie całej książki powinno zachowywać wszystkie akapity oraz wyróżnienia bez niekontrolowanych odstępów pomiędzy zwyczajnymi słowami podczas dokładnego podglądu czytnika.";
+    const paragraph = "W Polsce i na świecie najprawdopodobniej profesjonalne formatowanie całej książki powinno zachowywać wszystkie akapity oraz wyróżnienia bez niekontrolowanych odstępów pomiędzy zwyczajnymi słowami podczas dokładnego podglądu czytnika.";
     // Writer emits a full HTML document, named paragraph classes, verbose
     // inline declarations and many spans. This is deliberately over 100,000
     // words — a clean 4k-word fragment did not reproduce the real failure.
@@ -184,12 +213,22 @@ try {
     return markdown.includes("WHOLE BOOK FINAL MARKER") && (markdown.match(/\S+/g)?.length ?? 0) > 100_000;
   }, { timeout: 30000 }));
   await stage("immediate whole-book preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("WHOLE BOOK FINAL MARKER"), { timeout: 30000 }));
+  await page.setViewport({ width: 1180, height: 700 });
   const visibleAfterLargePaste = await page.evaluate(() => {
+    const shell = document.querySelector(".folio-shell") as HTMLElement;
+    const editor = document.querySelector(".rich-editor") as HTMLElement;
+    const previewScroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
     const stage = document.querySelector(".preview-stage")!.getBoundingClientRect();
     const device = document.querySelector(".reader-device")!.getBoundingClientRect();
-    return device.width > 200 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
+    editor.scrollTop = editor.scrollHeight;
+    if (previewScroller) previewScroller.scrollTop = previewScroller.scrollHeight;
+    const shellRect = shell.getBoundingClientRect();
+    return shellRect.top === 0 && shellRect.bottom <= innerHeight + 1 && document.documentElement.scrollHeight <= innerHeight + 1 &&
+      editor.scrollHeight > editor.clientHeight && editor.scrollTop > 0 &&
+      Boolean(previewScroller && previewScroller.scrollHeight > previewScroller.clientHeight && previewScroller.scrollTop > 0) &&
+      device.width > 150 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
   });
-  check("100,000-word LibreOffice paste cannot hide or displace the preview", visibleAfterLargePaste);
+  check("100,000-word paste keeps both panes fixed while only editor text scrolls", visibleAfterLargePaste);
   await stage("whole-book autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 }));
   check("the complete pasted book reaches autosave", true);
 
@@ -212,15 +251,23 @@ try {
   await stage("Polish professional justification", () => page.waitForFunction(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     const paragraph = doc?.querySelector("section.chapter > p");
-    return Boolean(paragraph && getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" && doc?.body.textContent?.includes("\u00ad"));
+    return Boolean(paragraph && getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" && doc?.body.textContent?.includes("\u00ad") && doc?.body.textContent?.includes("W\u00a0Polsce"));
   }, { timeout: 30000 }));
   check("Polish justification uses discretionary word breaks and a ragged final line", true);
-  await page.select('select[aria-label="Preview device"]', "iphone");
-  await stage("safe narrow composition", () => page.waitForFunction(() => {
-    const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
-    return paragraph ? getComputedStyle(paragraph).textAlign === "left" : false;
+  await stage("ornament remains centered under justification", () => page.waitForFunction(() => {
+    const ornament = document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break");
+    return ornament ? getComputedStyle(ornament).textAlign === "center" && getComputedStyle(ornament).textAlignLast === "center" : false;
   }));
-  check("narrow readers suppress spacing rivers even when print justification is selected", true);
+  check("justified body text never pulls ornamental breaks off center", true);
+  const dropcapBeforeDeviceChange = await page.evaluate(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap")));
+  await page.select('select[aria-label="Preview device"]', "iphone");
+  await stage("narrow justified composition", () => page.waitForFunction(() => {
+    const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
+    return paragraph ? getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" : false;
+  }));
+  check("narrow readers honor the selected justification and keep final lines natural", true);
+  await stage("drop cap survives device change", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap"))));
+  check("drop caps survive switching preview devices", dropcapBeforeDeviceChange);
 
   await page.click(".footer-add");
   await stage("open Add Content", () => page.waitForSelector(".add-chapter-box input"));
@@ -240,13 +287,28 @@ try {
   await stage("chapter renamed", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Renamed in UI")));
   check("chapter name can be edited from the title bar", true);
 
+  await page.click(".section-subtitle-button");
+  await stage("chapter subtitle editor", () => page.waitForSelector(".section-subtitle-input"));
+  await page.keyboard.type("Editable subtitle");
+  await page.keyboard.press("Enter");
+  await stage("chapter subtitle preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.querySelector(".chapter-subtitle")?.textContent?.includes("Editable subtitle")));
+  check("chapter subtitle can be added from the title bar and updates the preview", true);
+
+  await page.click(".rich-editor");
+  await page.keyboard.type(" DELETED CHAPTER PREVIEW MARKER");
+  await stage("deleted-chapter marker preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("DELETED CHAPTER PREVIEW MARKER")));
+
   page.once("dialog", (dialog) => void dialog.accept());
   await page.click(".section-delete");
   await stage("chapter deleted", () => page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Renamed in UI"))));
   check("chapter delete removes it from Contents", true);
+  await stage("deleted chapter removed from preview", () => page.waitForFunction(() => !document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("DELETED CHAPTER PREVIEW MARKER")));
+  check("deleted chapter text cannot remain in the preview", true);
 
-  await page.goto(base + "/?book=" + encodeURIComponent(emptyBook), { waitUntil: "networkidle0" });
+  pickedFolder = emptyBook;
+  await page.click('[title="Open another book"]');
   await stage("open empty folder", () => page.waitForSelector(".empty-project-editor"));
+  check("opening a new project in the same app clears the previous manuscript and preview", !(await page.$("iframe")) && !(await page.$eval("body", (body) => body.innerText.includes("WHOLE BOOK FINAL MARKER"))));
   check("an empty folder shows an actionable empty state instead of Loading section", true);
   await page.click(".empty-project-editor button");
   await stage("empty folder Add Content", () => page.waitForSelector(".add-chapter-box input"));
@@ -259,6 +321,30 @@ try {
   await page.keyboard.type("The book can now be written.");
   await stage("first chapter live preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("The book can now be written.")));
   check("a blank new book can add, edit and preview its first chapter", true);
+
+  await page.click(".footer-add");
+  await stage("front matter choices", () => page.waitForSelector(".content-kind-group"));
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll(".content-kind-group button")].find((item) => item.querySelector("span")?.textContent === "Dedication");
+    (button as HTMLButtonElement | undefined)?.click();
+  });
+  await stage("editable front matter selected", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Dedication") && Boolean(document.querySelector(".section-delete"))));
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.click(".section-delete");
+  await stage("front matter deleted", () => page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Dedication"))));
+  check("editable front matter can be deleted from the same title-bar control", true);
+
+  await page.click(".footer-add");
+  await stage("back matter choices", () => page.waitForSelector(".content-kind-group"));
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll(".content-kind-group button")].find((item) => item.querySelector("span")?.textContent === "About the Author");
+    (button as HTMLButtonElement | undefined)?.click();
+  });
+  await stage("editable back matter selected", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("About the Author") && Boolean(document.querySelector(".section-delete"))));
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.click(".section-delete");
+  await stage("back matter deleted", () => page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("About the Author"))));
+  check("editable back matter can be deleted from the same title-bar control", true);
 
   await page.click(".book-identity");
   await stage("open Book Details", () => page.waitForSelector('.folio-dialog[aria-label="Book Details"]'));

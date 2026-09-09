@@ -54,7 +54,15 @@ const renamedChapter = await json(`/api/projects/${created.body.projectId}/secti
   method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Renamed Chapter" }),
 });
 check("chapter title can be renamed at its source", renamedChapter.status === 200 && renamedChapter.body.title === "Renamed Chapter");
-const deletedChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(renamedChapter.body.id)}`, { method: "DELETE" });
+const subtitledChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(renamedChapter.body.id)}`, {
+  method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ subtitle: "A precise second line" }),
+});
+check("chapter subtitle can be added at its source", subtitledChapter.status === 200 && subtitledChapter.body.subtitle === "A precise second line");
+const clearedSubtitle = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(subtitledChapter.body.id)}`, {
+  method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ subtitle: "" }),
+});
+check("chapter subtitle can be removed completely", clearedSubtitle.status === 200 && clearedSubtitle.body.subtitle === undefined);
+const deletedChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(clearedSubtitle.body.id)}`, { method: "DELETE" });
 const afterDelete = await post(`/api/projects/${created.body.projectId}/reload`, {});
 check("chapter can be deleted without destroying its source", deletedChapter.status === 200 && afterDelete.body.sections.filter((item: any) => item.kind === "chapter").length === 1 && (await fs.readdir(path.join(newBookDir, ".folio-trash"))).length === 1);
 const coverForm = new FormData();
@@ -66,6 +74,13 @@ const addedMatter = await post("/api/projects/" + created.body.projectId + "/mat
 const dedication = addedMatter.body.sections.find((item: any) => item.title === "Dedication");
 const dedicationDocument = await json("/api/projects/" + created.body.projectId + "/sections/" + encodeURIComponent(dedication.id));
 check("content API adds editable front matter", dedicationDocument.body.editable === true);
+const addedBackMatter = await post("/api/projects/" + created.body.projectId + "/matter", { type: "about-the-author", placement: "backmatter", meta: created.body.meta });
+const aboutAuthor = addedBackMatter.body.sections.find((item: any) => item.title === "About the Author");
+const removedFront = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(dedication.id)}`, { method: "DELETE" });
+const removedBack = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(aboutAuthor.id)}`, { method: "DELETE" });
+const afterMatterDelete = await post(`/api/projects/${created.body.projectId}/reload`, {});
+check("editable front matter can be deleted and unlisted", removedFront.status === 200 && !afterMatterDelete.body.sections.some((item: any) => item.title === "Dedication") && !afterMatterDelete.body.config.frontmatter.some((entry: string) => entry.includes("dedication")));
+check("editable back matter can be deleted and unlisted", removedBack.status === 200 && !afterMatterDelete.body.sections.some((item: any) => item.title === "About the Author") && !afterMatterDelete.body.config.backmatter.some((entry: string) => entry.includes("about-the-author")));
 await fs.rm(newBookDir, { recursive: true, force: true });
 
 const originalPath = path.join(ROOT, "samples", "clockwork-garden", "chapters", "01-the-letter.md");
@@ -98,6 +113,20 @@ const longPreview = await post(`/api/projects/${projectId}/preview`, {
 });
 check("100,000-word manuscript survives the exact Pandoc preview", longPreview.status === 200 && longPreview.body.html.includes("WHOLE BOOK SERVER MARKER") && longPreview.body.html.length > longDraft.length);
 check("justified preview carries professional hyphenation rules", longPreview.body.html.includes("hyphenate-limit-chars: 7 3 3") && longPreview.body.html.includes("text-align-last: left"));
+check("justification excludes and defensively centers ornamental breaks", longPreview.body.html.includes("section.chapter > p:not(.scene-break)") && longPreview.body.html.includes(".book-formatter .scene-break") && longPreview.body.html.includes("text-align: center !important"));
+const polishSpacingPreview = await post(`/api/projects/${projectId}/preview`, {
+  meta: { ...sample.body.meta, language: "pl" }, theme: "folio", typography: { bodyAlign: "justify" }, previewSectionId: chapter.id, draft: "A kiedy i później w Polsce z przyjaciółmi.",
+});
+check("Polish one-letter words stay with the following word", polishSpacingPreview.body.html.includes("\u00a0kiedy") && polishSpacingPreview.body.html.includes("i\u00a0później"));
+
+const hiddenLabelPreview = await post(`/api/projects/${projectId}/preview`, {
+  meta: sample.body.meta, theme: "literary", typography: { chapterTitle: { showLabel: false } }, previewSectionId: chapter.id, draft: "Label control probe.",
+});
+check("theme-generated CHAPTER label can be hidden", hiddenLabelPreview.body.html.includes("h1.chapter::before { content: none !important; display: none !important; }"));
+const customLabelPreview = await post(`/api/projects/${projectId}/preview`, {
+  meta: sample.body.meta, theme: "literary", typography: { chapterTitle: { labelText: "CZĘŚĆ I" } }, previewSectionId: chapter.id, draft: "Custom label probe.",
+});
+check("theme-generated chapter label can be replaced", customLabelPreview.body.html.includes('content: "CZĘŚĆ I" !important'));
 
 const savedText = `${section.body.markdown}\n\nCopy-on-write save probe.`;
 const saved = await json(`/api/projects/${projectId}/sections/${encodeURIComponent(chapter.id)}`, {

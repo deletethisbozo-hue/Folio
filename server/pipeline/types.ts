@@ -81,6 +81,8 @@ export interface ChapterTitleStyle {
   case?: "normal" | "smallcaps" | "uppercase";
   align?: "left" | "center" | "right";
   style?: "normal" | "italic";
+  showLabel?: boolean;
+  labelText?: string;
 }
 
 export interface Typography {

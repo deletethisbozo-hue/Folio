@@ -3,6 +3,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { loadProject, projectInfo, writableBookDir } from "./projects.ts";
 import { extractSubtitle, extractTitle, splitOnH1 } from "./pipeline/util.ts";
+import { removeMatter } from "./matter.ts";
 
 export interface SectionDocument {
   id: string;
@@ -88,13 +89,18 @@ export async function writeSectionDocument(projectId: string, sectionId: string,
 /** Rename a chapter at its authoritative source, including chapters embedded in
  * one combined manuscript. Returns the re-ingested document because its slug/id
  * may change with the title. */
-export async function renameSectionDocument(projectId: string, sectionId: string, nextTitle: string): Promise<SectionDocument> {
-  const title = nextTitle.trim();
-  if (!title) throw new Error("Chapter title cannot be empty.");
+export async function updateSectionHeadingDocument(
+  projectId: string,
+  sectionId: string,
+  change: { title?: string; subtitle?: string },
+): Promise<SectionDocument> {
   await writableBookDir(projectId);
   const { book } = await loadProject(projectId);
   const section = book.sections.find((item) => item.id === sectionId);
   if (!section || section.kind !== "chapter" || section.generated) throw new Error("Only manuscript chapters can be renamed here.");
+  const title = change.title === undefined ? section.title : change.title.trim();
+  if (!title) throw new Error("Chapter title cannot be empty.");
+  const subtitle = change.subtitle === undefined ? section.subtitle : change.subtitle.trim() || undefined;
   const source = await resolveSource(projectId, sectionId);
   if (!source) throw new Error("Could not locate the source Markdown file for this chapter.");
 
@@ -105,15 +111,21 @@ export async function renameSectionDocument(projectId: string, sectionId: string
     const chapter = chapters[source.ordinal];
     if (!chapter) throw new Error("The source chapter moved on disk. Reload the book and try again.");
     chapter.title = title;
+    const body = extractSubtitle(chapter.body).body.trim();
+    chapter.body = [subtitle ? `## ${subtitle}` : "", body].filter(Boolean).join("\n\n");
     const content = chapters.map((item) => `# ${item.title}\n\n${item.body.trim()}`.trim()).join("\n\n") + "\n";
     await fs.writeFile(source.path, preservedFrontMatter(raw) + content, "utf8");
-  } else if (raw.startsWith("---") && typeof parsed.data.title === "string") {
-    const prefix = preservedFrontMatter(raw).replace(/^title\s*:\s*.*$/m, `title: ${JSON.stringify(title)}`);
-    await fs.writeFile(source.path, prefix + parsed.content, "utf8");
-  } else if (/^#\s+.+$/m.test(parsed.content)) {
-    await fs.writeFile(source.path, preservedFrontMatter(raw) + parsed.content.replace(/^#\s+.+$/m, `# ${title}`), "utf8");
   } else {
-    await fs.writeFile(source.path, preservedFrontMatter(raw) + `# ${title}\n\n${parsed.content.replace(/^\s+/, "")}`, "utf8");
+    let prefix = preservedFrontMatter(raw);
+    const titleInfo = extractTitle(parsed.content);
+    const subtitleInfo = extractSubtitle(titleInfo.title ? titleInfo.body : parsed.content);
+    const titleInFrontMatter = prefix !== "" && typeof parsed.data.title === "string";
+    const subtitleInFrontMatter = prefix !== "" && typeof parsed.data.subtitle === "string";
+    if (titleInFrontMatter) prefix = replaceFrontMatterField(prefix, "title", title);
+    if (subtitleInFrontMatter) prefix = replaceFrontMatterField(prefix, "subtitle", subtitle);
+    const headings = [titleInFrontMatter ? "" : `# ${title}`, subtitleInFrontMatter || !subtitle ? "" : `## ${subtitle}`].filter(Boolean);
+    const content = [...headings, subtitleInfo.body.trim()].filter(Boolean).join("\n\n") + "\n";
+    await fs.writeFile(source.path, prefix + content, "utf8");
   }
 
   const reloaded = await loadProject(projectId);
@@ -124,18 +136,30 @@ export async function renameSectionDocument(projectId: string, sectionId: string
   return readSectionDocument(projectId, renamed.id);
 }
 
-/**
- * Remove a chapter from the manuscript without destroying it irreversibly.
- * Standalone chapter files are moved to .folio-trash; a chapter living inside
- * a combined Markdown manuscript is extracted there before the source is
- * rewritten without that H1 section.
- */
+function replaceFrontMatterField(prefix: string, key: string, value: string | undefined): string {
+  const line = new RegExp(`^${key}\\s*:\\s*.*(?:\\r?\\n|$)`, "m");
+  if (line.test(prefix)) return prefix.replace(line, value ? `${key}: ${JSON.stringify(value)}\n` : "");
+  if (!value) return prefix;
+  return prefix.replace(/---[ \t]*(\r?\n?)$/, `${key}: ${JSON.stringify(value)}\n---$1`);
+}
+
+export async function renameSectionDocument(projectId: string, sectionId: string, nextTitle: string): Promise<SectionDocument> {
+  return updateSectionHeadingDocument(projectId, sectionId, { title: nextTitle });
+}
+
+/** Remove an authored chapter/front-matter/back-matter section without
+ * destroying it irreversibly. Standalone sources move to .folio-trash; matter
+ * is also removed from book.yaml. A chapter inside a combined manuscript is
+ * extracted to trash before that H1 section is removed from the source. */
 export async function deleteSectionDocument(projectId: string, sectionId: string): Promise<void> {
   await writableBookDir(projectId);
   const { book } = await loadProject(projectId);
   const section = book.sections.find((item) => item.id === sectionId);
   if (!section) throw new Error("Section not found.");
-  if (section.kind !== "chapter" || section.generated) throw new Error("Only manuscript chapters can be deleted here.");
+  if (section.generated) throw new Error("Generated pages are controlled by Book Details and cannot be deleted as source files.");
+  if (!(["chapter", "frontmatter", "backmatter"] as string[]).includes(section.kind)) {
+    throw new Error("This section cannot be deleted here.");
+  }
 
   const source = await resolveSource(projectId, sectionId);
   if (!source) throw new Error("Could not locate the source Markdown file for this chapter.");
@@ -149,6 +173,10 @@ export async function deleteSectionDocument(projectId: string, sectionId: string
   if (source.ordinal === undefined) {
     const destination = path.join(trash, `${stamp}-${path.basename(source.path)}`);
     await fs.rename(source.path, destination);
+    if (section.kind === "frontmatter" || section.kind === "backmatter") {
+      const entry = path.relative(info.folder, source.path).split(path.sep).join("/");
+      await removeMatter(info.folder, entry);
+    }
     return;
   }
 

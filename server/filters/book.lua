@@ -22,6 +22,32 @@ local QUOTES = {
   ["\u{00AB}"] = true, -- «
 }
 
+local POLISH_SHORT = {
+  a = true, i = true, o = true, u = true, w = true, z = true,
+  A = true, I = true, O = true, U = true, W = true, Z = true,
+}
+
+-- Polish typography does not leave one-letter conjunctions and prepositions at
+-- the end of a line. Replace only the following space, keeping source Markdown
+-- untouched and letting every output target receive the same composition.
+local function polish_hanging_words(inlines)
+  local out = {}
+  local i = 1
+  while i <= #inlines do
+    local current = inlines[i]
+    local next_inline = inlines[i + 1]
+    table.insert(out, current)
+    if current.t == "Str" and POLISH_SHORT[current.text] and next_inline and
+       (next_inline.t == "Space" or next_inline.t == "SoftBreak") then
+      table.insert(out, pandoc.Str("\u{00A0}"))
+      i = i + 2
+    else
+      i = i + 1
+    end
+  end
+  return out
+end
+
 -- Split a string into (leading quote marks, first letter, rest).
 local function split_initial(s)
   local quotes, n = "", utf8.len(s) or 0
@@ -152,6 +178,10 @@ function Pandoc(doc)
   end
   if doc.meta.dropcap then
     dropcap = pandoc.utils.stringify(doc.meta.dropcap) == "true"
+  end
+  local lang = doc.meta.lang and pandoc.utils.stringify(doc.meta.lang) or ""
+  if lang:match("^pl") then
+    doc = doc:walk({ Inlines = polish_hanging_words })
   end
 
   local out = {}

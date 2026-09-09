@@ -74,11 +74,11 @@ export const api = {
       method: "DELETE",
     }).then((r) => json<{ ok: true }>(r)),
 
-  renameSection: (projectId: string, sectionId: string, title: string) =>
+  updateSectionHeading: (projectId: string, sectionId: string, heading: { title?: string; subtitle?: string }) =>
     fetch(`/api/projects/${projectId}/sections/${encodeURIComponent(sectionId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(heading),
     }).then((r) => json<SectionDocument>(r)),
 
   addChapter: (projectId: string, title: string, meta: Partial<BookMeta>) =>

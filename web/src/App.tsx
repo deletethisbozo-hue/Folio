@@ -41,6 +41,27 @@ function wordCount(text: string): number {
   return text.trim().match(/\S+/g)?.length ?? 0;
 }
 
+function applyDraftDropcap(section: Element, enabled: boolean): void {
+  if (!enabled) return;
+  const paragraph = section.querySelector(":scope > p:not(.scene-break)");
+  if (!paragraph || paragraph.querySelector(".dropcap")) return;
+  const walker = paragraph.ownerDocument.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const match = node.data.match(/^(\s*["'“”‘’«]*)(\p{L})/u);
+    if (!match) {
+      if (node.data.trim()) return;
+      continue;
+    }
+    const span = paragraph.ownerDocument.createElement("span");
+    span.className = "dropcap";
+    span.textContent = match[1] + match[2];
+    node.data = node.data.slice(match[0].length);
+    node.parentNode?.insertBefore(span, node);
+    return;
+  }
+}
+
 export default function App() {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [matterTypes, setMatterTypes] = useState<MatterType[]>([]);
@@ -79,6 +100,20 @@ export default function App() {
   const undoRef = useRef<string[]>([]);
   const redoRef = useRef<string[]>([]);
 
+  const resetDocumentView = () => {
+    draftRef.current = "";
+    selectedRef.current = null;
+    undoRef.current = [];
+    redoRef.current = [];
+    setDocument(null);
+    setDraft("");
+    setDirty(false);
+    setSaveState("idle");
+    setPreviewHtml("");
+    setPreviewError(null);
+    setPreviewLoading(false);
+  };
+
   useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
   useEffect(() => {
@@ -115,7 +150,7 @@ export default function App() {
       setDocument(doc); setDraft(doc.markdown); setDirty(false);
     }).catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => { cancelled = true; };
-  }, [project?.projectId, selectedId]);
+  }, [project, selectedId]);
 
   useEffect(() => {
     if (!project || !meta || !selectedId || document?.id !== selectedId) return;
@@ -139,7 +174,7 @@ export default function App() {
       }
     }, draft.length > 250_000 ? 700 : 240);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, draft]);
+  }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, draft]);
 
   // A full-book paste must not wait for Pandoc. Update the already loaded
   // section in the iframe immediately; the authoritative Pandoc render replaces
@@ -149,7 +184,8 @@ export default function App() {
     if (previewMode === "print" || !selectedId || document?.id !== selectedId) return;
     const frame = window.requestAnimationFrame(() => {
       const previewDocument = previewRef.current?.contentDocument;
-      const section = previewDocument?.getElementById(selectedId);
+      const section = previewDocument?.getElementById(selectedId)
+        ?? previewDocument?.querySelector("main.book > section.level1, main.book > section.chapter");
       if (!previewDocument || !section) return;
       const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
       const subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
@@ -157,13 +193,15 @@ export default function App() {
         if (node !== heading && node !== subtitle) node.remove();
       });
       const template = previewDocument.createElement("template");
-      const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
+      const theme = themes.find((item) => item.name === meta?.theme);
+      const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
       template.innerHTML = markdownToPreviewHtml(draft, ornament);
       section.appendChild(template.content);
-      if (typography.bodyAlign === "justify") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
+      applyDraftDropcap(section, typography.dropcap ?? theme?.dropcap ?? false);
+      if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [draft, document?.id, selectedId, previewMode, typography.sceneOrnament, typography.bodyAlign, meta?.theme, meta?.language, themes]);
+  }, [draft, document?.id, document?.subtitle, selectedId, previewMode, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -197,10 +235,16 @@ export default function App() {
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [previewMode, selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
-    setProject(summary); setMeta(summary.meta); setTypography(summary.typography ?? {});
     const preferred = preferredId ? summary.sections.find((s) => s.id === preferredId) : null;
     const first = preferred ?? summary.sections.find((s) => s.kind === "chapter") ?? summary.sections[0] ?? null;
+    if (summary.projectId !== project?.projectId || first?.id !== selectedId) resetDocumentView();
+    setProject(summary); setMeta(summary.meta); setTypography(summary.typography ?? {});
     setSelectedId(first?.id ?? null); setError(null);
+    selectedRef.current = first?.id ?? null;
+    requestAnimationFrame(() => {
+      editorRef.current?.scrollTo(0, 0);
+      previewStageRef.current?.scrollTo(0, 0);
+    });
   }
 
   async function openFolder(folderPath?: string) {
@@ -269,28 +313,45 @@ export default function App() {
     finally { setBusy(false); }
   }
 
-  async function deleteCurrentChapter() {
-    if (!project || !selectedId || selectedSection?.kind !== "chapter") return;
+  async function deleteCurrentSection() {
+    if (!project || !selectedId || !selectedSection || (selectedSection.kind !== "chapter" && !document?.editable)) return;
     if (!window.confirm(`Delete “${selectedSection.title}”?\n\nFolio will move the source to .folio-trash so it can be recovered.`)) return;
-    const currentIndex = chapters.findIndex((chapter) => chapter.id === selectedId);
-    setBusy(true); setError(null); setDirty(false); setDocument(null);
+    const currentIndex = project.sections.findIndex((section) => section.id === selectedId);
+    setBusy(true); setError(null); resetDocumentView(); setSelectedId(null);
     try {
       await api.deleteSection(project.projectId, selectedId);
       const summary = await api.reload(project.projectId);
-      const remaining = summary.sections.filter((section) => section.kind === "chapter");
-      const fallback = remaining[Math.min(Math.max(currentIndex, 0), Math.max(remaining.length - 1, 0))];
+      const fallback = summary.sections[Math.min(Math.max(currentIndex, 0), Math.max(summary.sections.length - 1, 0))];
       adopt(summary, fallback?.id);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
 
-  async function renameCurrentChapter(title: string) {
-    if (!project || !selectedId || selectedSection?.kind !== "chapter" || title.trim() === selectedSection.title) return;
+  async function updateCurrentChapterHeading(change: { title?: string; subtitle?: string }) {
+    if (!project || !selectedId || selectedSection?.kind !== "chapter") return;
+    const title = change.title?.trim();
+    const subtitle = change.subtitle?.trim() ?? "";
+    if (change.title !== undefined && (!title || title === selectedSection.title)) return;
+    if (change.subtitle !== undefined && subtitle === (document?.subtitle ?? "")) return;
     if (!(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
-      const renamed = await api.renameSection(project.projectId, selectedId, title);
-      adopt(await api.reload(project.projectId), renamed.id);
+      const updated = await api.updateSectionHeading(project.projectId, selectedId, {
+        ...(change.title !== undefined ? { title } : {}),
+        ...(change.subtitle !== undefined ? { subtitle } : {}),
+      });
+      const summary = await api.reload(project.projectId);
+      if (updated.id === selectedId) {
+        setProject(summary);
+        setMeta(summary.meta);
+        setTypography(summary.typography ?? {});
+        setDocument(updated);
+        setDraft(updated.markdown);
+        draftRef.current = updated.markdown;
+        setPreviewError(null);
+      } else {
+        adopt(summary, updated.id);
+      }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -334,7 +395,11 @@ export default function App() {
 
   async function selectSection(nextId: string) {
     if (nextId === selectedId) return;
-    if (await saveCurrent()) setSelectedId(nextId);
+    if (await saveCurrent()) {
+      resetDocumentView();
+      selectedRef.current = nextId;
+      setSelectedId(nextId);
+    }
   }
 
   const selectedPosition = project?.sections.findIndex((section) => section.id === selectedId) ?? -1;
@@ -356,18 +421,21 @@ export default function App() {
       const scale = Math.min(1, (frame.clientWidth - 14) / width);
       style.textContent = `.pagedjs_pages{transform:scale(${scale});transform-origin:top center;width:${100 / scale}%!important;margin-left:${(100 - 100 / scale) / 2}%!important}.pagedjs_page{margin:10px auto!important}`;
     } else {
-      const narrowRagged = "body.book-formatter main.book section.chapter>p,body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:none!important;hyphens:none!important;text-wrap:pretty!important}";
+      const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li,body.book-formatter main.book section.backmatter>p:not(.scene-break),body.book-formatter main.book section.backmatter li";
+      const proseComposition = typography.bodyAlign === "left"
+        ? `${proseSelector}{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:none!important;hyphens:none!important;text-wrap:pretty!important}`
+        : `${proseSelector}{margin-right:0!important;text-align:justify!important;text-align-last:left!important;text-justify:inter-word!important;-webkit-hyphens:auto!important;hyphens:auto!important;hyphenate-limit-chars:7 3 3!important;hyphenate-limit-lines:2!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important}`;
       const profileCss: Record<Exclude<PreviewMode, "print">, string> = {
         "kindle-paperwhite": "body{font-size:13px!important}main.book{padding:42px 32px 64px!important}",
         "kindle-oasis": "body{font-size:13.5px!important}main.book{padding:40px 38px 64px!important}",
         ipad: "body{font-size:14px!important}main.book{padding:56px 52px 76px!important}",
-        iphone: `body{font-size:12.5px!important;text-align:left!important;hyphens:none!important}main.book{padding:36px 24px 58px!important}${narrowRagged}`,
-        android: `body{font-size:12.5px!important;text-align:left!important;hyphens:none!important}main.book{padding:34px 22px 56px!important}${narrowRagged}`,
+        iphone: "body{font-size:12.5px!important}main.book{padding:36px 24px 58px!important}",
+        android: "body{font-size:12.5px!important}main.book{padding:34px 22px 56px!important}",
       };
-      style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}" + profileCss[previewMode];
+      style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}" + profileCss[previewMode] + proseComposition;
     }
     doc.head.appendChild(style);
-    if (previewMode !== "print" && typography.bodyAlign === "justify") {
+    if (previewMode !== "print" && typography.bodyAlign !== "left") {
       hyphenatePreviewDocument(doc, meta?.language || "en");
     }
     doc.scrollingElement?.scrollTo(0, 0);
@@ -560,7 +628,7 @@ export default function App() {
 
       <section className="editor-pane">
         <div className="editor-topbar"><div className="topbar-title">{meta.title}</div><div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div></div>
-        <div className="section-titlebar"><ChapterTitle title={selectedSection?.title ?? document?.title ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onRename={(title) => void renameCurrentChapter(title)}/><div className="section-actions">{selectedSection?.kind === "chapter" && <button className="section-delete" title="Delete chapter" disabled={busy} onClick={() => void deleteCurrentChapter()}>Delete</button>}<button className="section-gear" title="Style settings" onClick={() => setShowStyle(true)}>⚙⌄</button></div></div>
+        <div className="section-titlebar"><ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/><div className="section-actions">{selectedSection && (selectedSection.kind === "chapter" || document?.editable) && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}<button className="section-gear" title="Style settings" onClick={() => setShowStyle(true)}>⚙⌄</button></div></div>
         <div className="format-toolbar">
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)">↶</button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)">↷</button></div>
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button></div>
@@ -573,7 +641,7 @@ export default function App() {
       <section className="preview-pane">
         <div className="preview-topbar"><button className="preview-style-button" onClick={() => setShowStyle(true)}>Aa · Styles</button><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Generate</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>}</div></div>}</div></div>
         <div className="device-toolbar"><div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div><div className="device-nav"><button disabled={!previousSection} title="Previous section" onClick={() => previousSection && void selectSection(previousSection.id)}>‹</button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {project.sections.length}</span><button disabled={!nextSection} title="Next section" onClick={() => nextSection && void selectSection(nextSection.id)}>›</button></div></div>
-        <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{selectedId ? <iframe ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={onPreviewLoad}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
+        <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{selectedId ? <iframe key={`${project.projectId}:${selectedId}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={onPreviewLoad}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
       {showStyle && (
@@ -595,17 +663,20 @@ function NewBookDialog(props: { value: { path: string; title: string; author: st
   return <DialogShell title="New Book" onClose={props.onCancel} footer={<><button className="native-button" onClick={props.onCancel}>Cancel</button><button className="native-button primary" disabled={props.busy || !value.title.trim()} onClick={props.onCreate}>Create Book</button></>}><label className="dialog-field"><span>Title</span><input autoFocus value={value.title} onChange={(e) => setValue({ ...value, title: e.target.value })}/></label><label className="dialog-field"><span>Author</span><input value={value.author} placeholder="Author name" onChange={(e) => setValue({ ...value, author: e.target.value })}/></label><label className="dialog-field"><span>Folder</span><input value={value.path} readOnly/></label></DialogShell>;
 }
 
-function ChapterTitle(props: { title: string; index: number | null; editable: boolean; busy: boolean; onRename: (title: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(props.title);
-  useEffect(() => { setValue(props.title); setEditing(false); }, [props.title]);
-  const commit = () => {
-    const title = value.trim();
-    setEditing(false);
-    if (title && title !== props.title) props.onRename(title);
-    else setValue(props.title);
-  };
-  return <div className="section-title-wrap">{props.index ? <span className="section-index">{props.index}.</span> : null}{editing ? <input className="section-title-input" autoFocus value={value} disabled={props.busy} onChange={(event) => setValue(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === "Enter") commit(); if (event.key === "Escape") { setValue(props.title); setEditing(false); } }}/> : <button className="section-title section-title-button" disabled={!props.editable || props.busy} title={props.editable ? "Rename chapter" : undefined} onClick={() => props.editable && setEditing(true)}>{props.title}</button>}</div>;
+function ChapterHeading(props: { title: string; subtitle: string; index: number | null; editable: boolean; busy: boolean; onTitle: (title: string) => void; onSubtitle: (subtitle: string) => void }) {
+  const [editing, setEditing] = useState<"title" | "subtitle" | null>(null);
+  const [title, setTitle] = useState(props.title);
+  const [subtitle, setSubtitle] = useState(props.subtitle);
+  useEffect(() => { setTitle(props.title); setSubtitle(props.subtitle); setEditing(null); }, [props.title, props.subtitle]);
+  const cancel = () => { setTitle(props.title); setSubtitle(props.subtitle); setEditing(null); };
+  const commitTitle = () => { const value = title.trim(); setEditing(null); if (value && value !== props.title) props.onTitle(value); else setTitle(props.title); };
+  const commitSubtitle = () => { const value = subtitle.trim(); setEditing(null); if (value !== props.subtitle) props.onSubtitle(value); else setSubtitle(props.subtitle); };
+  const keys = (commit: () => void) => (event: React.KeyboardEvent<HTMLInputElement>) => { if (event.key === "Enter") commit(); if (event.key === "Escape") cancel(); };
+  return <div className="section-title-wrap">
+    {props.index ? <span className="section-index">{props.index}.</span> : null}
+    {editing === "title" ? <input className="section-title-input" autoFocus value={title} disabled={props.busy} onChange={(event) => setTitle(event.target.value)} onBlur={commitTitle} onKeyDown={keys(commitTitle)}/> : <button className="section-title section-title-button" disabled={!props.editable || props.busy} title={props.editable ? "Rename chapter" : undefined} onClick={() => props.editable && setEditing("title")}>{props.title}</button>}
+    {editing === "subtitle" ? <input className="section-subtitle-input" autoFocus value={subtitle} placeholder="Chapter subtitle" disabled={props.busy} onChange={(event) => setSubtitle(event.target.value)} onBlur={commitSubtitle} onKeyDown={keys(commitSubtitle)}/> : <button className={`section-subtitle-button ${props.subtitle ? "" : "placeholder"}`} disabled={!props.editable || props.busy} title={props.editable ? "Edit chapter subtitle" : undefined} onClick={() => props.editable && setEditing("subtitle")}>{props.subtitle || "+ Add subtitle"}</button>}
+  </div>;
 }
 
 function BookDetailsDialog(props: { meta: BookMeta; setMeta: (meta: BookMeta) => void; projectId: string; hasCover: boolean; coverVersion: number; onCover: (file: File) => void; busy: boolean; onClose: () => void; onSave: () => void }) {
@@ -647,8 +718,8 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
   const row = (label: string, control: React.ReactNode) => <label className="customize-row"><span>{label}</span>{control}</label>;
   const fonts = <><option value="">Theme default</option><option value="Georgia, serif">Georgia</option><option value="Garamond, Georgia, serif">Garamond</option><option value="Baskerville, Georgia, serif">Baskerville</option><option value="Palatino, Georgia, serif">Palatino</option><option value="Cambria, Georgia, serif">Cambria</option><option value="Segoe UI, Arial, sans-serif">Segoe UI</option></>;
   return <div className="customize-panel"><h3>{category}</h3><p>Theme defaults already form a complete design. Override only what the book needs.</p>
-    {category === "Body" && <>{row("Typeface", <select value={ty.bodyFont ?? ""} onChange={(e) => setTy({ ...ty, bodyFont: e.target.value || undefined })}>{fonts}</select>)}{row("Size", <select value={ty.fontSize ?? "1em"} onChange={(e) => setTy({ ...ty, fontSize: e.target.value })}><option value="0.92em">Small</option><option value="1em">Standard</option><option value="1.08em">Large</option><option value="1.16em">Extra large</option></select>)}{row("Line spacing", <input type="range" min="1.3" max="1.8" step="0.05" value={Number(ty.lineHeight ?? 1.5)} onChange={(e) => setTy({ ...ty, lineHeight: Number(e.target.value) })}/>)}{row("Alignment", <select value={ty.bodyAlign ?? "left"} onChange={(e) => setTy({ ...ty, bodyAlign: e.target.value as "left" | "justify" })}><option value="left">Professional ragged right</option><option value="justify">Justified (print-width text)</option></select>)}{row("Paragraph spacing", <select value={ty.paragraphSpacing ?? ""} onChange={(e) => setTy({ ...ty, paragraphSpacing: e.target.value || undefined })}><option value="">Theme default</option><option value="0">None</option><option value="0.5em">Compact</option><option value="1em">Open</option></select>)}</>}
-    {category === "Chapter Heading" && <>{row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{fonts}</select>)}{row("Size", <select value={ty.chapterTitle?.size ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, size: e.target.value || undefined } })}><option value="">Theme default</option><option value="1.4em">Compact</option><option value="1.8em">Standard</option><option value="2.2em">Large</option></select>)}{row("Alignment", <select value={ty.chapterTitle?.align ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, align: (e.target.value || undefined) as "left" | "center" | "right" | undefined } })}><option value="">Theme default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>)}{row("Letter case", <select value={ty.chapterTitle?.case ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, case: (e.target.value || undefined) as "normal" | "smallcaps" | "uppercase" | undefined } })}><option value="">Theme default</option><option value="normal">Normal</option><option value="smallcaps">Small caps</option><option value="uppercase">Uppercase</option></select>)}{row("Style", <select value={ty.chapterTitle?.style ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, style: (e.target.value || undefined) as "normal" | "italic" | undefined } })}><option value="">Theme default</option><option value="normal">Roman</option><option value="italic">Italic</option></select>)}</>}
+    {category === "Body" && <>{row("Typeface", <select value={ty.bodyFont ?? ""} onChange={(e) => setTy({ ...ty, bodyFont: e.target.value || undefined })}>{fonts}</select>)}{row("Size", <select value={ty.fontSize ?? "1em"} onChange={(e) => setTy({ ...ty, fontSize: e.target.value })}><option value="0.92em">Small</option><option value="1em">Standard</option><option value="1.08em">Large</option><option value="1.16em">Extra large</option></select>)}{row("Line spacing", <input type="range" min="1.3" max="1.8" step="0.05" value={Number(ty.lineHeight ?? 1.5)} onChange={(e) => setTy({ ...ty, lineHeight: Number(e.target.value) })}/>)}{row("Alignment", <select value={ty.bodyAlign ?? "justify"} onChange={(e) => setTy({ ...ty, bodyAlign: e.target.value as "left" | "justify" })}><option value="justify">Professional justified</option><option value="left">Ragged right</option></select>)}{row("Paragraph spacing", <select value={ty.paragraphSpacing ?? ""} onChange={(e) => setTy({ ...ty, paragraphSpacing: e.target.value || undefined })}><option value="">Theme default</option><option value="0">None</option><option value="0.5em">Compact</option><option value="1em">Open</option></select>)}</>}
+    {category === "Chapter Heading" && <>{row("Show theme label", <input type="checkbox" checked={ty.chapterTitle?.showLabel !== false} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, showLabel: e.target.checked } })}/>)}{row("Label text", <input value={ty.chapterTitle?.labelText ?? ""} disabled={ty.chapterTitle?.showLabel === false} placeholder="Theme default (for example CHAPTER)" onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, labelText: e.target.value || undefined } })}/>)}{row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{fonts}</select>)}{row("Size", <select value={ty.chapterTitle?.size ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, size: e.target.value || undefined } })}><option value="">Theme default</option><option value="1.4em">Compact</option><option value="1.8em">Standard</option><option value="2.2em">Large</option></select>)}{row("Alignment", <select value={ty.chapterTitle?.align ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, align: (e.target.value || undefined) as "left" | "center" | "right" | undefined } })}><option value="">Theme default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>)}{row("Letter case", <select value={ty.chapterTitle?.case ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, case: (e.target.value || undefined) as "normal" | "smallcaps" | "uppercase" | undefined } })}><option value="">Theme default</option><option value="normal">Normal</option><option value="smallcaps">Small caps</option><option value="uppercase">Uppercase</option></select>)}{row("Style", <select value={ty.chapterTitle?.style ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, style: (e.target.value || undefined) as "normal" | "italic" | undefined } })}><option value="">Theme default</option><option value="normal">Roman</option><option value="italic">Italic</option></select>)}</>}
     {category === "First Paragraph" && row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? "0"} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value })}><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={!ty.sceneOrnament ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value || undefined })}/>)}</>}
