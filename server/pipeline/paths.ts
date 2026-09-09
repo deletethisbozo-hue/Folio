@@ -4,7 +4,8 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const ROOT = process.env.FOLIO_ROOT ? path.resolve(process.env.FOLIO_ROOT) : path.resolve(here, "..", "..");
+const inferredRoot = path.basename(here) === "pipeline" ? path.resolve(here, "..", "..") : path.resolve(here, "..");
+export const ROOT = process.env.FOLIO_ROOT ? path.resolve(process.env.FOLIO_ROOT) : inferredRoot;
 export const RESOURCE_ROOT = process.env.FOLIO_RESOURCE_ROOT
   ? path.resolve(process.env.FOLIO_RESOURCE_ROOT)
   : ROOT;

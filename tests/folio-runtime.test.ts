@@ -40,6 +40,21 @@ for (const theme of themes.body) {
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
 }
 
+const newBookDir = path.join(os.tmpdir(), "folio-new-" + crypto.randomUUID());
+await fs.mkdir(newBookDir, { recursive: true });
+const created = await post("/api/projects/new", { path: newBookDir, title: "Born Tied", author: "Folio Test" });
+check("new book creates metadata and a first chapter", created.status === 200 && created.body.meta.title === "Born Tied" && created.body.sections.some((item: any) => item.kind === "chapter"));
+const createdChapter = created.body.sections.find((item: any) => item.kind === "chapter");
+const createdDocument = await json("/api/projects/" + created.body.projectId + "/sections/" + encodeURIComponent(createdChapter.id));
+check("new book's first chapter is editable", createdDocument.body.editable === true);
+const addedChapter = await post("/api/projects/" + created.body.projectId + "/chapters", { title: "Second Chapter", meta: created.body.meta });
+check("chapter API adds a second real source document", addedChapter.body.sections.filter((item: any) => item.kind === "chapter").length === 2);
+const addedMatter = await post("/api/projects/" + created.body.projectId + "/matter", { type: "dedication", placement: "frontmatter", meta: created.body.meta });
+const dedication = addedMatter.body.sections.find((item: any) => item.title === "Dedication");
+const dedicationDocument = await json("/api/projects/" + created.body.projectId + "/sections/" + encodeURIComponent(dedication.id));
+check("content API adds editable front matter", dedicationDocument.body.editable === true);
+await fs.rm(newBookDir, { recursive: true, force: true });
+
 const originalPath = path.join(ROOT, "samples", "clockwork-garden", "chapters", "01-the-letter.md");
 const original = await fs.readFile(originalPath, "utf8");
 const sample = await post("/api/sample", {});

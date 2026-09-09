@@ -1,6 +1,6 @@
 {
   "name": "folio-book-formatter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Folio — a desktop book formatter for Windows with live preview and publish-ready EPUB/PDF export.",
   "author": "Folio contributors; based on Byte-Sized Book Formatter by Angie Hartwell",
@@ -8,6 +8,7 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
+    "pretest": "npm run build:web",
     "dev": "concurrently -k -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "cross-env BOOK_FORMATTER_DEV=1 tsx watch server/index.ts",
     "dev:web": "vite",
@@ -62,6 +63,7 @@
       "electron/**/*",
       "dist-server/**/*",
       "web/dist/**/*",
+      "scripts/packaged-ui-smoke.mjs",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
       "package.json"

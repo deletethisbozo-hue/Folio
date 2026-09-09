@@ -6,6 +6,8 @@ body {
   font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
     Georgia, "Times New Roman", serif;
 }
+main.book { counter-reset: classic-chapter; }
+section.chapter { counter-increment: classic-chapter; }
 
 section.chapter > h1,
 h1.chapter {
@@ -14,6 +16,14 @@ h1.chapter {
   letter-spacing: 0.08em;
   font-size: 1.6em;
   margin: 0 0 1.8em;
+}
+section.chapter > h1::before {
+  content: "CHAPTER " counter(classic-chapter, upper-roman);
+  display: block;
+  margin-bottom: 0.85em;
+  font: 400 0.46em/1 Arial, sans-serif;
+  letter-spacing: 0.24em;
+  color: #77736c;
 }
 
 section.backmatter > h1,

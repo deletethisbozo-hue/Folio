@@ -25,6 +25,7 @@ const ORDER = [
   "review-folder.test.ts",
   "dropcap.test.ts",
   "folio-runtime.test.ts",
+  "ui-runtime.test.ts",
   "web-export.test.ts",
   "acceptance.test.ts",
   "blues-format.test.ts",

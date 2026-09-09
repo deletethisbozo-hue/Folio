@@ -35,6 +35,13 @@ export const api = {
 
   loadSample: () => fetch("/api/sample", { method: "POST" }).then((r) => json<ProjectSummary>(r)),
 
+  newBook: (folderPath: string, title: string, author: string) =>
+    fetch("/api/projects/new", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: folderPath, title, author }),
+    }).then((r) => json<ProjectSummary>(r)),
+
   pickFolder: (initial?: string) =>
     fetch("/api/pick-folder", {
       method: "POST",
@@ -61,6 +68,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ markdown }),
     }).then((r) => json<SectionDocument>(r)),
+
+  addChapter: (projectId: string, title: string, meta: Partial<BookMeta>) =>
+    fetch("/api/projects/" + projectId + "/chapters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, meta }),
+    }).then((r) => json<ProjectSummary>(r)),
 
   saveMeta: (projectId: string, meta: BookMeta) =>
     fetch(`/api/projects/${projectId}/meta`, {

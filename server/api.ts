@@ -27,6 +27,7 @@ import { renderPrintPdf, renderPrintPreviewHtml } from "./pipeline/render-print.
 import { TRIMS, LAYOUTS, DEFAULT_PRINT, type PrintOptions } from "./print.ts";
 import {
   MATTER_TYPES,
+  addChapter,
   addMatter,
   readConfig,
   removeMatter,
@@ -180,6 +181,28 @@ export function registerApi(app: Express): void {
     }),
   );
 
+  // Create a complete starter book in a user-selected folder.
+  app.post("/api/projects/new", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const folder = String(req.body?.path ?? "").trim();
+      if (!folder) throw new Error("No folder path provided.");
+      const id = await createProjectFromFolderPath(folder);
+      const dir = await writableBookDir(id);
+      const current = await fs.readdir(dir);
+      const bookFiles = current.filter((name) => /^(book\.ya?ml|.*\.md|chapters)$/i.test(name));
+      if (bookFiles.length) throw new Error("That folder already contains a book. Open it instead of creating over it.");
+      const meta: BookMeta = {
+        title: String(req.body?.title ?? path.basename(dir)).trim() || "Untitled",
+        author: String(req.body?.author ?? "").trim() || "Unknown Author",
+        language: String(req.body?.language ?? "en").trim() || "en",
+        theme: "classic",
+      };
+      await saveMeta(dir, meta);
+      await addChapter(dir, meta, String(req.body?.chapterTitle ?? "Chapter One"));
+      res.json(await buildSummary(id));
+    }),
+  );
+
   // Re-read the project from disk (after the user edits/swaps files).
   app.post("/api/projects/:id/reload", (req: Request, res: Response) =>
     wrap(res, async () => {
@@ -194,6 +217,15 @@ export function registerApi(app: Express): void {
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       const dir = await writableBookDir(req.params.id);
       await scaffold(dir, book.meta);
+      res.json(await buildSummary(req.params.id));
+    }),
+  );
+
+  app.post("/api/projects/:id/chapters", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const { book } = await loadProject(req.params.id, bodyMeta(req));
+      const dir = await writableBookDir(req.params.id);
+      await addChapter(dir, book.meta, String(req.body?.title ?? "New Chapter"));
       res.json(await buildSummary(req.params.id));
     }),
   );

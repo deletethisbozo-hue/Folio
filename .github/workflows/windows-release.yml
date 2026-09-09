@@ -71,7 +71,8 @@ jobs:
         shell: pwsh
         run: |
           $env:FOLIO_E2E_PORT = "43127"
-          $exe = Resolve-Path "release\Folio-0.2.0-portable.exe"
+          $env:FOLIO_E2E_DEBUG_PORT = "43128"
+          $exe = Resolve-Path "release\Folio-0.2.1-portable.exe"
           $process = Start-Process -FilePath $exe -PassThru
           try {
             $base = "http://127.0.0.1:43127"
@@ -80,6 +81,8 @@ jobs:
               try { $health = Invoke-RestMethod "$base/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
             }
             if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged /api/health did not become ready with bundled Pandoc." }
+
+            node scripts\packaged-ui-smoke.mjs
 
             $themes = Invoke-RestMethod "$base/api/themes"
             if ($themes.Count -lt 20) { throw "Packaged app returned only $($themes.Count) themes." }
@@ -121,7 +124,7 @@ jobs:
       - name: Verify release assets
         shell: pwsh
         run: |
-          $required = @("release\Folio-0.2.0-setup.exe", "release\Folio-0.2.0-portable.exe")
+          $required = @("release\Folio-0.2.1-setup.exe", "release\Folio-0.2.1-portable.exe")
           foreach ($file in $required) {
             if (-not (Test-Path $file)) { throw "Missing release asset: $file" }
             if ((Get-Item $file).Length -lt 1MB) { throw "Release asset is unexpectedly small: $file" }
@@ -131,10 +134,10 @@ jobs:
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-0.2.0-Windows
+          name: Folio-0.2.1-Windows
           path: |
-            release/Folio-0.2.0-setup.exe
-            release/Folio-0.2.0-portable.exe
+            release/Folio-0.2.1-setup.exe
+            release/Folio-0.2.1-portable.exe
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -142,11 +145,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.2.0 2>$null
-          if ($LASTEXITCODE -eq 0) { gh release delete v0.2.0 --cleanup-tag --yes }
-          gh release create v0.2.0 `
-            release\Folio-0.2.0-setup.exe `
-            release\Folio-0.2.0-portable.exe `
+          gh release view v0.2.1 2>$null
+          if ($LASTEXITCODE -eq 0) { gh release delete v0.2.1 --cleanup-tag --yes }
+          gh release create v0.2.1 `
+            release\Folio-0.2.1-setup.exe `
+            release\Folio-0.2.1-portable.exe `
             --target "$env:GITHUB_SHA" `
-            --title "Folio 0.2.0 for Windows" `
-            --notes "Vellum-style three-pane UI; true live Kindle and print previews; 20 complete book themes with a visual style library; reliable copy-on-write autosave; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export; bundled Pandoc and PDF engine."
+            --title "Folio 0.2.1 for Windows" `
+            --notes "Working new-book and content creation; editable sample with reliable copy-on-write autosave; live draft preview across Kindle Paperwhite, Kindle Oasis, iPad, iPhone, Android, and print; 20 materially distinct book themes; ornamental scene breaks; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export; bundled Pandoc and PDF engine."

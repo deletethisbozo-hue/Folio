@@ -42,6 +42,12 @@ body {
   orphans: 2;
 }
 
+@media print {
+  body {
+    background: #fff !important;
+  }
+}
+
 /* The final line of justified text must stay ragged-left, never stretched
    edge-to-edge. (Some engines justify the last line otherwise.) */
 p,

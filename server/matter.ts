@@ -127,6 +127,48 @@ function uniqueFilename(dir: string, base: string, used: Set<string>): string {
   return name;
 }
 
+/** Add a chapter to either a chapter directory or a single combined manuscript. */
+export async function addChapter(
+  bookDir: string,
+  meta: BookMeta,
+  title = "New Chapter",
+): Promise<void> {
+  const cfg = await ensureConfig(bookDir, meta);
+  const safeTitle = title.trim() || "New Chapter";
+  const chaptersEntry = typeof cfg.chapters === "string" && cfg.chapters.trim() ? cfg.chapters : "chapters";
+  const target = path.resolve(bookDir, chaptersEntry);
+
+  if (await exists(target)) {
+    const stat = await fs.stat(target);
+    if (stat.isFile()) {
+      const raw = await fs.readFile(target, "utf8");
+      const separator = raw.trim() ? "\n\n" : "";
+      await fs.writeFile(target, raw.replace(/\s*$/, "") + separator + "# " + safeTitle + "\n\n", "utf8");
+      return;
+    }
+  }
+
+  await fs.mkdir(target, { recursive: true });
+  const names = await fs.readdir(target);
+  const highest = names.reduce((n, name) => {
+    const match = name.match(/^(\d+)/);
+    return match ? Math.max(n, Number(match[1])) : n;
+  }, 0);
+  const slug = safeTitle
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "chapter";
+  let number = highest + 1;
+  let filename = String(number).padStart(2, "0") + "-" + slug + ".md";
+  while (await exists(path.join(target, filename))) {
+    number += 1;
+    filename = String(number).padStart(2, "0") + "-" + slug + ".md";
+  }
+  await fs.writeFile(path.join(target, filename), "# " + safeTitle + "\n\n", "utf8");
+}
+
 /** Add a matter section from a template (or a blank custom file). */
 export async function addMatter(
   bookDir: string,

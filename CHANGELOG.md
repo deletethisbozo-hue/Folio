@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-09
+
+### Added
+- Complete new-book workflow, chapter/front-matter/back-matter creation, and editable book details.
+- Six responsive preview devices: Kindle Paperwhite, Kindle Oasis, iPad, iPhone, Android, and print.
+- Browser-level tests for editing, live preview, autosave, styles, scene breaks, content creation, and packaged Electron UI.
+
+### Changed
+- Theme gallery and rendered themes now use materially distinct chapter treatments, spacing, ornaments, typography, and page furniture.
+- Narrow-device previews use readable ragged-right text to prevent stretched word spacing.
+
+### Fixed
+- Empty projects no longer remain stuck on “Loading section”; the first chapter can be created in place.
+- Sample chapters are editable through copy-on-write storage and immediately update the preview.
+- Ornamental scene breaks insert a normalized Markdown break at the current caret and render with the selected theme.
+- Removed decorative macOS traffic-light controls and wired every remaining visible toolbar action.
+
 ## [0.2.0] - 2026-09-08
 
 ### Added

@@ -125,6 +125,9 @@ async function startFolio() {
 
 const gotLock = app.requestSingleInstanceLock();
 app.setName("Folio");
+if (process.env.FOLIO_E2E_DEBUG_PORT) {
+  app.commandLine.appendSwitch("remote-debugging-port", process.env.FOLIO_E2E_DEBUG_PORT);
+}
 if (!gotLock) {
   app.quit();
 } else {
