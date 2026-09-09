@@ -369,6 +369,7 @@ export default function App() {
   async function updateCurrentChapterHeading(change: { title?: string; subtitle?: string }) {
     if (!project || !selectedId || selectedSection?.kind !== "chapter") return;
     const previousDocument = document;
+    const draftAtStart = draftRef.current;
     const title = change.title?.trim();
     const subtitle = change.subtitle?.trim() ?? "";
     if (change.title !== undefined && (!title || title === selectedSection.title)) return;
@@ -386,17 +387,21 @@ export default function App() {
         ...(change.subtitle !== undefined ? { subtitle } : {}),
       });
       const summary = await api.reload(project.projectId);
+      const liveDraft = draftRef.current;
+      const draftChangedDuringSave = liveDraft !== draftAtStart;
       if (updated.id !== selectedId) { undoRef.current = []; redoRef.current = []; }
       setProject(summary);
       setMeta(summary.meta);
       setTypography(summary.typography ?? {});
       setSelectedId(updated.id);
       selectedRef.current = updated.id;
-      setDocument(updated);
-      setDraft(updated.markdown);
-      draftRef.current = updated.markdown;
-      setDirty(false);
-      setSaveState("saved");
+      setDocument(draftChangedDuringSave ? { ...updated, markdown: liveDraft } : updated);
+      if (!draftChangedDuringSave) {
+        setDraft(updated.markdown);
+        draftRef.current = updated.markdown;
+      }
+      setDirty(draftChangedDuringSave);
+      setSaveState(draftChangedDuringSave ? "saving" : "saved");
       setPreviewError(null);
     } catch (e) {
       if (change.subtitle !== undefined && selectedRef.current === selectedId) setDocument(previousDocument);
