@@ -17,9 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drop caps are strictly limited to chapter body openings and stay outside nested emphasis markup, preventing them from destabilizing justified first lines.
 - Generated title and copyright pages no longer expose internal HTML in the editor or fast preview.
 - Discretionary hyphenation is restricted to chapter and back-matter prose, never title pages or display front matter.
+- Immediate title/subtitle edits save the synchronous editor snapshot and issue only one heading rewrite, preventing stale or concurrent requests from replacing chapter content.
 
 ### Tests
-- Browser and runtime regressions cover soft-wrapped pasted prose, title-page markup isolation, chapter-only drop caps, generated-page hyphenation boundaries, all 30 themes, and 24 materially distinct gallery signatures.
+- Browser and runtime regressions cover soft-wrapped pasted prose, title-page markup isolation, chapter-only drop caps, generated-page hyphenation boundaries, title/subtitle body preservation, all 30 themes, and 24 materially distinct gallery signatures.
 
 ## [1.0.1] - 2026-09-09
 

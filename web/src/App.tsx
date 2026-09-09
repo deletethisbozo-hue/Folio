@@ -443,7 +443,11 @@ export default function App() {
   async function saveCurrent(): Promise<boolean> {
     if (!dirty || !document?.editable || !project || !selectedId) return true;
     const sectionId = selectedId;
-    const value = draft;
+    // The DOM-backed ref is updated synchronously on every input/paste. React's
+    // state value may still be one render behind when the user immediately
+    // commits a title or subtitle, which previously allowed an empty/stale
+    // snapshot to overwrite the chapter just before the heading rewrite.
+    const value = draftRef.current;
     setSaveState("saving");
     try {
       const saved = await api.saveSection(project.projectId, sectionId, value);
@@ -756,11 +760,16 @@ function ChapterHeading(props: { title: string; subtitle: string; index: number 
   const cancel = () => { setTitle(props.title); setSubtitle(props.subtitle); setEditing(null); };
   const commitTitle = () => { const value = title.trim(); setEditing(null); if (value && value !== props.title) props.onTitle(value); else setTitle(props.title); };
   const commitSubtitle = () => { const value = subtitle.trim(); setEditing(null); if (value !== props.subtitle) props.onSubtitle(value); else setSubtitle(props.subtitle); };
-  const keys = (commit: () => void) => (event: React.KeyboardEvent<HTMLInputElement>) => { if (event.key === "Enter") commit(); if (event.key === "Escape") cancel(); };
+  // Enter commits by blurring, so exactly one path performs the rewrite. Calling
+  // commit here and again from onBlur could launch two concurrent PATCHes.
+  const keys = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
+    if (event.key === "Escape") { event.preventDefault(); cancel(); }
+  };
   return <div className="section-title-wrap">
     {props.index ? <span className="section-index">{props.index}.</span> : null}
-    {editing === "title" ? <input ref={inputRef} className="section-title-input" autoFocus value={title} disabled={props.busy} onChange={(event) => setTitle(event.target.value)} onBlur={commitTitle} onKeyDown={keys(commitTitle)}/> : <button className="section-title section-title-button" disabled={!props.editable || props.busy} title={props.editable ? "Rename chapter" : undefined} onClick={() => props.editable && setEditing("title")}>{props.title}</button>}
-    {editing === "subtitle" ? <input ref={inputRef} className="section-subtitle-input" autoFocus value={subtitle} placeholder="Chapter subtitle" disabled={props.busy} onChange={(event) => setSubtitle(event.target.value)} onBlur={commitSubtitle} onKeyDown={keys(commitSubtitle)}/> : <button className={`section-subtitle-button ${props.subtitle ? "" : "placeholder"}`} disabled={!props.editable || props.busy} title={props.editable ? "Edit chapter subtitle" : undefined} onClick={() => props.editable && setEditing("subtitle")}>{props.subtitle || "+ Add subtitle"}</button>}
+    {editing === "title" ? <input ref={inputRef} className="section-title-input" autoFocus value={title} disabled={props.busy} onChange={(event) => setTitle(event.target.value)} onBlur={commitTitle} onKeyDown={keys}/> : <button className="section-title section-title-button" disabled={!props.editable || props.busy} title={props.editable ? "Rename chapter" : undefined} onClick={() => props.editable && setEditing("title")}>{props.title}</button>}
+    {editing === "subtitle" ? <input ref={inputRef} className="section-subtitle-input" autoFocus value={subtitle} placeholder="Chapter subtitle" disabled={props.busy} onChange={(event) => setSubtitle(event.target.value)} onBlur={commitSubtitle} onKeyDown={keys}/> : <button className={`section-subtitle-button ${props.subtitle ? "" : "placeholder"}`} disabled={!props.editable || props.busy} title={props.editable ? "Edit chapter subtitle" : undefined} onClick={() => props.editable && setEditing("subtitle")}>{props.subtitle || "+ Add subtitle"}</button>}
   </div>;
 }
 

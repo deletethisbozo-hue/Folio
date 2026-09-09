@@ -50,18 +50,22 @@ check("new book's first chapter is editable", createdDocument.body.editable === 
 const addedChapter = await post("/api/projects/" + created.body.projectId + "/chapters", { title: "Second Chapter", meta: created.body.meta });
 check("chapter API adds a second real source document", addedChapter.body.sections.filter((item: any) => item.kind === "chapter").length === 2);
 const secondChapter = addedChapter.body.sections.find((item: any) => item.title === "Second Chapter");
+const headingSafetyBody = "BODY MUST SURVIVE HEADING EDITS.\n\nA second paragraph with **formatting** and ąęłńóśźż.";
+await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(secondChapter.id)}`, {
+  method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown: headingSafetyBody }),
+});
 const renamedChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(secondChapter.id)}`, {
   method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Renamed Chapter" }),
 });
-check("chapter title can be renamed at its source", renamedChapter.status === 200 && renamedChapter.body.title === "Renamed Chapter");
+check("chapter title can be renamed without changing its body", renamedChapter.status === 200 && renamedChapter.body.title === "Renamed Chapter" && renamedChapter.body.markdown === headingSafetyBody);
 const subtitledChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(renamedChapter.body.id)}`, {
   method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ subtitle: "A precise second line" }),
 });
-check("chapter subtitle can be added at its source", subtitledChapter.status === 200 && subtitledChapter.body.subtitle === "A precise second line");
+check("chapter subtitle can be added without changing its body", subtitledChapter.status === 200 && subtitledChapter.body.subtitle === "A precise second line" && subtitledChapter.body.markdown === headingSafetyBody);
 const clearedSubtitle = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(subtitledChapter.body.id)}`, {
   method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ subtitle: "" }),
 });
-check("chapter subtitle can be removed completely", clearedSubtitle.status === 200 && clearedSubtitle.body.subtitle === undefined);
+check("chapter subtitle can be removed without changing its body", clearedSubtitle.status === 200 && clearedSubtitle.body.subtitle === undefined && clearedSubtitle.body.markdown === headingSafetyBody);
 const deletedChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(clearedSubtitle.body.id)}`, { method: "DELETE" });
 const afterDelete = await post(`/api/projects/${created.body.projectId}/reload`, {});
 check("chapter can be deleted without destroying its source", deletedChapter.status === 200 && afterDelete.body.sections.filter((item: any) => item.kind === "chapter").length === 1 && (await fs.readdir(path.join(newBookDir, ".folio-trash"))).length === 1);

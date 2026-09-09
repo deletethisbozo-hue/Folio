@@ -315,6 +315,10 @@ try {
   await stage("new chapter editable", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
   check("Add Content creates and selects an editable chapter", await page.$eval(".contents-row.selected", (el) => el.textContent?.includes("UI Added Chapter") ?? false));
 
+  await page.click(".rich-editor");
+  await page.keyboard.type("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY.");
+  await stage("heading-safety body autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved"));
+
   await page.click(".section-title-button");
   await stage("chapter title editor", () => page.waitForSelector(".section-title-input"));
   await page.click(".section-title-input");
@@ -322,7 +326,7 @@ try {
   await page.keyboard.type("Renamed in UI");
   await page.keyboard.press("Enter");
   await stage("chapter renamed", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Renamed in UI")));
-  check("chapter name can be edited from the title bar", true);
+  check("chapter name can be edited without deleting its body", await page.$eval(".rich-editor", (el) => (el as HTMLElement).dataset.markdown?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY") ?? false));
 
   await page.click(".section-subtitle-button");
   await stage("chapter subtitle editor", () => page.waitForSelector(".section-subtitle-input"));
@@ -356,7 +360,7 @@ try {
       throw new Error(`${error instanceof Error ? error.message : String(error)}; snapshot=${JSON.stringify(snapshot)}`);
     }
   });
-  check("chapter subtitle can be added from the title bar and updates the preview", true);
+  check("chapter subtitle can be added without deleting its body", await page.$eval(".rich-editor", (el) => (el as HTMLElement).dataset.markdown?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY") ?? false));
 
   await page.click(".rich-editor");
   await page.keyboard.type(" DELETED CHAPTER PREVIEW MARKER");

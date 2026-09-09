@@ -89,11 +89,12 @@ try {
   await page.keyboard.type("Packaged Renamed Chapter");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Packaged Renamed Chapter"), { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelector(".rich-editor")?.dataset.markdown?.includes("PACKAGED WHOLE BOOK MARKER"), { timeout: 15000 });
   page.once("dialog", (dialog) => void dialog.accept());
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged UI passed: rich-text sample, 100,000-word LibreOffice paste, persistent preview, 20+ ornaments, rename/delete, 20 themes, 6 device profiles.");
+  console.log("Packaged UI passed: rich-text sample, 100,000-word LibreOffice paste, persistent preview, body-safe rename, 20+ ornaments, 30 themes, 6 device profiles.");
 } finally {
   browser.disconnect();
 }
