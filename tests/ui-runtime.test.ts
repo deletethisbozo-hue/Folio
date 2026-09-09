@@ -152,6 +152,24 @@ try {
   });
   check("device preview is geometrically centered in the right pane", centered);
 
+  await page.$eval(".rich-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.focus();
+    const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+    const paragraph = "Long LibreOffice manuscript paragraph with enough ordinary words to verify that the preview device remains visible and the complete text reaches the renderer correctly.";
+    const html = Array.from({ length: 210 }, (_, index) => `<p>${paragraph} ${index === 209 ? "LARGE PASTE FINAL MARKER" : index + 1}</p>`).join("");
+    const transfer = new DataTransfer(); transfer.setData("text/html", html);
+    editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
+  });
+  await stage("large rich-text preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("LARGE PASTE FINAL MARKER"), { timeout: 30000 }));
+  const visibleAfterLargePaste = await page.evaluate(() => {
+    const stage = document.querySelector(".preview-stage")!.getBoundingClientRect();
+    const device = document.querySelector(".reader-device")!.getBoundingClientRect();
+    return device.width > 200 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
+  });
+  check("4,000-word LibreOffice paste cannot hide or displace the preview", visibleAfterLargePaste);
+
   await page.click(".footer-add");
   await stage("open Add Content", () => page.waitForSelector(".add-chapter-box input"));
   await page.click(".add-chapter-box input", { clickCount: 3 });

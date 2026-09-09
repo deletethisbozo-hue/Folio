@@ -62,6 +62,22 @@ try {
   await page.click(".style-library-header button");
   const devices = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.length);
   if (devices < 6) throw new Error("Packaged preview contains only " + devices + " device modes.");
+  await page.$eval(".rich-editor", (element) => {
+    element.focus();
+    const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+    const words = "Large packaged LibreOffice paragraph verifies that a multi thousand word manuscript cannot make the device or its live preview disappear after paste.";
+    const html = Array.from({ length: 210 }, (_, index) => `<p>${words} ${index === 209 ? "PACKAGED LARGE PASTE MARKER" : index + 1}</p>`).join("");
+    const transfer = new DataTransfer(); transfer.setData("text/html", html);
+    element.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
+  });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("PACKAGED LARGE PASTE MARKER"), { timeout: 30000 });
+  const deviceVisible = await page.evaluate(() => {
+    const stage = document.querySelector(".preview-stage").getBoundingClientRect();
+    const device = document.querySelector(".reader-device").getBoundingClientRect();
+    return device.width > 200 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
+  });
+  if (!deviceVisible) throw new Error("Packaged preview device disappeared after a large rich-text paste.");
   await page.click(".section-title-button");
   await page.waitForSelector(".section-title-input");
   await page.click(".section-title-input", { clickCount: 3 });
@@ -72,7 +88,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged UI passed: rich-text sample, LibreOffice paste, live draft, 20+ ornaments, rename/delete, 20 themes, 6 device profiles.");
+  console.log("Packaged UI passed: rich-text sample, 4,000-word LibreOffice paste, persistent preview, 20+ ornaments, rename/delete, 20 themes, 6 device profiles.");
 } finally {
   browser.disconnect();
 }

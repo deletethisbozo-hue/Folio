@@ -79,6 +79,7 @@ export function richTextToMarkdown(html: string): string {
   const document = new DOMParser().parseFromString(html, "text/html");
   return Array.from(document.body.childNodes).map(renderNode).join("")
     .replace(/\u00a0/g, " ")
+    .replace(/[\u0000\u200B\uFEFF]/g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/\n{3,}/g, "\n\n")

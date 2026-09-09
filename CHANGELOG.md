@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-09
+
+### Fixed
+- The preview device is now held by a non-scrolling grid in reflowable modes, so a large LibreOffice paste cannot scroll or displace it outside the right pane.
+- A failed preview refresh preserves the last valid page and shows an explicit in-device error instead of leaving an unexplained blank panel.
+- Clipboard cleanup removes invisible NUL, zero-width, and byte-order characters before sending a draft to Pandoc.
+
+### Tests
+- Added direct, browser, and packaged-EXE regression coverage for multi-thousand-word rich-text paste and persistent preview geometry.
+
 ## [0.2.2] - 2026-09-09
 
 ### Added

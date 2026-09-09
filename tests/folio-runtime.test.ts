@@ -90,6 +90,14 @@ check("preview contains the transient editor draft", preview.status === 200 && p
 check("preview contains selected theme CSS", preview.body.html.includes("Old English Text MT"));
 check("preview renders exactly the selected section", (preview.body.html.match(/<section/g) ?? []).length === 1);
 
+const longDraft = Array.from({ length: 220 }, (_, index) =>
+  `Paragraph ${index + 1}. This is a long imported manuscript with enough ordinary words to exercise the complete live preview pipeline without truncation or layout collapse${index === 219 ? " LONG PASTE FINAL MARKER" : ""}.`,
+).join("\n\n");
+const longPreview = await post(`/api/projects/${projectId}/preview`, {
+  meta: sample.body.meta, theme: "folio", typography: {}, previewSectionId: chapter.id, draft: longDraft,
+});
+check("multi-thousand-word pasted manuscript keeps a non-empty preview", longPreview.status === 200 && longPreview.body.html.includes("LONG PASTE FINAL MARKER") && longPreview.body.html.length > longDraft.length);
+
 const savedText = `${section.body.markdown}\n\nCopy-on-write save probe.`;
 const saved = await json(`/api/projects/${projectId}/sections/${encodeURIComponent(chapter.id)}`, {
   method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown: savedText }),

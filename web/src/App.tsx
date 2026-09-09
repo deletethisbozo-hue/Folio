@@ -47,6 +47,7 @@ export default function App() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-paperwhite");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
@@ -65,6 +66,7 @@ export default function App() {
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
   const editorRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
+  const previewStageRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef(draft);
   const selectedRef = useRef(selectedId);
   const undoRef = useRef<string[]>([]);
@@ -117,9 +119,12 @@ export default function App() {
         const result = previewMode === "print"
           ? await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, draft)
           : await api.preview(project.projectId, meta, meta.theme, typography, selectedId, draft);
-        if (!cancelled) setPreviewHtml(result.html);
+        if (!cancelled) { setPreviewHtml(result.html); setPreviewError(null); }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) {
+          const message = e instanceof Error ? e.message : String(e);
+          setPreviewError(message); setError(message);
+        }
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
@@ -156,6 +161,7 @@ export default function App() {
     const frame = window.requestAnimationFrame(() => onPreviewLoad());
     return () => window.cancelAnimationFrame(frame);
   }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign]);
+  useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [previewMode, selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
     setProject(summary); setMeta(summary.meta); setTypography(summary.typography ?? {});
@@ -479,7 +485,7 @@ export default function App() {
       <section className="preview-pane">
         <div className="preview-topbar"><button className="preview-style-button" onClick={() => setShowStyle(true)}>Aa · Styles</button><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Generate</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>}</div></div>}</div></div>
         <div className="device-toolbar"><div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div><div className="device-nav"><button disabled={!previousSection} title="Previous section" onClick={() => previousSection && void selectSection(previousSection.id)}>‹</button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {project.sections.length}</span><button disabled={!nextSection} title="Next section" onClick={() => nextSection && void selectSection(nextSection.id)}>›</button></div></div>
-        <div className="preview-stage"><div className={"reader-device device-" + previewMode}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{selectedId ? <iframe ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={onPreviewLoad}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
+        <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{selectedId ? <iframe ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={onPreviewLoad}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
       {showStyle && (

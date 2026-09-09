@@ -72,7 +72,7 @@ jobs:
         run: |
           $env:FOLIO_E2E_PORT = "43127"
           $env:FOLIO_E2E_DEBUG_PORT = "43128"
-          $exe = Resolve-Path "release\Folio-0.2.2-portable.exe"
+          $exe = Resolve-Path "release\Folio-0.2.3-portable.exe"
           $process = Start-Process -FilePath $exe -PassThru
           try {
             $base = "http://127.0.0.1:43127"
@@ -142,7 +142,7 @@ jobs:
       - name: Verify release assets
         shell: pwsh
         run: |
-          $required = @("release\Folio-0.2.2-setup.exe", "release\Folio-0.2.2-portable.exe")
+          $required = @("release\Folio-0.2.3-setup.exe", "release\Folio-0.2.3-portable.exe")
           foreach ($file in $required) {
             if (-not (Test-Path $file)) { throw "Missing release asset: $file" }
             if ((Get-Item $file).Length -lt 1MB) { throw "Release asset is unexpectedly small: $file" }
@@ -152,10 +152,10 @@ jobs:
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-0.2.2-Windows
+          name: Folio-0.2.3-Windows
           path: |
-            release/Folio-0.2.2-setup.exe
-            release/Folio-0.2.2-portable.exe
+            release/Folio-0.2.3-setup.exe
+            release/Folio-0.2.3-portable.exe
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -163,11 +163,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.2.2 2>$null
-          if ($LASTEXITCODE -eq 0) { gh release delete v0.2.2 --cleanup-tag --yes }
-          gh release create v0.2.2 `
-            release\Folio-0.2.2-setup.exe `
-            release\Folio-0.2.2-portable.exe `
+          gh release view v0.2.3 2>$null
+          if ($LASTEXITCODE -eq 0) { gh release delete v0.2.3 --cleanup-tag --yes }
+          gh release create v0.2.3 `
+            release\Folio-0.2.3-setup.exe `
+            release\Folio-0.2.3-portable.exe `
             --target "$env:GITHUB_SHA" `
-            --title "Folio 0.2.2 for Windows" `
-            --notes "WYSIWYG rich-text editor with LibreOffice and Word paste; inline chapter rename and recoverable delete; cover upload; 24 ornamental scene breaks; professional ebook and print typography; centered live preview; 20 materially distinct themes; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export; bundled Pandoc and PDF engine."
+            --title "Folio 0.2.3 for Windows" `
+            --notes "Persistent centered live preview after large LibreOffice and Word pastes; last-good-preview fallback with visible errors; WYSIWYG rich-text editor; inline chapter rename and recoverable delete; cover upload; 24 ornamental scene breaks; professional ebook and print typography; 20 themes; EPUB, KDP EPUB, reading PDF, print PDF, and DOCX export."
