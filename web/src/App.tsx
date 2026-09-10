@@ -415,8 +415,8 @@ export default function App() {
     });
     setBusy(true); setError(null);
     try {
-      setProject(await api.reorderChapters(project.projectId, order));
-      setSectionRevision((value) => value + 1);
+      const updated = await api.reorderChapters(project.projectId, order);
+      setProject({ ...updated, meta: meta ?? updated.meta, typography });
     } catch (e) {
       setProject(previous);
       setError(e instanceof Error ? e.message : String(e));
