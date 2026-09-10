@@ -1,3 +1,5 @@
+import { composePreviewDocument } from "./compositor";
+
 type ReflowProfile = {
   width: number;
   height: number;
@@ -63,10 +65,10 @@ function mode(): string {
   return document.querySelector<HTMLSelectElement>('select[aria-label="Preview device"]')?.value || "kindle-paperwhite";
 }
 
-function calibrateFrame(frame: HTMLIFrameElement): void {
+function calibrateFrame(frame: HTMLIFrameElement): boolean {
   const profile = PROFILES[mode()];
   const doc = frame.contentDocument;
-  if (!profile || !doc?.head || !frame.clientWidth) return;
+  if (!profile || !doc?.head || !frame.clientWidth) return false;
 
   const scale = frame.clientWidth / profile.width;
   const [top, right, bottom, left] = profile.padding.map((value) => Math.max(1, value * scale)) as [number, number, number, number];
@@ -79,11 +81,19 @@ function calibrateFrame(frame: HTMLIFrameElement): void {
     `body{font-size:${profile.baseFont * scale}px!important}`,
     `main.book{padding:${top}px ${right}px ${bottom}px ${left}px!important}`,
   ].join("");
-  if (style.textContent !== css) style.textContent = css;
+  const changed = style.textContent !== css;
+  if (changed) style.textContent = css;
   // App can replace its device-profile stylesheet. Move calibration to the end
   // only when something actually appeared after it; otherwise a head observer
   // would trigger itself forever and burn a CPU core for no useful reason.
   if (style.parentElement !== doc.head || doc.head.lastElementChild !== style) doc.head.appendChild(style);
+  return changed;
+}
+
+function previewUsesProfessionalJustification(doc: Document): boolean {
+  if (mode() === "print") return false;
+  const css = doc.getElementById("folio-device-profile")?.textContent ?? "";
+  return css.includes("hyphens:manual") || css.includes("-webkit-hyphens:manual");
 }
 
 function ensureStatsNode(): HTMLElement | null {
@@ -140,8 +150,14 @@ function updatePageCounts(frame: HTMLIFrameElement): void {
   stats.textContent = `Chapter ${chapterPages} pages · Book ~${bookPages} pages`;
 }
 
-function refreshFrame(frame: HTMLIFrameElement): void {
-  calibrateFrame(frame);
+function refreshFrame(frame: HTMLIFrameElement, forceRecompose = false): void {
+  const changed = calibrateFrame(frame);
+  const doc = frame.contentDocument;
+  if (doc && (changed || forceRecompose) && previewUsesProfessionalJustification(doc)) {
+    // Device metrics affect word widths. Recompose the near-viewport paragraphs
+    // after calibration rather than leaving breaks calculated at the old scale.
+    void composePreviewDocument(doc, true);
+  }
   window.requestAnimationFrame(() => updatePageCounts(frame));
 }
 
@@ -151,16 +167,20 @@ function bindFrame(frame: HTMLIFrameElement): void {
 
   let headObserver: MutationObserver | null = null;
   const refresh = () => {
-    refreshFrame(frame);
+    refreshFrame(frame, true);
     const head = frame.contentDocument?.head;
     if (head && !headObserver) {
       let scheduled = false;
-      headObserver = new MutationObserver(() => {
+      headObserver = new MutationObserver((records) => {
         if (scheduled) return;
+        const profileChanged = records.some((record) =>
+          Array.from(record.addedNodes).some((node) => node instanceof HTMLElement && node.id === "folio-device-profile") ||
+          Array.from(record.removedNodes).some((node) => node instanceof HTMLElement && node.id === "folio-device-profile"),
+        );
         scheduled = true;
         window.requestAnimationFrame(() => {
           scheduled = false;
-          refreshFrame(frame);
+          refreshFrame(frame, profileChanged);
         });
       });
       headObserver.observe(head, { childList: true });
@@ -230,12 +250,12 @@ export function installPreviewRuntime(): void {
       const select = event.target instanceof HTMLSelectElement ? event.target : null;
       if (select?.getAttribute("aria-label") !== "Preview device") return;
       const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
-      if (frame) window.requestAnimationFrame(() => refreshFrame(frame));
+      if (frame) window.requestAnimationFrame(() => refreshFrame(frame, true));
     });
 
     window.addEventListener("resize", () => {
       const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
-      if (frame) refreshFrame(frame);
+      if (frame) refreshFrame(frame, true);
     });
   };
 
