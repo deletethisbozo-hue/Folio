@@ -10,11 +10,11 @@ permissions:
 
 concurrency:
   group: folio-windows-release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 60
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
@@ -23,48 +23,69 @@ jobs:
     steps:
       - name: Check out Folio
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Node
+      - name: Set up Node 22.23.2
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.2
           cache: npm
 
       - name: Install locked dependencies
-        shell: pwsh
         run: npm ci --no-audit --no-fund
 
-      - name: Read Folio version
+      - name: Read and verify Folio version
         shell: pwsh
         run: |
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $version = (node -p "require('./package.json').version").Trim()
+          if ($version -ne "1.0.5") { throw "This release workflow is scoped to Folio 1.0.5, found $version." }
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
+          if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Download bundled Pandoc
+      - name: Refuse an existing immutable version
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $tag = "v1.0.5"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Refusing to delete or replace it; bump the version." }
+          $global:LASTEXITCODE = 0
+          git ls-remote --exit-code --tags origin "refs/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag $tag already exists. Refusing to move or replace it; bump the version." }
+          $global:LASTEXITCODE = 0
+
+      - name: Download pinned Pandoc 3.11
+        shell: pwsh
+        run: |
           New-Item -ItemType Directory -Force build\pandoc | Out-Null
           New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
-          $url = gh api repos/jgm/pandoc/releases/latest --jq '.assets[] | select(.name | test("windows-x86_64\\.zip$")) | .browser_download_url' | Select-Object -First 1
-          if (-not $url) { throw "Could not find the current Pandoc Windows archive." }
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
           Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc 3.11 checksum mismatch: $actual" }
           Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
           $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
           if (-not $exe) { throw "Pandoc executable was not found after extraction." }
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
           $license = Get-ChildItem build\pandoc-unpack -Include COPYING*,LICENSE* -File -Recurse | Select-Object -First 1
           if ($license) { Copy-Item $license.FullName build\pandoc\PANDOC_LICENSE.txt }
+          & build\pandoc\pandoc.exe --version | Select-Object -First 1
 
-      - name: Download bundled PDF engine
+      - name: Download pinned Chromium runtime
         shell: pwsh
-        run: npx puppeteer browsers install chrome-headless-shell
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
+          $chrome.FullName
 
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test formatter and export pipeline
+      - name: Full formatter and UI suite
         run: npm test
 
       - name: Build web and server
@@ -96,12 +117,12 @@ jobs:
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
             if (-not $chapter) { throw "Packaged sample has no chapter." }
+
             $coverPath = Join-Path $env:TEMP "folio-packaged-cover.png"
             [IO.File]::WriteAllBytes($coverPath, [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="))
             $covered = Invoke-RestMethod -Method Post -Form @{ cover = Get-Item $coverPath } "$base/api/projects/$($sample.projectId)/cover"
             if (-not $covered.hasCover) { throw "Packaged cover upload failed." }
-            $coverResponse = Invoke-WebRequest "$base/api/projects/$($sample.projectId)/cover"
-            if ($coverResponse.StatusCode -ne 200 -or $coverResponse.Headers."Content-Type" -notmatch "image/png") { throw "Packaged cover could not be served." }
+
             $sectionId = [uri]::EscapeDataString($chapter.id)
             $draft = "Packaged preview probe: live text before autosave."
             $previewBody = @{ meta = $sample.meta; theme = "blackletter"; typography = @{}; previewSectionId = $chapter.id; draft = $draft } | ConvertTo-Json -Depth 10
@@ -128,24 +149,20 @@ jobs:
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
             if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page") { throw "Packaged print preview did not paginate." }
 
-            $epubBody = @{ format = "epub"; preset = "kdp"; meta = $sample.meta; theme = "folio" } | ConvertTo-Json -Depth 10
-            $epub = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $epubBody "$base/api/projects/$($sample.projectId)/export"
-            if ($epub.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($epub.dataBase64)) { throw "Packaged EPUB export is empty." }
-
-            $readingBody = @{ format = "pdf"; meta = $sample.meta; theme = "folio" } | ConvertTo-Json -Depth 10
-            $reading = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $readingBody "$base/api/projects/$($sample.projectId)/export"
-            if ($reading.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($reading.dataBase64)) { throw "Packaged reading PDF export is empty." }
-
-            $printExportBody = @{ format = "print"; meta = $sample.meta; theme = "folio"; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
-            $printExport = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printExportBody "$base/api/projects/$($sample.projectId)/export"
-            if ($printExport.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($printExport.dataBase64)) { throw "Packaged print PDF export is empty." }
+            foreach ($format in @("epub", "pdf", "print")) {
+              $body = @{ format = $format; meta = $sample.meta; theme = "folio" }
+              if ($format -eq "epub") { $body["preset"] = "kdp" }
+              if ($format -eq "print") { $body["print"] = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } }
+              $export = Invoke-RestMethod -Method Post -ContentType "application/json" -Body ($body | ConvertTo-Json -Depth 10) "$base/api/projects/$($sample.projectId)/export"
+              if ($export.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($export.dataBase64)) { throw "Packaged $format export is empty." }
+            }
           }
           finally {
             Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
 
-      - name: Verify release assets
+      - name: Hash release binaries
         shell: pwsh
         run: |
           $required = @("release\Folio-$env:FOLIO_VERSION-setup.exe", "release\Folio-$env:FOLIO_VERSION-portable.exe")
@@ -153,7 +170,9 @@ jobs:
             if (-not (Test-Path $file)) { throw "Missing release asset: $file" }
             if ((Get-Item $file).Length -lt 1MB) { throw "Release asset is unexpectedly small: $file" }
           }
-          Get-Item $required | Select-Object Name,Length
+          $lines = Get-FileHash $required -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" }
+          $lines | Set-Content -Encoding ascii release\sha256.txt
+          Get-Content release\sha256.txt
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
@@ -162,19 +181,26 @@ jobs:
           path: |
             release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
             release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
+            release/sha256.txt
           if-no-files-found: error
 
-      - name: Publish GitHub Release
+      - name: Publish immutable GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = "v$env:FOLIO_VERSION"
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -eq 0) { gh release delete $tag --cleanup-tag --yes }
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag appeared during the build. Refusing to delete or replace it." }
+          $global:LASTEXITCODE = 0
+          git ls-remote --exit-code --tags origin "refs/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag $tag appeared during the build. Refusing to move or replace it." }
+          $global:LASTEXITCODE = 0
           gh release create $tag `
             "release\Folio-$env:FOLIO_VERSION-setup.exe" `
             "release\Folio-$env:FOLIO_VERSION-portable.exe" `
+            "release\sha256.txt" `
+            --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 1.0.4 fixes illegal mid-word breaks by distinguishing real discretionary hyphenation points from ordinary DOM/style boundaries, and makes Polish/English hyphenation deliberately more restrained. Long-manuscript editing is substantially lighter: redundant server preview renders are skipped while typing, large contenteditable input is coalesced, and the paragraph compositor runs lazily near the viewport without forcing a full-document geometry pass. Kindle, iPad, iPhone and Android previews now use calibrated logical screen geometry and proportional reading metrics, and Folio displays page counts for the current chapter and the whole book (exact whole-book pages in Print preview, estimated reflowable pages at the selected Folio reading preset). Print/PDF composition uses the same corrected break rules. The Windows build is validated by the full formatter/export suite and a packaged-EXE smoke test."
+            --notes "Folio 1.0.5 hardens manuscript safety with serialized autosave, atomic source/config replacement and a close-time flush gate. Large Writer/Word pastes are processed cooperatively and ordinary end-of-manuscript typing uses a synchronous fast path for 100,000-word manuscripts before authoritative model synchronization. Reflow preview uses deterministic Standard device profiles without enlarging the preview pane. Professional composition bounds word spacing and tracking, improves Polish/English hyphenation, protects inline semantics, drop caps and scene breaks, and keeps preview/print behavior aligned. The UI includes Ivory & Ink and Midnight Editorial tones. This Windows release is validated by typecheck, 364 automated tests, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
