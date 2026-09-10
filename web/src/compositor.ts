@@ -82,7 +82,10 @@ function tokenize(paragraph: HTMLElement): Word[] {
         span.className = "folio-word";
         span.dataset.folioJoinBefore = discretionary || (hasWord && !separated) ? "true" : "false";
         span.dataset.folioHyphenBefore = discretionary ? "true" : "false";
-        span.textContent = piece;
+        // Keep the discretionary marker in semantic/copyable text. The span is
+        // nowrap and line breaking is handled by Folio, so the marker remains
+        // invisible unless our compositor chooses that exact legal breakpoint.
+        span.textContent = (discretionary ? "\u00ad" : "") + piece;
         fragment.append(span);
         hasWord = true;
         separated = false;
