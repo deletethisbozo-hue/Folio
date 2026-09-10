@@ -69,21 +69,13 @@ export function hyphenateElement(root: Element, language: string): void {
   }
 }
 
-/** Prepare only paragraphs in and around the current viewport. The compositor
- * calls hyphenateElement again when an off-screen paragraph approaches, so a
- * large manuscript no longer pays the full dictionary cost on every edit. */
+/** Prepare only the first few paragraphs synchronously. Everything else is
+ * hyphenated by the lazy compositor when it approaches the viewport. Avoiding
+ * getBoundingClientRect() over the whole chapter removes a forced full-layout
+ * pass after every edit in very large manuscripts. */
 export function hyphenatePreviewDocument(document: Document, language: string): void {
   const root = document.querySelector("main.book");
   if (!root) return;
-  const view = document.defaultView;
-  const viewportHeight = Math.max(600, view?.innerHeight ?? 800);
   const paragraphs = Array.from(root.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
-  let prepared = 0;
-  for (const paragraph of paragraphs) {
-    const rect = paragraph.getBoundingClientRect();
-    if ((rect.bottom >= -viewportHeight && rect.top <= viewportHeight * 2.25) || prepared < 4) {
-      hyphenateElement(paragraph, language);
-      prepared++;
-    }
-  }
+  for (const paragraph of paragraphs.slice(0, 4)) hyphenateElement(paragraph, language);
 }
