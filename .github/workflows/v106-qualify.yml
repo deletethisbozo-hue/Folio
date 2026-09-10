@@ -31,8 +31,10 @@ jobs:
         shell: pwsh
         run: |
           python scripts\v106-emergency-pass.py
+          python scripts\v106-ragged-rescue.py
           python scripts\v106-finish.py
           Remove-Item scripts\v106-emergency-pass.py -Force
+          Remove-Item scripts\v106-ragged-rescue.py -Force
           Remove-Item scripts\v106-finish.py -Force
 
       - name: Check candidate integrity
