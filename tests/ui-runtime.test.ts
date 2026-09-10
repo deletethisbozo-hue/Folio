@@ -355,10 +355,28 @@ try {
   await stage("create named chapter", () => page.waitForFunction(() => [...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("UI Added Chapter"))));
   await stage("new chapter editable", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
   check("Add Content creates and selects an editable chapter", await page.$eval(".contents-row.selected", (el) => el.textContent?.includes("UI Added Chapter") ?? false));
-  await stage("new chapter gets next automatic label number", () => page.waitForFunction(() => {
-    const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
-    return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 2") : false;
-  }));
+  await stage("new chapter gets next automatic label number", async () => {
+    try {
+      await page.waitForFunction(() => {
+        const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
+        return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 2") : false;
+      }, { timeout: 30000 });
+    } catch (error) {
+      const snapshot = await page.evaluate(() => {
+        const frameDoc = document.querySelector("iframe")?.contentDocument;
+        const heading = frameDoc?.querySelector("section.chapter > h1");
+        return {
+          selected: document.querySelector(".contents-row.selected")?.textContent ?? null,
+          chapterNumber: document.querySelector(".contents-row.selected .chapter-number")?.textContent ?? null,
+          heading: heading?.outerHTML ?? null,
+          before: heading ? getComputedStyle(heading, "::before").content : null,
+          liveCss: frameDoc?.getElementById("folio-live-chapter-label")?.textContent ?? null,
+          labelCss: [...(frameDoc?.querySelectorAll("style") ?? [])].map((style) => style.textContent).find((css) => css?.includes("ROZDZIAŁ")) ?? null,
+        };
+      });
+      throw new Error(`${error instanceof Error ? error.message : String(error)}; ${JSON.stringify(snapshot)}`);
+    }
+  });
   await page.click('.section-move[title="Move chapter up"]');
   await stage("chapter reorder persists in UI", () => page.waitForFunction(() => document.querySelector(".contents-row.selected .chapter-number")?.textContent === "1."));
   await stage("reordered chapter label renumbers", () => page.waitForFunction(() => {
