@@ -14,15 +14,21 @@ const PROSE_SELECTOR = [
   "section.backmatter > p:not(.scene-break)",
   "section.backmatter li",
 ].join(",");
+const PROTECTED_INLINE = "code,pre,a,em,strong,b,i,u,s,sup,sub,script,style,h1,h2,h3,h4,h5,h6,.scene-break,.dropcap,.math,[data-math]";
+const WORD = /\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu;
 
-function engineFor(language: string): Hypher {
-  return /^pl(?:-|$)/i.test(language) ? engines.pl : engines.en;
+export function hyphenationLanguage(language: string): "pl" | "en" {
+  return /^pl(?:-|$)/i.test(language) ? "pl" : "en";
 }
 
-/** Pattern dictionaries intentionally expose many legal syllable boundaries.
- * Folio keeps only conservative book-typography candidates: long words, with
- * at least three real letters on both sides of a discretionary break. */
-function conservativeHyphenation(engine: Hypher, word: string): string {
+function engineFor(language: string): Hypher {
+  return engines[hyphenationLanguage(language)];
+}
+
+/** Pattern dictionaries expose many legal boundaries. Folio deliberately keeps
+ * only conservative publishing candidates with at least three letters on both
+ * sides. The compositor decides later whether a legal point is worth using. */
+export function conservativeHyphenation(engine: Hypher, word: string): string {
   const pieces = engine.hyphenate(word);
   if (pieces.length < 2) return word;
 
@@ -44,17 +50,32 @@ function conservativeHyphenation(engine: Hypher, word: string): string {
   return result + word.slice(start);
 }
 
-/** Apply language-aware discretionary hyphens to one prose element. Exported
- * so the lazy compositor can prepare paragraphs only when they approach the
- * viewport instead of rewriting an entire 100k-word chapter after every key. */
+function applyDictionary(text: string, engine: Hypher): string {
+  return text.replace(WORD, (candidate) => {
+    // A soft hyphen already present in the manuscript belongs to the author.
+    // Never erase it and never add dictionary points around it.
+    if (candidate.includes("\u00ad")) return candidate;
+    if (candidate.length < 10) return candidate;
+    return conservativeHyphenation(engine, candidate);
+  });
+}
+
+function dropcapLetter(root: Element): string {
+  const letters = root.querySelector<HTMLElement>(":scope > .dropcap")?.textContent?.match(/\p{L}/gu);
+  return letters?.[letters.length - 1] ?? "";
+}
+
+/** Apply language-aware discretionary hyphens to one prose element. Protected
+ * semantic inline elements remain atomic: Folio never rewrites URLs, emphasis,
+ * code, superscripts or other inline markup just to make a line fit. */
 export function hyphenateElement(root: Element, language: string): void {
   const document = root.ownerDocument;
   const engine = engineFor(language);
-  const polishText = /^pl(?:-|$)/i.test(language);
+  const polishText = hyphenationLanguage(language) === "pl";
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
-      return parent && !parent.closest("code,pre,a,script,style,h1,h2,h3,.scene-break,.dropcap")
+      return parent && !parent.closest(PROTECTED_INLINE)
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_REJECT;
     },
@@ -62,33 +83,24 @@ export function hyphenateElement(root: Element, language: string): void {
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
 
-  // A drop cap turns the first letter into its own span. For Polish prose that
-  // must not defeat the one-letter-word rule: "W Polsce" still needs a NBSP
-  // even though W and the following space now live in separate text nodes.
-  const dropcap = root.querySelector<HTMLElement>(":scope > .dropcap");
-  const protectAfterDropcap = polishText && /^[aAiIoOuUwWzZ]$/.test(dropcap?.textContent?.trim() ?? "");
+  // Drop caps move the initial into a separate span. Keep a Polish one-letter
+  // preposition/conjunction tied to the following word even in that geometry.
+  const protectAfterDropcap = polishText && /^[aAiIoOuUwWzZ]$/.test(dropcapLetter(root));
 
   for (const [index, node] of nodes.entries()) {
-    let text = node.data.replace(/\u00ad/g, "");
+    let text = node.data;
     if (polishText) {
       if (protectAfterDropcap && index === 0) text = text.replace(/^[ \t]+(?=\p{L})/u, "\u00a0");
       text = text.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
     }
-    node.data = text.replace(/\p{L}{10,}/gu, (word) => conservativeHyphenation(engine, word));
+    node.data = applyDictionary(text, engine);
   }
 }
 
-/** Prepare only the first few paragraphs synchronously. Everything else is
- * hyphenated by the lazy compositor when it approaches the viewport. Avoiding
- * getBoundingClientRect() over the whole chapter removes a forced full-layout
- * pass after every edit in very large manuscripts. */
+/** Prepare only immediately useful prose synchronously. The compositor handles
+ * later paragraphs as they approach the viewport, avoiding a whole-manuscript
+ * layout pass after every edit. */
 export function hyphenatePreviewDocument(document: Document, language: string): void {
-  // The live draft can change language before the next authoritative server
-  // preview arrives. Keep the iframe's semantic language in lockstep with the
-  // language we were explicitly asked to typeset, because the compositor reads
-  // documentElement.lang when it re-hyphenates a paragraph. Without this, a
-  // freshly pasted Polish manuscript could be pre-hyphenated as Polish and then
-  // immediately recomposed as English depending on network timing.
   document.documentElement.lang = language || "en";
   const root = document.querySelector("main.book");
   if (!root) return;
