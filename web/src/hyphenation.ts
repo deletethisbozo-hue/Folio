@@ -16,6 +16,7 @@ const PROSE_SELECTOR = [
 ].join(",");
 const PROTECTED_INLINE = "code,pre,a,em,strong,b,i,u,s,sup,sub,script,style,h1,h2,h3,h4,h5,h6,.scene-break,.dropcap,.math,[data-math]";
 const WORD = /\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu;
+const MIN_HYPHENATED_WORD = 7;
 
 export function hyphenationLanguage(language: string): "pl" | "en" {
   return /^pl(?:-|$)/i.test(language) ? "pl" : "en";
@@ -25,10 +26,11 @@ function engineFor(language: string): Hypher {
   return engines[hyphenationLanguage(language)];
 }
 
-/** Pattern dictionaries expose many legal boundaries. Folio deliberately keeps
- * only conservative publishing candidates with at least three letters on both
- * sides. The compositor decides later whether a legal point is worth using. */
+/** Keep only dictionary breakpoints that leave at least three letters on both
+ * sides. Seven-letter words are eligible: the old ten-letter threshold starved
+ * Polish paragraphs of legal breaks and forced justification to over-stretch. */
 export function conservativeHyphenation(engine: Hypher, word: string): string {
+  if (word.length < MIN_HYPHENATED_WORD) return word;
   const pieces = engine.hyphenate(word);
   if (pieces.length < 2) return word;
 
@@ -52,10 +54,7 @@ export function conservativeHyphenation(engine: Hypher, word: string): string {
 
 function applyDictionary(text: string, engine: Hypher): string {
   return text.replace(WORD, (candidate) => {
-    // A soft hyphen already present in the manuscript belongs to the author.
-    // Never erase it and never add dictionary points around it.
     if (candidate.includes("\u00ad")) return candidate;
-    if (candidate.length < 10) return candidate;
     return conservativeHyphenation(engine, candidate);
   });
 }
@@ -65,9 +64,9 @@ function dropcapLetter(root: Element): string {
   return letters?.[letters.length - 1] ?? "";
 }
 
-/** Apply language-aware discretionary hyphens to one prose element. Protected
- * semantic inline elements remain atomic: Folio never rewrites URLs, emphasis,
- * code, superscripts or other inline markup just to make a line fit. */
+/** Apply language-aware discretionary hyphens to one prose element. Links and
+ * styled semantic inlines stay atomic, so improving line breaks can never eat
+ * formatting or split an URL. */
 export function hyphenateElement(root: Element, language: string): void {
   const document = root.ownerDocument;
   const engine = engineFor(language);
@@ -83,8 +82,6 @@ export function hyphenateElement(root: Element, language: string): void {
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
 
-  // Drop caps move the initial into a separate span. Keep a Polish one-letter
-  // preposition/conjunction tied to the following word even in that geometry.
   const protectAfterDropcap = polishText && /^[aAiIoOuUwWzZ]$/.test(dropcapLetter(root));
 
   for (const [index, node] of nodes.entries()) {
@@ -97,9 +94,8 @@ export function hyphenateElement(root: Element, language: string): void {
   }
 }
 
-/** Prepare only immediately useful prose synchronously. The compositor handles
- * later paragraphs as they approach the viewport, avoiding a whole-manuscript
- * layout pass after every edit. */
+/** Prepare only the first visible prose synchronously. The compositor continues
+ * near the viewport in small batches so large chapters remain responsive. */
 export function hyphenatePreviewDocument(document: Document, language: string): void {
   document.documentElement.lang = language || "en";
   const root = document.querySelector("main.book");
