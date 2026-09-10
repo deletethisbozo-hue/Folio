@@ -58,20 +58,36 @@ export async function applyProfessionalHyphenation(page: Page, book: Book): Prom
   await page.evaluate(({ map, polish }) => {
     const root = document.querySelector("main.book");
     if (!root) return;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        const parent = node.parentElement;
-        if (!parent || parent.closest("code,pre,a,script,style,h1,h2,h3,.scene-break")) return NodeFilter.FILTER_REJECT;
-        const proseSection = parent.closest("section.chapter, section.backmatter");
-        return proseSection && parent.closest("p,li,blockquote") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-      },
-    });
-    const nodes: Text[] = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode as Text);
-    for (const node of nodes) {
-      let text = node.data.replace(/\u00ad/g, "");
-      if (polish) text = text.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
-      node.data = text.replace(/\p{L}{10,}/gu, (word) => map[word] ?? word);
+    const selector = [
+      "section.chapter > p:not(.scene-break)",
+      "section.chapter > blockquote p",
+      "section.chapter li",
+      "section.backmatter > p:not(.scene-break)",
+      "section.backmatter li",
+    ].join(",");
+
+    for (const prose of Array.from(root.querySelectorAll<HTMLElement>(selector))) {
+      const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const parent = node.parentElement;
+          return parent && !parent.closest("code,pre,a,script,style,h1,h2,h3,.scene-break,.dropcap")
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        },
+      });
+      const nodes: Text[] = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+      const dropcap = prose.querySelector<HTMLElement>(":scope > .dropcap");
+      const protectAfterDropcap = polish && /^[aAiIoOuUwWzZ]$/.test(dropcap?.textContent?.trim() ?? "");
+
+      for (const [index, node] of nodes.entries()) {
+        let text = node.data.replace(/\u00ad/g, "");
+        if (polish) {
+          if (protectAfterDropcap && index === 0) text = text.replace(/^[ \t]+(?=\p{L})/u, "\u00a0");
+          text = text.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
+        }
+        node.data = text.replace(/\p{L}{10,}/gu, (word) => map[word] ?? word);
+      }
     }
   }, { map: words, polish: polishBook });
 }
