@@ -6,6 +6,11 @@ import type { Book } from "./types.ts";
  * tracking, preserves inline semantics, and penalises consecutive hyphenation. */
 export async function composeProfessionalParagraphs(page: Page, book: Book): Promise<void> {
   if (book.typography.bodyAlign === "left") return;
+  // tsx/esbuild may preserve names of helpers nested inside a function passed to
+  // Puppeteer by emitting calls to its module-level __name helper. Puppeteer
+  // serialises only the callback, not that module closure. Define the harmless
+  // helper in the page global first so production/tests cannot fail at runtime.
+  await page.evaluate("globalThis.__name = globalThis.__name || function(target){ return target; }");
   await page.evaluate(async () => {
     try { await document.fonts?.ready; } catch { /* resolved fallback is usable */ }
 
@@ -285,7 +290,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       }
 
       paragraph.classList.add("folio-composed");
-      paragraph.replaceChildren(...(cap ? [cap] : []), ...lines);
+      paragraph.replaceChildren(...(cap ? [cap] : []));
+      lines.forEach((line, index) => {
+        paragraph.append(line);
+        if (index < lines.length - 1 && !breaks[index].hyphenated) paragraph.append(" ");
+      });
     }
   });
 }
