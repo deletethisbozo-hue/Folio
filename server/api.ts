@@ -38,6 +38,7 @@ import {
   scaffold,
   type Placement,
 } from "./matter.ts";
+import { reorderChapterDocuments } from "./section-editor.ts";
 import { isAppError } from "./errors.ts";
 import { checkPandoc } from "./preflight.ts";
 import { APP_NAME, APP_VERSION } from "./version.ts";
@@ -121,10 +122,13 @@ function applyTypography(book: { typography: any }, req: Request): void {
 }
 
 /** Apply the editor's unsaved text without touching disk or the autosave path. */
-function applyPreviewDraft(book: { sections: Array<{ id: string; markdown: string }> }, req: Request): string | null {
+function applyPreviewDraft(book: { sections: Array<{ id: string; markdown: string; kind?: string; chapterNumber?: number }> }, req: Request): string | null {
   const sectionId = typeof req.body?.previewSectionId === "string" ? req.body.previewSectionId : null;
   if (!sectionId) return null;
   const section = book.sections.find((item) => item.id === sectionId);
+  if (section?.kind === "chapter") {
+    section.chapterNumber = book.sections.filter((item) => item.kind === "chapter").findIndex((item) => item.id === sectionId) + 1;
+  }
   if (section && typeof req.body?.draft === "string") section.markdown = req.body.draft;
   return section ? sectionId : null;
 }
@@ -226,6 +230,13 @@ export function registerApi(app: Express): void {
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       const dir = await writableBookDir(req.params.id);
       await addChapter(dir, book.meta, String(req.body?.title ?? "New Chapter"));
+      res.json(await buildSummary(req.params.id));
+    }),
+  );
+
+  app.post("/api/projects/:id/chapters/reorder", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      await reorderChapterDocuments(req.params.id, Array.isArray(req.body?.order) ? req.body.order.map(String) : []);
       res.json(await buildSummary(req.params.id));
     }),
   );

@@ -2,7 +2,7 @@
 
 Folio is a free Windows desktop book formatter: a practical, local alternative to Vellum for authors who want to edit, style, preview, and export a complete book from one application.
 
-[Download Folio for Windows](https://github.com/deletethisbozo-hue/Folio/releases/tag/v1.0.2)
+[Download Folio for Windows](https://github.com/deletethisbozo-hue/Folio/releases/tag/v1.0.3)
 
 The release is self-contained. Readers do not install Node.js, Pandoc, Chromium, Java, or any command-line tools.
 
@@ -14,8 +14,9 @@ The release is self-contained. Readers do not install Node.js, Pandoc, Chromium,
 - Visual style library with 30 complete designs, including ten fantasy/dark/gothic editions: Obsidian, Blood Moon, Grimoire, Cathedral, Necropolis, Wyrmwood, Runestone, Witchlight, Ironbound, and Revenant.
 - Book-level typography controls for body text, chapter headings, first paragraphs, scene breaks, headers/footers, and title pages.
 - WYSIWYG rich-text editing with clean Markdown storage and paragraph-safe paste from LibreOffice/Word.
-- Reliable copy-on-write editing for the bundled sample, exact source-path editing, editable chapter titles/subtitles, and recoverable deletion of chapters and authored front/back matter.
-- Visual library of 24 ornamental scene breaks plus custom symbols.
+- Reliable copy-on-write editing for the bundled sample, exact source-path editing, editable chapter titles/subtitles, and deletion of chapters plus authored or generated front/back matter.
+- Persistent chapter reordering by drag-and-drop or arrow controls, with automatic label numbering in current book order.
+- Visual library of 36 ornamental scene breaks, a symbol-free option, custom symbols, and one-click removal in the editor.
 - Cover upload and preview, embedded automatically in EPUB exports.
 - EPUB for Kindle/KDP, universal EPUB, print PDF, reading PDF, and DOCX export.
 - Popular print trims: 5 × 8, 5.25 × 8, 5.5 × 8.5, 6 × 9, and 8.5 × 11 inches.

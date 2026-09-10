@@ -33,6 +33,7 @@ interface RawConfig {
   theme?: string;
   frontmatter?: string[];
   chapters?: string;
+  chapter_order?: string[];
   backmatter?: string[];
   exclude?: string[]; // glob patterns of markdown to keep out of the chapter list
   fonts?: Array<{ file: string; family: string; weight?: string | number; style?: string }>;
@@ -439,7 +440,16 @@ export async function loadBook(inputPath: string, overrides?: Partial<BookMeta>)
     if (await isDir(chaptersRef)) {
       const listing = await listMarkdown(chaptersRef, (cfg.exclude ?? []).map(globToRegExp));
       warnChapterFiles(listing, warnings);
-      for (const f of listing.files) {
+      const configured = new Map((cfg.chapter_order ?? []).map((entry, index) => [entry.replace(/\\/g, "/"), index]));
+      const files = [...listing.files].sort((a, b) => {
+        const ar = path.relative(abs, a).split(path.sep).join("/");
+        const br = path.relative(abs, b).split(path.sep).join("/");
+        const ai = configured.get(ar);
+        const bi = configured.get(br);
+        if (ai !== undefined || bi !== undefined) return (ai ?? Number.MAX_SAFE_INTEGER) - (bi ?? Number.MAX_SAFE_INTEGER);
+        return 0;
+      });
+      for (const f of files) {
         sections.push(await sectionFromFile(f, "chapter", used, { toc: true, showTitle: true }));
       }
     } else {

@@ -173,7 +173,7 @@ export function markdownToEditorHtml(markdown: string, ornament = "❦"): string
   for (const line of lines) {
     if (/^\s*(?:---|\* \* \*)\s*$/.test(line)) {
       flush();
-      blocks.push(`<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>${escapeHtml(ornament)}</span></div>`);
+      blocks.push(`<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>${escapeHtml(ornament)}</span><button type="button" class="editor-scene-break-remove" aria-label="Remove scene break" title="Remove scene break">×</button></div>`);
       continue;
     }
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
@@ -230,6 +230,7 @@ export function markdownToPreviewHtml(markdown: string, ornament = "❦"): strin
   // the same repair, so immediate and authoritative previews agree.
   const reflowed = markdown.replace(/ {2,}\n(?=\S)/g, "\n");
   return markdownToEditorHtml(reflowed, ornament)
+    .replace(/<button\b[^>]*class="editor-scene-break-remove"[^>]*>.*?<\/button>/g, "")
     .replace(/class="editor-scene-break"/g, 'class="scene-break" role="separator"')
     .replace(/\scontenteditable="false"/g, "");
 }

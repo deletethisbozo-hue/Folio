@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-10
+
+### Added
+- Paragraph-wide line composition for preview and PDF output, using language-aware discretionary hyphen points and a hard ceiling on expanded word spaces instead of Chromium's unrestricted greedy inter-word justification.
+- Persistent chapter reordering by drag-and-drop and explicit up/down controls for both standalone chapter files and combined H1 manuscripts.
+- Automatic sequence numbers for arbitrary chapter label text: `ROZDZIAŁ` becomes `ROZDZIAŁ 1`, `ROZDZIAŁ 2`, and follows the current chapter order.
+- Twelve additional dark, gothic, and fantasy scene-break ornaments, plus a dedicated symbol-free option.
+
+### Changed
+- Device previews are substantially larger and use more of the available right pane.
+- Authoritative preview updates patch the existing iframe document in place, preserving scroll position without a full reload, white flash, or jump to the top.
+- Drop-cap composition measures the reduced first-line widths around the floating initial before choosing paragraph breaks.
+
+### Fixed
+- Generated title and copyright matter can now be removed from the book, in addition to authored front/back matter.
+- Every ornamental break has a visible remove control in the rich editor and remains centered under justified body settings.
+- Explicitly choosing no scene ornament now persists in `book.yaml` instead of silently reverting to the theme default.
+
+### Tests
+- Browser regressions now measure the actual maximum rendered gap between adjacent words, verify natural final lines, preserve iframe identity and scroll through live style changes, test automatic label renumbering after chapter moves, and remove generated matter.
+- Runtime regressions cover chapter order persistence for folder and combined-manuscript sources, custom numbered labels, and empty ornaments.
+
 ## [1.0.2] - 2026-09-09
 
 ### Added

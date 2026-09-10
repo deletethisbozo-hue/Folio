@@ -80,6 +80,11 @@ try {
   });
   check("generated title page never exposes internal HTML in editor or preview", !generatedPage.visibleEditorText.includes("<p class=") && !generatedPage.visiblePreviewText.includes("<p class="));
   check("title/front matter receives neither drop caps nor discretionary hyphens", !generatedPage.hasDropcap && !generatedPage.hasTitleHyphen);
+  const frontRowsBeforeDelete = await page.$$eval(".contents-list > .contents-row:not(.chapter-row)", (rows) => rows.length);
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.click(".section-delete");
+  await stage("generated front matter deletion", () => page.waitForFunction((before) => document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row)").length === before - 1, {}, frontRowsBeforeDelete));
+  check("generated title/front matter can be removed from the book", true);
   await page.click(".chapter-row");
   await stage("return to manuscript chapter", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
 
@@ -146,6 +151,13 @@ try {
   await stage("sample autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 10000 }));
   check("the browser flow reaches Saved instead of Save failed", true);
 
+  await page.evaluate(() => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    const scroller = frame?.contentDocument?.scrollingElement as HTMLElement | null;
+    if (scroller) scroller.scrollTop = Math.max(1, Math.floor(scroller.scrollHeight * .55));
+    (window as any).__folioFrameLoads = 0;
+    frame?.addEventListener("load", () => (window as any).__folioFrameLoads++);
+  });
   await page.click(".preview-style-button");
   await stage("open visual theme gallery", () => page.waitForSelector(".theme-sample"));
   const themeCount = await page.$$eval(".theme-sample", (items) => items.length);
@@ -210,6 +222,18 @@ try {
     const row = [...document.querySelectorAll(".customize-row")].find((node) => node.querySelector("span")?.textContent === "Show theme label");
     (row?.querySelector('input[type="checkbox"]') as HTMLInputElement | null)?.click();
   });
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll(".customize-row")].find((node) => node.querySelector("span")?.textContent === "Label text");
+    const input = row?.querySelector("input") as HTMLInputElement | null;
+    if (!input) throw new Error("Chapter label text input is missing");
+    input.value = "ROZDZIAŁ";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await stage("numbered custom chapter label", () => page.waitForFunction(() => {
+    const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
+    return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 1") : false;
+  }));
+  check("arbitrary chapter label text is automatically numbered", true);
   await page.click(".style-library-header button");
 
   const deviceModes = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.map((item) => (item as HTMLOptionElement).value));
@@ -218,9 +242,9 @@ try {
   await stage("switch to iPhone device", () => page.waitForSelector(".reader-device.device-iphone"));
   await stage("phone justified layout", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
-    return paragraph ? getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" : false;
+    return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
   }));
-  check("Justified means justified on narrow readers, with a ragged final line", true);
+  check("Justified preview uses the bounded paragraph compositor", true);
   const centered = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage")!.getBoundingClientRect();
     const device = document.querySelector(".reader-device")!.getBoundingClientRect();
@@ -283,13 +307,29 @@ try {
     select.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.click(".style-library-header button");
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  const stableStyleUpdate = await page.evaluate(() => ({
+    loads: (window as any).__folioFrameLoads,
+    scroll: (document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null)?.scrollTop ?? 0,
+  }));
+  check("style changes patch preview in place without reloading or losing reading position", stableStyleUpdate.loads === 0 && stableStyleUpdate.scroll > 0, JSON.stringify(stableStyleUpdate));
   await page.select('select[aria-label="Preview device"]', "kindle-oasis");
   await stage("Polish professional justification", () => page.waitForFunction(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     const paragraph = doc?.querySelector("section.chapter > p");
-    return Boolean(paragraph && getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" && doc?.body.textContent?.includes("\u00ad") && doc?.body.textContent?.includes("W\u00a0Polsce"));
+    return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-line-justified") && paragraph.lastElementChild?.classList.contains("folio-line-natural") && doc?.body.textContent?.includes("\u00ad") && doc?.body.textContent?.includes("W\u00a0Polsce"));
   }, { timeout: 30000 }));
-  check("Polish justification uses discretionary word breaks and a ragged final line", true);
+  check("Polish justification uses paragraph-wide breaks and a natural final line", true);
+  const boundedWordGaps = await page.evaluate(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    if (!doc) return false;
+    return [...doc.querySelectorAll<HTMLElement>(".folio-line-justified")].slice(0, 100).every((line) => {
+      const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+      const limit = Number.parseFloat(getComputedStyle(line).fontSize) * .49;
+      return words.slice(1).every((word, index) => word.getBoundingClientRect().left - words[index].getBoundingClientRect().right <= limit);
+    });
+  });
+  check("professional compositor places a hard ceiling on expanded word gaps", boundedWordGaps);
   await stage("ornament remains centered under justification", () => page.waitForFunction(() => {
     const ornament = document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break");
     return ornament ? getComputedStyle(ornament).textAlign === "center" && getComputedStyle(ornament).textAlignLast === "center" : false;
@@ -299,7 +339,7 @@ try {
   await page.select('select[aria-label="Preview device"]', "iphone");
   await stage("narrow justified composition", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
-    return paragraph ? getComputedStyle(paragraph).textAlign === "justify" && getComputedStyle(paragraph).textAlignLast === "left" : false;
+    return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
   }));
   check("narrow readers honor the selected justification and keep final lines natural", true);
   await stage("drop cap survives device change", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap"))));
@@ -314,6 +354,17 @@ try {
   await stage("create named chapter", () => page.waitForFunction(() => [...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("UI Added Chapter"))));
   await stage("new chapter editable", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
   check("Add Content creates and selects an editable chapter", await page.$eval(".contents-row.selected", (el) => el.textContent?.includes("UI Added Chapter") ?? false));
+  await stage("new chapter gets next automatic label number", () => page.waitForFunction(() => {
+    const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
+    return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 2") : false;
+  }));
+  await page.click('.section-move[title="Move chapter up"]');
+  await stage("chapter reorder persists in UI", () => page.waitForFunction(() => document.querySelector(".contents-row.selected .chapter-number")?.textContent === "1."));
+  await stage("reordered chapter label renumbers", () => page.waitForFunction(() => {
+    const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
+    return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 1") : false;
+  }));
+  check("chapter arrows reorder sources and labels follow current order", true);
 
   await page.click(".rich-editor");
   await page.keyboard.type("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY.");

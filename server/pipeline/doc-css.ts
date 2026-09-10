@@ -162,7 +162,11 @@ function typographyCss(book: Book): string {
     if (ct.showLabel === false) {
       out.push(`section.chapter > h1::before, h1.chapter::before { content: none !important; display: none !important; }`);
     } else if (ct.labelText?.trim()) {
-      out.push(`section.chapter > h1::before, h1.chapter::before { content: ${JSON.stringify(ct.labelText.trim())} !important; }`);
+      const chapters = book.sections.filter((section) => section.kind === "chapter");
+      for (const [index, section] of chapters.entries()) {
+        const number = section.chapterNumber ?? index + 1;
+        out.push(`section.chapter[id=${JSON.stringify(section.id)}] > h1::before { content: ${JSON.stringify(`${ct.labelText.trim()} ${number}`)} !important; }`);
+      }
     }
   }
 

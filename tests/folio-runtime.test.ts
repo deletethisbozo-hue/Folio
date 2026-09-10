@@ -149,9 +149,13 @@ const hiddenLabelPreview = await post(`/api/projects/${projectId}/preview`, {
 });
 check("theme-generated CHAPTER label can be hidden", hiddenLabelPreview.body.html.includes("h1.chapter::before { content: none !important; display: none !important; }"));
 const customLabelPreview = await post(`/api/projects/${projectId}/preview`, {
-  meta: sample.body.meta, theme: "literary", typography: { chapterTitle: { labelText: "CZĘŚĆ I" } }, previewSectionId: chapter.id, draft: "Custom label probe.",
+  meta: sample.body.meta, theme: "literary", typography: { chapterTitle: { labelText: "ROZDZIAŁ" } }, previewSectionId: chapter.id, draft: "Custom label probe.",
 });
-check("theme-generated chapter label can be replaced", customLabelPreview.body.html.includes('content: "CZĘŚĆ I" !important'));
+check("custom chapter labels append the current automatic number", customLabelPreview.body.html.includes('content: "ROZDZIAŁ 1" !important'));
+const noOrnamentPreview = await post(`/api/projects/${projectId}/preview`, {
+  meta: sample.body.meta, theme: "literary", typography: { sceneOrnament: "" }, previewSectionId: chapter.id, draft: "Before.\n\n---\n\nAfter.",
+});
+check("scene ornament can be explicitly removed", /<p class="scene-break" role="separator"><\/p>/.test(noOrnamentPreview.body.html));
 
 const savedText = `${section.body.markdown}\n\nCopy-on-write save probe.`;
 const saved = await json(`/api/projects/${projectId}/sections/${encodeURIComponent(chapter.id)}`, {
@@ -180,6 +184,9 @@ await json(`/api/projects/${duplicates.body.projectId}/sections/${encodeURICompo
   method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ markdown: "Edited second body." }),
 });
 check("duplicate titles save to the exact ingested file", (await fs.readFile(secondPath, "utf8")).includes("Edited second") && (await fs.readFile(firstPath, "utf8")).includes("First file"));
+const reorderedDuplicates = await post(`/api/projects/${duplicates.body.projectId}/chapters/reorder`, { order: [secondSection.id, duplicates.body.sections[0].id] });
+const reorderedConfig = await fs.readFile(path.join(duplicateDir, "book.yaml"), "utf8");
+check("standalone chapter drag order persists without renaming files", reorderedDuplicates.status === 200 && reorderedConfig.indexOf("chapters/02.md") < reorderedConfig.indexOf("chapters/01.md"));
 await fs.rm(duplicateDir, { recursive: true, force: true });
 
 const combinedDir = path.join(os.tmpdir(), `folio-combined-${crypto.randomUUID()}`);
@@ -189,6 +196,8 @@ const combinedPath = path.join(combinedDir, "manuscript.md");
 await fs.writeFile(combinedPath, "# Alpha\n\nAlpha body.\n\n# Beta\n\nBeta body.\n");
 const combined = await post("/api/projects/open-folder", { path: combinedDir });
 const beta = combined.body.sections.find((item: any) => item.title === "Beta");
+await post(`/api/projects/${combined.body.projectId}/chapters/reorder`, { order: [beta.id, combined.body.sections.find((item: any) => item.title === "Alpha").id] });
+check("combined-manuscript chapters reorder as intact H1 blocks", (await fs.readFile(combinedPath, "utf8")).indexOf("# Beta") < (await fs.readFile(combinedPath, "utf8")).indexOf("# Alpha"));
 const renamedBeta = await json(`/api/projects/${combined.body.projectId}/sections/${encodeURIComponent(beta.id)}`, {
   method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "Gamma" }),
 });

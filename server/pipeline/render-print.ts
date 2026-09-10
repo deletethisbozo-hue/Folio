@@ -9,6 +9,7 @@ import { ROOT, THEMES_DIR, resolveAppResource } from "./paths.ts";
 import { alignDropCaps } from "./dropcap.ts";
 import { autoGutter, buildPageCss, estimatePages, getTrim, type PrintOptions } from "../print.ts";
 import { applyProfessionalHyphenation } from "./hyphenation.ts";
+import { composeProfessionalParagraphs } from "./compositor.ts";
 
 export interface PrintMeta {
   pages: number; // actual paginated page count
@@ -74,6 +75,7 @@ async function withPaginated<T>(
     // Seat the drop caps before pagination — the correction changes how text
     // wraps around the float, so it has to settle before pages are measured.
     await alignDropCaps(page);
+    await composeProfessionalParagraphs(page, book);
     // Disable Paged.js auto-run (set before the polyfill script loads).
     await page.evaluate(() => {
       window.PagedConfig = { auto: false };

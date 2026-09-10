@@ -31,6 +31,7 @@ interface RawConfig {
   frontmatter?: string[];
   backmatter?: string[];
   chapters?: string;
+  chapter_order?: string[];
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -241,7 +242,7 @@ export async function scaffold(bookDir: string, meta: BookMeta): Promise<RawConf
 function prune(obj: Record<string, unknown>): Record<string, unknown> | undefined {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (v === undefined || v === null || v === "") continue;
+    if (v === undefined || v === null) continue;
     if (typeof v === "object" && !Array.isArray(v)) {
       const inner = prune(v as Record<string, unknown>);
       if (inner) out[k] = inner;
@@ -258,6 +259,13 @@ export async function saveTypography(bookDir: string, meta: BookMeta, typography
   const pruned = prune(typography);
   if (pruned) cfg.typography = pruned;
   else delete cfg.typography;
+  await writeConfig(bookDir, cfg);
+}
+
+/** Persist chapter source order without renaming the author's files. */
+export async function saveChapterOrder(bookDir: string, meta: BookMeta, order: string[]): Promise<void> {
+  const cfg = await ensureConfig(bookDir, meta);
+  cfg.chapter_order = order.map((entry) => entry.replace(/\\/g, "/"));
   await writeConfig(bookDir, cfg);
 }
 

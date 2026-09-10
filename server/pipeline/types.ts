@@ -70,6 +70,8 @@ export interface Section {
   sourcePath?: string;
   /** H1 index when several editable sections live in one Markdown source. */
   sourceOrdinal?: number;
+  /** Original chapter position retained when live preview renders one section. */
+  chapterNumber?: number;
 }
 
 export interface FontDef {

@@ -88,6 +88,13 @@ export const api = {
       body: JSON.stringify({ title, meta }),
     }).then((r) => json<ProjectSummary>(r)),
 
+  reorderChapters: (projectId: string, order: string[]) =>
+    fetch(`/api/projects/${projectId}/chapters/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order }),
+    }).then((r) => json<ProjectSummary>(r)),
+
   saveMeta: (projectId: string, meta: BookMeta) =>
     fetch(`/api/projects/${projectId}/meta`, {
       method: "POST",

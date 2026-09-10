@@ -138,7 +138,7 @@ export function buildPandocMeta(book: Book, target: Target = "html"): Record<str
     author: [m.author],
     lang: m.language,
     // filter inputs — typography may override the theme's defaults
-    scene_ornament: ty.sceneOrnament || theme.sceneOrnament,
+    scene_ornament: ty.sceneOrnament ?? theme.sceneOrnament,
     dropcap: (ty.dropcap ?? theme.dropcap) ? "true" : "false",
   };
   if (target === "docx" && m.subtitle) meta.subtitle = m.subtitle;

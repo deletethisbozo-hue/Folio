@@ -5,6 +5,7 @@ import { renderHtml } from "./render-html.ts";
 import { alignDropCaps } from "./dropcap.ts";
 import { AppError } from "../errors.ts";
 import { applyProfessionalHyphenation } from "./hyphenation.ts";
+import { composeProfessionalParagraphs } from "./compositor.ts";
 
 let browserPromise: Promise<Browser> | null = null;
 
@@ -42,6 +43,7 @@ export async function renderPdf(book: Book): Promise<Buffer> {
     await page.setContent(html, { waitUntil: "load" });
     await applyProfessionalHyphenation(page, book);
     await alignDropCaps(page);
+    await composeProfessionalParagraphs(page, book);
     const pdf = await page.pdf({
       printBackground: true,
       width: "6in",

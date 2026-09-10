@@ -4,6 +4,7 @@ import matter from "gray-matter";
 import { loadProject, projectInfo, writableBookDir } from "./projects.ts";
 import { extractSubtitle, extractTitle, splitOnH1 } from "./pipeline/util.ts";
 import { removeMatter } from "./matter.ts";
+import { saveChapterOrder } from "./matter.ts";
 
 export interface SectionDocument {
   id: string;
@@ -147,6 +148,42 @@ export async function renameSectionDocument(projectId: string, sectionId: string
   return updateSectionHeadingDocument(projectId, sectionId, { title: nextTitle });
 }
 
+/** Reorder all chapters by stable section id. Standalone files keep their names;
+ * combined manuscripts have their complete H1 blocks moved without rewriting
+ * any chapter body. */
+export async function reorderChapterDocuments(projectId: string, order: string[]): Promise<void> {
+  await writableBookDir(projectId);
+  const { book } = await loadProject(projectId);
+  const chapters = book.sections.filter((section) => section.kind === "chapter" && !section.generated);
+  if (order.length !== chapters.length || new Set(order).size !== order.length || chapters.some((chapter) => !order.includes(chapter.id))) {
+    throw new Error("Chapter order must contain every chapter exactly once.");
+  }
+  const arranged = order.map((id) => chapters.find((chapter) => chapter.id === id)!);
+  if (arranged.some((chapter) => !chapter.sourcePath)) throw new Error("A chapter has no reorderable source file.");
+  const paths = new Set(arranged.map((chapter) => chapter.sourcePath!));
+  const info = projectInfo(projectId);
+  if (!info.folder) throw new Error("This book has no writable folder.");
+
+  if (paths.size === 1 && arranged.every((chapter) => chapter.sourceOrdinal !== undefined)) {
+    const sourcePath = arranged[0].sourcePath!;
+    const raw = await fs.readFile(sourcePath, "utf8");
+    const parsed = matter(raw);
+    const blocks = splitOnH1(parsed.content);
+    const content = arranged.map((chapter) => {
+      const block = blocks[chapter.sourceOrdinal!];
+      if (!block) throw new Error("The manuscript changed on disk. Reload and try again.");
+      return `# ${block.title}\n\n${block.body.trim()}`.trim();
+    }).join("\n\n") + "\n";
+    await fs.writeFile(sourcePath, preservedFrontMatter(raw) + content, "utf8");
+    return;
+  }
+  if (arranged.some((chapter) => chapter.sourceOrdinal !== undefined)) {
+    throw new Error("Chapters from mixed source layouts cannot be reordered together.");
+  }
+  const relative = arranged.map((chapter) => path.relative(info.folder!, chapter.sourcePath!).split(path.sep).join("/"));
+  await saveChapterOrder(info.folder, book.meta, relative);
+}
+
 /** Remove an authored chapter/front-matter/back-matter section without
  * destroying it irreversibly. Standalone sources move to .folio-trash; matter
  * is also removed from book.yaml. A chapter inside a combined manuscript is
@@ -156,7 +193,13 @@ export async function deleteSectionDocument(projectId: string, sectionId: string
   const { book } = await loadProject(projectId);
   const section = book.sections.find((item) => item.id === sectionId);
   if (!section) throw new Error("Section not found.");
-  if (section.generated) throw new Error("Generated pages are controlled by Book Details and cannot be deleted as source files.");
+  if (section.generated && (section.kind === "titlepage" || section.kind === "copyright")) {
+    const info = projectInfo(projectId);
+    if (!info.folder) throw new Error("This book has no writable folder.");
+    await removeMatter(info.folder, section.kind);
+    return;
+  }
+  if (section.generated) throw new Error("This generated page cannot be deleted here.");
   if (!(["chapter", "frontmatter", "backmatter"] as string[]).includes(section.kind)) {
     throw new Error("This section cannot be deleted here.");
   }
