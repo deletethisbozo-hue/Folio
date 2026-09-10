@@ -582,7 +582,9 @@ try {
   await stage("first chapter editable", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
   await page.click(".rich-editor");
   await page.keyboard.type("The book can now be written.");
-  await stage("first chapter live preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("The book can now be written.")));
+  await stage("first chapter live preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent
+    ?.replace(/[\u00ad-]/g, "")
+    .includes("The book can now be written.")));
   check("a blank new book can add, edit and preview its first chapter", true);
 
   await page.click(".footer-add");
