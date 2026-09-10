@@ -35,6 +35,7 @@ type Break = {
   hyphenated: boolean;
   offset: number;
   available: number;
+  emergency: boolean;
 };
 
 type State = Break & {
@@ -170,13 +171,18 @@ function fitLine(
   trackingOps: number,
   spaceWidth: number,
   fontSize: number,
+  emergency = false,
 ): LineFit | null {
   if (gaps <= 0) return null;
 
-  const maxWordSpacing = Math.min(spaceWidth * 0.38, fontSize * 0.115);
-  const minWordSpacing = -Math.min(spaceWidth * 0.14, fontSize * 0.035);
-  const maxTracking = fontSize * 0.0055;
-  const minTracking = -fontSize * 0.0035;
+  const maxWordSpacing = emergency
+    ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
+    : Math.min(spaceWidth * 0.38, fontSize * 0.115);
+  const minWordSpacing = emergency
+    ? -Math.min(spaceWidth * 0.18, fontSize * 0.045)
+    : -Math.min(spaceWidth * 0.14, fontSize * 0.035);
+  const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
+  const minTracking = -fontSize * (emergency ? 0.0045 : 0.0035);
 
   let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, adjustment / gaps));
   let remaining = adjustment - wordSpacing * gaps;
@@ -213,6 +219,7 @@ function chooseBreaks(
   spaceWidth: number,
   hyphenWidth: number,
   fontSize: number,
+  emergency = false,
 ): Break[] | null {
   const count = words.length;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
@@ -227,6 +234,7 @@ function chooseBreaks(
     hyphenated: false,
     offset: 0,
     available: geometry.width,
+    emergency,
   });
 
   for (let start = 0; start < count; start++) {
@@ -255,9 +263,14 @@ function chooseBreaks(
         const adjustment = available - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
         const fit = !last && natural <= available + 0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize)
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, emergency)
           : null;
-        if (!last && !fit) continue;
+        // A very narrow first/drop-cap line can be mathematically impossible
+        // to fill inside the bounded spacing limits. In the emergency pass,
+        // keep that line natural instead of creating the conspicuous holes
+        // produced by Chromium's unconstrained justification.
+        const rescueNatural = emergency && !last && !fit && natural <= available + 0.75;
+        if (!last && !fit && !rescueNatural) continue;
 
         const wordsOnLine = end - start + 1;
         const fill = Math.min(1, natural / Math.max(1, available));
@@ -268,8 +281,10 @@ function chooseBreaks(
           ? 58 + previousHyphenStreak * 310
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
+        const rescuePenalty = rescueNatural ? 900 + 700 * Math.pow(1 - fill, 2) : 0;
         const cost = previous.cost
           + (fit?.badness ?? 0)
+          + rescuePenalty
           + hyphenPenalty
           + punctuationPenalty
           + shortLastPenalty;
@@ -284,12 +299,13 @@ function chooseBreaks(
             from: start,
             fromKey: stateKey,
             end: end + 1,
-            justified: !last,
+            justified: !last && Boolean(fit),
             wordSpacing: fit?.wordSpacing ?? 0,
             tracking: fit?.tracking ?? 0,
             hyphenated: hyphenBreak,
             offset,
             available,
+            emergency,
           });
         }
       }
@@ -319,6 +335,7 @@ function chooseBreaks(
       hyphenated: state.hyphenated,
       offset: state.offset,
       available: state.available,
+      emergency: state.emergency,
     });
     end = state.from;
     key = state.fromKey;
@@ -408,7 +425,8 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  const breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true);
   if (!breaks) {
     restore(paragraph);
     paragraph.classList.add("folio-compositor-safe-fallback");
@@ -421,7 +439,8 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   let start = 0;
   for (const [lineIndex, lineBreak] of breaks.entries()) {
     const line = paragraph.ownerDocument.createElement("span");
-    line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
+    line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.emergency ? " folio-line-emergency" : ""}`;
+    if (lineBreak.emergency) line.dataset.folioEmergency = "true";
     line.append(cloneLineFragment(paragraph.ownerDocument, words, start, lineBreak.end));
     if (lineBreak.end < words.length && words[lineBreak.end].hyphenBefore) line.append("-");
     line.style.marginLeft = `${lineBreak.offset}px`;

@@ -56,6 +56,30 @@ function configPath(bookDir: string): string {
   return path.join(bookDir, "book.yaml");
 }
 
+// Every configuration update is a read-modify-write operation. Autosave,
+// section deletion and reordering can arrive through separate HTTP requests,
+// so atomic file replacement alone is not enough: two writers could both read
+// the old YAML and the later replacement would resurrect fields removed by the
+// earlier one. Queue all mutations per book while allowing different books to
+// save independently.
+const configTails = new Map<string, Promise<void>>();
+
+async function withConfigLock<T>(bookDir: string, task: () => Promise<T>): Promise<T> {
+  const key = path.resolve(bookDir);
+  const previous = configTails.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const tail = previous.catch(() => undefined).then(() => gate);
+  configTails.set(key, tail);
+  await previous.catch(() => undefined);
+  try {
+    return await task();
+  } finally {
+    release();
+    if (configTails.get(key) === tail) configTails.delete(key);
+  }
+}
+
 async function findConfig(bookDir: string): Promise<string | null> {
   for (const n of ["book.yaml", "book.yml"]) {
     if (await exists(path.join(bookDir, n))) return path.join(bookDir, n);
@@ -93,7 +117,7 @@ async function detectChapters(bookDir: string): Promise<string> {
  * Ensure a book.yaml exists, seeding from the current metadata if it doesn't.
  * Returns the loaded/created config.
  */
-export async function ensureConfig(bookDir: string, meta: BookMeta): Promise<RawConfig> {
+async function ensureConfigUnlocked(bookDir: string, meta: BookMeta): Promise<RawConfig> {
   const existing = await readConfig(bookDir);
   if (existing) return existing;
 
@@ -120,6 +144,10 @@ export async function ensureConfig(bookDir: string, meta: BookMeta): Promise<Raw
   return cfg;
 }
 
+export async function ensureConfig(bookDir: string, meta: BookMeta): Promise<RawConfig> {
+  return withConfigLock(bookDir, () => ensureConfigUnlocked(bookDir, meta));
+}
+
 function uniqueFilename(dir: string, base: string, used: Set<string>): string {
   let name = base;
   let n = 2;
@@ -135,40 +163,42 @@ export async function addChapter(
   meta: BookMeta,
   title = "New Chapter",
 ): Promise<void> {
-  const cfg = await ensureConfig(bookDir, meta);
-  const safeTitle = title.trim() || "New Chapter";
-  const chaptersEntry = typeof cfg.chapters === "string" && cfg.chapters.trim() ? cfg.chapters : "chapters";
-  const target = path.resolve(bookDir, chaptersEntry);
+  return withConfigLock(bookDir, async () => {
+    const cfg = await ensureConfigUnlocked(bookDir, meta);
+    const safeTitle = title.trim() || "New Chapter";
+    const chaptersEntry = typeof cfg.chapters === "string" && cfg.chapters.trim() ? cfg.chapters : "chapters";
+    const target = path.resolve(bookDir, chaptersEntry);
 
-  if (await exists(target)) {
-    const stat = await fs.stat(target);
-    if (stat.isFile()) {
-      const raw = await fs.readFile(target, "utf8");
-      const separator = raw.trim() ? "\n\n" : "";
-      await atomicWriteUtf8(target, raw.replace(/\s*$/, "") + separator + "# " + safeTitle + "\n\n", "utf8");
-      return;
+    if (await exists(target)) {
+      const stat = await fs.stat(target);
+      if (stat.isFile()) {
+        const raw = await fs.readFile(target, "utf8");
+        const separator = raw.trim() ? "\n\n" : "";
+        await atomicWriteUtf8(target, raw.replace(/\s*$/, "") + separator + "# " + safeTitle + "\n\n", "utf8");
+        return;
+      }
     }
-  }
 
-  await fs.mkdir(target, { recursive: true });
-  const names = await fs.readdir(target);
-  const highest = names.reduce((n, name) => {
-    const match = name.match(/^(\d+)/);
-    return match ? Math.max(n, Number(match[1])) : n;
-  }, 0);
-  const slug = safeTitle
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "chapter";
-  let number = highest + 1;
-  let filename = String(number).padStart(2, "0") + "-" + slug + ".md";
-  while (await exists(path.join(target, filename))) {
-    number += 1;
-    filename = String(number).padStart(2, "0") + "-" + slug + ".md";
-  }
-  await atomicWriteUtf8(path.join(target, filename), "# " + safeTitle + "\n\n", "utf8");
+    await fs.mkdir(target, { recursive: true });
+    const names = await fs.readdir(target);
+    const highest = names.reduce((n, name) => {
+      const match = name.match(/^(\d+)/);
+      return match ? Math.max(n, Number(match[1])) : n;
+    }, 0);
+    const slug = safeTitle
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "chapter";
+    let number = highest + 1;
+    let filename = String(number).padStart(2, "0") + "-" + slug + ".md";
+    while (await exists(path.join(target, filename))) {
+      number += 1;
+      filename = String(number).padStart(2, "0") + "-" + slug + ".md";
+    }
+    await atomicWriteUtf8(path.join(target, filename), "# " + safeTitle + "\n\n", "utf8");
+  });
 }
 
 /** Add a matter section from a template (or a blank custom file). */
@@ -177,61 +207,67 @@ export async function addMatter(
   meta: BookMeta,
   opts: { type: string; placement?: Placement; title?: string },
 ): Promise<{ entry: string; placement: Placement }> {
-  const cfg = await ensureConfig(bookDir, meta);
-  const def = MATTER_TYPES.find((m) => m.key === opts.type);
-  const placement: Placement = opts.placement ?? def?.placement ?? "backmatter";
-  const subdir = placement; // "frontmatter" | "backmatter"
-  await fs.mkdir(path.join(bookDir, subdir), { recursive: true });
+  return withConfigLock(bookDir, async () => {
+    const cfg = await ensureConfigUnlocked(bookDir, meta);
+    const def = MATTER_TYPES.find((m) => m.key === opts.type);
+    const placement: Placement = opts.placement ?? def?.placement ?? "backmatter";
+    const subdir = placement; // "frontmatter" | "backmatter"
+    await fs.mkdir(path.join(bookDir, subdir), { recursive: true });
 
-  // Determine the file content + filename.
-  const list = (cfg[placement] as string[] | undefined) ?? [];
-  const used = new Set(list);
-  let filename: string;
-  let content: string;
+    // Determine the file content + filename.
+    const list = (cfg[placement] as string[] | undefined) ?? [];
+    const used = new Set(list);
+    let filename: string;
+    let content: string;
 
-  if (def) {
-    const tpl = await fs.readFile(path.join(MATTER_TEMPLATES_DIR, def.file), "utf8");
-    filename = uniqueFilename(subdir, def.file, used);
-    content = opts.title ? tpl.replace(/^title:.*$/m, `title: ${opts.title}`) : tpl;
-  } else {
-    const title = opts.title || "New Section";
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "section";
-    filename = uniqueFilename(subdir, `${slug}.md`, used);
-    content = `---\ntitle: ${title}\nclass: ${slug}\ntoc: true\nshowTitle: true\n---\n\nWrite ${title} here.\n`;
-  }
+    if (def) {
+      const tpl = await fs.readFile(path.join(MATTER_TEMPLATES_DIR, def.file), "utf8");
+      filename = uniqueFilename(subdir, def.file, used);
+      content = opts.title ? tpl.replace(/^title:.*$/m, `title: ${opts.title}`) : tpl;
+    } else {
+      const title = opts.title || "New Section";
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+      filename = uniqueFilename(subdir, `${slug}.md`, used);
+      content = `---\ntitle: ${title}\nclass: ${slug}\ntoc: true\nshowTitle: true\n---\n\nWrite ${title} here.\n`;
+    }
 
-  const entry = `${subdir}/${filename}`;
-  const dest = path.join(bookDir, subdir, filename);
-  if (!(await exists(dest))) await atomicWriteUtf8(dest, content, "utf8");
+    const entry = `${subdir}/${filename}`;
+    const dest = path.join(bookDir, subdir, filename);
+    if (!(await exists(dest))) await atomicWriteUtf8(dest, content, "utf8");
 
-  list.push(entry);
-  cfg[placement] = list;
-  await writeConfig(bookDir, cfg);
-  return { entry, placement };
+    list.push(entry);
+    cfg[placement] = list;
+    await writeConfig(bookDir, cfg);
+    return { entry, placement };
+  });
 }
 
 /** Remove a matter entry from book.yaml (keeps the file on disk). */
 export async function removeMatter(bookDir: string, entry: string): Promise<void> {
-  const cfg = await readConfig(bookDir);
-  if (!cfg) return;
-  for (const placement of ["frontmatter", "backmatter"] as Placement[]) {
-    const list = cfg[placement] as string[] | undefined;
-    if (list) cfg[placement] = list.filter((e) => e !== entry);
-  }
-  await writeConfig(bookDir, cfg);
+  return withConfigLock(bookDir, async () => {
+    const cfg = await readConfig(bookDir);
+    if (!cfg) return;
+    for (const placement of ["frontmatter", "backmatter"] as Placement[]) {
+      const list = cfg[placement] as string[] | undefined;
+      if (list) cfg[placement] = list.filter((e) => e !== entry);
+    }
+    await writeConfig(bookDir, cfg);
+  });
 }
 
 /** Replace the ordering of a placement's list (must be a permutation of it). */
 export async function reorderMatter(bookDir: string, placement: Placement, order: string[]): Promise<void> {
-  const cfg = await readConfig(bookDir);
-  if (!cfg) return;
-  const current = (cfg[placement] as string[] | undefined) ?? [];
-  // keep only entries that currently exist, in the requested order, then append any missed
-  const set = new Set(current);
-  const next = order.filter((e) => set.has(e));
-  for (const e of current) if (!next.includes(e)) next.push(e);
-  cfg[placement] = next;
-  await writeConfig(bookDir, cfg);
+  return withConfigLock(bookDir, async () => {
+    const cfg = await readConfig(bookDir);
+    if (!cfg) return;
+    const current = (cfg[placement] as string[] | undefined) ?? [];
+    // keep only entries that currently exist, in the requested order, then append any missed
+    const set = new Set(current);
+    const next = order.filter((e) => set.has(e));
+    for (const e of current) if (!next.includes(e)) next.push(e);
+    cfg[placement] = next;
+    await writeConfig(bookDir, cfg);
+  });
 }
 
 /** Create a starter book.yaml (titlepage + copyright + detected chapters). */
@@ -256,18 +292,22 @@ function prune(obj: Record<string, unknown>): Record<string, unknown> | undefine
 
 /** Persist the typography block into book.yaml. */
 export async function saveTypography(bookDir: string, meta: BookMeta, typography: Record<string, unknown>): Promise<void> {
-  const cfg = await ensureConfig(bookDir, meta);
-  const pruned = prune(typography);
-  if (pruned) cfg.typography = pruned;
-  else delete cfg.typography;
-  await writeConfig(bookDir, cfg);
+  return withConfigLock(bookDir, async () => {
+    const cfg = await ensureConfigUnlocked(bookDir, meta);
+    const pruned = prune(typography);
+    if (pruned) cfg.typography = pruned;
+    else delete cfg.typography;
+    await writeConfig(bookDir, cfg);
+  });
 }
 
 /** Persist chapter source order without renaming the author's files. */
 export async function saveChapterOrder(bookDir: string, meta: BookMeta, order: string[]): Promise<void> {
-  const cfg = await ensureConfig(bookDir, meta);
-  cfg.chapter_order = order.map((entry) => entry.replace(/\\/g, "/"));
-  await writeConfig(bookDir, cfg);
+  return withConfigLock(bookDir, async () => {
+    const cfg = await ensureConfigUnlocked(bookDir, meta);
+    cfg.chapter_order = order.map((entry) => entry.replace(/\\/g, "/"));
+    await writeConfig(bookDir, cfg);
+  });
 }
 
 function setOrDelete(cfg: RawConfig, key: string, value: unknown): void {
@@ -285,11 +325,13 @@ export async function saveExportSettings(
   bookDir: string,
   settings: { blues_output?: string | null; exports_dir?: string | null },
 ): Promise<RawConfig> {
-  const cfg = (await readConfig(bookDir)) ?? {};
-  if ("blues_output" in settings) setOrDelete(cfg, "blues_output", settings.blues_output?.replace(/\\/g, "/"));
-  if ("exports_dir" in settings) setOrDelete(cfg, "exports_dir", settings.exports_dir);
-  await writeConfig(bookDir, cfg);
-  return cfg;
+  return withConfigLock(bookDir, async () => {
+    const cfg = (await readConfig(bookDir)) ?? {};
+    if ("blues_output" in settings) setOrDelete(cfg, "blues_output", settings.blues_output?.replace(/\\/g, "/"));
+    if ("exports_dir" in settings) setOrDelete(cfg, "exports_dir", settings.exports_dir);
+    await writeConfig(bookDir, cfg);
+    return cfg;
+  });
 }
 
 /**
@@ -297,33 +339,35 @@ export async function saveExportSettings(
  * front/back matter and chapters structure (creating them if the file is new).
  */
 export async function saveMeta(bookDir: string, meta: BookMeta): Promise<RawConfig> {
-  const cfg = (await readConfig(bookDir)) ?? {};
+  return withConfigLock(bookDir, async () => {
+    const cfg = (await readConfig(bookDir)) ?? {};
 
-  cfg.title = meta.title;
-  cfg.author = meta.author;
-  cfg.language = meta.language || "en";
-  cfg.theme = meta.theme;
-  setOrDelete(cfg, "subtitle", meta.subtitle);
-  setOrDelete(cfg, "series", meta.series);
-  setOrDelete(cfg, "series_index", meta.series_index);
-  setOrDelete(cfg, "publisher", meta.publisher);
-  setOrDelete(cfg, "isbn", meta.isbn);
-  setOrDelete(cfg, "description", meta.description);
-  setOrDelete(cfg, "copyright", meta.copyright);
-  setOrDelete(cfg, "rights", meta.rights);
+    cfg.title = meta.title;
+    cfg.author = meta.author;
+    cfg.language = meta.language || "en";
+    cfg.theme = meta.theme;
+    setOrDelete(cfg, "subtitle", meta.subtitle);
+    setOrDelete(cfg, "series", meta.series);
+    setOrDelete(cfg, "series_index", meta.series_index);
+    setOrDelete(cfg, "publisher", meta.publisher);
+    setOrDelete(cfg, "isbn", meta.isbn);
+    setOrDelete(cfg, "description", meta.description);
+    setOrDelete(cfg, "copyright", meta.copyright);
+    setOrDelete(cfg, "rights", meta.rights);
 
-  // Keep cover; adopt an edited one or detect a file if none is recorded.
-  if (meta.cover) cfg.cover = meta.cover;
-  else if (!cfg.cover) {
-    const c = await detectCover(bookDir);
-    if (c) cfg.cover = c;
-  }
+    // Keep cover; adopt an edited one or detect a file if none is recorded.
+    if (meta.cover) cfg.cover = meta.cover;
+    else if (!cfg.cover) {
+      const c = await detectCover(bookDir);
+      if (c) cfg.cover = c;
+    }
 
-  // Seed structure only when the file is brand new.
-  if (!cfg.frontmatter) cfg.frontmatter = ["titlepage", "copyright"];
-  if (!cfg.chapters) cfg.chapters = await detectChapters(bookDir);
-  if (!cfg.backmatter) cfg.backmatter = [];
+    // Seed structure only when the file is brand new.
+    if (!cfg.frontmatter) cfg.frontmatter = ["titlepage", "copyright"];
+    if (!cfg.chapters) cfg.chapters = await detectChapters(bookDir);
+    if (!cfg.backmatter) cfg.backmatter = [];
 
-  await writeConfig(bookDir, cfg);
-  return cfg;
+    await writeConfig(bookDir, cfg);
+    return cfg;
+  });
 }

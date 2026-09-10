@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: folio-v106-qualification
@@ -14,7 +14,6 @@ concurrency:
 
 jobs:
   qualify:
-    if: github.actor != 'github-actions[bot]'
     runs-on: windows-2025
     timeout-minutes: 65
     env:
@@ -27,22 +26,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply final 1.0.6 UI and QA patch
-        shell: pwsh
-        run: |
-          python scripts\v106-emergency-pass.py
-          python scripts\v106-ragged-rescue.py
-          python scripts\v106-finish.py
-          Remove-Item scripts\v106-emergency-pass.py -Force
-          Remove-Item scripts\v106-ragged-rescue.py -Force
-          Remove-Item scripts\v106-finish.py -Force
-
       - name: Check candidate integrity
         shell: pwsh
         run: |
           git diff --check
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!=='1.0.6'||l.version!=='1.0.6'||l.packages[''].version!=='1.0.6') throw new Error('Folio version mismatch')"
-          git status --short
+          if (git status --porcelain) { throw "Qualification must test the exact clean source commit." }
 
       - name: Set up Node 22.23.2
         uses: actions/setup-node@v4
@@ -139,13 +128,3 @@ jobs:
             build/qa-v106/*.json
             build/qa-v106/sha256.txt
           if-no-files-found: error
-
-      - name: Commit exact tested application tree
-        shell: pwsh
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if (git diff --cached --quiet) { throw "Qualification produced no final source diff." }
-          git commit -m "Prepare Folio 1.0.6 release candidate"
-          git push origin HEAD:release/v1.0.6

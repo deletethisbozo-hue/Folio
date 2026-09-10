@@ -95,6 +95,7 @@ try {
       maxWordSpacingPx: Math.max(...justified.map((line) => Math.abs(Number(line.dataset.folioWordSpacing ?? 0))), 0),
       maxTrackingPx: Math.max(...justified.map((line) => Math.abs(Number(line.dataset.folioTracking ?? 0))), 0),
       finalLineNatural: lines.at(-1)?.classList.contains("folio-line-natural") ?? false,
+      emergencyLines: lines.filter((line) => line.dataset.folioEmergency === "true").length,
       dropcapClearancePx: capRect && first ? first.left - capRect.right : null,
     };
   });

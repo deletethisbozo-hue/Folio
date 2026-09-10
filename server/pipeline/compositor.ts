@@ -54,6 +54,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       hyphenated: boolean;
       offset: number;
       available: number;
+      emergency: boolean;
     };
     type State = Break & { cost: number; from: number; fromKey: number };
 
@@ -63,12 +64,17 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       trackingOps: number,
       spaceWidth: number,
       fontSize: number,
+      emergency = false,
     ): LineFit | null => {
       if (gaps <= 0) return null;
-      const maxWordSpacing = Math.min(spaceWidth * 0.38, fontSize * 0.115);
-      const minWordSpacing = -Math.min(spaceWidth * 0.14, fontSize * 0.035);
-      const maxTracking = fontSize * 0.0055;
-      const minTracking = -fontSize * 0.0035;
+      const maxWordSpacing = emergency
+        ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
+        : Math.min(spaceWidth * 0.38, fontSize * 0.115);
+      const minWordSpacing = emergency
+        ? -Math.min(spaceWidth * 0.18, fontSize * 0.045)
+        : -Math.min(spaceWidth * 0.14, fontSize * 0.035);
+      const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
+      const minTracking = -fontSize * (emergency ? 0.0045 : 0.0035);
 
       let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, adjustment / gaps));
       let remaining = adjustment - wordSpacing * gaps;
@@ -217,6 +223,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         return { offset, available: Math.max(1, width - offset) };
       };
 
+      const runBreaker = (emergency: boolean): Break[] | null => {
       const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());
       states[0].set(0, {
         cost: 0,
@@ -229,6 +236,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         hyphenated: false,
         offset: 0,
         available: width,
+        emergency,
       });
 
       for (let start = 0; start < words.length; start++) {
@@ -256,9 +264,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const adjustment = available - natural;
             const trackingOps = Math.max(0, characters + gaps - 1);
             const fit = !last && natural <= available + 0.75
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize)
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, emergency)
               : null;
-            if (!last && !fit) continue;
+            // Mirror the reflow preview: an impossible narrow/drop-cap line
+            // stays natural rather than exceeding the professional spacing
+            // bounds merely to touch both margins.
+            const rescueNatural = emergency && !last && !fit && natural <= available + 0.75;
+            if (!last && !fit && !rescueNatural) continue;
 
             const wordsOnLine = end - start + 1;
             const fill = Math.min(1, natural / Math.max(1, available));
@@ -267,7 +279,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : 0;
             const hyphenPenalty = hyphenBreak ? 58 + previousHyphenStreak * 310 : 0;
             const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
-            const cost = previous.cost + (fit?.badness ?? 0) + hyphenPenalty + punctuationPenalty + shortLastPenalty;
+            const rescuePenalty = rescueNatural ? 900 + 700 * Math.pow(1 - fill, 2) : 0;
+            const cost = previous.cost + (fit?.badness ?? 0) + rescuePenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
             const nextKey = nextLine * 3 + nextStreak;
@@ -277,12 +290,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               from: start,
               fromKey: stateKey,
               end: end + 1,
-              justified: !last,
+              justified: !last && Boolean(fit),
               wordSpacing: fit?.wordSpacing ?? 0,
               tracking: fit?.tracking ?? 0,
               hyphenated: hyphenBreak,
               offset,
               available,
+              emergency,
             });
           }
         }
@@ -296,10 +310,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           bestKey = key;
         }
       }
-      if (bestKey < 0) {
-        paragraph.classList.add("folio-compositor-safe-fallback");
-        continue;
-      }
+      if (bestKey < 0) return null;
 
       const reversed: Break[] = [];
       let end = words.length;
@@ -314,11 +325,19 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           hyphenated: state.hyphenated,
           offset: state.offset,
           available: state.available,
+          emergency: state.emergency,
         });
         end = state.from;
         key = state.fromKey;
       }
-      const breaks = reversed.reverse();
+      return reversed.reverse();
+      };
+
+      const breaks = runBreaker(false) ?? runBreaker(true);
+      if (!breaks) {
+        paragraph.classList.add("folio-compositor-safe-fallback");
+        continue;
+      }
 
       const fragments: DocumentFragment[] = [];
       let start = 0;
@@ -335,7 +354,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const lines: HTMLElement[] = [];
       for (const [lineNo, lineBreak] of breaks.entries()) {
         const line = document.createElement("span");
-        line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
+        line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.emergency ? " folio-line-emergency" : ""}`;
+        if (lineBreak.emergency) line.dataset.folioEmergency = "true";
         line.append(fragments[lineNo]);
         if (lineBreak.end < words.length && words[lineBreak.end].hyphenBefore) line.append("-");
         line.style.marginLeft = `${lineBreak.offset}px`;
