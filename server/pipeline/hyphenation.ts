@@ -9,6 +9,7 @@ const engines = {
   pl: new Hypher(polish),
 };
 const WORD = /\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu;
+const MIN_HYPHENATED_WORD = 7;
 
 function languageKey(language: string): "pl" | "en" {
   return /^pl(?:-|$)/i.test(language) ? "pl" : "en";
@@ -19,6 +20,7 @@ function engineFor(language: string): Hypher {
 }
 
 export function conservativeHyphenation(engine: Hypher, word: string): string {
+  if (word.length < MIN_HYPHENATED_WORD) return word;
   const pieces = engine.hyphenate(word);
   if (pieces.length < 2) return word;
   const points: number[] = [];
@@ -44,7 +46,7 @@ function discretionaryWords(book: Book): Record<string, string> {
     if (section.kind !== "chapter" && section.kind !== "backmatter") continue;
     for (const match of section.markdown.matchAll(WORD)) {
       const word = match[0];
-      if (word.includes("\u00ad") || word.length < 10) continue;
+      if (word.includes("\u00ad") || word.length < MIN_HYPHENATED_WORD) continue;
       words.add(word);
     }
   }
@@ -64,7 +66,7 @@ export async function applyProfessionalHyphenation(page: Page, book: Book): Prom
   const words = discretionaryWords(book);
   const polishBook = languageKey(book.meta.language) === "pl";
   if (!Object.keys(words).length && !polishBook) return;
-  await page.evaluate(({ map, polish }) => {
+  await page.evaluate(({ map, polish, minimum }) => {
     const root = document.querySelector("main.book");
     if (!root) return;
     const selector = [
@@ -99,9 +101,9 @@ export async function applyProfessionalHyphenation(page: Page, book: Book): Prom
         }
         node.data = text.replace(/\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu, (candidate) => {
           if (candidate.includes("\u00ad")) return candidate;
-          return candidate.length >= 10 ? (map[candidate] ?? candidate) : candidate;
+          return candidate.length >= minimum ? (map[candidate] ?? candidate) : candidate;
         });
       }
     }
-  }, { map: words, polish: polishBook });
+  }, { map: words, polish: polishBook, minimum: MIN_HYPHENATED_WORD });
 }
