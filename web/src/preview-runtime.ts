@@ -30,8 +30,8 @@ function numberFromWordsLabel(): number {
 /** Avoid a full Pandoc/server round-trip after every key. App.tsx already has a
  * local semantic preview path for editable reflowable sections; repeated
  * requests whose only changing input is `draft` are therefore redundant and
- * were the largest source of whole-app stalls on long chapters. Structural or
- * style changes still receive an authoritative server render. */
+ * were a major source of whole-app stalls on long chapters. Structural or style
+ * changes still receive an authoritative server render. */
 function installPreviewFetchFastPath(): void {
   const nativeFetch = window.fetch.bind(window);
   let lastReflowSignature = "";
@@ -60,7 +60,7 @@ function installPreviewFetchFastPath(): void {
 }
 
 function mode(): string {
-  return (document.querySelector<HTMLSelectElement>('select[aria-label="Preview device"]')?.value || "kindle-paperwhite");
+  return document.querySelector<HTMLSelectElement>('select[aria-label="Preview device"]')?.value || "kindle-paperwhite";
 }
 
 function calibrateFrame(frame: HTMLIFrameElement): void {
@@ -75,13 +75,15 @@ function calibrateFrame(frame: HTMLIFrameElement): void {
     style = doc.createElement("style");
     style.id = "folio-device-calibration";
   }
-  style.textContent = [
+  const css = [
     `body{font-size:${profile.baseFont * scale}px!important}`,
     `main.book{padding:${top}px ${right}px ${bottom}px ${left}px!important}`,
   ].join("");
-  // App's profile stylesheet can be replaced on each render. Keeping this node
-  // last makes the calibrated metrics authoritative without touching book CSS.
-  doc.head.appendChild(style);
+  if (style.textContent !== css) style.textContent = css;
+  // App can replace its device-profile stylesheet. Move calibration to the end
+  // only when something actually appeared after it; otherwise a head observer
+  // would trigger itself forever and burn a CPU core for no useful reason.
+  if (style.parentElement !== doc.head || doc.head.lastElementChild !== style) doc.head.appendChild(style);
 }
 
 function ensureStatsNode(): HTMLElement | null {
@@ -138,22 +140,27 @@ function updatePageCounts(frame: HTMLIFrameElement): void {
   stats.textContent = `Chapter ${chapterPages} pages · Book ~${bookPages} pages`;
 }
 
+function refreshFrame(frame: HTMLIFrameElement): void {
+  calibrateFrame(frame);
+  window.requestAnimationFrame(() => updatePageCounts(frame));
+}
+
 function bindFrame(frame: HTMLIFrameElement): void {
   if (frame.dataset.folioMetricsBound === "true") return;
   frame.dataset.folioMetricsBound = "true";
 
   let headObserver: MutationObserver | null = null;
   const refresh = () => {
-    calibrateFrame(frame);
-    window.requestAnimationFrame(() => updatePageCounts(frame));
+    refreshFrame(frame);
     const head = frame.contentDocument?.head;
     if (head && !headObserver) {
+      let scheduled = false;
       headObserver = new MutationObserver(() => {
-        // Let App finish its own stylesheet mutation before moving calibration
-        // back to the end. requestAnimationFrame coalesces mutation bursts.
+        if (scheduled) return;
+        scheduled = true;
         window.requestAnimationFrame(() => {
-          calibrateFrame(frame);
-          updatePageCounts(frame);
+          scheduled = false;
+          refreshFrame(frame);
         });
       });
       headObserver.observe(head, { childList: true });
@@ -161,6 +168,36 @@ function bindFrame(frame: HTMLIFrameElement): void {
   };
   frame.addEventListener("load", refresh);
   refresh();
+}
+
+/** A contenteditable input event used to serialise the entire editor DOM is
+ * expensive by definition. For large chapters, coalesce trusted keystrokes and
+ * let React process one synthetic input event after a very short idle window.
+ * The browser still edits the visible DOM synchronously, so typing/caret motion
+ * remain immediate; draft state, autosave and preview catch up milliseconds
+ * later instead of reparsing 100k words for every key. */
+function installLargeEditorInputCoalescing(): void {
+  const timers = new WeakMap<HTMLElement, number>();
+  document.addEventListener("input", (event) => {
+    if (!event.isTrusted) return;
+    const editor = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>(".rich-editor") : null;
+    if (!editor) return;
+    const knownLength = editor.dataset.markdown?.length ?? 0;
+    if (knownLength < 35_000) return;
+
+    event.stopPropagation();
+    const previous = timers.get(editor);
+    if (previous !== undefined) window.clearTimeout(previous);
+    const delay = knownLength > 250_000 ? 140 : knownLength > 100_000 ? 105 : 75;
+    const timer = window.setTimeout(() => {
+      timers.delete(editor);
+      if (!editor.isConnected) return;
+      editor.dispatchEvent(new InputEvent("input", { bubbles: true, composed: true, inputType: "insertText" }));
+      const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+      if (frame) window.requestAnimationFrame(() => updatePageCounts(frame));
+    }, delay);
+    timers.set(editor, timer);
+  }, true);
 }
 
 function scan(): void {
@@ -173,6 +210,7 @@ export function installPreviewRuntime(): void {
   installPreviewFetchFastPath();
 
   const start = () => {
+    installLargeEditorInputCoalescing();
     scan();
     let scheduled = false;
     const observer = new MutationObserver(() => {
@@ -181,20 +219,23 @@ export function installPreviewRuntime(): void {
       window.requestAnimationFrame(() => {
         scheduled = false;
         scan();
-        const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
-        if (frame) {
-          calibrateFrame(frame);
-          updatePageCounts(frame);
-        }
       });
     });
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    // Structural changes are enough to discover new frames/topbars. Watching
+    // every text-node mutation would put the page counter back on the typing
+    // hot path we just removed.
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    document.addEventListener("change", (event) => {
+      const select = event.target instanceof HTMLSelectElement ? event.target : null;
+      if (select?.getAttribute("aria-label") !== "Preview device") return;
+      const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+      if (frame) window.requestAnimationFrame(() => refreshFrame(frame));
+    });
+
     window.addEventListener("resize", () => {
       const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
-      if (frame) {
-        calibrateFrame(frame);
-        updatePageCounts(frame);
-      }
+      if (frame) refreshFrame(frame);
     });
   };
 
