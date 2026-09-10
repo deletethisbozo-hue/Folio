@@ -197,10 +197,11 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   for (let index = 0; index < paragraphs.length; index++) {
     if (compositionGeneration.get(document) !== generation) return;
     composeParagraph(paragraphs[index]);
-    // Large pasted manuscripts must stay interactive while composition catches
-    // up. Yield between small batches without changing the final line choices.
-    if (index > 0 && index % 40 === 0) {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    // A paragraph-wide layout pass is deliberately incremental. Yield often so
+    // autosave, typing and scrolling remain responsive even after a complete
+    // 100,000-word manuscript is pasted into one chapter.
+    if (index > 0 && index % 4 === 0) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     }
   }
 }

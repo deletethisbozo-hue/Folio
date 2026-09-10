@@ -294,7 +294,6 @@ export default function App() {
         const saved = await api.saveSection(projectId, sectionId, value);
         if (selectedRef.current === sectionId && draftRef.current === value) {
           setDocument(saved); setDirty(false); setSaveState("saved");
-          window.setTimeout(() => setSaveState((state) => state === "saved" ? "idle" : state), 1400);
         }
       } catch (e) {
         if (selectedRef.current === sectionId) {
