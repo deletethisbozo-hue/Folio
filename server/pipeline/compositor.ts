@@ -54,8 +54,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             part.split("\u00ad").forEach((piece, index) => {
               if (!piece) return;
               const word = document.createElement("span");
+              const discretionary = index > 0;
               word.className = "folio-word";
-              word.dataset.folioJoinBefore = index > 0 || (hasWord && !separated) ? "true" : "false";
+              word.dataset.folioJoinBefore = discretionary || (hasWord && !separated) ? "true" : "false";
+              word.dataset.folioHyphenBefore = discretionary ? "true" : "false";
               word.textContent = piece;
               fragment.append(word);
               hasWord = true;
@@ -77,7 +79,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         word.style.letterSpacing = wordStyle.letterSpacing;
         word.style.whiteSpace = "nowrap";
       }
-      const words = wordNodes.map((word) => ({ width: word.getBoundingClientRect().width, joinBefore: word.dataset.folioJoinBefore === "true" }));
+      const words = wordNodes.map((word) => ({
+        width: word.getBoundingClientRect().width,
+        joinBefore: word.dataset.folioJoinBefore === "true",
+        hyphenBefore: word.dataset.folioHyphenBefore === "true",
+      }));
       const widths = words.map((word) => word.width);
       if (!widths.length) continue;
       const probe = document.createElement("span");
@@ -102,14 +108,18 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           for (let end = start; end < widths.length; end++) {
             wordWidth += widths[end];
             if (end > start && !words[end].joinBefore) gaps++;
-            const hyphenBreak = end < widths.length - 1 && words[end + 1].joinBefore;
+            const last = end === widths.length - 1;
+            const next = last ? null : words[end + 1];
+            const canBreak = last || !next!.joinBefore || next!.hyphenBefore;
+            const hyphenBreak = !last && next!.hyphenBefore;
             const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
             if (natural > available + 0.5 && end > start) break;
-            const last = end === widths.length - 1;
+            if (!canBreak) continue;
             const gap = gaps ? (available - wordWidth - (hyphenBreak ? hyphenWidth : 0)) / gaps : Number.POSITIVE_INFINITY;
             const justified = !last && gaps > 0 && gap >= spaceWidth * 0.82 && gap <= maxGap;
             const leftover = Math.max(0, available - natural) / available;
-            const cost = previous.cost + (last ? 4 * leftover * leftover : justified
+            const hyphenPenalty = hyphenBreak ? 52 : 0;
+            const cost = previous.cost + hyphenPenalty + (last ? 4 * leftover * leftover : justified
               ? 28 * Math.pow((gap - idealGap) / Math.max(1, maxGap - spaceWidth), 2)
               : 150 + 90 * leftover * leftover + (gaps < 2 ? 80 : 0));
             const nextLine = lineNo + 1;
@@ -151,7 +161,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           if (i > start && !words[i].joinBefore) line.append(" ");
           line.append(wordNodes[i]);
         }
-        if (lineBreak.end < words.length && words[lineBreak.end].joinBefore) line.append("-");
+        if (lineBreak.end < words.length && words[lineBreak.end].hyphenBefore) line.append("-");
         paragraph.append(line);
         start = lineBreak.end;
       }
