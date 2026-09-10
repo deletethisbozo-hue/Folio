@@ -226,9 +226,10 @@ try {
     const row = [...document.querySelectorAll(".customize-row")].find((node) => node.querySelector("span")?.textContent === "Label text");
     const input = row?.querySelector("input") as HTMLInputElement | null;
     if (!input) throw new Error("Chapter label text input is missing");
-    input.value = "ROZDZIAŁ";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
+    input.select();
   });
+  await page.keyboard.type("ROZDZIAŁ");
   await stage("numbered custom chapter label", () => page.waitForFunction(() => {
     const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
     return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 1") : false;

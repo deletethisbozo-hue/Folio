@@ -12,7 +12,6 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       "section.chapter > p:not(.scene-break)", "section.chapter > blockquote p", "section.chapter li",
       "section.backmatter > p:not(.scene-break)", "section.backmatter li",
     ].join(",");
-    const px = (value: string) => Number.parseFloat(value) || 0;
     const style = document.createElement("style");
     style.id = "folio-professional-compositor";
     style.textContent =
@@ -26,24 +25,22 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       if (paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") || paragraph.querySelector("br,img,svg")) continue;
       const computed = getComputedStyle(paragraph);
       const width = paragraph.clientWidth;
-      const fontSize = px(computed.fontSize) || 16;
+      const fontSize = Number.parseFloat(computed.fontSize) || 16;
       if (width < fontSize * 8) continue;
-      const indent = Math.max(0, px(computed.textIndent));
-      const lineHeight = px(computed.lineHeight) || fontSize * 1.5;
+      const indent = Math.max(0, Number.parseFloat(computed.textIndent) || 0);
+      const lineHeight = Number.parseFloat(computed.lineHeight) || fontSize * 1.5;
       const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
       const capRect = cap?.getBoundingClientRect();
-      const capWidth = capRect ? capRect.width + px(getComputedStyle(cap!).marginRight) : 0;
+      const capWidth = capRect ? capRect.width + (Number.parseFloat(getComputedStyle(cap!).marginRight) || 0) : 0;
       const capLines = capRect ? Math.max(1, Math.ceil(capRect.height / lineHeight)) : 0;
 
-      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-          const parent = node.parentElement;
-          return parent && !parent.closest(".dropcap,code,pre,script,style") && node.nodeValue?.trim()
-            ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-        },
-      });
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
       const textNodes: Text[] = [];
-      while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        const parent = node.parentElement;
+        if (parent && !parent.closest(".dropcap,code,pre,script,style") && node.nodeValue?.trim()) textNodes.push(node);
+      }
       for (const textNode of textNodes) {
         const fragment = document.createDocumentFragment();
         for (const part of textNode.data.split(/([ \t\r\n]+)/)) {
