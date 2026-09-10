@@ -346,6 +346,8 @@ try {
   await stage("drop cap survives device change", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap"))));
   check("drop caps survive switching preview devices", dropcapBeforeDeviceChange);
 
+  const chapterCountBeforeAdd = await page.$$eval(".contents-row.chapter-row", (rows) => rows.length);
+  const addedChapterNumber = chapterCountBeforeAdd + 1;
   await page.click(".footer-add");
   await stage("open Add Content", () => page.waitForSelector(".add-chapter-box input"));
   await page.click(".add-chapter-box input", { clickCount: 3 });
@@ -357,10 +359,10 @@ try {
   check("Add Content creates and selects an editable chapter", await page.$eval(".contents-row.selected", (el) => el.textContent?.includes("UI Added Chapter") ?? false));
   await stage("new chapter gets next automatic label number", async () => {
     try {
-      await page.waitForFunction(() => {
+      await page.waitForFunction((expected) => {
         const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
-        return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 2") : false;
-      }, { timeout: 30000 });
+        return heading ? getComputedStyle(heading, "::before").content.includes(`ROZDZIAŁ ${expected}`) : false;
+      }, { timeout: 30000 }, addedChapterNumber);
     } catch (error) {
       const snapshot = await page.evaluate(() => {
         const frameDoc = document.querySelector("iframe")?.contentDocument;
@@ -378,11 +380,11 @@ try {
     }
   });
   await page.click('.section-move[title="Move chapter up"]');
-  await stage("chapter reorder persists in UI", () => page.waitForFunction(() => document.querySelector(".contents-row.selected .chapter-number")?.textContent === "1."));
-  await stage("reordered chapter label renumbers", () => page.waitForFunction(() => {
+  await stage("chapter reorder persists in UI", () => page.waitForFunction((expected) => document.querySelector(".contents-row.selected .chapter-number")?.textContent === `${expected}.`, {}, addedChapterNumber - 1));
+  await stage("reordered chapter label renumbers", () => page.waitForFunction((expected) => {
     const heading = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
-    return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 1") : false;
-  }));
+    return heading ? getComputedStyle(heading, "::before").content.includes(`ROZDZIAŁ ${expected}`) : false;
+  }, {}, addedChapterNumber - 1));
   check("chapter arrows reorder sources and labels follow current order", true);
 
   await page.click(".rich-editor");
