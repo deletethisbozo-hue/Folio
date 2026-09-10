@@ -8,18 +8,30 @@ const PROSE_SELECTORS = [
   "section.backmatter li",
 ];
 const PROSE_SELECTOR = PROSE_SELECTORS.join(",");
+const ATOMIC_INLINE = "a,em,strong,b,i,u,s,sup,sub";
 const compositionGeneration = new WeakMap<Document, number>();
 const compositionObservers = new WeakMap<Document, IntersectionObserver>();
 
 type Word = {
   node: HTMLElement;
   width: number;
-  /** No source whitespace before this fragment. */
-  joinBefore: boolean;
-  /** This fragment follows an actual discretionary soft-hyphen point. */
+  spaceBefore: boolean;
   hyphenBefore: boolean;
+  canBreakBefore: boolean;
+  characters: number;
 };
-type Break = { end: number; justified: boolean; wordSpacing: number };
+type Break = {
+  end: number;
+  justified: boolean;
+  wordSpacing: number;
+  tracking: number;
+  hyphenated: boolean;
+};
+type State = Break & {
+  cost: number;
+  from: number;
+  fromKey: number;
+};
 
 function pixels(value: string): number {
   const parsed = Number.parseFloat(value);
@@ -32,7 +44,7 @@ function restore(paragraph: HTMLElement): void {
     paragraph.innerHTML = original;
     delete paragraph.dataset.folioOriginalHtml;
   }
-  paragraph.classList.remove("folio-composed");
+  paragraph.classList.remove("folio-composed", "folio-compositor-safe-fallback");
 }
 
 function ensureFallbackStyle(document: Document): void {
@@ -42,20 +54,19 @@ function ensureFallbackStyle(document: Document): void {
     style.id = "folio-compositor-fallback";
     document.head.appendChild(style);
   }
-  // Off-screen paragraphs use Chromium's cheap justification temporarily. They
-  // are upgraded to the paragraph-wide compositor before entering the viewport.
-  // No per-paragraph marker is needed, which avoids thousands of DOM writes.
+  // A paragraph awaiting our bounded compositor must never fall back to
+  // Chromium's unbounded justification. It stays calmly ragged-right for the
+  // fraction of a second before it approaches the viewport.
   const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed)`).join(",");
-  style.textContent = `${pending}{text-align:justify!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important}`;
+  style.textContent = `${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important;text-wrap:pretty!important}.scene-break{display:block!important;text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}`;
 }
 
 function tokenize(paragraph: HTMLElement): Word[] {
   const document = paragraph.ownerDocument;
-  const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
   const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
-      return parent && !parent.closest(".dropcap,code,pre,script,style")
+      return parent && !parent.closest(".dropcap,code,pre,script,style,.math,[data-math]")
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_REJECT;
     },
@@ -80,12 +91,13 @@ function tokenize(paragraph: HTMLElement): Word[] {
         const span = document.createElement("span");
         const discretionary = index > 0;
         span.className = "folio-word";
-        span.dataset.folioJoinBefore = discretionary || (hasWord && !separated) ? "true" : "false";
+        span.dataset.folioSpaceBefore = hasWord && separated ? "true" : "false";
         span.dataset.folioHyphenBefore = discretionary ? "true" : "false";
-        // Keep the discretionary marker in semantic/copyable text. The span is
-        // nowrap and line breaking is handled by Folio, so the marker remains
-        // invisible unless our compositor chooses that exact legal breakpoint.
+        // Retain the discretionary marker so copy/paste and a later recomposition
+        // preserve the legal breakpoint. Folio shows a visible hyphen only when
+        // the selected line actually ends at this point.
         span.textContent = (discretionary ? "\u00ad" : "") + piece;
+        span.style.whiteSpace = "nowrap";
         fragment.append(span);
         hasWord = true;
         separated = false;
@@ -95,29 +107,57 @@ function tokenize(paragraph: HTMLElement): Word[] {
   }
 
   const nodes = Array.from(paragraph.querySelectorAll<HTMLElement>(".folio-word"));
-  for (const node of nodes) {
-    const style = getComputedStyle(node);
-    // Words are moved out of their original inline wrapper when lines are built.
-    // Carry visible inline styling with them instead of losing emphasis.
-    node.style.fontFamily = style.fontFamily;
-    node.style.fontSize = style.fontSize;
-    node.style.fontWeight = style.fontWeight;
-    node.style.fontStyle = style.fontStyle;
-    node.style.fontVariant = style.fontVariant;
-    node.style.textDecoration = style.textDecoration;
-    node.style.letterSpacing = style.letterSpacing;
-    node.style.whiteSpace = "nowrap";
-  }
+  const atomicIds = new WeakMap<Element, number>();
+  let nextAtomicId = 1;
+  let previousAtomic = 0;
+  return nodes.map((node) => {
+    const atomic = node.closest(ATOMIC_INLINE);
+    let atomicId = 0;
+    if (atomic) {
+      atomicId = atomicIds.get(atomic) ?? nextAtomicId++;
+      atomicIds.set(atomic, atomicId);
+    }
+    const spaceBefore = node.dataset.folioSpaceBefore === "true";
+    const hyphenBefore = node.dataset.folioHyphenBefore === "true";
+    const canBreakBefore = hyphenBefore || (spaceBefore && !(atomicId && atomicId === previousAtomic));
+    const word: Word = {
+      node,
+      width: node.getBoundingClientRect().width,
+      spaceBefore,
+      hyphenBefore,
+      canBreakBefore,
+      characters: (node.textContent ?? "").replace(/\u00ad/g, "").length,
+    };
+    previousAtomic = atomicId;
+    return word;
+  });
+}
 
-  const words = nodes.map((node) => ({
-    node,
-    width: node.getBoundingClientRect().width,
-    joinBefore: node.dataset.folioJoinBefore === "true",
-    hyphenBefore: node.dataset.folioHyphenBefore === "true",
-  }));
-  if (cap) cap.remove();
-  paragraph.replaceChildren(...(cap ? [cap] : []));
-  return words;
+function boundedAdjustment(
+  adjustment: number,
+  gaps: number,
+  trackingOps: number,
+  spaceWidth: number,
+  fontSize: number,
+): { wordSpacing: number; tracking: number } | null {
+  if (gaps <= 0) return null;
+
+  // Extra space is deliberately much tighter than Chromium's unconstrained
+  // inter-word justification. Tracking is only the last few tenths of a pixel.
+  const maxWordSpacing = Math.min(fontSize * 0.18, Math.max(0.55, spaceWidth * 0.68));
+  const minWordSpacing = -Math.min(fontSize * 0.028, Math.max(0.18, spaceWidth * 0.10));
+  const maxTracking = fontSize * 0.0125;
+  const minTracking = -fontSize * 0.009;
+
+  let tracking = trackingOps > 0 ? Math.max(minTracking, Math.min(maxTracking, adjustment / trackingOps)) : 0;
+  let wordSpacing = (adjustment - tracking * trackingOps) / gaps;
+  if (wordSpacing > maxWordSpacing || wordSpacing < minWordSpacing) {
+    wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
+    tracking = trackingOps > 0 ? (adjustment - wordSpacing * gaps) / trackingOps : 0;
+  }
+  if (wordSpacing > maxWordSpacing + 0.001 || wordSpacing < minWordSpacing - 0.001) return null;
+  if (tracking > maxTracking + 0.001 || tracking < minTracking - 0.001) return null;
+  return { wordSpacing, tracking };
 }
 
 function chooseBreaks(
@@ -131,94 +171,142 @@ function chooseBreaks(
   fontSize: number,
 ): Break[] {
   const count = words.length;
-  const maxGap = Math.max(spaceWidth, fontSize * 0.47);
-  const idealGap = Math.max(spaceWidth, fontSize * 0.29);
-  const states: Array<Map<number, { cost: number; from: number; justified: boolean; wordSpacing: number }>> =
-    Array.from({ length: count + 1 }, () => new Map());
-  states[0].set(0, { cost: 0, from: -1, justified: false, wordSpacing: 0 });
+  const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
+  states[0].set(0, {
+    cost: 0, from: -1, fromKey: -1, end: 0,
+    justified: false, wordSpacing: 0, tracking: 0, hyphenated: false,
+  });
 
   for (let start = 0; start < count; start++) {
-    for (const [line, state] of states[start]) {
+    for (const [stateKey, previous] of states[start]) {
+      const line = Math.floor(stateKey / 2);
       const available = Math.max(fontSize * 5, fullWidth - (line === 0 ? indent : 0) - (line < capLines ? capWidth : 0));
       let wordWidth = 0;
       let gaps = 0;
+      let characters = 0;
+
       for (let end = start; end < count; end++) {
         wordWidth += words[end].width;
-        if (end > start && !words[end].joinBefore) gaps++;
+        characters += words[end].characters;
+        if (end > start && words[end].spaceBefore) gaps++;
 
         const last = end === count - 1;
         const next = last ? null : words[end + 1];
-        // Adjacent DOM/text fragments are not automatically legal line breaks.
-        // Only source whitespace or a genuine soft-hyphen boundary may break.
-        const canBreak = last || !next!.joinBefore || next!.hyphenBefore;
+        const canBreak = last || next!.canBreakBefore;
         const hyphenBreak = !last && next!.hyphenBefore;
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
-        if (natural > available + 0.5 && end > start) break;
+        if (natural > available + Math.max(1, fontSize * 0.08) && end > start) break;
         if (!canBreak) continue;
 
-        const gap = gaps ? (available - wordWidth - (hyphenBreak ? hyphenWidth : 0)) / gaps : Number.POSITIVE_INFINITY;
-        const justified = !last && gaps > 0 && gap >= spaceWidth * 0.82 && gap <= maxGap;
-        const leftover = Math.max(0, available - natural) / available;
-        // Hyphenation is a rescue tool, not the compositor's favourite move.
-        // A real discretionary break must improve a line enough to pay for it.
-        const hyphenPenalty = hyphenBreak ? 52 : 0;
-        const cost = state.cost + hyphenPenalty + (last
+        const adjustment = available - natural;
+        const trackingOps = Math.max(0, characters + gaps - 1);
+        const fit = !last && natural <= available + 1
+          ? boundedAdjustment(adjustment, gaps, trackingOps, spaceWidth, fontSize)
+          : null;
+        const justified = !last && fit !== null;
+        const leftover = Math.max(0, adjustment) / Math.max(1, available);
+        const previousHyphen = previous.hyphenated;
+        const hyphenPenalty = hyphenBreak ? 48 + (previousHyphen ? 190 : 0) : 0;
+        const deformation = fit
+          ? Math.pow(fit.wordSpacing / Math.max(1, fontSize * 0.18), 2)
+            + Math.pow(fit.tracking / Math.max(0.01, fontSize * 0.0125), 2) * 0.45
+          : 0;
+        const cost = previous.cost + hyphenPenalty + (last
           ? 4 * leftover * leftover
           : justified
-            ? 28 * Math.pow((gap - idealGap) / Math.max(1, maxGap - spaceWidth), 2)
-            : 150 + 90 * leftover * leftover + (gaps < 2 ? 80 : 0));
+            ? 22 * deformation
+            : 180 + 150 * leftover * leftover + (gaps < 2 ? 95 : 0));
+
         const nextLine = line + 1;
-        const previous = states[end + 1].get(nextLine);
-        if (!previous || cost < previous.cost) states[end + 1].set(nextLine, {
-          cost,
-          from: start,
-          justified,
-          wordSpacing: justified ? Math.max(0, gap - spaceWidth) : 0,
-        });
+        const nextKey = nextLine * 2 + (hyphenBreak ? 1 : 0);
+        const old = states[end + 1].get(nextKey);
+        if (!old || cost < old.cost) {
+          states[end + 1].set(nextKey, {
+            cost,
+            from: start,
+            fromKey: stateKey,
+            end: end + 1,
+            justified,
+            wordSpacing: justified ? fit!.wordSpacing : 0,
+            tracking: justified ? fit!.tracking : 0,
+            hyphenated: hyphenBreak,
+          });
+        }
       }
     }
   }
 
-  let bestLine = -1;
+  let bestKey = -1;
   let bestCost = Number.POSITIVE_INFINITY;
-  for (const [line, state] of states[count]) {
-    if (state.cost < bestCost) { bestCost = state.cost; bestLine = line; }
+  for (const [key, state] of states[count]) {
+    if (state.cost < bestCost) { bestCost = state.cost; bestKey = key; }
   }
-  if (bestLine < 0) return [{ end: count, justified: false, wordSpacing: 0 }];
+  if (bestKey < 0) return [{ end: count, justified: false, wordSpacing: 0, tracking: 0, hyphenated: false }];
 
   const reversed: Break[] = [];
   let end = count;
-  let line = bestLine;
+  let key = bestKey;
   while (end > 0) {
-    const state = states[end].get(line)!;
-    reversed.push({ end, justified: state.justified, wordSpacing: state.wordSpacing });
+    const state = states[end].get(key)!;
+    reversed.push({
+      end,
+      justified: state.justified,
+      wordSpacing: state.wordSpacing,
+      tracking: state.tracking,
+      hyphenated: state.hyphenated,
+    });
     end = state.from;
-    line--;
+    key = state.fromKey;
   }
   return reversed.reverse();
 }
 
+function cloneLineFragment(document: Document, words: Word[], start: number, end: number): DocumentFragment {
+  const range = document.createRange();
+  range.setStartBefore(words[start].node);
+  range.setEndAfter(words[end - 1].node);
+  return range.cloneContents();
+}
+
 function composeParagraph(paragraph: HTMLElement, language: string): void {
-  if (paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") || paragraph.querySelector("br,img,svg")) return;
+  if (
+    paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
+    paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
+  ) return;
   if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
-  hyphenateElement(paragraph, language);
-  paragraph.dataset.folioOriginalHtml = paragraph.innerHTML;
 
   const style = getComputedStyle(paragraph);
   const fullWidth = paragraph.clientWidth;
   const fontSize = pixels(style.fontSize) || 16;
   if (fullWidth < fontSize * 8) return;
+
+  // Guard the DP from pathological novel-length single paragraphs. Content is
+  // left intact and remains readable rather than freezing the renderer.
+  const estimatedWords = paragraph.textContent?.trim().split(/\s+/).length ?? 0;
+  if (estimatedWords > 1400) {
+    paragraph.classList.add("folio-compositor-safe-fallback");
+    return;
+  }
+
+  paragraph.dataset.folioOriginalHtml = paragraph.innerHTML;
+  hyphenateElement(paragraph, language);
+
   const indent = Math.max(0, pixels(style.textIndent));
   const lineHeight = pixels(style.lineHeight) || fontSize * 1.5;
   const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
   const capRect = cap?.getBoundingClientRect();
   const capStyle = cap ? getComputedStyle(cap) : null;
-  const capWidth = capRect ? capRect.width + pixels(capStyle?.marginRight ?? "0") : 0;
-  const capLines = capRect ? Math.max(1, Math.ceil(capRect.height / lineHeight)) : 0;
+  const capWidth = capRect
+    ? capRect.width + pixels(capStyle?.marginLeft ?? "0") + pixels(capStyle?.marginRight ?? "0")
+    : 0;
+  const capDepth = capRect
+    ? capRect.height + pixels(capStyle?.marginTop ?? "0") + pixels(capStyle?.marginBottom ?? "0")
+    : 0;
+  const capLines = capRect ? Math.max(1, Math.ceil(capDepth / lineHeight)) : 0;
 
   const probe = paragraph.ownerDocument.createElement("span");
   probe.textContent = " -";
-  probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${style.font};letter-spacing:${style.letterSpacing}`;
+  probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${style.font};letter-spacing:${style.letterSpacing};word-spacing:${style.wordSpacing}`;
   paragraph.ownerDocument.body.appendChild(probe);
   const pairWidth = probe.getBoundingClientRect().width;
   probe.textContent = " ";
@@ -229,23 +317,33 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   const words = tokenize(paragraph);
   if (!words.length) { restore(paragraph); return; }
   const breaks = chooseBreaks(words, fullWidth, spaceWidth, hyphenWidth, cap ? 0 : indent, capWidth, capLines, fontSize);
-  paragraph.classList.add("folio-composed");
+  const baseWordSpacing = pixels(style.wordSpacing);
+  const baseTracking = pixels(style.letterSpacing);
 
+  // Clone each line before replacing the source paragraph. Range.cloneContents
+  // keeps links/emphasis/strong/superscript and their attributes instead of
+  // flattening them into anonymous word spans.
+  const lines: HTMLElement[] = [];
   let start = 0;
   for (const [lineIndex, lineBreak] of breaks.entries()) {
     const line = paragraph.ownerDocument.createElement("span");
     line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
-    if (lineBreak.justified) line.style.wordSpacing = `${lineBreak.wordSpacing}px`;
-    if (lineIndex === 0 && !cap && indent) line.style.marginLeft = `${indent}px`;
-    if (start > 0 && !words[start].joinBefore) line.append(" ");
-    for (let i = start; i < lineBreak.end; i++) {
-      if (i > start && !words[i].joinBefore) line.append(" ");
-      line.append(words[i].node);
-    }
+    line.append(cloneLineFragment(paragraph.ownerDocument, words, start, lineBreak.end));
     if (lineBreak.end < words.length && words[lineBreak.end].hyphenBefore) line.append("-");
-    paragraph.append(line);
+    if (lineBreak.justified) {
+      line.style.wordSpacing = `${baseWordSpacing + lineBreak.wordSpacing}px`;
+      line.style.letterSpacing = `${baseTracking + lineBreak.tracking}px`;
+      line.dataset.folioWordSpacing = String(lineBreak.wordSpacing);
+      line.dataset.folioTracking = String(lineBreak.tracking);
+    }
+    if (lineIndex === 0 && !cap && indent) line.style.marginLeft = `${indent}px`;
+    if (lineIndex === 0 || lineIndex === breaks.length - 2) line.style.breakAfter = "avoid";
+    lines.push(line);
     start = lineBreak.end;
   }
+
+  paragraph.classList.add("folio-composed");
+  paragraph.replaceChildren(...(cap ? [cap] : []), ...lines);
 }
 
 function installObserver(
@@ -299,8 +397,8 @@ function installObserver(
 }
 
 /** Compose only the part of a long chapter the reader is about to see. The
- * remaining paragraphs keep a cheap browser fallback and are upgraded ahead of
- * scrolling. No full-page geometry scan runs on the typing path. */
+ * remaining paragraphs stay safely ragged-right until upgraded near viewport;
+ * no full-document geometry scan runs on the typing path. */
 export async function composePreviewDocument(document: Document, enabled: boolean): Promise<void> {
   const generation = (compositionGeneration.get(document) ?? 0) + 1;
   compositionGeneration.set(document, generation);
@@ -321,9 +419,6 @@ export async function composePreviewDocument(document: Document, enabled: boolea
 
   const queue: HTMLElement[] = [];
   const queued = new WeakSet<HTMLElement>();
-  // First paragraphs are immediately useful for a freshly opened chapter. If
-  // scroll was preserved deeper in the chapter, IntersectionObserver queues the
-  // actual viewport without us measuring every preceding paragraph.
   for (const paragraph of paragraphs.slice(0, 3)) {
     queued.add(paragraph);
     queue.push(paragraph);
