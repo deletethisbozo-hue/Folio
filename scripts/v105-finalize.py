@@ -35,12 +35,13 @@ for old, new in replacements:
 s = s.replace('          if (editor) editor.contentEditable = "false";\n', '', 1)
 s = s.replace('      if (editor && document?.editable) editor.contentEditable = "true";\n', '', 1)
 
-# Fast path for ordinary typing at the end of a huge manuscript. The DOM remains
-# authoritative and is still cooperatively serialized after the burst, but the
-# model/preview/autosave receive simple inserted text immediately instead of
-# waiting for all 5k+ blocks to be converted first.
+# Fast path for ordinary typing at the end of a huge manuscript. Capture the
+# intent during beforeinput, while Chromium's selection is still a stable caret
+# in the existing DOM. The input handler then updates Markdown immediately.
+# The DOM is still authoritative and gets cooperatively serialized afterward.
 old_refs = '  const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());'
 new_refs = '''  const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
+  const pendingFastInputRef = useRef<string | null>(null);
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);'''
 if old_refs not in s:
@@ -50,6 +51,7 @@ s = s.replace(old_refs, new_refs, 1)
 selected_effect = '  useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);'
 selected_replacement = '''  useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
   useEffect(() => {
+    pendingFastInputRef.current = null;
     fastInputBurstRef.current = false;
     if (fastInputBurstTimerRef.current !== null) {
       window.clearTimeout(fastInputBurstTimerRef.current);
@@ -61,7 +63,8 @@ if selected_effect not in s:
 s = s.replace(selected_effect, selected_replacement, 1)
 
 record_marker = '  function recordEditorDom() {'
-fast_helper = '''  function recordFastEditorInput(event: React.FormEvent<HTMLDivElement>) {
+fast_helper = '''  function prepareFastEditorInput(event: React.FormEvent<HTMLDivElement>) {
+    pendingFastInputRef.current = null;
     const editor = editorRef.current;
     if (!editor || draftRef.current.length < 100_000) return;
     const input = event.nativeEvent as InputEvent;
@@ -72,17 +75,25 @@ fast_helper = '''  function recordFastEditorInput(event: React.FormEvent<HTMLDiv
     const parent = selection.focusNode.nodeType === Node.ELEMENT_NODE
       ? selection.focusNode as Element
       : selection.focusNode.parentElement;
+    // Plain end typing is the hot path. Rich inline editing keeps using the
+    // authoritative serializer so temporary Markdown can never misrepresent it.
     if (parent?.closest("strong,b,em,i,u,s,a,code,sup,sub")) return;
 
-    // Only use the cheap Markdown append when the caret is truly at the end.
-    // Range.toString() is effectively O(1) here because there is no tail.
     const tail = window.document.createRange();
     tail.selectNodeContents(editor);
     try { tail.setStart(selection.focusNode, selection.focusOffset); } catch { return; }
     if (tail.toString().length !== 0) return;
+    pendingFastInputRef.current = input.data;
+  }
+
+  function recordFastEditorInput() {
+    const editor = editorRef.current;
+    const data = pendingFastInputRef.current;
+    pendingFastInputRef.current = null;
+    if (!editor || !data || draftRef.current.length < 100_000) return;
 
     const current = draftRef.current;
-    const next = current + input.data;
+    const next = current + data;
     if (!fastInputBurstRef.current) {
       undoRef.current.push(current);
       if (undoRef.current.length > 200) undoRef.current.shift();
@@ -107,12 +118,38 @@ if record_marker not in s:
 s = s.replace(record_marker, fast_helper, 1)
 
 input_marker = 'onInput={recordEditorDom}'
-input_replacement = 'onInput={(event) => { recordFastEditorInput(event); recordEditorDom(); }}'
+input_replacement = 'onBeforeInput={prepareFastEditorInput} onInput={() => { recordFastEditorInput(); recordEditorDom(); }}'
 if input_marker not in s:
     raise RuntimeError("editor onInput marker missing")
 s = s.replace(input_marker, input_replacement, 1)
 
 app.write_text(s, encoding="utf-8")
+
+# Make the trusted-keyboard large-manuscript path part of the normal browser
+# suite so regressions fail before Electron packaging instead of four minutes later.
+ui = Path("tests/ui-runtime.test.ts")
+t = ui.read_text(encoding="utf-8")
+needle = '''  await stage("immediate whole-book preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("WHOLE BOOK FINAL MARKER"), { timeout: 30000 }));
+  await page.setViewport({ width: 1180, height: 700 });'''
+insertion = '''  await stage("immediate whole-book preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("WHOLE BOOK FINAL MARKER"), { timeout: 30000 }));
+  await page.$eval(".rich-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.focus();
+    const range = document.createRange();
+    range.selectNodeContents(editor); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+  });
+  const trustedTypingStarted = Date.now();
+  await page.keyboard.type(" TRUSTED LARGE TYPING MARKER", { delay: 5 });
+  await stage("trusted large-manuscript typing reaches model", () => page.waitForFunction(() =>
+    (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes("TRUSTED LARGE TYPING MARKER"), { timeout: 5000 }));
+  await stage("trusted large-manuscript typing reaches preview", () => page.waitForFunction(() =>
+    document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("TRUSTED LARGE TYPING MARKER"), { timeout: 8000 }));
+  check("trusted keyboard input stays responsive after a 100,000-word paste", Date.now() - trustedTypingStarted <= 8000);
+  await page.setViewport({ width: 1180, height: 700 });'''
+if needle not in t:
+    raise RuntimeError("large-manuscript UI test insertion marker missing")
+ui.write_text(t.replace(needle, insertion, 1), encoding="utf-8")
 
 # Pin the exact runtime assets that qualification uses, and ship accurate notes.
 release = Path(".github/workflows/windows-release.yml")
