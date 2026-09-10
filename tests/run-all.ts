@@ -19,6 +19,7 @@ const ROOT = path.resolve(HERE, "..");
 // Slowest last: the ones that render the whole book take minutes, and a fast
 // failure in ingestion should surface before you wait for them.
 const ORDER = [
+  "atomic-write.test.ts",
   "ingestion.test.ts",
   "versioning.test.ts",
   "destinations.test.ts",
