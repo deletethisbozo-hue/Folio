@@ -50,6 +50,7 @@ function conservativeHyphenation(engine: Hypher, word: string): string {
 export function hyphenateElement(root: Element, language: string): void {
   const document = root.ownerDocument;
   const engine = engineFor(language);
+  const polishText = /^pl(?:-|$)/i.test(language);
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
@@ -60,9 +61,17 @@ export function hyphenateElement(root: Element, language: string): void {
   });
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
-  for (const node of nodes) {
+
+  // A drop cap turns the first letter into its own span. For Polish prose that
+  // must not defeat the one-letter-word rule: "W Polsce" still needs a NBSP
+  // even though W and the following space now live in separate text nodes.
+  const dropcap = root.querySelector<HTMLElement>(":scope > .dropcap");
+  const protectAfterDropcap = polishText && /^[aAiIoOuUwWzZ]$/.test(dropcap?.textContent?.trim() ?? "");
+
+  for (const [index, node] of nodes.entries()) {
     let text = node.data.replace(/\u00ad/g, "");
-    if (/^pl(?:-|$)/i.test(language)) {
+    if (polishText) {
+      if (protectAfterDropcap && index === 0) text = text.replace(/^[ \t]+(?=\p{L})/u, "\u00a0");
       text = text.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
     }
     node.data = text.replace(/\p{L}{10,}/gu, (word) => conservativeHyphenation(engine, word));
