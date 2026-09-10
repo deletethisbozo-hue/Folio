@@ -32,6 +32,7 @@ try {
     button.click();
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 15000 });
+  await page.waitForFunction(() => /Chapter\s+\d+\s+pages\s+·\s+Book\s+~?\d+\s+pages/.test(document.querySelector(".page-counts")?.textContent || ""), { timeout: 15000 });
   await page.$eval(".rich-editor", (element) => {
     element.focus();
     const range = document.createRange();
@@ -83,6 +84,21 @@ try {
     return device.width > 200 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
   });
   if (!deviceVisible) throw new Error("Packaged preview device disappeared after a large rich-text paste.");
+
+  // This is a real trusted keyboard path after a 100k+ word manuscript exists.
+  // A release that takes seconds per keystroke is not considered usable.
+  await page.$eval(".rich-editor", (element) => {
+    element.focus();
+    const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+  });
+  const typingStarted = Date.now();
+  await page.keyboard.type(" RESPONSIVE TYPING MARKER", { delay: 5 });
+  await page.waitForFunction(() => document.querySelector(".rich-editor")?.dataset.markdown?.includes("RESPONSIVE TYPING MARKER"), { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes("RESPONSIVE TYPING MARKER"), { timeout: 8000 });
+  if (Date.now() - typingStarted > 8000) throw new Error("Whole-book typing/preview response exceeded 8 seconds.");
+  await page.waitForFunction(() => /Chapter\s+\d+\s+pages\s+·\s+Book\s+~?\d+\s+pages/.test(document.querySelector(".page-counts")?.textContent || ""), { timeout: 5000 });
+
   await page.click(".section-title-button");
   await page.waitForSelector(".section-title-input");
   await page.$eval(".section-title-input", (element) => element.select());
@@ -94,7 +110,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged UI passed: rich-text sample, 100,000-word LibreOffice paste, persistent preview, body-safe rename, 20+ ornaments, 30 themes, 6 device profiles.");
+  console.log("Packaged UI passed: page counts, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 30 themes, 6 device profiles.");
 } finally {
   browser.disconnect();
 }
