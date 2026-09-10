@@ -65,8 +65,6 @@ jobs:
           replacements = [
             ('if (current?.head && current.body && previewIdentityRef.current === identity) {', 'if (current?.head && current.body) {'),
             ('      onPreviewLoad(scrollTop);\n      return;', '      previewIdentityRef.current = identity;\n      pendingPreviewIdentityRef.current = "";\n      onPreviewLoad(scrollTop);\n      return;'),
-            ('          if (editor) editor.contentEditable = "false";\n', ''),
-            ('      if (editor && document?.editable) editor.contentEditable = "true";\n', ''),
             ('key={`${project.projectId}:${selectedId}:${previewMode}`}', 'key={`${project.projectId}:${selectedId}`}'),
             ('    if (!document?.editable || !project || !selectedId) return true;\n    await flushEditorDom();\n    const sectionId = selectedId;', '    if (!document?.editable || !project || !selectedId) return true;\n    await flushEditorDom();\n    if (draftRef.current === document.markdown) { setDirty(false); return true; }\n    const sectionId = selectedId;'),
             ('  async function openFolder(folderPath?: string) {\n    setBusy(true);', '  async function openFolder(folderPath?: string) {\n    if (project && !(await saveCurrent())) return;\n    setBusy(true);'),
@@ -79,6 +77,10 @@ jobs:
               if old not in s:
                   raise RuntimeError(f"missing App follow-up marker: {old[:90]!r}")
               s = s.replace(old, new, 1)
+          # These lines only existed in one intermediate reconstruction. If they
+          # appear, remove them; if not, that is already the desired state.
+          s = s.replace('          if (editor) editor.contentEditable = "false";\n', '', 1)
+          s = s.replace('      if (editor && document?.editable) editor.contentEditable = "true";\n', '', 1)
           app.write_text(s, encoding="utf-8")
 
           css = Path("web/src/preview-calibration.css")
