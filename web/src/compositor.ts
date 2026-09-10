@@ -32,7 +32,6 @@ function restore(paragraph: HTMLElement): void {
     paragraph.innerHTML = original;
     delete paragraph.dataset.folioOriginalHtml;
   }
-  delete paragraph.dataset.folioPendingComposition;
   paragraph.classList.remove("folio-composed");
 }
 
@@ -43,7 +42,10 @@ function ensureFallbackStyle(document: Document): void {
     style.id = "folio-compositor-fallback";
     document.head.appendChild(style);
   }
-  const pending = PROSE_SELECTORS.map((selector) => `${selector}[data-folio-pending-composition="true"]`).join(",");
+  // Off-screen paragraphs use Chromium's cheap justification temporarily. They
+  // are upgraded to the paragraph-wide compositor before entering the viewport.
+  // No per-paragraph marker is needed, which avoids thousands of DOM writes.
+  const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed)`).join(",");
   style.textContent = `${pending}{text-align:justify!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important}`;
 }
 
@@ -194,10 +196,7 @@ function chooseBreaks(
 }
 
 function composeParagraph(paragraph: HTMLElement, language: string): void {
-  if (paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") || paragraph.querySelector("br,img,svg")) {
-    delete paragraph.dataset.folioPendingComposition;
-    return;
-  }
+  if (paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") || paragraph.querySelector("br,img,svg")) return;
   if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
   hyphenateElement(paragraph, language);
   paragraph.dataset.folioOriginalHtml = paragraph.innerHTML;
@@ -205,10 +204,7 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   const style = getComputedStyle(paragraph);
   const fullWidth = paragraph.clientWidth;
   const fontSize = pixels(style.fontSize) || 16;
-  if (fullWidth < fontSize * 8) {
-    delete paragraph.dataset.folioPendingComposition;
-    return;
-  }
+  if (fullWidth < fontSize * 8) return;
   const indent = Math.max(0, pixels(style.textIndent));
   const lineHeight = pixels(style.lineHeight) || fontSize * 1.5;
   const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
@@ -231,7 +227,6 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   if (!words.length) { restore(paragraph); return; }
   const breaks = chooseBreaks(words, fullWidth, spaceWidth, hyphenWidth, cap ? 0 : indent, capWidth, capLines, fontSize);
   paragraph.classList.add("folio-composed");
-  delete paragraph.dataset.folioPendingComposition;
 
   let start = 0;
   for (const [lineIndex, lineBreak] of breaks.entries()) {
@@ -250,9 +245,9 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   }
 }
 
-function scheduleComposition(
+function installObserver(
   document: Document,
-  observer: IntersectionObserver,
+  paragraphs: HTMLElement[],
   queue: HTMLElement[],
   queued: WeakSet<HTMLElement>,
   generation: number,
@@ -261,6 +256,13 @@ function scheduleComposition(
   const view = document.defaultView;
   if (!view) return;
   let scheduled = false;
+  let observer: IntersectionObserver;
+
+  const request = () => {
+    if (scheduled || compositionGeneration.get(document) !== generation) return;
+    scheduled = true;
+    view.requestAnimationFrame(run);
+  };
 
   const run = () => {
     scheduled = false;
@@ -277,14 +279,7 @@ function scheduleComposition(
     if (queue.length) request();
   };
 
-  const request = () => {
-    if (scheduled || compositionGeneration.get(document) !== generation) return;
-    scheduled = true;
-    view.requestAnimationFrame(run);
-  };
-
-  observer.disconnect();
-  const replacement = new view.IntersectionObserver((entries) => {
+  observer = new view.IntersectionObserver((entries) => {
     if (compositionGeneration.get(document) !== generation) return;
     for (const entry of entries) {
       const paragraph = entry.target as HTMLElement;
@@ -294,17 +289,15 @@ function scheduleComposition(
       }
     }
     if (queue.length) request();
-  }, { root: null, rootMargin: "1400px 0px", threshold: 0 });
-  compositionObservers.set(document, replacement);
-
-  const paragraphs = Array.from(document.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
-  for (const paragraph of paragraphs) replacement.observe(paragraph);
+  }, { root: null, rootMargin: "1600px 0px", threshold: 0 });
+  compositionObservers.set(document, observer);
+  for (const paragraph of paragraphs) observer.observe(paragraph);
   if (queue.length) request();
 }
 
 /** Compose only the part of a long chapter the reader is about to see. The
  * remaining paragraphs keep a cheap browser fallback and are upgraded ahead of
- * scrolling. This prevents 100k-word manuscripts from blocking typing/UI. */
+ * scrolling. No full-page geometry scan runs on the typing path. */
 export async function composePreviewDocument(document: Document, enabled: boolean): Promise<void> {
   const generation = (compositionGeneration.get(document) ?? 0) + 1;
   compositionGeneration.set(document, generation);
@@ -313,7 +306,6 @@ export async function composePreviewDocument(document: Document, enabled: boolea
 
   if (!enabled) {
     document.querySelectorAll<HTMLElement>(`${PROSE_SELECTOR}[data-folio-original-html]`).forEach(restore);
-    document.querySelectorAll<HTMLElement>(`${PROSE_SELECTOR}[data-folio-pending-composition]`).forEach((p) => delete p.dataset.folioPendingComposition);
     document.getElementById("folio-compositor-fallback")?.remove();
     return;
   }
@@ -321,37 +313,22 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   ensureFallbackStyle(document);
   const language = document.documentElement.lang || "en";
   const paragraphs = Array.from(document.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
-  for (const paragraph of paragraphs) {
-    if (paragraph.dataset.folioOriginalHtml === undefined) paragraph.dataset.folioPendingComposition = "true";
-  }
-
   const view = document.defaultView;
-  if (!view) return;
-  const viewportHeight = Math.max(600, view.innerHeight || 800);
+  if (!view || !paragraphs.length) return;
+
   const queue: HTMLElement[] = [];
   const queued = new WeakSet<HTMLElement>();
-
-  // Upgrade the viewport immediately. Everything else is prepared lazily well
-  // before it can scroll onto screen.
-  for (const paragraph of paragraphs) {
-    const rect = paragraph.getBoundingClientRect();
-    if (rect.bottom >= -viewportHeight * 0.5 && rect.top <= viewportHeight * 1.4) {
-      queued.add(paragraph);
-      queue.push(paragraph);
-    }
-  }
-  if (!queue.length && paragraphs.length) {
-    queued.add(paragraphs[0]);
-    queue.push(paragraphs[0]);
+  // First paragraphs are immediately useful for a freshly opened chapter. If
+  // scroll was preserved deeper in the chapter, IntersectionObserver queues the
+  // actual viewport without us measuring every preceding paragraph.
+  for (const paragraph of paragraphs.slice(0, 3)) {
+    queued.add(paragraph);
+    queue.push(paragraph);
   }
 
-  // One visible paragraph synchronously avoids a flash of fallback composition;
-  // the rest is capped to two paragraphs per animation frame.
   const first = queue.shift();
   if (first && compositionGeneration.get(document) === generation) composeParagraph(first, language);
-
-  const placeholderObserver = new view.IntersectionObserver(() => undefined);
-  scheduleComposition(document, placeholderObserver, queue, queued, generation, language);
+  installObserver(document, paragraphs, queue, queued, generation, language);
 
   if (document.fonts?.status === "loading") {
     void document.fonts.ready.then(() => {
