@@ -29,27 +29,32 @@ function tokenize(paragraph: HTMLElement): Word[] {
   const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
-      return parent && !parent.closest(".dropcap,code,pre,script,style") && node.nodeValue?.trim()
+      return parent && !parent.closest(".dropcap,code,pre,script,style")
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_REJECT;
     },
   });
   const textNodes: Text[] = [];
   while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+  let separated = true;
+  let hasWord = false;
   for (const textNode of textNodes) {
     const fragment = document.createDocumentFragment();
     for (const part of textNode.data.split(/([ \t\r\n]+)/)) {
       if (!part) continue;
       if (/^[ \t\r\n]+$/.test(part)) {
+        separated = true;
         fragment.append(" ");
       } else {
         part.split("\u00ad").forEach((piece, index) => {
           if (!piece) return;
           const span = document.createElement("span");
           span.className = "folio-word";
-          span.dataset.folioJoinBefore = index > 0 ? "true" : "false";
+          span.dataset.folioJoinBefore = index > 0 || (hasWord && !separated) ? "true" : "false";
           span.textContent = piece;
           fragment.append(span);
+          hasWord = true;
+          separated = false;
         });
       }
     }
@@ -180,6 +185,9 @@ function composeParagraph(paragraph: HTMLElement): void {
     line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
     if (lineBreak.justified) line.style.wordSpacing = `${lineBreak.wordSpacing}px`;
     if (lineIndex === 0 && !cap && indent) line.style.marginLeft = `${indent}px`;
+    // Keep semantic whitespace in textContent across visual line boxes. CSS
+    // collapses this leading space, but copy/search/tests still see real words.
+    if (start > 0 && !words[start].joinBefore) line.append(" ");
     for (let i = start; i < lineBreak.end; i++) {
       if (i > start && !words[i].joinBefore) line.append(" ");
       line.append(words[i].node);
