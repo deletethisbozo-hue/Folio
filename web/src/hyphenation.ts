@@ -7,15 +7,21 @@ const engines = {
   pl: new Hypher(polish),
 };
 
+const PROSE_SELECTOR = [
+  "section.chapter > p:not(.scene-break)",
+  "section.chapter > blockquote p",
+  "section.chapter li",
+  "section.backmatter > p:not(.scene-break)",
+  "section.backmatter li",
+].join(",");
+
 function engineFor(language: string): Hypher {
   return /^pl(?:-|$)/i.test(language) ? engines.pl : engines.en;
 }
 
-/** Keep only typographically useful discretionary breaks. Pattern dictionaries
- * intentionally expose many legal syllable boundaries; using every one of them
- * makes a novel look mechanically hyphenated and gives the compositor too many
- * tempting breakpoints. Folio therefore keeps a conservative subset: long
- * words only, with at least three real letters on both sides of a break. */
+/** Pattern dictionaries intentionally expose many legal syllable boundaries.
+ * Folio keeps only conservative book-typography candidates: long words, with
+ * at least three real letters on both sides of a discretionary break. */
 function conservativeHyphenation(engine: Hypher, word: string): string {
   const pieces = engine.hyphenate(word);
   if (pieces.length < 2) return word;
@@ -38,30 +44,46 @@ function conservativeHyphenation(engine: Hypher, word: string): string {
   return result + word.slice(start);
 }
 
-/** Insert discretionary soft hyphens only into prose text nodes. Native CSS
- * hyphenation is inconsistent between Windows Chromium builds; explicit
- * language patterns make the preview deterministic without changing copied
- * text or the saved Markdown source. Breaks are deliberately conservative so
- * they improve bad lines rather than appearing on every other line. */
-export function hyphenatePreviewDocument(document: Document, language: string): void {
-  const root = document.querySelector("main.book");
-  if (!root) return;
+/** Apply language-aware discretionary hyphens to one prose element. Exported
+ * so the lazy compositor can prepare paragraphs only when they approach the
+ * viewport instead of rewriting an entire 100k-word chapter after every key. */
+export function hyphenateElement(root: Element, language: string): void {
+  const document = root.ownerDocument;
   const engine = engineFor(language);
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
-      if (!parent || parent.closest("code,pre,a,script,style,h1,h2,h3,.scene-break")) return NodeFilter.FILTER_REJECT;
-      const proseSection = parent.closest("section.chapter, section.backmatter");
-      return proseSection && parent.closest("p,li,blockquote") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      return parent && !parent.closest("code,pre,a,script,style,h1,h2,h3,.scene-break,.dropcap")
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
     },
   });
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
   for (const node of nodes) {
+    let text = node.data.replace(/\u00ad/g, "");
     if (/^pl(?:-|$)/i.test(language)) {
-      node.data = node.data.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
+      text = text.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
     }
-    if (node.data.includes("\u00ad")) continue;
-    node.data = node.data.replace(/\p{L}{10,}/gu, (word) => conservativeHyphenation(engine, word));
+    node.data = text.replace(/\p{L}{10,}/gu, (word) => conservativeHyphenation(engine, word));
+  }
+}
+
+/** Prepare only paragraphs in and around the current viewport. The compositor
+ * calls hyphenateElement again when an off-screen paragraph approaches, so a
+ * large manuscript no longer pays the full dictionary cost on every edit. */
+export function hyphenatePreviewDocument(document: Document, language: string): void {
+  const root = document.querySelector("main.book");
+  if (!root) return;
+  const view = document.defaultView;
+  const viewportHeight = Math.max(600, view?.innerHeight ?? 800);
+  const paragraphs = Array.from(root.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
+  let prepared = 0;
+  for (const paragraph of paragraphs) {
+    const rect = paragraph.getBoundingClientRect();
+    if ((rect.bottom >= -viewportHeight && rect.top <= viewportHeight * 2.25) || prepared < 4) {
+      hyphenateElement(paragraph, language);
+      prepared++;
+    }
   }
 }
