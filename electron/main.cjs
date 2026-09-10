@@ -6,6 +6,8 @@ const http = require("node:http");
 const { pathToFileURL } = require("node:url");
 
 let mainWindow = null;
+let closeArmed = false;
+let closeInProgress = false;
 
 function firstMatchingFile(root, names) {
   if (!root || !fs.existsSync(root)) return null;
@@ -62,6 +64,42 @@ function waitForServer(url, attempts = 100) {
   });
 }
 
+async function askToCloseWithoutSaving(win, message) {
+  const result = await dialog.showMessageBox(win, {
+    type: "warning",
+    title: "Folio could not finish saving",
+    message: "The latest manuscript changes could not be confirmed on disk.",
+    detail: message || "Return to Folio and try again. Closing without saving can discard the latest edits.",
+    buttons: ["Return to Folio", "Close without saving"],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  return result.response === 1;
+}
+
+async function prepareRendererForClose(win) {
+  if (win.isDestroyed() || win.webContents.isDestroyed()) {
+    return { ok: false, message: "The Folio renderer is no longer available to flush its pending editor state." };
+  }
+
+  const renderer = win.webContents.executeJavaScript(`(async () => {
+    const save = window.__folioPrepareClose;
+    if (typeof save !== "function") return { ok: false, message: "The autosave close hook is not available." };
+    try {
+      const ok = await save();
+      return { ok: ok !== false, message: ok === false ? "Autosave reported a write failure." : "" };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  })()`, true);
+  const timeout = new Promise((resolve) => setTimeout(() => resolve({
+    ok: false,
+    message: "Autosave did not finish within 12 seconds. Folio kept the window open rather than guessing that the write succeeded.",
+  }), 12_000));
+  return Promise.race([renderer, timeout]);
+}
+
 async function startFolio() {
   const requestedPort = Number(process.env.FOLIO_E2E_PORT || 0);
   const port = requestedPort > 0 ? requestedPort : await freePort();
@@ -94,6 +132,8 @@ async function startFolio() {
   await waitForServer(`${baseUrl}/api/health`);
 
   Menu.setApplicationMenu(null);
+  closeArmed = false;
+  closeInProgress = false;
   mainWindow = new BrowserWindow({
     title: "Folio",
     width: 1480,
@@ -116,8 +156,41 @@ async function startFolio() {
   });
 
   mainWindow.once("ready-to-show", () => mainWindow && mainWindow.show());
+  mainWindow.on("close", (event) => {
+    const win = mainWindow;
+    if (!win || closeArmed) return;
+    event.preventDefault();
+    if (closeInProgress) return;
+    closeInProgress = true;
+
+    void (async () => {
+      try {
+        const result = await prepareRendererForClose(win);
+        if (result && result.ok) {
+          closeArmed = true;
+          win.close();
+          return;
+        }
+        const discard = await askToCloseWithoutSaving(win, result?.message);
+        if (discard) {
+          closeArmed = true;
+          win.close();
+        }
+      } catch (error) {
+        const discard = await askToCloseWithoutSaving(win, error instanceof Error ? error.message : String(error));
+        if (discard) {
+          closeArmed = true;
+          win.close();
+        }
+      } finally {
+        closeInProgress = false;
+      }
+    })();
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
+    closeArmed = false;
+    closeInProgress = false;
   });
 
   await mainWindow.loadURL(baseUrl);
