@@ -4,11 +4,9 @@ from pathlib import Path
 app = Path("web/src/App.tsx")
 source = app.read_text(encoding="utf-8")
 
-# The previous attempt still depended on Chromium delivering an input event after
-# keydown. On a 100k-word contentEditable Chromium can spend seconds performing
-# its own edit before React sees that event. For the narrow safe case we care
-# about, a printable key at the literal end of a plain-text manuscript, own the
-# mutation completely during keydown and bypass Chromium's full edit pipeline.
+# On a 100k-word contentEditable Chromium can spend seconds performing its own
+# edit before React sees input. For a printable key at the literal end of plain
+# prose, own the tiny mutation during keydown and bypass that full edit path.
 source = source.replace('  const pendingFastInputRef = useRef<string | null>(null);\n', '', 1)
 source = source.replace('    pendingFastInputRef.current = null;\n', '', 1)
 
@@ -29,16 +27,13 @@ hot_path = '''  function applyFastEditorKey(event: React.KeyboardEvent<HTMLDivEl
       : selection.focusNode.parentElement;
     if (parent?.closest("strong,b,em,i,u,s,a,code,sup,sub")) return false;
 
-    // Structural end-of-editor check. Unlike Range.toString(), this never walks
-    // the entire manuscript. Every node from the caret to the editor root must
-    // already be at its final sibling/offset.
+    // Structural end check, O(depth), never O(manuscript size).
     let node: Node = selection.focusNode;
     if (node.nodeType === Node.TEXT_NODE) {
       if (selection.focusOffset !== (node.textContent?.length ?? 0)) return false;
     } else if (selection.focusOffset !== node.childNodes.length) return false;
     while (node !== editor) {
-      if (node.nextSibling) return false;
-      if (!node.parentNode) return false;
+      if (node.nextSibling || !node.parentNode) return false;
       node = node.parentNode;
     }
 
@@ -47,9 +42,6 @@ hot_path = '''  function applyFastEditorKey(event: React.KeyboardEvent<HTMLDivEl
     const focusNode = selection.focusNode;
     const rootBoundary = focusNode === editor && selection.focusOffset === editor.childNodes.length;
     if (rootBoundary) {
-      // Puppeteer and some Chromium caret moves represent "end" as a boundary
-      // on the contentEditable root. Keep the character inside the last prose
-      // block instead of creating a stray root-level text node.
       const last = editor.lastElementChild as HTMLElement | null;
       if (last && last.getAttribute("contenteditable") !== "false" && !last.classList.contains("editor-scene-break")) {
         if (last.lastChild?.nodeName === "BR" && !(last.textContent ?? "")) last.lastChild.remove();
@@ -102,9 +94,29 @@ if keydown_old not in source:
 source = source.replace(keydown_old, keydown_new, 1)
 app.write_text(source, encoding="utf-8")
 
-# The generated-title deletion assertion was intermittently clicking while the
-# control was transiently disabled on slower Windows runners. Wait until the
-# real UI is interactive, then still require the actual row to disappear.
+# Windows can transiently deny replace-style rename while Defender/indexing has
+# just opened the destination. Never unlink the target; bounded retries preserve
+# atomicity while tolerating the short EPERM/EBUSY/EACCES lock window.
+atomic = Path("server/atomic-write.ts")
+a = atomic.read_text(encoding="utf-8")
+rename_old = '    await fs.rename(temp, target);'
+rename_new = '''    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await fs.rename(temp, target);
+        break;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        const transientWindowsLock = process.platform === "win32" && (code === "EPERM" || code === "EBUSY" || code === "EACCES");
+        if (!transientWindowsLock || attempt >= 6) throw error;
+        await new Promise<void>((resolve) => setTimeout(resolve, 25 * (2 ** attempt)));
+      }
+    }'''
+if rename_old not in a:
+    raise RuntimeError("missing atomic rename marker")
+atomic.write_text(a.replace(rename_old, rename_new, 1), encoding="utf-8")
+
+# The delete control can be transiently disabled while the previous save settles.
+# Wait for actual interactivity, then still require the row to disappear.
 ui = Path("tests/ui-runtime.test.ts")
 test = ui.read_text(encoding="utf-8")
 old_delete = '''  const frontRowsBeforeDelete = await page.$$eval(".contents-list > .contents-row:not(.chapter-row)", (rows) => rows.length);
@@ -123,4 +135,4 @@ if old_delete not in test:
     raise RuntimeError("missing generated front matter delete test marker")
 ui.write_text(test.replace(old_delete, new_delete, 1), encoding="utf-8")
 
-print("Folio 1.0.5 synchronous trusted-keyboard hotfix applied")
+print("Folio 1.0.5 synchronous keyboard + Windows atomic-replace hotfix applied")
