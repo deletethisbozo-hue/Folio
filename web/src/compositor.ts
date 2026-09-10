@@ -54,9 +54,6 @@ function ensureFallbackStyle(document: Document): void {
     style.id = "folio-compositor-fallback";
     document.head.appendChild(style);
   }
-  // A paragraph awaiting our bounded compositor must never fall back to
-  // Chromium's unbounded justification. It stays calmly ragged-right for the
-  // fraction of a second before it approaches the viewport.
   const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed)`).join(",");
   style.textContent = `${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important;text-wrap:pretty!important}.scene-break{display:block!important;text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}`;
 }
@@ -93,9 +90,6 @@ function tokenize(paragraph: HTMLElement): Word[] {
         span.className = "folio-word";
         span.dataset.folioSpaceBefore = hasWord && separated ? "true" : "false";
         span.dataset.folioHyphenBefore = discretionary ? "true" : "false";
-        // Retain the discretionary marker so copy/paste and a later recomposition
-        // preserve the legal breakpoint. Folio shows a visible hyphen only when
-        // the selected line actually ends at this point.
         span.textContent = (discretionary ? "\u00ad" : "") + piece;
         span.style.whiteSpace = "nowrap";
         fragment.append(span);
@@ -141,14 +135,10 @@ function boundedAdjustment(
   fontSize: number,
 ): { wordSpacing: number; tracking: number } | null {
   if (gaps <= 0) return null;
-
-  // Extra space is deliberately much tighter than Chromium's unconstrained
-  // inter-word justification. Tracking is only the last few tenths of a pixel.
   const maxWordSpacing = Math.min(fontSize * 0.18, Math.max(0.55, spaceWidth * 0.68));
   const minWordSpacing = -Math.min(fontSize * 0.028, Math.max(0.18, spaceWidth * 0.10));
   const maxTracking = fontSize * 0.0125;
   const minTracking = -fontSize * 0.009;
-
   let tracking = trackingOps > 0 ? Math.max(minTracking, Math.min(maxTracking, adjustment / trackingOps)) : 0;
   let wordSpacing = (adjustment - tracking * trackingOps) / gaps;
   if (wordSpacing > maxWordSpacing || wordSpacing < minWordSpacing) {
@@ -184,12 +174,10 @@ function chooseBreaks(
       let wordWidth = 0;
       let gaps = 0;
       let characters = 0;
-
       for (let end = start; end < count; end++) {
         wordWidth += words[end].width;
         characters += words[end].characters;
         if (end > start && words[end].spaceBefore) gaps++;
-
         const last = end === count - 1;
         const next = last ? null : words[end + 1];
         const canBreak = last || next!.canBreakBefore;
@@ -197,7 +185,6 @@ function chooseBreaks(
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
         if (natural > available + Math.max(1, fontSize * 0.08) && end > start) break;
         if (!canBreak) continue;
-
         const adjustment = available - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
         const fit = !last && natural <= available + 1
@@ -205,8 +192,7 @@ function chooseBreaks(
           : null;
         const justified = !last && fit !== null;
         const leftover = Math.max(0, adjustment) / Math.max(1, available);
-        const previousHyphen = previous.hyphenated;
-        const hyphenPenalty = hyphenBreak ? 48 + (previousHyphen ? 190 : 0) : 0;
+        const hyphenPenalty = hyphenBreak ? 48 + (previous.hyphenated ? 190 : 0) : 0;
         const deformation = fit
           ? Math.pow(fit.wordSpacing / Math.max(1, fontSize * 0.18), 2)
             + Math.pow(fit.tracking / Math.max(0.01, fontSize * 0.0125), 2) * 0.45
@@ -216,7 +202,6 @@ function chooseBreaks(
           : justified
             ? 22 * deformation
             : 180 + 150 * leftover * leftover + (gaps < 2 ? 95 : 0));
-
         const nextLine = line + 1;
         const nextKey = nextLine * 2 + (hyphenBreak ? 1 : 0);
         const old = states[end + 1].get(nextKey);
@@ -279,9 +264,6 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   const fullWidth = paragraph.clientWidth;
   const fontSize = pixels(style.fontSize) || 16;
   if (fullWidth < fontSize * 8) return;
-
-  // Guard the DP from pathological novel-length single paragraphs. Content is
-  // left intact and remains readable rather than freezing the renderer.
   const estimatedWords = paragraph.textContent?.trim().split(/\s+/).length ?? 0;
   if (estimatedWords > 1400) {
     paragraph.classList.add("folio-compositor-safe-fallback");
@@ -290,7 +272,6 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
 
   paragraph.dataset.folioOriginalHtml = paragraph.innerHTML;
   hyphenateElement(paragraph, language);
-
   const indent = Math.max(0, pixels(style.textIndent));
   const lineHeight = pixels(style.lineHeight) || fontSize * 1.5;
   const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
@@ -319,10 +300,6 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   const breaks = chooseBreaks(words, fullWidth, spaceWidth, hyphenWidth, cap ? 0 : indent, capWidth, capLines, fontSize);
   const baseWordSpacing = pixels(style.wordSpacing);
   const baseTracking = pixels(style.letterSpacing);
-
-  // Clone each line before replacing the source paragraph. Range.cloneContents
-  // keeps links/emphasis/strong/superscript and their attributes instead of
-  // flattening them into anonymous word spans.
   const lines: HTMLElement[] = [];
   let start = 0;
   for (const [lineIndex, lineBreak] of breaks.entries()) {
@@ -343,7 +320,11 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   }
 
   paragraph.classList.add("folio-composed");
-  paragraph.replaceChildren(...(cap ? [cap] : []), ...lines);
+  paragraph.replaceChildren(...(cap ? [cap] : []));
+  lines.forEach((line, index) => {
+    paragraph.append(line);
+    if (index < lines.length - 1 && !breaks[index].hyphenated) paragraph.append(" ");
+  });
 }
 
 function installObserver(
@@ -396,9 +377,6 @@ function installObserver(
   if (queue.length) request();
 }
 
-/** Compose only the part of a long chapter the reader is about to see. The
- * remaining paragraphs stay safely ragged-right until upgraded near viewport;
- * no full-document geometry scan runs on the typing path. */
 export async function composePreviewDocument(document: Document, enabled: boolean): Promise<void> {
   const generation = (compositionGeneration.get(document) ?? 0) + 1;
   compositionGeneration.set(document, generation);
@@ -416,18 +394,15 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   const paragraphs = Array.from(document.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
   const view = document.defaultView;
   if (!view || !paragraphs.length) return;
-
   const queue: HTMLElement[] = [];
   const queued = new WeakSet<HTMLElement>();
   for (const paragraph of paragraphs.slice(0, 3)) {
     queued.add(paragraph);
     queue.push(paragraph);
   }
-
   const first = queue.shift();
   if (first && compositionGeneration.get(document) === generation) composeParagraph(first, language);
   installObserver(document, paragraphs, queue, queued, generation, language);
-
   if (document.fonts?.status === "loading") {
     void document.fonts.ready.then(() => {
       if (compositionGeneration.get(document) === generation) void composePreviewDocument(document, true);
