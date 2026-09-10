@@ -241,6 +241,7 @@ export default function App() {
       section = seeded;
     }
     section.id = selectedId;
+    syncLiveChapterLabel(previewDocument);
     const heading = Array.from(section.children).find((node) => node.tagName === "H1") ?? null;
     if (heading) heading.textContent = document.title;
     let subtitle = Array.from(section.children).find((node) => node.classList.contains("chapter-subtitle")) ?? null;
@@ -284,7 +285,7 @@ export default function App() {
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [draft, document?.id, document?.subtitle, selectedId, previewMode, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, meta?.theme, meta?.language, themes]);
+  }, [draft, document?.id, document?.subtitle, selectedId, previewMode, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -313,7 +314,7 @@ export default function App() {
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => onPreviewLoad());
     return () => window.cancelAnimationFrame(frame);
-  }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign]);
+  }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [previewMode, selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
@@ -575,6 +576,20 @@ export default function App() {
     ? project.sections[selectedPosition + 1]
     : null;
 
+  function syncLiveChapterLabel(doc: Document) {
+    doc.getElementById("folio-live-chapter-label")?.remove();
+    if (!selectedId || selectedSection?.kind !== "chapter") return;
+    const chapterTitle = typography.chapterTitle;
+    if (chapterTitle?.showLabel !== false && !chapterTitle?.labelText?.trim()) return;
+    const style = doc.createElement("style");
+    style.id = "folio-live-chapter-label";
+    const content = chapterTitle?.showLabel === false
+      ? "none"
+      : JSON.stringify(`${chapterTitle.labelText!.trim()} ${chapterIndex}`);
+    style.textContent = `section.chapter[id=${JSON.stringify(selectedId)}] > h1::before{content:${content}!important;${content === "none" ? "display:none!important;" : "display:block;"}}`;
+    doc.head.appendChild(style);
+  }
+
   function onPreviewLoad(restoreScroll?: number) {
     const frame = previewRef.current;
     const doc = frame?.contentDocument;
@@ -602,6 +617,7 @@ export default function App() {
       style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified{text-align:left!important;text-align-last:left!important}.folio-line-natural{text-align:left!important;text-align-last:left!important}" + profileCss[previewMode] + proseComposition;
     }
     doc.head.appendChild(style);
+    syncLiveChapterLabel(doc);
     const liveApplied = applyLiveDraftToPreview();
     if (previewMode !== "print" && !liveApplied) {
       if (typography.bodyAlign !== "left") hyphenatePreviewDocument(doc, meta?.language || "en");
@@ -611,7 +627,9 @@ export default function App() {
       previewIdentityRef.current = pendingPreviewIdentityRef.current;
       pendingPreviewIdentityRef.current = "";
     }
-    const targetScroll = typeof restoreScroll === "number" ? restoreScroll : pendingPreviewScrollRef.current;
+    const targetScroll = typeof restoreScroll === "number"
+      ? restoreScroll
+      : pendingPreviewScrollRef.current || doc.scrollingElement?.scrollTop || 0;
     pendingPreviewScrollRef.current = 0;
     requestAnimationFrame(() => doc.scrollingElement?.scrollTo(0, targetScroll));
   }
