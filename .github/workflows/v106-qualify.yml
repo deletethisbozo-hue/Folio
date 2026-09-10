@@ -30,7 +30,9 @@ jobs:
       - name: Apply final 1.0.6 UI and QA patch
         shell: pwsh
         run: |
+          python scripts\v106-emergency-pass.py
           python scripts\v106-finish.py
+          Remove-Item scripts\v106-emergency-pass.py -Force
           Remove-Item scripts\v106-finish.py -Force
 
       - name: Check candidate integrity
@@ -87,7 +89,7 @@ jobs:
       - name: Enforce measured typesetting limits
         shell: pwsh
         run: |
-          node -e "const g=require('./build/qa-v106/typesetting-geometry.json'); if(g.justifiedCount<1||g.maxRightErrorPx>1.75||g.maxSemanticGapPx>8||g.maxWordSpacingPx>2.2||g.maxTrackingPx>0.16||!g.finalLineNatural) { console.error(g); process.exit(1) } console.log(g)"
+          node -e "const g=require('./build/qa-v106/typesetting-geometry.json'); if(g.justifiedCount<1||g.maxRightErrorPx>1.75||g.maxSemanticGapPx>8||g.maxWordSpacingPx>2.2||g.maxTrackingPx>0.16||g.emergencyLines!==0||!g.finalLineNatural) { console.error(g); process.exit(1) } console.log(g)"
 
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
