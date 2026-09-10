@@ -3,6 +3,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { loadProject, projectInfo, writableBookDir } from "./projects.ts";
 import { extractSubtitle, extractTitle, splitOnH1 } from "./pipeline/util.ts";
+import type { Section } from "./pipeline/types.ts";
 import { removeMatter } from "./matter.ts";
 import { saveChapterOrder } from "./matter.ts";
 
@@ -21,6 +22,37 @@ type SourceSection = {
   sourceOrdinal?: number;
 };
 
+// The UI always reads a section before editing it. Keep the already-ingested
+// section locations around so a later autosave/delete does not re-parse a
+// 100k-word manuscript just to rediscover the path we resolved moments ago.
+// Explicit project reloads still go through loadProject, and any operation that
+// can change ids/ordinals refreshes or invalidates this cache.
+const sectionCache = new Map<string, Map<string, Section>>();
+
+function rememberSections(projectId: string, sections: Section[]): void {
+  sectionCache.set(projectId, new Map(sections.map((section) => [section.id, section])));
+}
+
+function cachedSection(projectId: string, sectionId: string): Section | undefined {
+  return sectionCache.get(projectId)?.get(sectionId);
+}
+
+function forgetSection(projectId: string, sectionId: string): void {
+  sectionCache.get(projectId)?.delete(sectionId);
+}
+
+function documentFromSection(projectId: string, section: Section): SectionDocument {
+  const source = resolveSourceForSection(projectId, section);
+  return {
+    id: section.id,
+    title: section.title,
+    subtitle: section.subtitle,
+    kind: section.kind,
+    markdown: section.markdown,
+    editable: Boolean(source && projectInfo(projectId).editable),
+  };
+}
+
 /** Resolve an already-ingested section without loading the whole project again.
  * Large manuscripts make a second load surprisingly expensive; all editor
  * operations already have the authoritative section in hand. */
@@ -36,19 +68,26 @@ function resolveSourceForSection(projectId: string, section: SourceSection | und
   return { path: source, ordinal: section.sourceOrdinal };
 }
 
+async function editableSection(projectId: string, sectionId: string): Promise<{ section: Section; source: { path: string; ordinal?: number } }> {
+  let section = cachedSection(projectId, sectionId);
+  let source = resolveSourceForSection(projectId, section);
+  if (!section || section.generated || !source) {
+    const { book } = await loadProject(projectId);
+    rememberSections(projectId, book.sections);
+    section = book.sections.find((item) => item.id === sectionId);
+    source = resolveSourceForSection(projectId, section);
+  }
+  if (!section || section.generated) throw new Error("This section is generated and cannot be edited directly.");
+  if (!source) throw new Error("Could not locate the source Markdown file for this section.");
+  return { section, source };
+}
+
 export async function readSectionDocument(projectId: string, sectionId: string): Promise<SectionDocument> {
   const { book } = await loadProject(projectId);
+  rememberSections(projectId, book.sections);
   const section = book.sections.find((s) => s.id === sectionId);
   if (!section) throw new Error("Section not found.");
-  const source = resolveSourceForSection(projectId, section);
-  return {
-    id: section.id,
-    title: section.title,
-    subtitle: section.subtitle,
-    kind: section.kind,
-    markdown: section.markdown,
-    editable: Boolean(source && projectInfo(projectId).editable),
-  };
+  return documentFromSection(projectId, section);
 }
 
 function preservedFrontMatter(raw: string): string {
@@ -58,16 +97,11 @@ function preservedFrontMatter(raw: string): string {
 }
 
 export async function writeSectionDocument(projectId: string, sectionId: string, markdown: string): Promise<void> {
-  // Copy-on-write happens before resolving the source. For the bundled sample,
-  // this changes the project's root, so the freshly ingested sourcePath points
-  // into user-writable temp storage instead of app.asar.
+  // Copy-on-write happens before resolving the source. If that changes the
+  // sample's root, editableSection notices the cached old path is no longer
+  // inside the project and performs one fresh ingest.
   await writableBookDir(projectId);
-  const { book } = await loadProject(projectId);
-  const section = book.sections.find((s) => s.id === sectionId);
-  if (!section || section.generated) throw new Error("This section is generated and cannot be edited directly.");
-
-  const source = resolveSourceForSection(projectId, section);
-  if (!source) throw new Error("Could not locate the source Markdown file for this section.");
+  const { section, source } = await editableSection(projectId, sectionId);
 
   const raw = await fs.readFile(source.path, "utf8");
   const parsed = matter(raw);
@@ -81,6 +115,7 @@ export async function writeSectionDocument(projectId: string, sectionId: string,
     chapter.body = `${subtitle}${markdown.trim()}`.trim();
     const content = chapters.map((item) => `# ${item.title}\n\n${item.body.trim()}`.trim()).join("\n\n") + "\n";
     await fs.writeFile(source.path, prefix + content, "utf8");
+    section.markdown = markdown.trim();
     return;
   }
 
@@ -92,6 +127,7 @@ export async function writeSectionDocument(projectId: string, sectionId: string,
   if (subtitleInfo.subtitle && typeof parsed.data.subtitle !== "string") header.push(`## ${subtitleInfo.subtitle}`);
   const nextBody = [...header, markdown.trim()].filter(Boolean).join("\n\n") + "\n";
   await fs.writeFile(source.path, prefix + nextBody, "utf8");
+  section.markdown = markdown.trim();
 }
 
 /** Rename a chapter at its authoritative source, including chapters embedded in
@@ -103,13 +139,18 @@ export async function updateSectionHeadingDocument(
   change: { title?: string; subtitle?: string },
 ): Promise<SectionDocument> {
   await writableBookDir(projectId);
-  const { book } = await loadProject(projectId);
-  const section = book.sections.find((item) => item.id === sectionId);
+  let section = cachedSection(projectId, sectionId);
+  let source = resolveSourceForSection(projectId, section);
+  if (!section || section.kind !== "chapter" || section.generated || !source) {
+    const loaded = await loadProject(projectId);
+    rememberSections(projectId, loaded.book.sections);
+    section = loaded.book.sections.find((item) => item.id === sectionId);
+    source = resolveSourceForSection(projectId, section);
+  }
   if (!section || section.kind !== "chapter" || section.generated) throw new Error("Only manuscript chapters can be renamed here.");
   const title = change.title === undefined ? section.title : change.title.trim();
   if (!title) throw new Error("Chapter title cannot be empty.");
   const subtitle = change.subtitle === undefined ? section.subtitle : change.subtitle.trim() || undefined;
-  const source = resolveSourceForSection(projectId, section);
   if (!source) throw new Error("Could not locate the source Markdown file for this chapter.");
 
   const raw = await fs.readFile(source.path, "utf8");
@@ -137,11 +178,12 @@ export async function updateSectionHeadingDocument(
   }
 
   const reloaded = await loadProject(projectId);
+  rememberSections(projectId, reloaded.book.sections);
   const renamed = reloaded.book.sections.find((item) =>
     item.sourcePath === source.path && item.sourceOrdinal === source.ordinal,
   );
   if (!renamed) throw new Error("Chapter was renamed but could not be reloaded.");
-  return readSectionDocument(projectId, renamed.id);
+  return documentFromSection(projectId, renamed);
 }
 
 function replaceFrontMatterField(prefix: string, key: string, value: string | undefined): string {
@@ -161,6 +203,7 @@ export async function renameSectionDocument(projectId: string, sectionId: string
 export async function reorderChapterDocuments(projectId: string, order: string[]): Promise<void> {
   await writableBookDir(projectId);
   const { book } = await loadProject(projectId);
+  rememberSections(projectId, book.sections);
   const chapters = book.sections.filter((section) => section.kind === "chapter" && !section.generated);
   if (order.length !== chapters.length || new Set(order).size !== order.length || chapters.some((chapter) => !order.includes(chapter.id))) {
     throw new Error("Chapter order must contain every chapter exactly once.");
@@ -182,6 +225,7 @@ export async function reorderChapterDocuments(projectId: string, order: string[]
       return `# ${block.title}\n\n${block.body.trim()}`.trim();
     }).join("\n\n") + "\n";
     await fs.writeFile(sourcePath, preservedFrontMatter(raw) + content, "utf8");
+    sectionCache.delete(projectId);
     return;
   }
   if (arranged.some((chapter) => chapter.sourceOrdinal !== undefined)) {
@@ -189,6 +233,7 @@ export async function reorderChapterDocuments(projectId: string, order: string[]
   }
   const relative = arranged.map((chapter) => path.relative(info.folder!, chapter.sourcePath!).split(path.sep).join("/"));
   await saveChapterOrder(info.folder, book.meta, relative);
+  sectionCache.delete(projectId);
 }
 
 /** Remove an authored chapter/front-matter/back-matter section without
@@ -197,13 +242,25 @@ export async function reorderChapterDocuments(projectId: string, order: string[]
  * extracted to trash before that H1 section is removed from the source. */
 export async function deleteSectionDocument(projectId: string, sectionId: string): Promise<void> {
   await writableBookDir(projectId);
-  const { book } = await loadProject(projectId);
-  const section = book.sections.find((item) => item.id === sectionId);
+
+  let section = cachedSection(projectId, sectionId);
+  // Cached source paths from the bundled sample become invalid after its first
+  // copy-on-write. Resolve them now; if they no longer belong to the project,
+  // one fresh ingest repairs the cache. Normal selected-section deletes stay O(1).
+  let source = resolveSourceForSection(projectId, section);
+  if (!section || (!section.generated && !source)) {
+    const loaded = await loadProject(projectId);
+    rememberSections(projectId, loaded.book.sections);
+    section = loaded.book.sections.find((item) => item.id === sectionId);
+    source = resolveSourceForSection(projectId, section);
+  }
   if (!section) throw new Error("Section not found.");
+
   if (section.generated && (section.kind === "titlepage" || section.kind === "copyright")) {
     const info = projectInfo(projectId);
     if (!info.folder) throw new Error("This book has no writable folder.");
     await removeMatter(info.folder, section.kind);
+    forgetSection(projectId, sectionId);
     return;
   }
   if (section.generated) throw new Error("This generated page cannot be deleted here.");
@@ -211,7 +268,6 @@ export async function deleteSectionDocument(projectId: string, sectionId: string
     throw new Error("This section cannot be deleted here.");
   }
 
-  const source = resolveSourceForSection(projectId, section);
   if (!source) throw new Error("Could not locate the source Markdown file for this chapter.");
   const info = projectInfo(projectId);
   if (!info.folder) throw new Error("This chapter has no writable book folder.");
@@ -227,6 +283,7 @@ export async function deleteSectionDocument(projectId: string, sectionId: string
       const entry = path.relative(info.folder, source.path).split(path.sep).join("/");
       await removeMatter(info.folder, entry);
     }
+    forgetSection(projectId, sectionId);
     return;
   }
 
@@ -242,4 +299,6 @@ export async function deleteSectionDocument(projectId: string, sectionId: string
   chapters.splice(source.ordinal, 1);
   const content = chapters.map((item) => `# ${item.title}\n\n${item.body.trim()}`.trim()).join("\n\n");
   await fs.writeFile(source.path, preservedFrontMatter(raw) + (content ? content + "\n" : ""), "utf8");
+  // Every later sourceOrdinal changed, so stale cached locations are unsafe.
+  sectionCache.delete(projectId);
 }
