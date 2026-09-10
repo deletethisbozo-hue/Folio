@@ -39,21 +39,27 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       while (walker.nextNode()) {
         const node = walker.currentNode as Text;
         const parent = node.parentElement;
-        if (parent && !parent.closest(".dropcap,code,pre,script,style") && node.nodeValue?.trim()) textNodes.push(node);
+        if (parent && !parent.closest(".dropcap,code,pre,script,style")) textNodes.push(node);
       }
+      let separated = true;
+      let hasWord = false;
       for (const textNode of textNodes) {
         const fragment = document.createDocumentFragment();
         for (const part of textNode.data.split(/([ \t\r\n]+)/)) {
           if (!part) continue;
-          if (/^[ \t\r\n]+$/.test(part)) fragment.append(" ");
-          else {
+          if (/^[ \t\r\n]+$/.test(part)) {
+            separated = true;
+            fragment.append(" ");
+          } else {
             part.split("\u00ad").forEach((piece, index) => {
               if (!piece) return;
               const word = document.createElement("span");
               word.className = "folio-word";
-              word.dataset.folioJoinBefore = index > 0 ? "true" : "false";
+              word.dataset.folioJoinBefore = index > 0 || (hasWord && !separated) ? "true" : "false";
               word.textContent = piece;
               fragment.append(word);
+              hasWord = true;
+              separated = false;
             });
           }
         }
@@ -140,6 +146,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
         if (lineBreak.justified) line.style.wordSpacing = `${lineBreak.wordSpacing}px`;
         if (lineNo === 0 && !cap && indent) line.style.marginLeft = `${indent}px`;
+        if (start > 0 && !words[start].joinBefore) line.append(" ");
         for (let i = start; i < lineBreak.end; i++) {
           if (i > start && !words[i].joinBefore) line.append(" ");
           line.append(wordNodes[i]);
