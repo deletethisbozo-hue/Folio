@@ -125,6 +125,39 @@ export function richTextToMarkdown(html: string): string {
  * paragraph per physical line; treating those newlines as Markdown soft-wraps
  * destroys every paragraph. Explicit Markdown constructs keep their original
  * meaning, while ordinary multi-line prose gets real paragraph boundaries. */
+export async function richTextToMarkdownCooperative(html: string): Promise<string> {
+  if (html.length < 80_000) return richTextToMarkdown(html);
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const classStyles = new Map<string, string>();
+  for (const sheet of Array.from(doc.querySelectorAll("style"))) {
+    const css = sheet.textContent ?? "";
+    for (const match of css.matchAll(/\.([_a-zA-Z][\w-]*)[^,{]*\{([^}]*)\}/g)) {
+      classStyles.set(match[1], `${classStyles.get(match[1]) ?? ""};${match[2]}`);
+    }
+  }
+  const styled = Array.from(doc.body.querySelectorAll("[class]"));
+  for (const [index, element] of styled.entries()) {
+    const fromClasses = Array.from(element.classList).map((name) => classStyles.get(name) ?? "").join(";");
+    if (fromClasses) element.setAttribute("style", `${fromClasses};${element.getAttribute("style") ?? ""}`);
+    if (index && index % 750 === 0) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  let out = "";
+  let sliceStarted = performance.now();
+  for (const child of Array.from(doc.body.childNodes)) {
+    out += renderNode(child);
+    if (performance.now() - sliceStarted > 7) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      sliceStarted = performance.now();
+    }
+  }
+  return out
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function plainTextToMarkdown(value: string): string {
   const text = value.replace(/\r\n?/g, "\n").replace(/[\u0000\u200B\uFEFF]/g, "").trim();
   if (!text) return "";

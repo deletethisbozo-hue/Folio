@@ -20,6 +20,7 @@ const ROOT = path.resolve(HERE, "..");
 // failure in ingestion should surface before you wait for them.
 const ORDER = [
   "atomic-write.test.ts",
+  "save-queue.test.ts",
   "ingestion.test.ts",
   "versioning.test.ts",
   "destinations.test.ts",

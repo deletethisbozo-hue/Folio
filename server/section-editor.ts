@@ -5,6 +5,7 @@ import { loadProject, projectInfo, writableBookDir } from "./projects.ts";
 import { extractSubtitle, extractTitle, splitOnH1 } from "./pipeline/util.ts";
 import type { Section } from "./pipeline/types.ts";
 import { removeMatter } from "./matter.ts";
+import { atomicWriteUtf8 } from "./atomic-write.ts";
 import { saveChapterOrder } from "./matter.ts";
 
 export interface SectionDocument {
@@ -114,7 +115,7 @@ export async function writeSectionDocument(projectId: string, sectionId: string,
     const subtitle = section.subtitle ? `## ${section.subtitle}\n\n` : "";
     chapter.body = `${subtitle}${markdown.trim()}`.trim();
     const content = chapters.map((item) => `# ${item.title}\n\n${item.body.trim()}`.trim()).join("\n\n") + "\n";
-    await fs.writeFile(source.path, prefix + content, "utf8");
+    await atomicWriteUtf8(source.path, prefix + content, "utf8");
     section.markdown = markdown.trim();
     return;
   }
@@ -126,7 +127,7 @@ export async function writeSectionDocument(projectId: string, sectionId: string,
   if (titleInfo.title) header.push(`# ${titleInfo.title}`);
   if (subtitleInfo.subtitle && typeof parsed.data.subtitle !== "string") header.push(`## ${subtitleInfo.subtitle}`);
   const nextBody = [...header, markdown.trim()].filter(Boolean).join("\n\n") + "\n";
-  await fs.writeFile(source.path, prefix + nextBody, "utf8");
+  await atomicWriteUtf8(source.path, prefix + nextBody, "utf8");
   section.markdown = markdown.trim();
 }
 
@@ -163,7 +164,7 @@ export async function updateSectionHeadingDocument(
     const body = extractSubtitle(chapter.body).body.trim();
     chapter.body = [subtitle ? `## ${subtitle}` : "", body].filter(Boolean).join("\n\n");
     const content = chapters.map((item) => `# ${item.title}\n\n${item.body.trim()}`.trim()).join("\n\n") + "\n";
-    await fs.writeFile(source.path, preservedFrontMatter(raw) + content, "utf8");
+    await atomicWriteUtf8(source.path, preservedFrontMatter(raw) + content, "utf8");
   } else {
     let prefix = preservedFrontMatter(raw);
     const titleInfo = extractTitle(parsed.content);
@@ -174,7 +175,7 @@ export async function updateSectionHeadingDocument(
     if (subtitleInFrontMatter) prefix = replaceFrontMatterField(prefix, "subtitle", subtitle);
     const headings = [titleInFrontMatter ? "" : `# ${title}`, subtitleInFrontMatter || !subtitle ? "" : `## ${subtitle}`].filter(Boolean);
     const content = [...headings, subtitleInfo.body.trim()].filter(Boolean).join("\n\n") + "\n";
-    await fs.writeFile(source.path, prefix + content, "utf8");
+    await atomicWriteUtf8(source.path, prefix + content, "utf8");
   }
 
   const reloaded = await loadProject(projectId);
@@ -224,7 +225,7 @@ export async function reorderChapterDocuments(projectId: string, order: string[]
       if (!block) throw new Error("The manuscript changed on disk. Reload and try again.");
       return `# ${block.title}\n\n${block.body.trim()}`.trim();
     }).join("\n\n") + "\n";
-    await fs.writeFile(sourcePath, preservedFrontMatter(raw) + content, "utf8");
+    await atomicWriteUtf8(sourcePath, preservedFrontMatter(raw) + content, "utf8");
     sectionCache.delete(projectId);
     return;
   }
@@ -295,10 +296,10 @@ export async function deleteSectionDocument(projectId: string, sectionId: string
 
   const safe = removed.title.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "chapter";
-  await fs.writeFile(path.join(trash, `${stamp}-${safe}.md`), `# ${removed.title}\n\n${removed.body.trim()}\n`, "utf8");
+  await atomicWriteUtf8(path.join(trash, `${stamp}-${safe}.md`), `# ${removed.title}\n\n${removed.body.trim()}\n`, "utf8");
   chapters.splice(source.ordinal, 1);
   const content = chapters.map((item) => `# ${item.title}\n\n${item.body.trim()}`.trim()).join("\n\n");
-  await fs.writeFile(source.path, preservedFrontMatter(raw) + (content ? content + "\n" : ""), "utf8");
+  await atomicWriteUtf8(source.path, preservedFrontMatter(raw) + (content ? content + "\n" : ""), "utf8");
   // Every later sourceOrdinal changed, so stale cached locations are unsafe.
   sectionCache.delete(projectId);
 }

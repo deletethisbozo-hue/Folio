@@ -8,13 +8,13 @@
 .reader-device.device-android { width:min(84%,350px,calc((100dvh - 170px) * .455)); aspect-ratio:.455; }
 
 .page-counts {
-  font-size: 8.5px;
+  font-size: 10px;
   color: #5b5b58;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 1050px) {
-  .page-counts { font-size: 8px; }
+  .page-counts { font-size: 9.5px; }
   .editor-topbar-right { gap: 7px; }
 }

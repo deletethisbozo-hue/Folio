@@ -7,13 +7,17 @@ import {
   markdownToPreviewHtml,
   plainTextToMarkdown,
   richTextToMarkdown,
+  richTextToMarkdownCooperative,
 } from "./rich-text";
 import { hyphenatePreviewDocument } from "./hyphenation";
 import { composePreviewDocument } from "./compositor";
+import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
+import { SerialSaveQueue } from "./save-queue";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
 type PreviewMode = "kindle-paperwhite" | "kindle-oasis" | "ipad" | "iphone" | "android" | "print";
 type SaveState = "idle" | "saving" | "saved" | "error";
+type UiTone = "ivory" | "midnight";
 type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Paragraph After Break" | "Body" | "Scene Break" | "Header & Footer" | "Title Page";
 
 const styleCategories: StyleCategory[] = [
@@ -26,11 +30,11 @@ const trims = [
 ] as const;
 const defaultPrint: PrintOptions = { trim: "6x9", binding: "paperback", startChaptersRecto: true, layout: "author-title-bottom" };
 const previewProfiles: Array<{ value: PreviewMode; label: string }> = [
-  { value: "kindle-paperwhite", label: "Kindle · Paperwhite" },
-  { value: "kindle-oasis", label: "Kindle · Oasis" },
-  { value: "ipad", label: "Apple · iPad" },
-  { value: "iphone", label: "Apple · iPhone" },
-  { value: "android", label: "Android · Phone" },
+  { value: "kindle-paperwhite", label: "Paperwhite · Standard" },
+  { value: "kindle-oasis", label: "Oasis · Standard" },
+  { value: "ipad", label: "iPad · Standard" },
+  { value: "iphone", label: "iPhone · Standard" },
+  { value: "android", label: "Android · Standard" },
   { value: "print", label: "Print · Pages" },
 ];
 const sceneOrnaments = [
@@ -47,7 +51,8 @@ function wordCount(text: string): number {
 
 function applyDraftDropcap(section: Element, enabled: boolean): void {
   if (!enabled || !section.classList.contains("chapter")) return;
-  const paragraph = section.querySelector(":scope > p:not(.scene-break)");
+  const paragraph = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"))
+    .find((candidate) => Boolean(candidate.textContent?.trim()));
   if (!paragraph || paragraph.querySelector(".dropcap")) return;
   const walker = paragraph.ownerDocument.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
@@ -85,6 +90,9 @@ export default function App() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-paperwhite");
+  const [previewDraft, setPreviewDraft] = useState("");
+  const [pastePreparing, setPastePreparing] = useState(false);
+  const [uiTone, setUiTone] = useState<UiTone>(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +119,13 @@ export default function App() {
   const previewIdentityRef = useRef("");
   const pendingPreviewIdentityRef = useRef("");
   const pendingPreviewScrollRef = useRef(0);
+  const editorDomDirtyRef = useRef(false);
+  const editorDomGenerationRef = useRef(0);
+  const editorSyncTimerRef = useRef<number | null>(null);
+  const sectionSaveQueueRef = useRef(new SerialSaveQueue<string>());
+  const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
+  const fastInputBurstRef = useRef(false);
+  const fastInputBurstTimerRef = useRef<number | null>(null);
 
   const resetDocumentView = () => {
     draftRef.current = "";
@@ -119,6 +134,10 @@ export default function App() {
     redoRef.current = [];
     setDocument(null);
     setDraft("");
+    setPreviewDraft("");
+    editorDomDirtyRef.current = false;
+    editorDomGenerationRef.current++;
+    if (editorSyncTimerRef.current !== null) { window.clearTimeout(editorSyncTimerRef.current); editorSyncTimerRef.current = null; }
     setDirty(false);
     setSaveState("idle");
     setPreviewHtml("");
@@ -131,6 +150,20 @@ export default function App() {
 
   useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
+  useEffect(() => {
+    fastInputBurstRef.current = false;
+    if (fastInputBurstTimerRef.current !== null) {
+      window.clearTimeout(fastInputBurstTimerRef.current);
+      fastInputBurstTimerRef.current = null;
+    }
+  }, [selectedId]);
+  useEffect(() => { window.localStorage.setItem("folio-ui-tone", uiTone); }, [uiTone]);
+  useEffect(() => {
+    if (draft.length < 35_000) { setPreviewDraft(draft); return; }
+    const delay = draft.length > 250_000 ? 460 : draft.length > 100_000 ? 300 : 150;
+    const timer = window.setTimeout(() => setPreviewDraft(draft), delay);
+    return () => window.clearTimeout(timer);
+  }, [draft]);
   useEffect(() => {
     const editor = editorRef.current;
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
@@ -157,8 +190,7 @@ export default function App() {
     const appearanceMeta = { ...project.meta, theme: meta.theme };
     const timer = window.setTimeout(async () => {
       try {
-        const withMeta = await api.saveMeta(projectId, appearanceMeta);
-        await api.saveTypography(projectId, withMeta.meta, typography);
+        await persistAppearance(projectId, appearanceMeta, typography);
       } catch (e) {
         if (project?.projectId === projectId) setError(e instanceof Error ? e.message : String(e));
       }
@@ -181,21 +213,20 @@ export default function App() {
     api.section(project.projectId, selectedId).then((doc) => {
       if (cancelled) return;
       undoRef.current = []; redoRef.current = []; draftRef.current = doc.markdown;
-      setDocument(doc); setDraft(doc.markdown); setDirty(false);
+      editorDomDirtyRef.current = false; editorDomGenerationRef.current++;
+      setDocument(doc); setDraft(doc.markdown); setPreviewDraft(doc.markdown); setDirty(false);
     }).catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => { cancelled = true; };
   }, [project?.projectId, selectedId, sectionRevision]);
 
   useEffect(() => {
-    if (!project || !meta || !selectedId || document?.id !== selectedId) return;
+    if (!project || !meta || !selectedId || document?.id !== selectedId || previewMode === "print") return;
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
     const timer = window.setTimeout(async () => {
       try {
-        const result = previewMode === "print"
-          ? await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, draft, controller.signal)
-          : await api.preview(project.projectId, meta, meta.theme, typography, selectedId, draft, controller.signal);
+        const result = await api.preview(project.projectId, meta, meta.theme, typography, selectedId, draftRef.current, controller.signal);
         if (!cancelled) { commitPreviewHtml(result.html); setPreviewError(null); }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -206,22 +237,46 @@ export default function App() {
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
-    }, draft.length > 250_000 ? 700 : 240);
+    }, 40);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, draft]);
+  }, [project?.projectId, meta, typography, previewMode, selectedId, document?.id, document?.subtitle]);
+
+  useEffect(() => {
+    if (!project || !meta || !selectedId || document?.id !== selectedId || previewMode !== "print") return;
+    let cancelled = false;
+    const controller = new AbortController();
+    setPreviewLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, previewDraft, controller.signal);
+        if (!cancelled) { commitPreviewHtml(result.html); setPreviewError(null); }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        if (!cancelled) {
+          const message = e instanceof Error ? e.message : String(e);
+          setPreviewError(message); setError(message);
+        }
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, previewDraft.length > 250_000 ? 650 : 220);
+    return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
+  }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
   function commitPreviewHtml(html: string): void {
     const identity = `${project?.projectId ?? ""}:${selectedId ?? ""}:${previewMode}`;
     const frame = previewRef.current;
     const current = frame?.contentDocument;
     const scrollTop = current?.scrollingElement?.scrollTop ?? 0;
-    if (current?.head && current.body && previewIdentityRef.current === identity) {
+    if (current?.head && current.body) {
       const parsed = new DOMParser().parseFromString(html, "text/html");
       current.documentElement.lang = parsed.documentElement.lang;
       current.head.innerHTML = parsed.head.innerHTML;
       for (const attr of Array.from(current.body.attributes)) current.body.removeAttribute(attr.name);
       for (const attr of Array.from(parsed.body.attributes)) current.body.setAttribute(attr.name, attr.value);
       current.body.innerHTML = parsed.body.innerHTML;
+      previewIdentityRef.current = identity;
+      pendingPreviewIdentityRef.current = "";
       onPreviewLoad(scrollTop);
       return;
     }
@@ -286,7 +341,7 @@ export default function App() {
     const template = previewDocument.createElement("template");
     const theme = themes.find((item) => item.name === meta?.theme);
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
-    template.innerHTML = markdownToPreviewHtml(draft, ornament);
+    template.innerHTML = markdownToPreviewHtml(previewDraft, ornament);
     section.appendChild(template.content);
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
     applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
@@ -302,7 +357,7 @@ export default function App() {
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [draft, document?.id, document?.subtitle, selectedId, previewMode, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
+  }, [previewDraft, document?.id, document?.subtitle, selectedId, previewMode, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -312,8 +367,8 @@ export default function App() {
     const value = draft;
     const timer = window.setTimeout(async () => {
       try {
-        const saved = await api.saveSection(projectId, sectionId, value);
-        if (selectedRef.current === sectionId && draftRef.current === value) {
+        const saved = await persistSection(projectId, sectionId, value);
+        if (selectedRef.current === sectionId && draftRef.current === value && !editorDomDirtyRef.current) {
           setDocument(saved); setDirty(false); setSaveState("saved");
         }
       } catch (e) {
@@ -332,7 +387,7 @@ export default function App() {
     const frame = window.requestAnimationFrame(() => onPreviewLoad());
     return () => window.cancelAnimationFrame(frame);
   }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
-  useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [previewMode, selectedId]);
+  useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
     const sameProject = summary.projectId === project?.projectId;
@@ -352,6 +407,7 @@ export default function App() {
   }
 
   async function openFolder(folderPath?: string) {
+    if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
       const selected = folderPath ?? (await api.pickFolder(project?.folder ?? undefined)).path;
@@ -361,6 +417,7 @@ export default function App() {
   }
 
   async function loadSample() {
+    if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try { adopt(await api.loadSample()); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -368,6 +425,7 @@ export default function App() {
   }
 
   async function beginNewBook() {
+    if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
       const selected = (await api.pickFolder()).path;
@@ -391,7 +449,7 @@ export default function App() {
   }
 
   async function addChapter() {
-    if (!project || !meta) return;
+    if (!project || !meta || !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
       const before = new Set(project.sections.map((section) => section.id));
@@ -447,7 +505,7 @@ export default function App() {
   }
 
   async function addMatterSection(type: MatterType) {
-    if (!project || !meta) return;
+    if (!project || !meta || !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
       const before = new Set(project.sections.map((section) => section.id));
@@ -477,12 +535,12 @@ export default function App() {
   async function updateCurrentChapterHeading(change: { title?: string; subtitle?: string }) {
     if (!project || !selectedId || selectedSection?.kind !== "chapter") return;
     const previousDocument = document;
-    const draftAtStart = draftRef.current;
     const title = change.title?.trim();
     const subtitle = change.subtitle?.trim() ?? "";
     if (change.title !== undefined && (!title || title === selectedSection.title)) return;
     if (change.subtitle !== undefined && subtitle === (document?.subtitle ?? "")) return;
     if (!(await saveCurrent())) return;
+    const draftAtStart = draftRef.current;
     // Subtitle rendering is a local composition change and must stay instant
     // even when rewriting/re-ingesting a 100,000-word source takes seconds.
     if (change.subtitle !== undefined && document) {
@@ -494,6 +552,7 @@ export default function App() {
         ...(change.title !== undefined ? { title } : {}),
         ...(change.subtitle !== undefined ? { subtitle } : {}),
       });
+      await flushEditorDom();
       const summary = await api.reload(project.projectId);
       const liveDraft = draftRef.current;
       const draftChangedDuringSave = liveDraft !== draftAtStart;
@@ -528,11 +587,62 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  async function persistSection(projectId: string, sectionId: string, value: string): Promise<SectionDocument> {
+    return sectionSaveQueueRef.current.run(`${projectId}::${sectionId}`, () => api.saveSection(projectId, sectionId, value));
+  }
+
+  async function persistAppearance(projectId: string, nextMeta: BookMeta, nextTypography: Typography): Promise<ProjectSummary> {
+    return appearanceSaveQueueRef.current.run(projectId, async () => {
+      const withMeta = await api.saveMeta(projectId, nextMeta);
+      return api.saveTypography(projectId, withMeta.meta, nextTypography);
+    });
+  }
+
+  function scheduleEditorDomSync() {
+    if (editorSyncTimerRef.current !== null) window.clearTimeout(editorSyncTimerRef.current);
+    const length = draftRef.current.length;
+    const delay = length > 250_000 ? 420 : length > 100_000 ? 300 : 170;
+    editorSyncTimerRef.current = window.setTimeout(() => {
+      editorSyncTimerRef.current = null;
+      void flushEditorDom();
+    }, delay);
+  }
+
+  async function flushEditorDom(): Promise<void> {
+    if (editorSyncTimerRef.current !== null) {
+      window.clearTimeout(editorSyncTimerRef.current);
+      editorSyncTimerRef.current = null;
+    }
+    const editor = editorRef.current;
+    if (!editor || !editorDomDirtyRef.current) return;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const generation = editorDomGenerationRef.current;
+      const html = editor.innerHTML;
+      const markdown = html.length >= 80_000
+        ? await richTextToMarkdownCooperative(html)
+        : richTextToMarkdown(html);
+      if (generation !== editorDomGenerationRef.current) continue;
+      editor.dataset.markdown = markdown;
+      editorDomDirtyRef.current = false;
+      recordDraft(markdown);
+      return;
+    }
+
+    // A user can technically keep typing while a cooperative conversion yields.
+    // The final synchronous snapshot is only this explicit save boundary; it is
+    // preferable to losing the last characters after section switch/close.
+    const markdown = richTextToMarkdown(editor.innerHTML);
+    editor.dataset.markdown = markdown;
+    editorDomDirtyRef.current = false;
+    recordDraft(markdown);
+  }
+
   async function saveBookDetails() {
-    if (!project || !meta) return;
+    if (!project || !meta || !(await saveCurrent())) return;
     setSaveState("saving");
     try {
-      const summary = await api.saveMeta(project.projectId, meta);
+      const summary = await persistAppearance(project.projectId, meta, typography);
       adopt(summary, selectedId ?? undefined);
       setShowBookDetails(false);
       setSaveState("saved");
@@ -540,17 +650,15 @@ export default function App() {
   }
 
   async function saveCurrent(): Promise<boolean> {
-    if (!dirty || !document?.editable || !project || !selectedId) return true;
+    if (!document?.editable || !project || !selectedId) return true;
+    await flushEditorDom();
+    if (draftRef.current === document.markdown) { setDirty(false); return true; }
     const sectionId = selectedId;
-    // The DOM-backed ref is updated synchronously on every input/paste. React's
-    // state value may still be one render behind when the user immediately
-    // commits a title or subtitle, which previously allowed an empty/stale
-    // snapshot to overwrite the chapter just before the heading rewrite.
     const value = draftRef.current;
     setSaveState("saving");
     try {
-      const saved = await api.saveSection(project.projectId, sectionId, value);
-      if (selectedRef.current === sectionId && draftRef.current === value) {
+      const saved = await persistSection(project.projectId, sectionId, value);
+      if (selectedRef.current === sectionId && draftRef.current === value && !editorDomDirtyRef.current) {
         setDocument(saved); setDirty(false); setSaveState("saved");
       }
       return true;
@@ -558,6 +666,23 @@ export default function App() {
       setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); return false;
     }
   }
+
+  useEffect(() => {
+    const host = window as Window & { __folioPrepareClose?: () => Promise<boolean> };
+    host.__folioPrepareClose = async () => {
+      if (!(await saveCurrent())) return false;
+      try {
+        if (project && meta) await persistAppearance(project.projectId, meta, typography);
+        await sectionSaveQueueRef.current.flush();
+        await appearanceSaveQueueRef.current.flush();
+        return true;
+      } catch (e) {
+        setSaveState("error"); setError(e instanceof Error ? e.message : String(e));
+        return false;
+      }
+    };
+    return () => { delete host.__folioPrepareClose; };
+  }, [project?.projectId, selectedId, document?.id, document?.editable, meta, typography]);
 
   async function reloadFiles() {
     if (!project || !(await saveCurrent())) return;
@@ -621,6 +746,7 @@ export default function App() {
     const style = doc.createElement("style");
     style.id = "folio-device-profile";
     if (previewMode === "print") {
+      doc.getElementById("folio-device-calibration")?.remove();
       const page = doc.querySelector(".pagedjs_page") as HTMLElement | null;
       const width = page?.getBoundingClientRect().width || 576;
       const scale = Math.min(1, (frame.clientWidth - 14) / width);
@@ -630,16 +756,10 @@ export default function App() {
       const proseComposition = typography.bodyAlign === "left"
         ? `${proseSelector}{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:none!important;hyphens:none!important;text-wrap:pretty!important}`
         : `${proseSelector}{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important}`;
-      const profileCss: Record<Exclude<PreviewMode, "print">, string> = {
-        "kindle-paperwhite": "body{font-size:13px!important}main.book{padding:42px 32px 64px!important}",
-        "kindle-oasis": "body{font-size:13.5px!important}main.book{padding:40px 38px 64px!important}",
-        ipad: "body{font-size:14px!important}main.book{padding:56px 52px 76px!important}",
-        iphone: "body{font-size:12.5px!important}main.book{padding:36px 24px 58px!important}",
-        android: "body{font-size:12.5px!important}main.book{padding:34px 22px 56px!important}",
-      };
-      style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified{text-align:left!important;text-align-last:left!important}.folio-line-natural{text-align:left!important;text-align-last:left!important}" + profileCss[previewMode] + proseComposition;
+      style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified,.folio-line-natural{text-align:left!important;text-align-last:left!important}.scene-break{text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}" + proseComposition;
     }
     doc.head.appendChild(style);
+    if (previewMode !== "print") calibratePreviewFrame(frame);
     syncLiveChapterLabel(doc);
     const liveApplied = applyLiveDraftToPreview();
     if (previewMode !== "print" && !liveApplied) {
@@ -654,7 +774,10 @@ export default function App() {
       ? restoreScroll
       : pendingPreviewScrollRef.current || doc.scrollingElement?.scrollTop || 0;
     pendingPreviewScrollRef.current = 0;
-    requestAnimationFrame(() => doc.scrollingElement?.scrollTo(0, targetScroll));
+    requestAnimationFrame(() => {
+      doc.scrollingElement?.scrollTo(0, targetScroll);
+      updatePreviewPageCounts(frame);
+    });
   }
 
   function applyInlineFormat(command: "bold" | "italic" | "underline", placeholder: string) {
@@ -700,54 +823,126 @@ export default function App() {
     }
   }
 
-  function editorPaste(event: React.ClipboardEvent<HTMLDivElement>) {
+  async function editorPaste(event: React.ClipboardEvent<HTMLDivElement>) {
     if (!document?.editable) return;
     const html = event.clipboardData.getData("text/html");
     const plain = event.clipboardData.getData("text/plain");
-    const markdown = html.trim() ? richTextToMarkdown(html) : plainTextToMarkdown(plain);
-    if (!markdown) return;
+    if (!(html.trim() || plain.trim())) return;
     event.preventDefault();
-    const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
+
     const editor = editorRef.current;
+    const large = html.length + plain.length >= 80_000;
+    if (large) {
+      setPastePreparing(true);
+      if (editor) editor.contentEditable = "false";
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+
+    try {
+      const markdown = html.trim() ? await richTextToMarkdownCooperative(html) : plainTextToMarkdown(plain);
+      if (!markdown) return;
+      const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
+      const selection = window.getSelection();
+      const editorText = editor?.innerText.trim() ?? "";
+      const selectedText = selection?.toString().trim() ?? "";
+      const replacesDocument = !editorText || (selectedText.length > 0 && selectedText.length >= editorText.length * 0.9);
+
+      if (editor && replacesDocument) {
+        editor.innerHTML = markdownToEditorHtml(markdown, ornament);
+        editor.dataset.markdown = markdown;
+        editor.dataset.ornament = ornament;
+        editorDomDirtyRef.current = false;
+        editorDomGenerationRef.current++;
+        const range = window.document.createRange();
+        range.selectNodeContents(editor); range.collapse(false);
+        selection?.removeAllRanges(); selection?.addRange(range);
+        recordDraft(markdown);
+      } else {
+        insertEditorHtml(markdownToEditorHtml(markdown, ornament));
+        recordEditorDom();
+      }
+
+      const detected = detectPastedLanguage(markdown);
+      if (detected && meta && project && /^en(?:-|$)/i.test(meta.language || "en")) {
+        const nextMeta = { ...meta, language: detected };
+        setMeta(nextMeta);
+        void persistAppearance(project.projectId, nextMeta, typography)
+          .then((summary) => { setProject(summary); setMeta(summary.meta); })
+          .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      }
+    } finally {
+      if (large) setPastePreparing(false);
+    }
+  }
+
+  function applyFastEditorKey(event: React.KeyboardEvent<HTMLDivElement>): boolean {
+    const editor = editorRef.current;
+    if (!editor || draftRef.current.length < 100_000) return false;
+    if (event.ctrlKey || event.metaKey || event.altKey || event.nativeEvent.isComposing || event.key.length !== 1) return false;
+
     const selection = window.getSelection();
-    const editorText = editor?.innerText.trim() ?? "";
-    const selectedText = selection?.toString().trim() ?? "";
-    const replacesDocument = !editorText || (selectedText.length > 0 && selectedText.length >= editorText.length * 0.9);
+    if (!selection?.isCollapsed || !selection.focusNode || !editor.contains(selection.focusNode)) return false;
+    const parent = selection.focusNode.nodeType === Node.ELEMENT_NODE
+      ? selection.focusNode as Element
+      : selection.focusNode.parentElement;
+    if (parent?.closest("strong,b,em,i,u,s,a,code,sup,sub")) return false;
 
-    if (editor && replacesDocument) {
-      // Do not insert and then serialise a 100k-word DOM a second time. The
-      // clipboard was already converted to the canonical Markdown model.
-      editor.innerHTML = markdownToEditorHtml(markdown, ornament);
-      editor.dataset.markdown = markdown;
-      editor.dataset.ornament = ornament;
-      const range = window.document.createRange();
-      range.selectNodeContents(editor); range.collapse(false);
-      selection?.removeAllRanges(); selection?.addRange(range);
-      recordDraft(markdown);
+    // Structural end check, O(depth), never O(manuscript size).
+    let node: Node = selection.focusNode;
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (selection.focusOffset !== (node.textContent?.length ?? 0)) return false;
+    } else if (selection.focusOffset !== node.childNodes.length) return false;
+    while (node !== editor) {
+      if (node.nextSibling || !node.parentNode) return false;
+      node = node.parentNode;
+    }
+
+    event.preventDefault();
+    const text = window.document.createTextNode(event.key);
+    const focusNode = selection.focusNode;
+    const rootBoundary = focusNode === editor && selection.focusOffset === editor.childNodes.length;
+    if (rootBoundary) {
+      const last = editor.lastElementChild as HTMLElement | null;
+      if (last && last.getAttribute("contenteditable") !== "false" && !last.classList.contains("editor-scene-break")) {
+        if (last.lastChild?.nodeName === "BR" && !(last.textContent ?? "")) last.lastChild.remove();
+        last.appendChild(text);
+      } else editor.appendChild(text);
     } else {
-      insertEditorHtml(markdownToEditorHtml(markdown, ornament));
-      recordEditorDom();
+      const range = selection.getRangeAt(0);
+      range.insertNode(text);
     }
+    const caret = window.document.createRange();
+    caret.setStartAfter(text); caret.collapse(true);
+    selection.removeAllRanges(); selection.addRange(caret);
 
-    const detected = detectPastedLanguage(markdown);
-    if (detected && meta && project && /^en(?:-|$)/i.test(meta.language || "en")) {
-      const nextMeta = { ...meta, language: detected };
-      setMeta(nextMeta);
-      // Language is a composition input, not a cosmetic hint. Persist a very
-      // confident detection so reopening the project keeps the same Polish
-      // hyphenation and EPUB language metadata.
-      void api.saveMeta(project.projectId, nextMeta)
-        .then((summary) => { setProject(summary); setMeta(summary.meta); })
-        .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    const current = draftRef.current;
+    const next = current + event.key;
+    if (!fastInputBurstRef.current) {
+      undoRef.current.push(current);
+      if (undoRef.current.length > 200) undoRef.current.shift();
+      redoRef.current = [];
+      fastInputBurstRef.current = true;
     }
+    if (fastInputBurstTimerRef.current !== null) window.clearTimeout(fastInputBurstTimerRef.current);
+    fastInputBurstTimerRef.current = window.setTimeout(() => {
+      fastInputBurstRef.current = false;
+      fastInputBurstTimerRef.current = null;
+    }, 700);
+
+    editor.dataset.markdown = next;
+    draftRef.current = next;
+    setDraft(next);
+    setDirty(true);
+    return true;
   }
 
   function recordEditorDom() {
     const editor = editorRef.current;
     if (!editor) return;
-    const markdown = richTextToMarkdown(editor.innerHTML);
-    editor.dataset.markdown = markdown;
-    recordDraft(markdown);
+    editorDomDirtyRef.current = true;
+    editorDomGenerationRef.current++;
+    if (draftRef.current.length < 35_000) void flushEditorDom();
+    else scheduleEditorDomSync();
   }
 
   function recordDraft(next: string) {
@@ -780,6 +975,7 @@ export default function App() {
   }
 
   function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (applyFastEditorKey(event)) return;
     if (!(event.ctrlKey || event.metaKey)) return;
     const key = event.key.toLowerCase();
     if (key === "z" || key === "y") {
@@ -806,8 +1002,7 @@ export default function App() {
     if (!project || !meta) return;
     setSaveState("saving");
     try {
-      const withMeta = await api.saveMeta(project.projectId, meta);
-      const saved = await api.saveTypography(project.projectId, withMeta.meta, typography);
+      const saved = await persistAppearance(project.projectId, meta, typography);
       setProject(saved); setMeta(saved.meta); setTypography(saved.typography ?? {});
       setSaveState("saved"); setShowStyle(false);
     } catch (e) { setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); }
@@ -828,7 +1023,7 @@ export default function App() {
   }
 
   if (!project || !meta) return (
-    <div className="folio-shell folio-empty-shell">
+    <div className="folio-shell folio-empty-shell" data-ui-tone={uiTone}>
       <div className="folio-windowbar empty-windowbar"><div className="windowbar-spacer"/><div className="folio-wordmark">Folio</div><div className="windowbar-spacer"/></div>
       <main className="empty-state"><div className="empty-book-mark">F</div><h1>Folio</h1><p>Beautiful books, without the formatting fight.</p><div className="empty-actions"><button className="native-button primary" disabled={busy} onClick={() => void beginNewBook()}>{busy ? "Opening…" : "New Book…"}</button><button className="native-button" disabled={busy} onClick={() => void openFolder()}>Open Book…</button><button className="native-button" disabled={busy} onClick={() => void loadSample()}>Open Sample</button></div>{error && <div className="empty-error">{error}</div>}</main>
       {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
@@ -836,7 +1031,18 @@ export default function App() {
   );
 
   return (
-    <div className="folio-shell">
+    <div className="folio-shell" data-ui-tone={uiTone}>
+      <header className="folio-commandbar">
+        <div className="command-wordmark">Folio</div>
+        <nav aria-label="Application commands">
+          <button onClick={() => setShowBookDetails(true)}>Document</button>
+          <button onClick={() => setShowContent(true)}>Insert</button>
+          <button onClick={() => setShowStyle(true)}>Format</button>
+          <button onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")}>View</button>
+          <button onClick={() => setShowGenerate(true)}>Share</button>
+        </nav>
+        <button className="tone-toggle" onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")} aria-label={uiTone === "ivory" ? "Use Midnight Editorial" : "Use Ivory and Ink"}>{uiTone === "ivory" ? "Midnight" : "Ivory"}</button>
+      </header>
       <aside className="library-pane">
         <div className="library-toolbar"><span className="pane-label">Folio</span><div className="library-toolbar-actions"><button className="toolbar-text-button" title="Add content" onClick={() => setShowContent(true)}>＋ Add</button><button className="icon-button infinity" title="Book styles" onClick={() => setShowStyle(true)}>∞</button></div></div>
         <button className="book-identity" title="Edit book details" onClick={() => setShowBookDetails(true)}><div className="book-title">{meta.title}</div><div className="book-author">{meta.author}</div></button>
@@ -859,7 +1065,7 @@ export default function App() {
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)}>×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" onClick={() => setShowSearch(true)}>⌕</button>}
         </div>
-        <div className="editor-paper">{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</div>
+        <div className="editor-paper">{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</div>
       </section>
 
       <section className="preview-pane">
@@ -867,6 +1073,8 @@ export default function App() {
         <div className="device-toolbar"><div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div><div className="device-nav"><button disabled={!previousSection} title="Previous section" onClick={() => previousSection && void selectSection(previousSection.id)}>‹</button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {project.sections.length}</span><button disabled={!nextSection} title="Next section" onClick={() => nextSection && void selectSection(nextSection.id)}>›</button></div></div>
         <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{selectedId ? <iframe key={`${project.projectId}:${selectedId}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
+
+      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
         <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>

@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import yaml from "js-yaml";
 import { MATTER_TEMPLATES_DIR } from "./pipeline/paths.ts";
 import type { BookMeta } from "./pipeline/types.ts";
+import { atomicWriteUtf8 } from "./atomic-write.ts";
 
 export type Placement = "frontmatter" | "backmatter";
 
@@ -73,7 +74,7 @@ async function writeConfig(bookDir: string, cfg: RawConfig): Promise<void> {
   const header =
     "# Folio book configuration. Edit freely — this controls metadata,\n" +
     "# theme, and the order of front matter, chapters, and back matter.\n";
-  await fs.writeFile(p, header + yaml.dump(cfg, { lineWidth: 100 }), "utf8");
+  await atomicWriteUtf8(p, header + yaml.dump(cfg, { lineWidth: 100 }), "utf8");
 }
 
 async function detectCover(bookDir: string): Promise<string | undefined> {
@@ -144,7 +145,7 @@ export async function addChapter(
     if (stat.isFile()) {
       const raw = await fs.readFile(target, "utf8");
       const separator = raw.trim() ? "\n\n" : "";
-      await fs.writeFile(target, raw.replace(/\s*$/, "") + separator + "# " + safeTitle + "\n\n", "utf8");
+      await atomicWriteUtf8(target, raw.replace(/\s*$/, "") + separator + "# " + safeTitle + "\n\n", "utf8");
       return;
     }
   }
@@ -167,7 +168,7 @@ export async function addChapter(
     number += 1;
     filename = String(number).padStart(2, "0") + "-" + slug + ".md";
   }
-  await fs.writeFile(path.join(target, filename), "# " + safeTitle + "\n\n", "utf8");
+  await atomicWriteUtf8(path.join(target, filename), "# " + safeTitle + "\n\n", "utf8");
 }
 
 /** Add a matter section from a template (or a blank custom file). */
@@ -201,7 +202,7 @@ export async function addMatter(
 
   const entry = `${subdir}/${filename}`;
   const dest = path.join(bookDir, subdir, filename);
-  if (!(await exists(dest))) await fs.writeFile(dest, content, "utf8");
+  if (!(await exists(dest))) await atomicWriteUtf8(dest, content, "utf8");
 
   list.push(entry);
   cfg[placement] = list;

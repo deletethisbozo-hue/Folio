@@ -115,8 +115,8 @@ function typographyCss(book: Book): string {
   text-align: justify !important;
   text-align-last: left !important;
   text-justify: inter-word;
-  -webkit-hyphens: auto;
-  hyphens: auto;
+  -webkit-hyphens: manual;
+  hyphens: manual;
   hyphenate-limit-chars: 7 3 3;
   hyphenate-limit-lines: 2;
   overflow-wrap: normal;
@@ -136,6 +136,7 @@ function typographyCss(book: Book): string {
   text-wrap: pretty;
 }`);
   }
+  out.push(`.scene-break { text-align: center !important; text-align-last: center !important; word-spacing: normal !important; letter-spacing: normal !important; }`);
   if (ty.paragraphIndent !== undefined) out.push(`p { text-indent: ${ty.paragraphIndent} !important; }`);
   if (ty.paragraphSpacing !== undefined) out.push(`p { margin-bottom: ${ty.paragraphSpacing} !important; }`);
   if (ty.paragraphAfterBreakIndent !== undefined) {

@@ -81,9 +81,13 @@ try {
   check("generated title page never exposes internal HTML in editor or preview", !generatedPage.visibleEditorText.includes("<p class=") && !generatedPage.visiblePreviewText.includes("<p class="));
   check("title/front matter receives neither drop caps nor discretionary hyphens", !generatedPage.hasDropcap && !generatedPage.hasTitleHyphen);
   const frontRowsBeforeDelete = await page.$$eval(".contents-list > .contents-row:not(.chapter-row)", (rows) => rows.length);
+  await stage("generated front matter delete button ready", () => page.waitForFunction(() => {
+    const button = document.querySelector(".section-delete") as HTMLButtonElement | null;
+    return Boolean(button && !button.disabled);
+  }));
   page.once("dialog", (dialog) => void dialog.accept());
   await page.click(".section-delete");
-  await stage("generated front matter deletion", () => page.waitForFunction((before) => document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row)").length === before - 1, {}, frontRowsBeforeDelete));
+  await stage("generated front matter deletion", () => page.waitForFunction((before) => document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row)").length === before - 1, { timeout: 30000 }, frontRowsBeforeDelete));
   check("generated title/front matter can be removed from the book", true);
   await page.click(".chapter-row");
   await stage("return to manuscript chapter", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
@@ -274,6 +278,20 @@ try {
     return markdown.includes("WHOLE BOOK FINAL MARKER") && (markdown.match(/\S+/g)?.length ?? 0) > 100_000;
   }, { timeout: 30000 }));
   await stage("immediate whole-book preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("WHOLE BOOK FINAL MARKER"), { timeout: 30000 }));
+  await page.$eval(".rich-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.focus();
+    const range = document.createRange();
+    range.selectNodeContents(editor); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+  });
+  const trustedTypingStarted = Date.now();
+  await page.keyboard.type(" TRUSTED LARGE TYPING MARKER", { delay: 5 });
+  await stage("trusted large-manuscript typing reaches model", () => page.waitForFunction(() =>
+    (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes("TRUSTED LARGE TYPING MARKER"), { timeout: 5000 }));
+  await stage("trusted large-manuscript typing reaches preview", () => page.waitForFunction(() =>
+    document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("TRUSTED LARGE TYPING MARKER"), { timeout: 8000 }));
+  check("trusted keyboard input stays responsive after a 100,000-word paste", Date.now() - trustedTypingStarted <= 8000);
   await page.setViewport({ width: 1180, height: 700 });
   const visibleAfterLargePaste = await page.evaluate(() => {
     const shell = document.querySelector(".folio-shell") as HTMLElement;

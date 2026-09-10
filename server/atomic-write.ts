@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
  * We intentionally do not unlink the destination before rename: doing so would
  * create a data-loss window on Windows and defeat the reason this helper exists.
  */
-export async function atomicWriteUtf8(target: string, content: string): Promise<void> {
+export async function atomicWriteUtf8(target: string, content: string, _encoding: "utf8" = "utf8"): Promise<void> {
   const directory = path.dirname(target);
   await fs.mkdir(directory, { recursive: true });
 
@@ -36,7 +36,17 @@ export async function atomicWriteUtf8(target: string, content: string): Promise<
 
     // Node's rename maps to the platform's replace operation for files. Do not
     // add an unlink(target) fallback: that would make crashes destructive.
-    await fs.rename(temp, target);
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await fs.rename(temp, target);
+        break;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        const transientWindowsLock = process.platform === "win32" && (code === "EPERM" || code === "EBUSY" || code === "EACCES");
+        if (!transientWindowsLock || attempt >= 6) throw error;
+        await new Promise<void>((resolve) => setTimeout(resolve, 25 * (2 ** attempt)));
+      }
+    }
 
     // Best-effort directory sync strengthens crash durability on filesystems
     // that support it. Windows commonly rejects directory handles, which is
