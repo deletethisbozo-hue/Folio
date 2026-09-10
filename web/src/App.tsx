@@ -149,6 +149,23 @@ export default function App() {
     if (bookPath) void openFolder(bookPath);
   }, []);
 
+  // Appearance is project data too. Persist it after a short quiet period so
+  // adding, renaming or moving content can never revive an older style snapshot.
+  useEffect(() => {
+    if (!project || !meta) return;
+    const projectId = project.projectId;
+    const appearanceMeta = { ...project.meta, theme: meta.theme };
+    const timer = window.setTimeout(async () => {
+      try {
+        const withMeta = await api.saveMeta(projectId, appearanceMeta);
+        await api.saveTypography(projectId, withMeta.meta, typography);
+      } catch (e) {
+        if (project?.projectId === projectId) setError(e instanceof Error ? e.message : String(e));
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [project?.projectId, meta?.theme, typography]);
+
   const chapters = useMemo(() => project?.sections.filter((s) => s.kind === "chapter") ?? [], [project]);
   const frontMatter = useMemo(() => project?.sections.filter((s) => s.kind !== "chapter" && s.kind !== "backmatter") ?? [], [project]);
   const backMatter = useMemo(() => project?.sections.filter((s) => s.kind === "backmatter") ?? [], [project]);
@@ -581,11 +598,17 @@ export default function App() {
     if (!selectedId || selectedSection?.kind !== "chapter") return;
     const chapterTitle = typography.chapterTitle;
     if (chapterTitle?.showLabel !== false && !chapterTitle?.labelText?.trim()) return;
+    const section = doc.getElementById(selectedId);
+    const heading = section?.querySelector(":scope > h1") as HTMLElement | null;
+    const number = chapters.findIndex((chapter) => chapter.id === selectedId) + 1;
+    if (heading && chapterTitle?.showLabel !== false) {
+      heading.dataset.folioLabel = `${chapterTitle!.labelText!.trim()} ${Math.max(1, number)}`;
+    }
     const style = doc.createElement("style");
     style.id = "folio-live-chapter-label";
     const content = chapterTitle?.showLabel === false
       ? "none"
-      : JSON.stringify(`${chapterTitle.labelText!.trim()} ${chapterIndex}`);
+      : "attr(data-folio-label)";
     style.textContent = `section.chapter[id=${JSON.stringify(selectedId)}] > h1::before{content:${content}!important;${content === "none" ? "display:none!important;" : "display:block;"}}`;
     doc.head.appendChild(style);
   }
