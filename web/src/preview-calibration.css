@@ -1,11 +1,12 @@
-/* Device shells are scaled representations of real logical screen shapes.
-   App.tsx controls the available width; these ratios keep the viewport geometry
-   stable so the runtime can scale typography and margins proportionally. */
-.reader-device.device-kindle-paperwhite { aspect-ratio: .756; }
-.reader-device.device-kindle-oasis { aspect-ratio: .796; }
-.reader-device.device-ipad { aspect-ratio: .715; }
-.reader-device.device-iphone { aspect-ratio: .462; }
-.reader-device.device-android { aspect-ratio: .455; }
+/* Device shells use the same height budget as the original Folio preview while
+   matching the logical aspect selected for each device. Keep the width factor
+   paired with the aspect ratio: changing only one makes narrow phones grow
+   vertically and overflow the preview stage on laptop-sized windows. */
+.reader-device.device-kindle-paperwhite { width:min(95%,480px,calc((100dvh - 112px) * .756)); aspect-ratio:.756; }
+.reader-device.device-kindle-oasis { width:min(96%,510px,calc((100dvh - 112px) * .796)); aspect-ratio:.796; }
+.reader-device.device-ipad { width:min(96%,520px,calc((100dvh - 112px) * .715)); aspect-ratio:.715; }
+.reader-device.device-iphone { width:min(82%,335px,calc((100dvh - 112px) * .462)); aspect-ratio:.462; }
+.reader-device.device-android { width:min(84%,350px,calc((100dvh - 112px) * .455)); aspect-ratio:.455; }
 
 .page-counts {
   font-size: 8.5px;
