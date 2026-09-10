@@ -3,6 +3,7 @@ name: Final qualify Folio 1.0.5 on Windows
 on:
   push:
     branches: ["release/v1.0.5"]
+    paths: [".v105-final-trigger"]
   workflow_dispatch:
 
 permissions:
@@ -54,15 +55,14 @@ jobs:
           python scripts\v105-reconstruct.py
           python scripts\v105-finalize.py
           python scripts\v105-keyboard-hotfix.py
+          git restore --source=HEAD -- .github/workflows/windows-release.yml
 
-      - name: Remove one-shot release machinery
+      - name: Remove one-shot source scripts
         shell: pwsh
         run: |
           Remove-Item scripts\v105-reconstruct.py -Force
           Remove-Item scripts\v105-finalize.py -Force
           Remove-Item scripts\v105-keyboard-hotfix.py -Force
-          Remove-Item .github\workflows\v105-qualify.yml -Force
-          Remove-Item .github\workflows\v105-final-qualify.yml -Force
 
       - name: Check candidate integrity
         shell: pwsh
@@ -157,7 +157,7 @@ jobs:
             build/qa/sha256.txt
           if-no-files-found: error
 
-      - name: Commit exact tested tree
+      - name: Commit exact tested application tree
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
