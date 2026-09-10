@@ -262,14 +262,19 @@ function chooseBreaks(
 
         const adjustment = available - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
-        const fit = !last && natural <= available + 0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, emergency)
+        const strictFit = !last && natural <= available + 0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, false)
           : null;
-        // A very narrow first/drop-cap line can be mathematically impossible
-        // to fill inside the bounded spacing limits. In the emergency pass,
-        // keep that line natural instead of creating the conspicuous holes
-        // produced by Chromium's unconstrained justification.
-        const rescueNatural = emergency && !last && !fit && natural <= available + 0.75;
+        const fit = strictFit ?? (emergency && !last && natural <= available + 0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, true)
+          : null);
+        // A short line beside a drop cap can be mathematically impossible to
+        // fill without an obvious river of white. Natural setting is the
+        // professional fallback only while the cap occupies the measure.
+        const dropcapRescue = !last && !fit && Boolean(geometry.cap) && line < geometry.capLines
+          && natural <= available + 0.75;
+        const emergencyRescue = emergency && !last && !fit && natural <= available + 0.75;
+        const rescueNatural = dropcapRescue || emergencyRescue;
         if (!last && !fit && !rescueNatural) continue;
 
         const wordsOnLine = end - start + 1;
@@ -305,7 +310,7 @@ function chooseBreaks(
             hyphenated: hyphenBreak,
             offset,
             available,
-            emergency,
+            emergency: !last && emergency && !dropcapRescue && (!strictFit || emergencyRescue),
           });
         }
       }

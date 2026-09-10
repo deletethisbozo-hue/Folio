@@ -263,13 +263,19 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
 
             const adjustment = available - natural;
             const trackingOps = Math.max(0, characters + gaps - 1);
-            const fit = !last && natural <= available + 0.75
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, emergency)
+            const strictFit = !last && natural <= available + 0.75
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, false)
               : null;
-            // Mirror the reflow preview: an impossible narrow/drop-cap line
-            // stays natural rather than exceeding the professional spacing
-            // bounds merely to touch both margins.
-            const rescueNatural = emergency && !last && !fit && natural <= available + 0.75;
+            const fit = strictFit ?? (emergency && !last && natural <= available + 0.75
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, true)
+              : null);
+            // Mirror the reflow preview: only lines physically beside a drop
+            // cap may stay natural in the strict pass. Ordinary prose still
+            // has to reach the measure inside the normal spacing bounds.
+            const dropcapRescue = !last && !fit && Boolean(cap) && lineNo < capLines
+              && natural <= available + 0.75;
+            const emergencyRescue = emergency && !last && !fit && natural <= available + 0.75;
+            const rescueNatural = dropcapRescue || emergencyRescue;
             if (!last && !fit && !rescueNatural) continue;
 
             const wordsOnLine = end - start + 1;
@@ -296,7 +302,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               hyphenated: hyphenBreak,
               offset,
               available,
-              emergency,
+              emergency: !last && emergency && !dropcapRescue && (!strictFit || emergencyRescue),
             });
           }
         }
