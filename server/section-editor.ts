@@ -15,9 +15,16 @@ export interface SectionDocument {
   editable: boolean;
 }
 
-async function resolveSource(projectId: string, sectionId: string): Promise<{ path: string; ordinal?: number } | null> {
-  const { book } = await loadProject(projectId);
-  const section = book.sections.find((s) => s.id === sectionId);
+type SourceSection = {
+  generated?: boolean;
+  sourcePath?: string;
+  sourceOrdinal?: number;
+};
+
+/** Resolve an already-ingested section without loading the whole project again.
+ * Large manuscripts make a second load surprisingly expensive; all editor
+ * operations already have the authoritative section in hand. */
+function resolveSourceForSection(projectId: string, section: SourceSection | undefined): { path: string; ordinal?: number } | null {
   if (!section || section.generated || !section.sourcePath) return null;
 
   const info = projectInfo(projectId);
@@ -33,7 +40,7 @@ export async function readSectionDocument(projectId: string, sectionId: string):
   const { book } = await loadProject(projectId);
   const section = book.sections.find((s) => s.id === sectionId);
   if (!section) throw new Error("Section not found.");
-  const source = await resolveSource(projectId, sectionId);
+  const source = resolveSourceForSection(projectId, section);
   return {
     id: section.id,
     title: section.title,
@@ -59,7 +66,7 @@ export async function writeSectionDocument(projectId: string, sectionId: string,
   const section = book.sections.find((s) => s.id === sectionId);
   if (!section || section.generated) throw new Error("This section is generated and cannot be edited directly.");
 
-  const source = await resolveSource(projectId, sectionId);
+  const source = resolveSourceForSection(projectId, section);
   if (!source) throw new Error("Could not locate the source Markdown file for this section.");
 
   const raw = await fs.readFile(source.path, "utf8");
@@ -102,7 +109,7 @@ export async function updateSectionHeadingDocument(
   const title = change.title === undefined ? section.title : change.title.trim();
   if (!title) throw new Error("Chapter title cannot be empty.");
   const subtitle = change.subtitle === undefined ? section.subtitle : change.subtitle.trim() || undefined;
-  const source = await resolveSource(projectId, sectionId);
+  const source = resolveSourceForSection(projectId, section);
   if (!source) throw new Error("Could not locate the source Markdown file for this chapter.");
 
   const raw = await fs.readFile(source.path, "utf8");
@@ -204,7 +211,7 @@ export async function deleteSectionDocument(projectId: string, sectionId: string
     throw new Error("This section cannot be deleted here.");
   }
 
-  const source = await resolveSource(projectId, sectionId);
+  const source = resolveSourceForSection(projectId, section);
   if (!source) throw new Error("Could not locate the source Markdown file for this chapter.");
   const info = projectInfo(projectId);
   if (!info.folder) throw new Error("This chapter has no writable book folder.");
