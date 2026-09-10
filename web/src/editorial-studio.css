@@ -1,0 +1,893 @@
+/* Folio 1.0.6 Editorial Studio
+ *
+ * This layer intentionally changes the application composition rather than
+ * recolouring the legacy UI. Existing selectors/actions remain intact so no
+ * publishing functionality becomes decorative or disconnected.
+ */
+
+.folio-shell[data-ui-tone="ivory"] {
+  --studio-bg: #e9e5dd;
+  --studio-chrome: #f7f4ee;
+  --studio-sidebar: #eee9df;
+  --studio-surface: #fffdf8;
+  --studio-paper: #fffdfa;
+  --studio-editor-canvas: #ddd8cf;
+  --studio-preview: #242528;
+  --studio-preview-chrome: #2d2e32;
+  --studio-ink: #211f1c;
+  --studio-muted: #776f64;
+  --studio-faint: #a69d90;
+  --studio-rule: #cec6ba;
+  --studio-rule-strong: #b7ad9e;
+  --studio-accent: #9a6744;
+  --studio-accent-soft: #e4d5c5;
+  --studio-danger: #98554e;
+  --studio-control: #f8f5ef;
+}
+
+.folio-shell[data-ui-tone="midnight"] {
+  --studio-bg: #18191c;
+  --studio-chrome: #1d1e22;
+  --studio-sidebar: #202126;
+  --studio-surface: #26272c;
+  --studio-paper: #292a2f;
+  --studio-editor-canvas: #1b1c20;
+  --studio-preview: #111215;
+  --studio-preview-chrome: #191a1e;
+  --studio-ink: #eee7dc;
+  --studio-muted: #b4a99a;
+  --studio-faint: #777169;
+  --studio-rule: #383a40;
+  --studio-rule-strong: #4a4c52;
+  --studio-accent: #d0ab78;
+  --studio-accent-soft: #443a30;
+  --studio-danger: #d08479;
+  --studio-control: #292a2f;
+}
+
+.folio-shell:not(.folio-empty-shell)[data-ui-tone] {
+  min-width: 980px;
+  grid-template-columns: 218px minmax(0, 1fr) clamp(320px, 24vw, 348px);
+  grid-template-rows: 48px minmax(0, 1fr) 26px;
+  grid-template-areas:
+    "command command command"
+    "library editor preview"
+    "status status status";
+  background: var(--studio-bg);
+  color: var(--studio-ink);
+  contain: size layout;
+}
+
+/* Global masthead -------------------------------------------------------- */
+.folio-shell[data-ui-tone] .folio-commandbar {
+  grid-area: command;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 218px minmax(0, 1fr) auto;
+  align-items: stretch;
+  border: 0;
+  border-bottom: 1px solid var(--studio-rule-strong);
+  background: var(--studio-chrome);
+  box-shadow: none;
+}
+
+.folio-shell[data-ui-tone] .command-wordmark {
+  width: auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  border-right: 1px solid var(--studio-rule);
+  color: var(--studio-ink);
+  font: 600 21px/1 Georgia, "Times New Roman", serif;
+  letter-spacing: -.035em;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav {
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding-left: 8px;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav button,
+.folio-shell[data-ui-tone] .folio-commandbar .tone-toggle {
+  height: 47px;
+  min-width: 0;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: .005em;
+  box-shadow: none;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav button:hover,
+.folio-shell[data-ui-tone] .folio-commandbar .tone-toggle:hover {
+  background: transparent;
+  color: var(--studio-ink);
+  box-shadow: inset 0 -2px 0 var(--studio-accent);
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar .tone-toggle {
+  margin: 0;
+  padding-inline: 18px;
+  border-left: 1px solid var(--studio-rule);
+  color: var(--studio-accent);
+  font-size: 10px;
+}
+
+/* Editorial navigator --------------------------------------------------- */
+.folio-shell[data-ui-tone] .library-pane {
+  grid-area: library;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  border: 0;
+  border-right: 1px solid var(--studio-rule-strong);
+  background: var(--studio-sidebar);
+  color: var(--studio-ink);
+  box-shadow: none;
+}
+
+.folio-shell[data-ui-tone] .library-toolbar {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 13px 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--studio-rule);
+  background: transparent;
+}
+
+.folio-shell[data-ui-tone] .pane-label {
+  color: var(--studio-muted);
+  font: 650 9px/1 "Segoe UI", sans-serif;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.folio-shell[data-ui-tone] .library-toolbar-actions {
+  gap: 7px;
+}
+
+.folio-shell[data-ui-tone] .toolbar-text-button,
+.folio-shell[data-ui-tone] .icon-button {
+  height: 26px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 10px;
+}
+
+.folio-shell[data-ui-tone] .toolbar-text-button:hover,
+.folio-shell[data-ui-tone] .icon-button:hover {
+  background: var(--studio-accent-soft);
+  color: var(--studio-ink);
+}
+
+.folio-shell[data-ui-tone] .icon-button.infinity {
+  width: 25px;
+  font: 600 15px/26px Georgia, serif;
+}
+
+.folio-shell[data-ui-tone] .book-identity {
+  width: auto;
+  margin: 0;
+  padding: 17px 16px 15px;
+  border: 0;
+  border-bottom: 1px solid var(--studio-rule);
+  background: transparent;
+  text-align: left;
+}
+
+.folio-shell[data-ui-tone] .book-identity:hover {
+  background: transparent;
+}
+
+.folio-shell[data-ui-tone] .book-title {
+  color: var(--studio-ink);
+  font: 600 15px/1.25 Georgia, "Times New Roman", serif;
+  letter-spacing: -.01em;
+}
+
+.folio-shell[data-ui-tone] .book-author {
+  margin-top: 5px;
+  color: var(--studio-muted);
+  font-size: 9.5px;
+  letter-spacing: .015em;
+}
+
+.folio-shell[data-ui-tone] .contents-list {
+  padding: 12px 0 18px;
+  scrollbar-color: var(--studio-rule-strong) transparent;
+}
+
+.folio-shell[data-ui-tone] .contents-heading {
+  margin: 12px 0 5px;
+  padding: 0 16px;
+  color: var(--studio-faint);
+  font: 650 8.5px/1.4 "Segoe UI", sans-serif;
+  font-style: normal;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.folio-shell[data-ui-tone] .contents-heading:first-of-type {
+  margin-top: 3px;
+}
+
+.folio-shell[data-ui-tone] .contents-row {
+  position: relative;
+  width: 100%;
+  height: 31px;
+  padding: 0 14px 0 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 10.5px;
+  line-height: 31px;
+  gap: 6px;
+}
+
+.folio-shell[data-ui-tone] .contents-row:hover {
+  background: color-mix(in srgb, var(--studio-accent-soft) 55%, transparent);
+  color: var(--studio-ink);
+}
+
+.folio-shell[data-ui-tone] .contents-row.selected {
+  background: var(--studio-accent-soft);
+  color: var(--studio-ink);
+  box-shadow: inset 3px 0 0 var(--studio-accent);
+}
+
+.folio-shell[data-ui-tone] .contents-row.selected::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--studio-accent);
+  opacity: .75;
+}
+
+.folio-shell[data-ui-tone] .chapter-grip {
+  width: 8px;
+  flex: 0 0 8px;
+  color: var(--studio-faint);
+  opacity: .55;
+}
+
+.folio-shell[data-ui-tone] .chapter-number {
+  width: 18px;
+  flex: 0 0 18px;
+  color: var(--studio-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.folio-shell[data-ui-tone] .chapter-label {
+  font-weight: 520;
+}
+
+.folio-shell[data-ui-tone] .library-footer {
+  height: 34px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-top: 1px solid var(--studio-rule);
+  background: transparent;
+}
+
+.folio-shell[data-ui-tone] .tiny-footer-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 2px;
+  color: var(--studio-muted);
+  font-size: 12px;
+}
+
+.folio-shell[data-ui-tone] .tiny-footer-button:hover {
+  background: var(--studio-accent-soft);
+  color: var(--studio-ink);
+}
+
+/* Manuscript studio ------------------------------------------------------ */
+.folio-shell[data-ui-tone] .editor-pane {
+  grid-area: editor;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-right: 1px solid var(--studio-rule-strong);
+  background: var(--studio-editor-canvas);
+  color: var(--studio-ink);
+}
+
+.folio-shell[data-ui-tone] .editor-topbar {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-bottom: 1px solid var(--studio-rule);
+  background: var(--studio-chrome);
+}
+
+.folio-shell[data-ui-tone] .topbar-title {
+  color: var(--studio-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.folio-shell[data-ui-tone] .editor-topbar-right {
+  gap: 14px;
+}
+
+.folio-shell[data-ui-tone] .word-count,
+.folio-shell[data-ui-tone] .save-indicator {
+  color: var(--studio-muted);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.folio-shell[data-ui-tone] .save-indicator.error {
+  color: var(--studio-danger);
+}
+
+.folio-shell[data-ui-tone] .section-titlebar {
+  height: 72px;
+  min-height: 72px;
+  padding: 0 18px 0 28px;
+  border: 0;
+  border-bottom: 1px solid var(--studio-rule);
+  background: var(--studio-surface);
+}
+
+.folio-shell[data-ui-tone] .section-title-wrap {
+  column-gap: 9px;
+  row-gap: 2px;
+}
+
+.folio-shell[data-ui-tone] .section-index {
+  color: var(--studio-accent);
+  font: 600 12px/1.2 Georgia, serif;
+}
+
+.folio-shell[data-ui-tone] .section-title,
+.folio-shell[data-ui-tone] .section-title-button {
+  padding: 0;
+  color: var(--studio-ink);
+  font: 600 20px/1.15 Georgia, "Times New Roman", serif;
+  letter-spacing: -.02em;
+}
+
+.folio-shell[data-ui-tone] .section-title-button:not(:disabled):hover,
+.folio-shell[data-ui-tone] .section-subtitle-button:not(:disabled):hover {
+  background: transparent;
+  color: var(--studio-accent);
+}
+
+.folio-shell[data-ui-tone] .section-subtitle-button {
+  padding: 0;
+  color: var(--studio-muted);
+  font: italic 10px/1.3 Georgia, "Times New Roman", serif;
+}
+
+.folio-shell[data-ui-tone] .section-subtitle-button.placeholder {
+  color: var(--studio-faint);
+  font-style: normal;
+}
+
+.folio-shell[data-ui-tone] .section-title-input,
+.folio-shell[data-ui-tone] .section-subtitle-input {
+  border: 0;
+  border-bottom: 1px solid var(--studio-accent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--studio-ink);
+  box-shadow: none;
+  outline: 0;
+}
+
+.folio-shell[data-ui-tone] .section-title-input {
+  height: 29px;
+  font: 600 18px/1 Georgia, serif;
+}
+
+.folio-shell[data-ui-tone] .section-subtitle-input {
+  height: 22px;
+  font: italic 10px/1 Georgia, serif;
+}
+
+.folio-shell[data-ui-tone] .section-actions {
+  gap: 4px;
+}
+
+.folio-shell[data-ui-tone] .section-move,
+.folio-shell[data-ui-tone] .section-gear,
+.folio-shell[data-ui-tone] .section-delete {
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 10px;
+}
+
+.folio-shell[data-ui-tone] .section-move {
+  width: 28px;
+}
+
+.folio-shell[data-ui-tone] .section-gear {
+  width: 34px;
+}
+
+.folio-shell[data-ui-tone] .section-delete {
+  padding: 0 8px;
+  color: var(--studio-danger);
+}
+
+.folio-shell[data-ui-tone] .section-move:hover:not(:disabled),
+.folio-shell[data-ui-tone] .section-gear:hover,
+.folio-shell[data-ui-tone] .section-delete:hover {
+  border-color: var(--studio-rule);
+  background: var(--studio-control);
+}
+
+.folio-shell[data-ui-tone] .format-toolbar {
+  height: 38px;
+  min-height: 38px;
+  margin: 0;
+  padding: 0 18px;
+  gap: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--studio-rule);
+  background: var(--studio-chrome);
+}
+
+.folio-shell[data-ui-tone] .toolbar-group {
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.folio-shell[data-ui-tone] .toolbar-group + .toolbar-group {
+  position: relative;
+  padding-left: 10px;
+}
+
+.folio-shell[data-ui-tone] .toolbar-group + .toolbar-group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--studio-rule);
+}
+
+.folio-shell[data-ui-tone] .format-toolbar button {
+  height: 28px;
+  min-width: 28px;
+  padding: 0 7px;
+  border: 0;
+  border-right: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.folio-shell[data-ui-tone] .format-toolbar button:hover:not(:disabled) {
+  background: var(--studio-accent-soft);
+  color: var(--studio-ink);
+}
+
+.folio-shell[data-ui-tone] .format-toolbar .scene-break-button {
+  min-width: 74px;
+  margin-left: 3px;
+  color: var(--studio-accent);
+  font-family: Georgia, serif;
+}
+
+.folio-shell[data-ui-tone] .scene-break-button span {
+  color: var(--studio-muted);
+  font: 10px "Segoe UI", sans-serif;
+}
+
+.folio-shell[data-ui-tone] .search-pill {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--studio-muted);
+}
+
+.folio-shell[data-ui-tone] .search-pill:hover {
+  background: var(--studio-accent-soft);
+  color: var(--studio-ink);
+}
+
+.folio-shell[data-ui-tone] .editor-search {
+  height: 29px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 2px;
+  background: var(--studio-control);
+}
+
+.folio-shell[data-ui-tone] .editor-search input,
+.folio-shell[data-ui-tone] .editor-search button {
+  color: var(--studio-ink);
+  background: transparent;
+}
+
+.folio-shell[data-ui-tone] .editor-paper {
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--studio-editor-canvas);
+  contain: layout paint;
+}
+
+.folio-shell[data-ui-tone] .manuscript-editor {
+  width: min(760px, calc(100% - 54px));
+  height: calc(100% - 34px);
+  min-height: 0;
+  margin: 17px auto;
+  padding: 42px 58px 78px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 0;
+  outline: 0;
+  background: var(--studio-paper);
+  color: var(--studio-ink);
+  box-shadow: none;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  line-height: 1.56;
+  letter-spacing: 0;
+  scrollbar-color: var(--studio-rule-strong) transparent;
+}
+
+.folio-shell[data-ui-tone] .rich-editor[contenteditable="false"] {
+  background: var(--studio-paper);
+  color: var(--studio-muted);
+}
+
+.folio-shell[data-ui-tone] .rich-editor p {
+  margin: 0 0 .82em;
+}
+
+.folio-shell[data-ui-tone] .rich-editor h1,
+.folio-shell[data-ui-tone] .rich-editor h2,
+.folio-shell[data-ui-tone] .rich-editor h3 {
+  color: var(--studio-ink);
+  letter-spacing: -.015em;
+}
+
+.folio-shell[data-ui-tone] .editor-scene-break {
+  color: var(--studio-accent);
+}
+
+.folio-shell[data-ui-tone] .editor-scene-break-remove {
+  border-radius: 2px;
+  color: var(--studio-faint);
+}
+
+.folio-shell[data-ui-tone] .editor-scene-break:hover .editor-scene-break-remove,
+.folio-shell[data-ui-tone] .editor-scene-break-remove:focus {
+  background: var(--studio-accent-soft);
+  color: var(--studio-danger);
+}
+
+.folio-shell[data-ui-tone] .readonly-note {
+  left: 50%;
+  right: auto;
+  bottom: 22px;
+  width: min(650px, calc(100% - 100px));
+  transform: translateX(-50%);
+  color: var(--studio-muted);
+  font-size: 9px;
+}
+
+.folio-shell[data-ui-tone] .readonly-note button {
+  color: var(--studio-accent);
+}
+
+/* Preview desk ---------------------------------------------------------- */
+.folio-shell[data-ui-tone] .preview-pane {
+  grid-area: preview;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  border: 0;
+  background: var(--studio-preview);
+  color: #ece8e0;
+}
+
+.folio-shell[data-ui-tone] .preview-topbar {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid #3a3b40;
+  background: var(--studio-preview-chrome);
+}
+
+.folio-shell[data-ui-tone] .preview-style-button {
+  height: 28px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: #c8c2b8;
+  font: 10px Georgia, serif;
+}
+
+.folio-shell[data-ui-tone] .preview-style-button:hover {
+  background: #38393e;
+  color: #fffaf0;
+}
+
+.folio-shell[data-ui-tone] .generate-button {
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--studio-accent) 72%, #fff 0%);
+  border-radius: 2px;
+  background: var(--studio-accent);
+  background-image: none;
+  color: #fffaf2;
+  box-shadow: none;
+  font-size: 9.5px;
+  font-weight: 650;
+}
+
+.folio-shell[data-ui-tone="midnight"] .generate-button {
+  color: #1d1b18;
+}
+
+.folio-shell[data-ui-tone] .generate-menu {
+  top: 33px;
+  right: 0;
+  width: 202px;
+  padding: 6px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 3px;
+  background: var(--studio-surface);
+  color: var(--studio-ink);
+  box-shadow: 0 14px 32px rgba(0,0,0,.24);
+  backdrop-filter: none;
+}
+
+.folio-shell[data-ui-tone] .generate-menu button {
+  height: 30px;
+  border-radius: 2px;
+  color: var(--studio-ink);
+}
+
+.folio-shell[data-ui-tone] .generate-menu button:hover {
+  background: var(--studio-accent-soft);
+}
+
+.folio-shell[data-ui-tone] .device-toolbar {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 10px 0 12px;
+  border: 0;
+  border-bottom: 1px solid #38393e;
+  background: var(--studio-preview-chrome);
+  color: #bdb8af;
+}
+
+.folio-shell[data-ui-tone] .device-label select,
+.folio-shell[data-ui-tone] .trim-select {
+  height: 26px;
+  border: 1px solid #484a50;
+  border-radius: 2px;
+  background: #242529;
+  color: #e5e0d8;
+  font-size: 9.5px;
+  outline: 0;
+}
+
+.folio-shell[data-ui-tone] .device-nav {
+  color: #aaa59d;
+  font-size: 9px;
+}
+
+.folio-shell[data-ui-tone] .device-nav button {
+  width: 25px;
+  height: 25px;
+  border-radius: 2px;
+  color: #d4cec4;
+}
+
+.folio-shell[data-ui-tone] .device-nav button:hover:not(:disabled) {
+  background: #3b3c42;
+}
+
+.folio-shell[data-ui-tone] .preview-stage {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 16px 12px 18px;
+  overflow: auto;
+  background: var(--studio-preview);
+  scrollbar-color: #4b4c51 transparent;
+}
+
+/* Keep the right preview footprint fixed. Only the internal device drawing may
+ * scale down to fit; it never grows the application column. */
+.folio-shell[data-ui-tone] .reader-device {
+  max-width: 100%;
+}
+
+.folio-shell[data-ui-tone] .reader-screen {
+  background: #f6f3ea;
+  color: #1f1f1d;
+}
+
+/* Bottom information strip --------------------------------------------- */
+.folio-shell[data-ui-tone] .folio-statusbar {
+  grid-area: status;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 12px 0 16px;
+  gap: 18px;
+  border: 0;
+  border-top: 1px solid var(--studio-rule-strong);
+  background: var(--studio-chrome);
+  color: var(--studio-muted);
+  font-size: 9px;
+  letter-spacing: .015em;
+}
+
+/* Dialogs are editorial sheets, not floating dashboard cards. --------- */
+.folio-shell[data-ui-tone] .dialog-overlay,
+.folio-shell[data-ui-tone] .style-overlay {
+  background: rgba(12,12,14,.48);
+  backdrop-filter: blur(2px);
+}
+
+.folio-shell[data-ui-tone] .folio-dialog,
+.folio-shell[data-ui-tone] .style-library {
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 3px;
+  background: var(--studio-surface);
+  color: var(--studio-ink);
+  box-shadow: 0 22px 56px rgba(0,0,0,.28);
+}
+
+.folio-shell[data-ui-tone] .folio-dialog > header,
+.folio-shell[data-ui-tone] .style-library-header {
+  min-height: 46px;
+  border-bottom: 1px solid var(--studio-rule);
+  background: var(--studio-chrome);
+}
+
+.folio-shell[data-ui-tone] .folio-dialog > header h2,
+.folio-shell[data-ui-tone] .style-library-title {
+  color: var(--studio-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 600;
+}
+
+.folio-shell[data-ui-tone] .dialog-field span,
+.folio-shell[data-ui-tone] .setting-label {
+  color: var(--studio-muted);
+}
+
+.folio-shell[data-ui-tone] .dialog-field input,
+.folio-shell[data-ui-tone] .dialog-field textarea,
+.folio-shell[data-ui-tone] .dialog-field select,
+.folio-shell[data-ui-tone] .setting-control input,
+.folio-shell[data-ui-tone] .setting-control select {
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 2px;
+  background: var(--studio-control);
+  color: var(--studio-ink);
+  box-shadow: none;
+}
+
+.folio-shell[data-ui-tone] .native-button {
+  min-height: 30px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 2px;
+  background: var(--studio-control) !important;
+  background-image: none !important;
+  color: var(--studio-ink);
+  box-shadow: none;
+}
+
+.folio-shell[data-ui-tone] .native-button.primary {
+  border-color: var(--studio-accent);
+  background: var(--studio-accent) !important;
+  color: #fffaf2;
+}
+
+.folio-shell[data-ui-tone="midnight"] .native-button.primary {
+  color: #1c1b19;
+}
+
+.folio-shell[data-ui-tone] button:focus-visible,
+.folio-shell[data-ui-tone] input:focus-visible,
+.folio-shell[data-ui-tone] select:focus-visible,
+.folio-shell[data-ui-tone] textarea:focus-visible,
+.folio-shell[data-ui-tone] [contenteditable="true"]:focus-visible {
+  outline: 2px solid var(--studio-accent);
+  outline-offset: 2px;
+}
+
+/* Empty state ----------------------------------------------------------- */
+.folio-empty-shell[data-ui-tone] {
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  grid-template-columns: 1fr;
+  background: var(--studio-bg);
+  color: var(--studio-ink);
+}
+
+.folio-empty-shell[data-ui-tone] .folio-windowbar {
+  height: 48px;
+  border-bottom: 1px solid var(--studio-rule-strong);
+  background: var(--studio-chrome);
+}
+
+.folio-empty-shell[data-ui-tone] .folio-wordmark {
+  color: var(--studio-ink);
+  font: 600 21px Georgia, serif;
+  letter-spacing: -.035em;
+}
+
+.folio-empty-shell[data-ui-tone] .empty-state {
+  width: min(560px, calc(100vw - 60px));
+  align-self: center;
+  justify-self: center;
+  padding: 56px 62px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 0;
+  background: var(--studio-surface);
+  box-shadow: none;
+}
+
+.folio-empty-shell[data-ui-tone] .empty-book-mark {
+  border-color: var(--studio-rule-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--studio-accent);
+  box-shadow: none;
+}
+
+.folio-empty-shell[data-ui-tone] .empty-state h1 {
+  color: var(--studio-ink);
+  font-family: Georgia, serif;
+  letter-spacing: -.03em;
+}
+
+.folio-empty-shell[data-ui-tone] .empty-state p {
+  color: var(--studio-muted);
+}
+
+@media (max-width: 1120px) {
+  .folio-shell:not(.folio-empty-shell)[data-ui-tone] {
+    grid-template-columns: 196px minmax(0, 1fr) 320px;
+  }
+  .folio-shell[data-ui-tone] .folio-commandbar {
+    grid-template-columns: 196px minmax(0,1fr) auto;
+  }
+  .folio-shell[data-ui-tone] .manuscript-editor {
+    width: calc(100% - 34px);
+    padding-inline: 38px;
+  }
+}
