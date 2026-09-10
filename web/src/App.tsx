@@ -471,6 +471,13 @@ export default function App() {
       ...project,
       sections: project.sections.map((section) => section.kind === "chapter" ? byId.get(order[chapterCursor++])! : section),
     });
+    // The contents list commits on the next frame. Synchronize the existing
+    // iframe immediately afterwards as well as through the regular effects, so
+    // a late preview load cannot restore the chapter's former label number.
+    requestAnimationFrame(() => {
+      const doc = previewRef.current?.contentDocument;
+      if (doc) syncLiveChapterLabel(doc);
+    });
     setBusy(true); setError(null);
     try {
       const updated = await api.reorderChapters(project.projectId, order);
@@ -725,7 +732,10 @@ export default function App() {
     if (chapterTitle?.showLabel !== false && !chapterTitle?.labelText?.trim()) return;
     const section = doc.getElementById(selectedId);
     const heading = section?.querySelector(":scope > h1") as HTMLElement | null;
-    const number = chapters.findIndex((chapter) => chapter.id === selectedId) + 1;
+    const visibleNumber = [...window.document.querySelectorAll(".contents-row.chapter-row")]
+      .findIndex((row) => row.classList.contains("selected")) + 1;
+    const modelNumber = chapters.findIndex((chapter) => chapter.id === selectedId) + 1;
+    const number = visibleNumber || modelNumber;
     if (heading && chapterTitle?.showLabel !== false) {
       heading.dataset.folioLabel = `${chapterTitle!.labelText!.trim()} ${Math.max(1, number)}`;
     }
