@@ -114,22 +114,28 @@ const md = renderMarkdown(sample);
 // test silently had no baseline on any machine but the one that made it.
 const ref = JSON.parse(await fs.readFile(path.join(ROOT, "tests", "fixtures", "pipeline-reference.json"), "utf8"));
 
-// stylesheet1.css is base.css and stylesheet2.css is the selected Classic
-// theme. Both intentionally changed as part of the preview/theme correction;
-// every content, metadata, image, and font entry must remain byte-identical.
-const INTENDED = new Set(["EPUB/styles/stylesheet1.css", "EPUB/styles/stylesheet2.css"]);
+// stylesheet1.css is base.css, stylesheet2.css is the selected Classic theme,
+// and stylesheet3.css is buildDocCss(). Folio 1.0.5 intentionally changes all
+// three typography layers: base/theme preview corrections plus bounded/manual
+// hyphenation and scene-break isolation in generated document CSS. Every other
+// content, metadata, image, and font entry must remain byte-identical.
+const INTENDED = new Set([
+  "EPUB/styles/stylesheet1.css",
+  "EPUB/styles/stylesheet2.css",
+  "EPUB/styles/stylesheet3.css",
+]);
 const refUni = new Map<string, number>(Object.entries(ref.epubUniversal));
 const newUni = await entries(path.join(outDir, "sample-universal.epub"));
 const uniDiffs = [...newUni.entries()].filter(
   ([n, s]) => !n.endsWith(".opf") && !INTENDED.has(n) && refUni.get(n) !== s,
 );
 check(
-  "epub (universal): every entry but the drop-cap stylesheet is identical",
+  "epub (universal): only the three intentional typography stylesheets changed",
   uniDiffs.length === 0 && newUni.size === refUni.size,
   uniDiffs.map(([n]) => n).join(", ") || `${newUni.size} entries, ${INTENDED.size} intentionally changed`,
 );
 check(
-  "   both intended stylesheets did change",
+  "   all three intended stylesheets did change",
   [...INTENDED].every((name) => newUni.get(name) !== refUni.get(name)),
 );
 
