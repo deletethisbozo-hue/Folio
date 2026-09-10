@@ -83,6 +83,13 @@ export function hyphenateElement(root: Element, language: string): void {
  * getBoundingClientRect() over the whole chapter removes a forced full-layout
  * pass after every edit in very large manuscripts. */
 export function hyphenatePreviewDocument(document: Document, language: string): void {
+  // The live draft can change language before the next authoritative server
+  // preview arrives. Keep the iframe's semantic language in lockstep with the
+  // language we were explicitly asked to typeset, because the compositor reads
+  // documentElement.lang when it re-hyphenates a paragraph. Without this, a
+  // freshly pasted Polish manuscript could be pre-hyphenated as Polish and then
+  // immediately recomposed as English depending on network timing.
+  document.documentElement.lang = language || "en";
   const root = document.querySelector("main.book");
   if (!root) return;
   const paragraphs = Array.from(root.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
