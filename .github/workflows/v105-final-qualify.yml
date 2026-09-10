@@ -53,12 +53,14 @@ jobs:
           '@ | python -
           python scripts\v105-reconstruct.py
           python scripts\v105-finalize.py
+          python scripts\v105-keyboard-hotfix.py
 
       - name: Remove one-shot release machinery
         shell: pwsh
         run: |
           Remove-Item scripts\v105-reconstruct.py -Force
           Remove-Item scripts\v105-finalize.py -Force
+          Remove-Item scripts\v105-keyboard-hotfix.py -Force
           Remove-Item .github\workflows\v105-qualify.yml -Force
           Remove-Item .github\workflows\v105-final-qualify.yml -Force
 
