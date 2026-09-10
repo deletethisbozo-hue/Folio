@@ -1,0 +1,147 @@
+name: Qualify Folio 1.0.6 on Windows
+
+on:
+  push:
+    branches: ["release/v1.0.6"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: folio-v106-qualification
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-2025
+    timeout-minutes: 65
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+
+    steps:
+      - name: Check out 1.0.6 candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply final 1.0.6 UI and QA patch
+        shell: pwsh
+        run: |
+          python scripts\v106-finish.py
+          Remove-Item scripts\v106-finish.py -Force
+
+      - name: Check candidate integrity
+        shell: pwsh
+        run: |
+          git diff --check
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!=='1.0.6'||l.version!=='1.0.6'||l.packages[''].version!=='1.0.6') throw new Error('Folio version mismatch')"
+          git status --short
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Download pinned Pandoc 3.11
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable was not found." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+          & build\pandoc\pandoc.exe --version | Select-Object -First 1
+
+      - name: Download pinned Chromium runtime
+        shell: pwsh
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
+          $chrome.FullName
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Full formatter and UI suite
+        run: npm test
+
+      - name: Build web and server
+        run: npm run build
+
+      - name: Capture visual and typesetting QA
+        run: node --import tsx scripts/v106-visual-qa.ts
+
+      - name: Enforce measured typesetting limits
+        shell: pwsh
+        run: |
+          node -e "const g=require('./build/qa-v106/typesetting-geometry.json'); if(g.justifiedCount<1||g.maxRightErrorPx>1.75||g.maxSemanticGapPx>8||g.maxWordSpacingPx>2.2||g.maxTrackingPx>0.16||!g.finalLineNatural) { console.error(g); process.exit(1) } console.log(g)"
+
+      - name: Build installer and portable app
+        run: npx electron-builder --win nsis portable --x64 --publish never
+
+      - name: Smoke-test packaged Folio
+        shell: pwsh
+        run: |
+          $env:FOLIO_E2E_PORT = "43127"
+          $env:FOLIO_E2E_DEBUG_PORT = "43128"
+          $exe = Resolve-Path "release\Folio-1.0.6-portable.exe"
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            $base = "http://127.0.0.1:43127"
+            $health = $null
+            for ($i = 0; $i -lt 120; $i++) {
+              try { $health = Invoke-RestMethod "$base/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged health check failed." }
+            node scripts\packaged-ui-smoke.mjs
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Hash candidate binaries
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\qa-v106 | Out-Null
+          $required = @("release\Folio-1.0.6-setup.exe", "release\Folio-1.0.6-portable.exe")
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing candidate asset: $file" }
+            if ((Get-Item $file).Length -lt 1MB) { throw "Candidate asset is unexpectedly small: $file" }
+          }
+          Get-FileHash $required -Algorithm SHA256 | Format-Table -AutoSize | Out-String | Tee-Object -FilePath build\qa-v106\sha256.txt
+
+      - name: Upload 1.0.6 QA candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-1.0.6-qualified-candidate
+          path: |
+            release/Folio-1.0.6-setup.exe
+            release/Folio-1.0.6-portable.exe
+            build/qa-v106/*.png
+            build/qa-v106/*.json
+            build/qa-v106/sha256.txt
+          if-no-files-found: error
+
+      - name: Commit exact tested application tree
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if (git diff --cached --quiet) { throw "Qualification produced no final source diff." }
+          git commit -m "Prepare Folio 1.0.6 release candidate"
+          git push origin HEAD:release/v1.0.6
