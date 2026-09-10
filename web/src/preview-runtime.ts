@@ -192,12 +192,11 @@ function bindFrame(frame: HTMLIFrameElement): void {
   refresh();
 }
 
-/** A contenteditable input event used to serialise the entire editor DOM is
- * expensive by definition. For large chapters, coalesce trusted keystrokes and
- * let React process one synthetic input event after a very short idle window.
- * The browser still edits the visible DOM synchronously, so typing/caret motion
- * remain immediate; draft state, autosave and preview catch up milliseconds
- * later instead of reparsing 100k words for every key. */
+/** Serialising a complete contenteditable book is inherently expensive. Once a
+ * chapter grows beyond normal article size, trusted keystrokes are allowed to
+ * paint immediately and Folio coalesces model/preview synchronisation until the
+ * user pauses briefly. This keeps key handling independent from manuscript size
+ * instead of reparsing 100k+ words between individual letters. */
 function installLargeEditorInputCoalescing(): void {
   const timers = new WeakMap<HTMLElement, number>();
   document.addEventListener("input", (event) => {
@@ -210,7 +209,10 @@ function installLargeEditorInputCoalescing(): void {
     event.stopPropagation();
     const previous = timers.get(editor);
     if (previous !== undefined) window.clearTimeout(previous);
-    const delay = knownLength > 250_000 ? 140 : knownLength > 100_000 ? 105 : 75;
+    // Longer books get a longer quiet window. A fast typist should never cross
+    // the threshold between letters and accidentally trigger a whole-book DOM
+    // serialisation on the hot keyboard path.
+    const delay = knownLength > 250_000 ? 420 : knownLength > 100_000 ? 320 : 180;
     const timer = window.setTimeout(() => {
       timers.delete(editor);
       if (!editor.isConnected) return;
