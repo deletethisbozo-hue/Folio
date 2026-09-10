@@ -8,7 +8,7 @@ const PROSE_SELECTOR = [
 const compositionGeneration = new WeakMap<Document, number>();
 
 type Word = { node: HTMLElement; width: number; joinBefore: boolean };
-type Break = { end: number; justified: boolean };
+type Break = { end: number; justified: boolean; wordSpacing: number };
 
 function pixels(value: string): number {
   const parsed = Number.parseFloat(value);
@@ -89,9 +89,9 @@ function chooseBreaks(
   const count = words.length;
   const maxGap = Math.max(spaceWidth, fontSize * 0.47);
   const idealGap = Math.max(spaceWidth, fontSize * 0.29);
-  const states: Array<Map<number, { cost: number; from: number; justified: boolean }>> =
+  const states: Array<Map<number, { cost: number; from: number; justified: boolean; wordSpacing: number }>> =
     Array.from({ length: count + 1 }, () => new Map());
-  states[0].set(0, { cost: 0, from: -1, justified: false });
+  states[0].set(0, { cost: 0, from: -1, justified: false, wordSpacing: 0 });
 
   for (let start = 0; start < count; start++) {
     for (const [line, state] of states[start]) {
@@ -117,7 +117,12 @@ function chooseBreaks(
             : 150 + 90 * leftover * leftover + (gaps < 2 ? 80 : 0));
         const nextLine = line + 1;
         const previous = states[end + 1].get(nextLine);
-        if (!previous || cost < previous.cost) states[end + 1].set(nextLine, { cost, from: start, justified });
+        if (!previous || cost < previous.cost) states[end + 1].set(nextLine, {
+          cost,
+          from: start,
+          justified,
+          wordSpacing: justified ? Math.max(0, gap - spaceWidth) : 0,
+        });
       }
     }
   }
@@ -127,13 +132,13 @@ function chooseBreaks(
   for (const [line, state] of states[count]) {
     if (state.cost < bestCost) { bestCost = state.cost; bestLine = line; }
   }
-  if (bestLine < 0) return [{ end: count, justified: false }];
+  if (bestLine < 0) return [{ end: count, justified: false, wordSpacing: 0 }];
   const reversed: Break[] = [];
   let end = count;
   let line = bestLine;
   while (end > 0) {
     const state = states[end].get(line)!;
-    reversed.push({ end, justified: state.justified });
+    reversed.push({ end, justified: state.justified, wordSpacing: state.wordSpacing });
     end = state.from;
     line--;
   }
@@ -173,6 +178,7 @@ function composeParagraph(paragraph: HTMLElement): void {
   for (const [lineIndex, lineBreak] of breaks.entries()) {
     const line = paragraph.ownerDocument.createElement("span");
     line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
+    if (lineBreak.justified) line.style.wordSpacing = `${lineBreak.wordSpacing}px`;
     if (lineIndex === 0 && !cap && indent) line.style.marginLeft = `${indent}px`;
     for (let i = start; i < lineBreak.end; i++) {
       if (i > start && !words[i].joinBefore) line.append(" ");

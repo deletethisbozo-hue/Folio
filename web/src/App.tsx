@@ -220,6 +220,8 @@ export default function App() {
     if (previewMode === "print" || !selectedId || document?.id !== selectedId || !document.editable) return false;
     const previewDocument = previewRef.current?.contentDocument;
     if (!previewDocument) return false;
+    const previewScroller = previewDocument.scrollingElement as HTMLElement | null;
+    const preservedScrollTop = previewScroller?.scrollTop ?? 0;
     let section = previewDocument.getElementById(selectedId)
       ?? previewDocument.querySelector("main.book > section.level1, main.book > section.chapter");
     // A newly created/renamed chapter can become editable before the full-book
@@ -268,6 +270,7 @@ export default function App() {
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
     template.innerHTML = markdownToPreviewHtml(draft, ornament);
     section.appendChild(template.content);
+    if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
     applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
     void composePreviewDocument(previewDocument, typography.bodyAlign !== "left");
@@ -314,10 +317,14 @@ export default function App() {
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [previewMode, selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
+    const sameProject = summary.projectId === project?.projectId;
+    const liveMeta = sameProject && meta ? meta : summary.meta;
+    const liveTypography = sameProject ? typography : (summary.typography ?? {});
+    const displayedSummary = sameProject ? { ...summary, meta: liveMeta, typography: liveTypography } : summary;
     const preferred = preferredId ? summary.sections.find((s) => s.id === preferredId) : null;
     const first = preferred ?? summary.sections.find((s) => s.kind === "chapter") ?? summary.sections[0] ?? null;
     if (summary.projectId !== project?.projectId || first?.id !== selectedId) resetDocumentView();
-    setProject(summary); setMeta(summary.meta); setTypography(summary.typography ?? {});
+    setProject(displayedSummary); setMeta(liveMeta); setTypography(liveTypography);
     setSelectedId(first?.id ?? null); setError(null);
     selectedRef.current = first?.id ?? null;
     requestAnimationFrame(() => {
@@ -473,9 +480,9 @@ export default function App() {
       const liveDraft = draftRef.current;
       const draftChangedDuringSave = liveDraft !== draftAtStart;
       if (updated.id !== selectedId) { undoRef.current = []; redoRef.current = []; }
-      setProject(summary);
-      setMeta(summary.meta);
-      setTypography(summary.typography ?? {});
+      setProject({ ...summary, meta: meta ?? summary.meta, typography });
+      setMeta(meta ?? summary.meta);
+      setTypography(typography);
       setSelectedId(updated.id);
       selectedRef.current = updated.id;
       setDocument(draftChangedDuringSave ? { ...updated, markdown: liveDraft } : updated);
@@ -592,7 +599,7 @@ export default function App() {
         iphone: "body{font-size:12.5px!important}main.book{padding:36px 24px 58px!important}",
         android: "body{font-size:12.5px!important}main.book{padding:34px 22px 56px!important}",
       };
-      style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified{text-align:justify!important;text-align-last:justify!important}.folio-line-natural{text-align:left!important;text-align-last:left!important}" + profileCss[previewMode] + proseComposition;
+      style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified{text-align:left!important;text-align-last:left!important}.folio-line-natural{text-align:left!important;text-align-last:left!important}" + profileCss[previewMode] + proseComposition;
     }
     doc.head.appendChild(style);
     const liveApplied = applyLiveDraftToPreview();

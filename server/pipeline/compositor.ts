@@ -17,7 +17,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
     style.textContent =
       ".folio-composed{text-indent:0!important;text-align:left!important;text-align-last:left!important}" +
       ".folio-composed-line{display:block;white-space:nowrap;text-indent:0}" +
-      ".folio-line-justified{text-align:justify!important;text-align-last:justify!important}" +
+      ".folio-line-justified{text-align:left!important;text-align-last:left!important}" +
       ".folio-line-natural{text-align:left!important;text-align-last:left!important}";
     document.head.appendChild(style);
 
@@ -85,9 +85,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       probe.remove();
       const maxGap = Math.max(spaceWidth, fontSize * 0.47);
       const idealGap = Math.max(spaceWidth, fontSize * 0.29);
-      const states: Array<Map<number, { cost: number; from: number; justified: boolean }>> =
+      const states: Array<Map<number, { cost: number; from: number; justified: boolean; wordSpacing: number }>> =
         Array.from({ length: widths.length + 1 }, () => new Map());
-      states[0].set(0, { cost: 0, from: -1, justified: false });
+      states[0].set(0, { cost: 0, from: -1, justified: false, wordSpacing: 0 });
       for (let start = 0; start < widths.length; start++) {
         for (const [lineNo, previous] of states[start]) {
           const available = Math.max(fontSize * 5, width - (lineNo === 0 && !cap ? indent : 0) - (lineNo < capLines ? capWidth : 0));
@@ -108,7 +108,12 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : 150 + 90 * leftover * leftover + (gaps < 2 ? 80 : 0));
             const nextLine = lineNo + 1;
             const old = states[end + 1].get(nextLine);
-            if (!old || cost < old.cost) states[end + 1].set(nextLine, { cost, from: start, justified });
+            if (!old || cost < old.cost) states[end + 1].set(nextLine, {
+              cost,
+              from: start,
+              justified,
+              wordSpacing: justified ? Math.max(0, gap - spaceWidth) : 0,
+            });
           }
         }
       }
@@ -118,11 +123,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         if (state.cost < bestCost) { bestLine = lineNo; bestCost = state.cost; }
       }
       if (bestLine < 0) continue;
-      const breaks: Array<{ end: number; justified: boolean }> = [];
+      const breaks: Array<{ end: number; justified: boolean; wordSpacing: number }> = [];
       let end = widths.length;
       for (let lineNo = bestLine; end > 0; lineNo--) {
         const state = states[end].get(lineNo)!;
-        breaks.push({ end, justified: state.justified });
+        breaks.push({ end, justified: state.justified, wordSpacing: state.wordSpacing });
         end = state.from;
       }
       breaks.reverse();
@@ -133,6 +138,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       for (const [lineNo, lineBreak] of breaks.entries()) {
         const line = document.createElement("span");
         line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
+        if (lineBreak.justified) line.style.wordSpacing = `${lineBreak.wordSpacing}px`;
         if (lineNo === 0 && !cap && indent) line.style.marginLeft = `${indent}px`;
         for (let i = start; i < lineBreak.end; i++) {
           if (i > start && !words[i].joinBefore) line.append(" ");
