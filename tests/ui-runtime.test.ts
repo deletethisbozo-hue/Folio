@@ -474,7 +474,8 @@ try {
   await stage("open empty folder", () => page.waitForSelector(".empty-project-editor"));
   check("opening a new project in the same app clears the previous manuscript and preview", !(await page.$("iframe")) && !(await page.$eval("body", (body) => body.innerText.includes("WHOLE BOOK FINAL MARKER"))));
   check("an empty folder shows an actionable empty state instead of Loading section", true);
-  await page.$eval(".empty-project-editor button", (button) => (button as HTMLButtonElement).click());
+  await stage("empty folder interaction settled", () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))));
+  await page.click(".empty-project-editor button");
   await stage("empty folder Add Content", () => page.waitForSelector(".add-chapter-box input"));
   await page.click(".add-chapter-box input", { clickCount: 3 });
   await page.keyboard.press("Backspace");
