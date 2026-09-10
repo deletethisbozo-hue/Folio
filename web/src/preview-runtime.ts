@@ -29,11 +29,16 @@ function numberFromWordsLabel(): number {
   return raw ? Number(raw) : 0;
 }
 
+function mode(): string {
+  return document.querySelector<HTMLSelectElement>('select[aria-label="Preview device"]')?.value || "kindle-paperwhite";
+}
+
 /** Avoid a full Pandoc/server round-trip after every key. App.tsx already has a
  * local semantic preview path for editable reflowable sections; repeated
  * requests whose only changing input is `draft` are therefore redundant and
- * were a major source of whole-app stalls on long chapters. Structural or style
- * changes still receive an authoritative server render. */
+ * were a major source of whole-app stalls on long chapters. Device/profile
+ * changes are part of the signature so switching readers still triggers the
+ * authoritative App render and its device-specific stylesheet. */
 function installPreviewFetchFastPath(): void {
   const nativeFetch = window.fetch.bind(window);
   let lastReflowSignature = "";
@@ -44,6 +49,7 @@ function installPreviewFetchFastPath(): void {
         const body = JSON.parse(init.body) as Record<string, unknown>;
         const signature = JSON.stringify({
           url,
+          device: mode(),
           meta: body.meta,
           theme: body.theme,
           typography: body.typography,
@@ -59,10 +65,6 @@ function installPreviewFetchFastPath(): void {
     }
     return nativeFetch(input, init);
   }) as typeof window.fetch;
-}
-
-function mode(): string {
-  return document.querySelector<HTMLSelectElement>('select[aria-label="Preview device"]')?.value || "kindle-paperwhite";
 }
 
 function calibrateFrame(frame: HTMLIFrameElement): boolean {
