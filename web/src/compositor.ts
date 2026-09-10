@@ -20,17 +20,38 @@ type Word = {
   canBreakBefore: boolean;
   characters: number;
 };
+
+type LineFit = {
+  wordSpacing: number;
+  tracking: number;
+  badness: number;
+};
+
 type Break = {
   end: number;
   justified: boolean;
   wordSpacing: number;
   tracking: number;
   hyphenated: boolean;
+  offset: number;
+  available: number;
 };
+
 type State = Break & {
   cost: number;
   from: number;
   fromKey: number;
+};
+
+type Geometry = {
+  width: number;
+  indent: number;
+  cap: HTMLElement | null;
+  capLines: number;
+  capIntrusion: number;
+  capLeft: number;
+  capTop: number;
+  capDepth: number;
 };
 
 function pixels(value: string): number {
@@ -44,10 +65,20 @@ function restore(paragraph: HTMLElement): void {
     paragraph.innerHTML = original;
     delete paragraph.dataset.folioOriginalHtml;
   }
-  paragraph.classList.remove("folio-composed", "folio-compositor-safe-fallback");
+  const originalStyle = paragraph.dataset.folioOriginalStyle;
+  if (originalStyle !== undefined) {
+    if (originalStyle === "__none__") paragraph.removeAttribute("style");
+    else paragraph.setAttribute("style", originalStyle);
+    delete paragraph.dataset.folioOriginalStyle;
+  }
+  paragraph.classList.remove(
+    "folio-composed",
+    "folio-composed-dropcap",
+    "folio-compositor-safe-fallback",
+  );
 }
 
-function ensureFallbackStyle(document: Document): void {
+function ensureCompositionStyle(document: Document): void {
   let style = document.getElementById("folio-compositor-fallback") as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement("style");
@@ -55,7 +86,13 @@ function ensureFallbackStyle(document: Document): void {
     document.head.appendChild(style);
   }
   const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed)`).join(",");
-  style.textContent = `${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important;text-wrap:pretty!important}.scene-break{display:block!important;text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}`;
+  style.textContent = `
+${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important;text-wrap:pretty!important}
+.folio-composed{position:relative!important;text-indent:0!important;text-align:left!important;text-align-last:left!important;overflow:visible!important}
+.folio-composed-line{display:block!important;box-sizing:border-box!important;white-space:nowrap!important;text-indent:0!important;text-align:left!important;text-align-last:left!important}
+.folio-composed-dropcap>.dropcap.folio-composed-cap{float:none!important;position:absolute!important;z-index:1}
+.folio-compositor-safe-fallback{text-align:left!important;text-align-last:left!important}
+.scene-break{display:block!important;text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}`;
 }
 
 function tokenize(paragraph: HTMLElement): Word[] {
@@ -127,83 +164,119 @@ function tokenize(paragraph: HTMLElement): Word[] {
   });
 }
 
-function boundedAdjustment(
+function fitLine(
   adjustment: number,
   gaps: number,
   trackingOps: number,
   spaceWidth: number,
   fontSize: number,
-): { wordSpacing: number; tracking: number } | null {
+): LineFit | null {
   if (gaps <= 0) return null;
-  const maxWordSpacing = Math.min(fontSize * 0.18, Math.max(0.55, spaceWidth * 0.68));
-  const minWordSpacing = -Math.min(fontSize * 0.028, Math.max(0.18, spaceWidth * 0.10));
-  const maxTracking = fontSize * 0.0125;
-  const minTracking = -fontSize * 0.009;
-  let tracking = trackingOps > 0 ? Math.max(minTracking, Math.min(maxTracking, adjustment / trackingOps)) : 0;
-  let wordSpacing = (adjustment - tracking * trackingOps) / gaps;
-  if (wordSpacing > maxWordSpacing || wordSpacing < minWordSpacing) {
-    wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
-    tracking = trackingOps > 0 ? (adjustment - wordSpacing * gaps) / trackingOps : 0;
+
+  const maxWordSpacing = Math.min(spaceWidth * 0.38, fontSize * 0.115);
+  const minWordSpacing = -Math.min(spaceWidth * 0.14, fontSize * 0.035);
+  const maxTracking = fontSize * 0.0055;
+  const minTracking = -fontSize * 0.0035;
+
+  let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, adjustment / gaps));
+  let remaining = adjustment - wordSpacing * gaps;
+  let tracking = trackingOps > 0 ? remaining / trackingOps : 0;
+
+  if (tracking > maxTracking || tracking < minTracking) {
+    tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+    wordSpacing = (adjustment - tracking * trackingOps) / gaps;
   }
   if (wordSpacing > maxWordSpacing + 0.001 || wordSpacing < minWordSpacing - 0.001) return null;
   if (tracking > maxTracking + 0.001 || tracking < minTracking - 0.001) return null;
-  return { wordSpacing, tracking };
+
+  const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
+  const trackingRatio = tracking / Math.max(1, fontSize);
+  const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.22, 3)
+    + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3);
+  return { wordSpacing, tracking, badness };
+}
+
+function lineGeometry(line: number, geometry: Geometry): { offset: number; available: number } {
+  if (geometry.cap && line < geometry.capLines) {
+    return {
+      offset: geometry.capIntrusion,
+      available: Math.max(1, geometry.width - geometry.capIntrusion),
+    };
+  }
+  const offset = line === 0 ? geometry.indent : 0;
+  return { offset, available: Math.max(1, geometry.width - offset) };
 }
 
 function chooseBreaks(
   words: Word[],
-  fullWidth: number,
+  geometry: Geometry,
   spaceWidth: number,
   hyphenWidth: number,
-  indent: number,
-  capWidth: number,
-  capLines: number,
   fontSize: number,
-): Break[] {
+): Break[] | null {
   const count = words.length;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
   states[0].set(0, {
-    cost: 0, from: -1, fromKey: -1, end: 0,
-    justified: false, wordSpacing: 0, tracking: 0, hyphenated: false,
+    cost: 0,
+    from: -1,
+    fromKey: -1,
+    end: 0,
+    justified: false,
+    wordSpacing: 0,
+    tracking: 0,
+    hyphenated: false,
+    offset: 0,
+    available: geometry.width,
   });
 
   for (let start = 0; start < count; start++) {
     for (const [stateKey, previous] of states[start]) {
-      const line = Math.floor(stateKey / 2);
-      const available = Math.max(fontSize * 5, fullWidth - (line === 0 ? indent : 0) - (line < capLines ? capWidth : 0));
+      const line = Math.floor(stateKey / 3);
+      const previousHyphenStreak = stateKey % 3;
+      const { offset, available } = lineGeometry(line, geometry);
       let wordWidth = 0;
       let gaps = 0;
       let characters = 0;
+
       for (let end = start; end < count; end++) {
         wordWidth += words[end].width;
         characters += words[end].characters;
         if (end > start && words[end].spaceBefore) gaps++;
+
         const last = end === count - 1;
         const next = last ? null : words[end + 1];
         const canBreak = last || next!.canBreakBefore;
         const hyphenBreak = !last && next!.hyphenBefore;
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
-        if (natural > available + Math.max(1, fontSize * 0.08) && end > start) break;
+
+        if (natural > available + 0.75 && end > start) break;
         if (!canBreak) continue;
+
         const adjustment = available - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
-        const fit = !last && natural <= available + 1
-          ? boundedAdjustment(adjustment, gaps, trackingOps, spaceWidth, fontSize)
+        const fit = !last && natural <= available + 0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize)
           : null;
-        const justified = !last && fit !== null;
-        const leftover = Math.max(0, adjustment) / Math.max(1, available);
-        const hyphenPenalty = hyphenBreak ? 48 + (previous.hyphenated ? 190 : 0) : 0;
-        const deformation = fit
-          ? Math.pow(fit.wordSpacing / Math.max(1, fontSize * 0.18), 2)
-            + Math.pow(fit.tracking / Math.max(0.01, fontSize * 0.0125), 2) * 0.45
+        if (!last && !fit) continue;
+
+        const wordsOnLine = end - start + 1;
+        const fill = Math.min(1, natural / Math.max(1, available));
+        const shortLastPenalty = last
+          ? (wordsOnLine === 1 ? 180 : fill < 0.28 ? 80 * Math.pow((0.28 - fill) / 0.28, 2) : 0)
           : 0;
-        const cost = previous.cost + hyphenPenalty + (last
-          ? 4 * leftover * leftover
-          : justified
-            ? 22 * deformation
-            : 180 + 150 * leftover * leftover + (gaps < 2 ? 95 : 0));
+        const hyphenPenalty = hyphenBreak
+          ? 58 + previousHyphenStreak * 310
+          : 0;
+        const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
+        const cost = previous.cost
+          + (fit?.badness ?? 0)
+          + hyphenPenalty
+          + punctuationPenalty
+          + shortLastPenalty;
+
         const nextLine = line + 1;
-        const nextKey = nextLine * 2 + (hyphenBreak ? 1 : 0);
+        const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
+        const nextKey = nextLine * 3 + nextStreak;
         const old = states[end + 1].get(nextKey);
         if (!old || cost < old.cost) {
           states[end + 1].set(nextKey, {
@@ -211,10 +284,12 @@ function chooseBreaks(
             from: start,
             fromKey: stateKey,
             end: end + 1,
-            justified,
-            wordSpacing: justified ? fit!.wordSpacing : 0,
-            tracking: justified ? fit!.tracking : 0,
+            justified: !last,
+            wordSpacing: fit?.wordSpacing ?? 0,
+            tracking: fit?.tracking ?? 0,
             hyphenated: hyphenBreak,
+            offset,
+            available,
           });
         }
       }
@@ -224,9 +299,12 @@ function chooseBreaks(
   let bestKey = -1;
   let bestCost = Number.POSITIVE_INFINITY;
   for (const [key, state] of states[count]) {
-    if (state.cost < bestCost) { bestCost = state.cost; bestKey = key; }
+    if (state.cost < bestCost) {
+      bestCost = state.cost;
+      bestKey = key;
+    }
   }
-  if (bestKey < 0) return [{ end: count, justified: false, wordSpacing: 0, tracking: 0, hyphenated: false }];
+  if (bestKey < 0) return null;
 
   const reversed: Break[] = [];
   let end = count;
@@ -239,6 +317,8 @@ function chooseBreaks(
       wordSpacing: state.wordSpacing,
       tracking: state.tracking,
       hyphenated: state.hyphenated,
+      offset: state.offset,
+      available: state.available,
     });
     end = state.from;
     key = state.fromKey;
@@ -253,6 +333,44 @@ function cloneLineFragment(document: Document, words: Word[], start: number, end
   return range.cloneContents();
 }
 
+function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Geometry {
+  const paragraphRect = paragraph.getBoundingClientRect();
+  const borderLeft = pixels(style.borderLeftWidth);
+  const borderRight = pixels(style.borderRightWidth);
+  const borderTop = pixels(style.borderTopWidth);
+  const paddingLeft = pixels(style.paddingLeft);
+  const paddingRight = pixels(style.paddingRight);
+  const paddingTop = pixels(style.paddingTop);
+  const contentLeft = paragraphRect.left + borderLeft + paddingLeft;
+  const contentTop = paragraphRect.top + borderTop + paddingTop;
+  const width = Math.max(1, paragraphRect.width - borderLeft - borderRight - paddingLeft - paddingRight);
+  const indent = Math.max(0, pixels(style.textIndent));
+  const lineHeight = pixels(style.lineHeight) || pixels(style.fontSize) * 1.5;
+  const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
+  if (!cap) {
+    return { width, indent, cap: null, capLines: 0, capIntrusion: 0, capLeft: 0, capTop: 0, capDepth: 0 };
+  }
+
+  const capRect = cap.getBoundingClientRect();
+  const capStyle = getComputedStyle(cap);
+  const marginRight = pixels(capStyle.marginRight);
+  const marginBottom = pixels(capStyle.marginBottom);
+  const capIntrusion = Math.max(0, capRect.right + marginRight - contentLeft);
+  const capDepth = Math.max(0, capRect.bottom + marginBottom - contentTop);
+  const capLines = Math.max(1, Math.ceil((capDepth - 0.01) / Math.max(1, lineHeight)));
+
+  return {
+    width,
+    indent: 0,
+    cap,
+    capLines,
+    capIntrusion: Math.min(width * 0.46, capIntrusion),
+    capLeft: capRect.left - (paragraphRect.left + borderLeft),
+    capTop: capRect.top - (paragraphRect.top + borderTop),
+    capDepth,
+  };
+}
+
 function composeParagraph(paragraph: HTMLElement, language: string): void {
   if (
     paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
@@ -261,9 +379,8 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
 
   const style = getComputedStyle(paragraph);
-  const fullWidth = paragraph.clientWidth;
   const fontSize = pixels(style.fontSize) || 16;
-  if (fullWidth < fontSize * 8) return;
+  if (paragraph.getBoundingClientRect().width < fontSize * 8) return;
   const estimatedWords = paragraph.textContent?.trim().split(/\s+/).length ?? 0;
   if (estimatedWords > 1400) {
     paragraph.classList.add("folio-compositor-safe-fallback");
@@ -271,19 +388,9 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   }
 
   paragraph.dataset.folioOriginalHtml = paragraph.innerHTML;
+  paragraph.dataset.folioOriginalStyle = paragraph.getAttribute("style") ?? "__none__";
   hyphenateElement(paragraph, language);
-  const indent = Math.max(0, pixels(style.textIndent));
-  const lineHeight = pixels(style.lineHeight) || fontSize * 1.5;
-  const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
-  const capRect = cap?.getBoundingClientRect();
-  const capStyle = cap ? getComputedStyle(cap) : null;
-  const capWidth = capRect
-    ? capRect.width + pixels(capStyle?.marginLeft ?? "0") + pixels(capStyle?.marginRight ?? "0")
-    : 0;
-  const capDepth = capRect
-    ? capRect.height + pixels(capStyle?.marginTop ?? "0") + pixels(capStyle?.marginBottom ?? "0")
-    : 0;
-  const capLines = capRect ? Math.max(1, Math.ceil(capDepth / lineHeight)) : 0;
+  const geometry = measureGeometry(paragraph, style);
 
   const probe = paragraph.ownerDocument.createElement("span");
   probe.textContent = " -";
@@ -292,12 +399,22 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   const pairWidth = probe.getBoundingClientRect().width;
   probe.textContent = " ";
   const spaceWidth = probe.getBoundingClientRect().width || fontSize * 0.25;
-  const hyphenWidth = Math.max(fontSize * 0.2, pairWidth - spaceWidth);
+  const hyphenWidth = Math.max(fontSize * 0.18, pairWidth - spaceWidth);
   probe.remove();
 
   const words = tokenize(paragraph);
-  if (!words.length) { restore(paragraph); return; }
-  const breaks = chooseBreaks(words, fullWidth, spaceWidth, hyphenWidth, cap ? 0 : indent, capWidth, capLines, fontSize);
+  if (!words.length) {
+    restore(paragraph);
+    return;
+  }
+
+  const breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize);
+  if (!breaks) {
+    restore(paragraph);
+    paragraph.classList.add("folio-compositor-safe-fallback");
+    return;
+  }
+
   const baseWordSpacing = pixels(style.wordSpacing);
   const baseTracking = pixels(style.letterSpacing);
   const lines: HTMLElement[] = [];
@@ -307,19 +424,29 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}`;
     line.append(cloneLineFragment(paragraph.ownerDocument, words, start, lineBreak.end));
     if (lineBreak.end < words.length && words[lineBreak.end].hyphenBefore) line.append("-");
+    line.style.marginLeft = `${lineBreak.offset}px`;
+    line.style.width = `${lineBreak.available}px`;
     if (lineBreak.justified) {
       line.style.wordSpacing = `${baseWordSpacing + lineBreak.wordSpacing}px`;
       line.style.letterSpacing = `${baseTracking + lineBreak.tracking}px`;
       line.dataset.folioWordSpacing = String(lineBreak.wordSpacing);
       line.dataset.folioTracking = String(lineBreak.tracking);
     }
-    if (lineIndex === 0 && !cap && indent) line.style.marginLeft = `${indent}px`;
     if (lineIndex === 0 || lineIndex === breaks.length - 2) line.style.breakAfter = "avoid";
     lines.push(line);
     start = lineBreak.end;
   }
 
   paragraph.classList.add("folio-composed");
+  const cap = geometry.cap;
+  if (cap) {
+    paragraph.classList.add("folio-composed-dropcap");
+    paragraph.style.minHeight = `${Math.max(pixels(style.minHeight), geometry.capDepth)}px`;
+    cap.classList.add("folio-composed-cap");
+    cap.style.left = `${geometry.capLeft}px`;
+    cap.style.top = `${geometry.capTop}px`;
+  }
+
   paragraph.replaceChildren(...(cap ? [cap] : []));
   lines.forEach((line, index) => {
     paragraph.append(line);
@@ -389,20 +516,23 @@ export async function composePreviewDocument(document: Document, enabled: boolea
     return;
   }
 
-  ensureFallbackStyle(document);
+  ensureCompositionStyle(document);
   const language = document.documentElement.lang || "en";
   const paragraphs = Array.from(document.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
   const view = document.defaultView;
   if (!view || !paragraphs.length) return;
+
   const queue: HTMLElement[] = [];
   const queued = new WeakSet<HTMLElement>();
-  for (const paragraph of paragraphs.slice(0, 3)) {
+  for (const paragraph of paragraphs.slice(0, 4)) {
     queued.add(paragraph);
     queue.push(paragraph);
   }
+
   const first = queue.shift();
   if (first && compositionGeneration.get(document) === generation) composeParagraph(first, language);
   installObserver(document, paragraphs, queue, queued, generation, language);
+
   if (document.fonts?.status === "loading") {
     void document.fonts.ready.then(() => {
       if (compositionGeneration.get(document) === generation) void composePreviewDocument(document, true);
