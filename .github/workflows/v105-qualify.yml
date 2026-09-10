@@ -77,8 +77,6 @@ jobs:
               if old not in s:
                   raise RuntimeError(f"missing App follow-up marker: {old[:90]!r}")
               s = s.replace(old, new, 1)
-          # These lines only existed in one intermediate reconstruction. If they
-          # appear, remove them; if not, that is already the desired state.
           s = s.replace('          if (editor) editor.contentEditable = "false";\n', '', 1)
           s = s.replace('      if (editor && document?.editable) editor.contentEditable = "true";\n', '', 1)
           app.write_text(s, encoding="utf-8")
@@ -125,9 +123,7 @@ jobs:
         run: |
           git diff --check
           git status --short
-          if ((Get-Content package.json -Raw | ConvertFrom-Json).version -ne "1.0.5") { throw "package.json is not 1.0.5" }
-          $lock = Get-Content package-lock.json -Raw | ConvertFrom-Json
-          if ($lock.version -ne "1.0.5" -or $lock.packages."".version -ne "1.0.5") { throw "package-lock root version is not 1.0.5" }
+          node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); const l=JSON.parse(fs.readFileSync('package-lock.json','utf8')); if(p.version!=='1.0.5'||l.version!=='1.0.5'||l.packages[''].version!=='1.0.5') throw new Error('Folio root version is not consistently 1.0.5')"
 
       - name: Set up Node
         uses: actions/setup-node@v4
