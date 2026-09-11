@@ -1,1 +1,1 @@
-qa-run english-rescue-token-diagnostics
+qa-run strict-frontier-diagnostics
