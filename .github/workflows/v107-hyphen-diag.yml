@@ -15,13 +15,13 @@ jobs:
           node-version: 22.23.2
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Print Polish dictionary breakpoints
+      - name: Print English dictionary breakpoints
         run: |
           node --input-type=module <<'NODE'
           import Hypher from 'hypher';
-          import polish from 'hyphenation.pl';
-          const h = new Hypher(polish);
-          const corpus = `Poczucie bezsensowności było o wiele większym brzemieniem niż brak zasobów. Porażka nic więcej jak przygnębiająca. Z jego perspektywy życie nie było wyborem, tylko konsekwencją wszystkich przemilczanych decyzji. Niektórzy w mieście chcieli jego śmierci za rzeczy, których nigdy nie uczynił. W Polsce i na świecie profesjonalny skład książki powinien zachowywać równy rytm, rozsądne dzielenie wyrazów oraz spokojną szarość typograficzną bez rzek bieli.`;
+          import english from 'hyphenation.en-us';
+          const h = new Hypher(english);
+          const corpus = `Looking back, I can see how the ordinary contained the extraordinary all along—how every small choice, every overlooked detail, was leading me here. Professional typesetting should feel calm, even, and almost invisible to the reader.`;
           const words = [...new Set(corpus.match(/\p{L}+/gu) ?? [])];
           for (const word of words) {
             const pieces = h.hyphenate(word);
@@ -29,9 +29,9 @@ jobs:
             let offset = 0;
             for (let i = 0; i < pieces.length - 1; i++) {
               offset += pieces[i].length;
-              if (offset >= 2 && word.length - offset >= 2) legal.push(offset);
+              if (word.length >= 7 && offset >= 3 && word.length - offset >= 3) legal.push(offset);
             }
-            if (legal.length || ['większym','brzemieniem','zasobów','Niektórzy','mieście','chcieli','śmierci','zachowywać','równy','rytm','rozsądne','dzielenie'].includes(word)) {
+            if (legal.length || ['ordinary','contained','extraordinary','overlooked','Professional','typesetting','invisible'].includes(word)) {
               console.log(`${word.padEnd(22)} pieces=${pieces.join('|')} legal=${legal.join(',')}`);
             }
           }
