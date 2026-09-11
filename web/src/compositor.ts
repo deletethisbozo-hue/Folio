@@ -450,7 +450,12 @@ function chooseBreaks(
         const rightProtrusion = hyphenBreak
           ? Math.min(2.55, hyphenWidth * 0.51)
           : words[end].rightProtrusion;
-        const opticalAvailable = available + rightProtrusion;
+        // Optical protrusion should relieve an already-full line, not force a
+        // short line to stretch farther merely to hang punctuation. For expansion
+        // keep the normal measure; for full/overfull lines allow the optical edge.
+        const opticalAvailable = natural >= available
+          ? available + rightProtrusion
+          : available;
 
         const adjustment = opticalAvailable - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
