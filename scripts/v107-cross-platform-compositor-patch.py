@@ -47,6 +47,31 @@ for relative in ["web/src/compositor.ts", "server/pipeline/compositor.ts"]:
         )
         value = value[:match.start()] + replacement + value[match.end():]
 
+    if relative == "web/src/compositor.ts":
+        old_passes = '''  // Three deliberately separate passes. Natural rescue must never compete
+  // on cost with an available justified solution.
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, paragraph, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, paragraph, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, true);'''
+        new_passes = '''  // Let the controlled relaxed envelope participate in the same global
+  // optimisation as strict lines. Each relaxed line still carries a large
+  // penalty, so it is selected only when it improves the paragraph as a whole
+  // (for example by avoiding excessive hyphenation or a stranded final word).
+  // Natural rescue remains a separate last resort and never competes on cost.
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, paragraph, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, true);'''
+        if old_passes in value:
+            value = value.replace(old_passes, new_passes, 1)
+        elif new_passes not in value:
+            raise RuntimeError("preview pass-order block not found")
+    else:
+        old_passes = "const breaks = runBreaker(false, false) ?? runBreaker(true, false) ?? runBreaker(true, true);"
+        new_passes = "const breaks = runBreaker(true, false) ?? runBreaker(true, true);"
+        if old_passes in value:
+            value = value.replace(old_passes, new_passes, 1)
+        elif new_passes not in value:
+            raise RuntimeError("export pass-order block not found")
+
     if "const correctedScale = Math.max(0.98, Math.min(1.02, currentScale * measure / rendered));" not in value:
         raise RuntimeError(f"cross-platform line calibration missing in {relative}")
 
