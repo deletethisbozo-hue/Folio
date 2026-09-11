@@ -649,7 +649,12 @@ function chooseBreaks(
       const nearMeasure = typeof item.fill === "number" && item.fill >= 0.78 && item.fill <= 1.12;
       return item.hyphenBreak === false && (nearMeasure || Boolean(item.selectedFit));
     }).slice(-180);
+    const reachableHyphenCounts = [...new Set(
+      [...states[count].values()].map((state) => state.hyphenCount),
+    )].sort((a, b) => a - b);
     debugTarget.dataset.folioCompositionTrace = JSON.stringify({
+      minimumReachableHyphens: reachableHyphenCounts[0] ?? null,
+      reachableHyphenCounts,
       result: result.map((lineBreak, line) => ({
         line,
         end: lineBreak.end,
