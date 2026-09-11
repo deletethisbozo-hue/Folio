@@ -1023,6 +1023,15 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   const view = document.defaultView;
   if (!view || !paragraphs.length) return;
 
+  // A geometry generation must never expose line boxes calculated for the
+  // previous device width. Only paragraphs that have actually been composed
+  // carry original HTML, so restoring this small visible subset is cheap even
+  // in a 5,200-paragraph manuscript. The new observer then recomposes the
+  // paragraphs that are visible at the current measure.
+  for (const paragraph of paragraphs) {
+    if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
+  }
+
   const queue: HTMLElement[] = [];
   const queued = new WeakSet<HTMLElement>();
   const statsBySection = new WeakMap<HTMLElement, SectionHyphenStats>();
