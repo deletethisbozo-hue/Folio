@@ -7,6 +7,18 @@ const engines = {
   pl: new Hypher(polish),
 };
 
+type HyphenationLanguage = keyof typeof engines;
+type HyphenationLimits = { minimumWord: number; left: number; right: number };
+
+const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
+  // TeX's maintained Polish patterns use lefthyphenmin=2 and
+  // righthyphenmin=2. Keeping 3/3 here discarded valid Polish breaks and
+  // forced the compositor into visibly ragged emergency lines.
+  pl: { minimumWord: 4, left: 2, right: 2 },
+  // Keep English deliberately conservative for book prose.
+  en: { minimumWord: 7, left: 3, right: 3 },
+};
+
 const PROSE_SELECTOR = [
   "section.chapter > p:not(.scene-break)",
   "section.chapter > blockquote p",
@@ -16,9 +28,8 @@ const PROSE_SELECTOR = [
 ].join(",");
 const PROTECTED_INLINE = "code,pre,a,em,strong,b,i,u,s,sup,sub,script,style,h1,h2,h3,h4,h5,h6,.scene-break,.dropcap,.math,[data-math]";
 const WORD = /\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu;
-const MIN_HYPHENATED_WORD = 7;
 
-export function hyphenationLanguage(language: string): "pl" | "en" {
+export function hyphenationLanguage(language: string): HyphenationLanguage {
   return /^pl(?:-|$)/i.test(language) ? "pl" : "en";
 }
 
@@ -26,11 +37,17 @@ function engineFor(language: string): Hypher {
   return engines[hyphenationLanguage(language)];
 }
 
-/** Keep only dictionary breakpoints that leave at least three letters on both
- * sides. Seven-letter words are eligible: the old ten-letter threshold starved
- * Polish paragraphs of legal breaks and forced justification to over-stretch. */
-export function conservativeHyphenation(engine: Hypher, word: string): string {
-  if (word.length < MIN_HYPHENATED_WORD) return word;
+/** Keep only dictionary breakpoints that respect language-specific fragment
+ * minima. Polish follows the maintained TeX 2/2 convention; English remains
+ * intentionally stricter at 3/3 with a seven-letter word floor. */
+export function conservativeHyphenation(
+  engine: Hypher,
+  word: string,
+  leftMinimum = HYPHENATION_LIMITS.en.left,
+  rightMinimum = HYPHENATION_LIMITS.en.right,
+  minimumWord = HYPHENATION_LIMITS.en.minimumWord,
+): string {
+  if (word.length < minimumWord) return word;
   const pieces = engine.hyphenate(word);
   if (pieces.length < 2) return word;
 
@@ -39,7 +56,7 @@ export function conservativeHyphenation(engine: Hypher, word: string): string {
   for (let index = 0; index < pieces.length - 1; index++) {
     offset += pieces[index].length;
     const remaining = word.length - offset;
-    if (offset >= 3 && remaining >= 3) points.push(offset);
+    if (offset >= leftMinimum && remaining >= rightMinimum) points.push(offset);
   }
   if (!points.length) return word;
 
@@ -52,10 +69,10 @@ export function conservativeHyphenation(engine: Hypher, word: string): string {
   return result + word.slice(start);
 }
 
-function applyDictionary(text: string, engine: Hypher): string {
+function applyDictionary(text: string, engine: Hypher, limits: HyphenationLimits): string {
   return text.replace(WORD, (candidate) => {
     if (candidate.includes("\u00ad")) return candidate;
-    return conservativeHyphenation(engine, candidate);
+    return conservativeHyphenation(engine, candidate, limits.left, limits.right, limits.minimumWord);
   });
 }
 
@@ -69,8 +86,10 @@ function dropcapLetter(root: Element): string {
  * formatting or split an URL. */
 export function hyphenateElement(root: Element, language: string): void {
   const document = root.ownerDocument;
-  const engine = engineFor(language);
-  const polishText = hyphenationLanguage(language) === "pl";
+  const languageKey = hyphenationLanguage(language);
+  const engine = engines[languageKey];
+  const limits = HYPHENATION_LIMITS[languageKey];
+  const polishText = languageKey === "pl";
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
@@ -90,7 +109,7 @@ export function hyphenateElement(root: Element, language: string): void {
       if (protectAfterDropcap && index === 0) text = text.replace(/^[ \t]+(?=\p{L})/u, "\u00a0");
       text = text.replace(/(^|[\s\u00a0])([aAiIoOuUwWzZ]) (?=\p{L})/gu, "$1$2\u00a0");
     }
-    node.data = applyDictionary(text, engine);
+    node.data = applyDictionary(text, engine, limits);
   }
 }
 
