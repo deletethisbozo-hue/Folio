@@ -45,6 +45,24 @@ try {
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.body));
   await page.waitForSelector(".preview-loading", { hidden: true });
 
+  // The compositor turns discretionary soft hyphens into a visible dash at the
+  // end of a rendered line. Reconstruct semantic paragraph text so freshness
+  // checks do not mistake correct hyphenation for stale preview content.
+  await page.evaluate(() => {
+    (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText = (paragraph) => {
+      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
+      if (!lines.length) return (paragraph.textContent ?? "").replace(/\u00ad/g, "").replace(/\s+/g, " ").trim();
+      return lines.map((line, index) => {
+        let text = (line.textContent ?? "").replace(/\u00ad/g, "");
+        const nextWord = lines[index + 1]?.querySelector<HTMLElement>(".folio-word");
+        const discretionary = nextWord?.dataset.folioHyphenBefore === "true" && text.endsWith("-");
+        if (discretionary) text = text.slice(0, -1);
+        else if (index < lines.length - 1) text += " ";
+        return text;
+      }).join("").replace(/\s+/g, " ").trim();
+    };
+  });
+
   const dimensions = await page.evaluate(() => {
     const shell = document.querySelector(".folio-shell")!.getBoundingClientRect();
     const editor = document.querySelector(".editor-pane")!.getBoundingClientRect();
@@ -79,19 +97,18 @@ try {
     const needle = paragraphs[0].slice(0, 48);
     await page.waitForFunction((value) => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes(value), {}, needle);
     await page.waitForFunction((value) => {
+      const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")?.contentDocument;
-      const paragraphs = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed") ?? [])];
-      return paragraphs.some((paragraph) => paragraph.textContent?.replace(/\u00ad/g, "").includes(value)
-        && paragraph.querySelector(".folio-composed-line"));
+      const rendered = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed") ?? [])];
+      return Boolean(helper && rendered.some((paragraph) => helper(paragraph).includes(value) && paragraph.querySelector(".folio-composed-line")));
     }, {}, needle);
     await page.waitForSelector(".preview-loading", { hidden: true });
-    // Let the async compositor finish its viewport batch and prove that the
-    // visible frame, rather than a stale hidden string, contains this corpus.
     await new Promise((resolve) => setTimeout(resolve, 250));
     await page.evaluate((value) => {
+      const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")!.contentDocument!;
       const paragraph = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")]
-        .find((candidate) => candidate.textContent?.replace(/\u00ad/g, "").includes(value));
+        .find((candidate) => helper?.(candidate).includes(value));
       paragraph?.closest("section")?.scrollIntoView({ block: "start" });
     }, needle);
     return needle;
@@ -115,8 +132,6 @@ try {
     });
     await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true });
     await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);
-    // Saving metadata reloads the selected section. Let that authoritative
-    // read settle before replacing the manuscript with the visual corpus.
     await new Promise((resolve) => setTimeout(resolve, 800));
     await page.waitForSelector('.rich-editor[contenteditable="true"]');
     await page.waitForFunction(() => Boolean((document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown));
@@ -139,9 +154,10 @@ try {
 
   const metrics = async (label: string, needle: string) => {
     const report = await page.evaluate((expected) => {
+      const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")!.contentDocument!;
       const corpusParagraph = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")]
-        .find((paragraph) => paragraph.textContent?.replace(/\u00ad/g, "").includes(expected));
+        .find((paragraph) => helper?.(paragraph).includes(expected));
       const corpusSection = corpusParagraph?.closest("section");
       const paragraphs = [...(corpusSection?.querySelectorAll<HTMLElement>(":scope > p.folio-composed") ?? [])];
       let justifiedLines = 0;
