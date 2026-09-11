@@ -170,7 +170,7 @@ function tokenize(paragraph: HTMLElement): Word[] {
     const textNode = node.firstChild;
     if (terminalPunctuation && textNode?.nodeType === Node.TEXT_NODE && textNode.textContent) {
       const terminalFactor = terminalPunctuation === "." || terminalPunctuation === ","
-        ? 0.72
+        ? 0.75
         : terminalPunctuation === "…" ? 0.50
           : /[»”’)\]]/.test(terminalPunctuation) ? 0.55 : 0.40;
       const terminalRange = document.createRange();

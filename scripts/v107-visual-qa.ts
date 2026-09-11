@@ -253,8 +253,9 @@ try {
             rightProtrusionPx,
             gaps: diagnosticWords.slice(1).filter((word) => word.dataset.folioSpaceBefore === "true").length,
           });
-          if (justified) {
-            justifiedLines++;
+          if (justified) justifiedLines++;
+          const microtyped = justified || line.classList.contains("folio-line-final-compressed");
+          if (microtyped) {
             const range = doc.createRange();
             range.selectNodeContents(line);
             maxRightErrorPx = Math.max(maxRightErrorPx, Math.abs(line.getBoundingClientRect().right + rightProtrusionPx - range.getBoundingClientRect().right));
