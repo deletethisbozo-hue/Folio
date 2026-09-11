@@ -388,19 +388,20 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
             if (!last && !lineFit && !rescueNatural) continue;
 
-            const wordsOnLine = end - start + 1;
-            // A one-token final line is a true widow, and a discretionary
-            // hyphen continuation there is worse still. Do not accept it in the
-            // professional justified pass. The final rescue pass may still use it
-            // when the paragraph has no feasible alternative at all.
-            if (last && wordsOnLine === 1 && !allowNaturalRescue) continue;
+            const semanticWordsOnLine = 1 + words
+              .slice(start + 1, end + 1)
+              .filter((word) => word.spaceBefore).length;
+            // Hyphenation splits one visible word into several compositor tokens.
+            // Widow control must count semantic words, not discretionary pieces,
+            // otherwise endings such as `de-` / `cyzji.` evade the rule entirely.
+            if (last && semanticWordsOnLine === 1 && !allowNaturalRescue) continue;
             const fill = Math.min(1, natural / Math.max(1, available));
             // A stranded final word is a real book-composition defect, especially
             // when the preceding line was itself hyphenated. Preserve feasible
             // alternatives instead of buying an ugly paragraph ending for a
             // slightly cheaper local line fit.
             const shortLastPenalty = last
-              ? wordsOnLine === 1
+              ? semanticWordsOnLine === 1
                 ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
                 : fill < 0.28 ? 220 * Math.pow((0.28 - fill) / 0.28, 2) : 0
               : 0;
