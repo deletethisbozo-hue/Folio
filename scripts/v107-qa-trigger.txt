@@ -1,6 +1,7 @@
 Folio 1.0.7 final qualification trigger
-Candidate: ebf3fb8dab4db322ec2e968829173caba9c96d86
-Paperwhite Standard side inset: 36px logical profile, chosen from the measured overlap of Polish and English justified-line feasibility under the unchanged compositor limits.
+Candidate: c584b23aa0b663fbc4cebc1ac739a1cea0789050
+Paperwhite Standard remains at the final 36px logical side inset; no further geometry tuning is permitted for this release candidate.
+Discretionary hyphen optical protrusion is reduced conservatively to 51% of measured hyphen width capped at 2.55px, improving short-line fit without loosening spacing, tracking, glyph scaling, or QA.
 English hyphenation remains dictionary-driven; no manual word exceptions were added.
-Line-fit frontier, closed-up em-dash breakpoint support, exact drop-cap geometry, optical hyphen protrusion, hard <=2 hyphen ladder, and the unchanged 0.45 hyphen-rate gate remain active.
+Line-fit frontier, closed-up em-dash breakpoint support, exact drop-cap geometry, hard <=2 hyphen ladder, and the unchanged 0.45 hyphen-rate gate remain active.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
