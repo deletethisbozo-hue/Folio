@@ -316,6 +316,7 @@ function chooseBreaks(
 ): Break[] | null {
   const count = words.length;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
+  const debugCandidates: Array<Record<string, unknown>> = [];
   const initialFitness = 1;
   states[0].set(encodeState(0, 0, initialFitness, 1), {
     cost: 0,
@@ -369,6 +370,31 @@ function chooseBreaks(
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
           : null);
         if (!canBreak) continue;
+        if (debugTarget && !emergency && line <= 1) {
+          debugCandidates.push({
+            start,
+            end,
+            nextIndex: end + 1,
+            line,
+            currentText: (words[end].node.textContent ?? "").replace(/\u00ad/g, ""),
+            nextText: (next?.node.textContent ?? "").replace(/\u00ad/g, ""),
+            hyphenBreak,
+            natural,
+            available,
+            adjustment,
+            fill: natural / Math.max(1, available),
+            gaps,
+            characters,
+            previousGlyphScale: previous.glyphScale,
+            strictFit: strictFit ? {
+              wordSpacing: strictFit.wordSpacing,
+              tracking: strictFit.tracking,
+              glyphScale: strictFit.glyphScale,
+              fitness: strictFit.fitness,
+              badness: strictFit.badness,
+            } : null,
+          });
+        }
         if (natural > available + 0.75 && !fit && (end > start || last)) break;
         // A short line beside a drop cap can be mathematically impossible to
         // fill without an obvious river of white. Natural setting is the
@@ -464,6 +490,7 @@ function chooseBreaks(
         tokenCount: count,
         furthestIndex: reachable.length ? reachable[reachable.length - 1]!.index : 0,
         frontier: reachable.slice(-18),
+        candidates: debugCandidates.slice(-80),
       });
     }
     return null;
