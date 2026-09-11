@@ -36,131 +36,50 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          def patch(path: str, terminal: str):
+          def replacement(indent: str, terminal: str) -> str:
+              i = indent
+              lines = [
+                  i + 'let bestKey = -1;',
+                  i + 'let bestCost = Number.POSITIVE_INFINITY;',
+                  i + 'let bestSectionRate = Number.POSITIVE_INFINITY;',
+                  i + 'let bestHyphenBudgetPriority = 3;',
+                  i + f'for (const [key, state] of {terminal}) {{',
+                  i + '  const decoded = decodeState(key);',
+                  i + '  const paragraphJustifiedLines = Math.max(0, decoded.line - 1);',
+                  i + '  const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;',
+                  i + '  const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;',
+                  i + '  const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);',
+                  i + '  // 0.45 is the release ceiling, not the composition target. Prefer 0.40',
+                  i + '  // when feasible, preserving cross-platform headroom without loosening fit.',
+                  i + '  const hyphenBudgetPriority = sectionRate <= 0.40 + 1e-9',
+                  i + '    ? 0',
+                  i + '    : sectionRate <= 0.45 + 1e-9 ? 1 : 2;',
+                  i + '  const betterSamePriority = hyphenBudgetPriority < 2',
+                  i + '    ? state.cost < bestCost',
+                  i + '    : sectionRate < bestSectionRate - 1e-9',
+                  i + '      || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);',
+                  i + '  if (hyphenBudgetPriority < bestHyphenBudgetPriority',
+                  i + '    || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {',
+                  i + '    bestHyphenBudgetPriority = hyphenBudgetPriority;',
+                  i + '    bestCost = state.cost;',
+                  i + '    bestSectionRate = sectionRate;',
+                  i + '    bestKey = key;',
+                  i + '  }',
+                  i + '}',
+              ]
+              return '\n'.join(lines) + '\n'
+
+          def patch(path: str, indent: str, terminal: str):
               p = Path(path)
               s = p.read_text(encoding='utf-8')
-              old = f'''  let bestKey = -1;
-  let bestCost = Number.POSITIVE_INFINITY;
-  let bestSectionRate = Number.POSITIVE_INFINITY;
-  let foundWithinSectionBudget = false;
-  for (const [key, state] of {terminal}) {{
-    const decoded = decodeState(key);
-    const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
-    const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
-    const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
-    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
-    const withinBudget = sectionRate <= 0.45 + 1e-9;
-    if (withinBudget) {{
-      if (!foundWithinSectionBudget || state.cost < bestCost) {{
-        foundWithinSectionBudget = true;
-        bestCost = state.cost;
-        bestSectionRate = sectionRate;
-        bestKey = key;
-      }}
-    }} else if (!foundWithinSectionBudget
-      && (sectionRate < bestSectionRate - 1e-9
-        || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost))) {{
-      bestCost = state.cost;
-      bestSectionRate = sectionRate;
-      bestKey = key;
-    }}
-  }}'''
-              new = f'''  let bestKey = -1;
-  let bestCost = Number.POSITIVE_INFINITY;
-  let bestSectionRate = Number.POSITIVE_INFINITY;
-  let bestHyphenBudgetPriority = 3;
-  for (const [key, state] of {terminal}) {{
-    const decoded = decodeState(key);
-    const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
-    const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
-    const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
-    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
-    // 0.45 is a release ceiling, not a composition target. Prefer a 0.40
-    // operating target when the strict graph can achieve it, leaving enough
-    // headroom for platform font-metric differences without accepting looser
-    // spacing, emergency lines, or a weaker QA threshold.
-    const hyphenBudgetPriority = sectionRate <= 0.40 + 1e-9
-      ? 0
-      : sectionRate <= 0.45 + 1e-9 ? 1 : 2;
-    const betterSamePriority = hyphenBudgetPriority < 2
-      ? state.cost < bestCost
-      : sectionRate < bestSectionRate - 1e-9
-        || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);
-    if (hyphenBudgetPriority < bestHyphenBudgetPriority
-      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {{
-      bestHyphenBudgetPriority = hyphenBudgetPriority;
-      bestCost = state.cost;
-      bestSectionRate = sectionRate;
-      bestKey = key;
-    }}
-  }}'''
-              count = s.count(old)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected one selection block, got {count}')
-              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+              start_token = indent + 'let bestKey = -1;'
+              end_token = indent + 'if (bestKey < 0)'
+              start = s.index(start_token)
+              end = s.index(end_token, start)
+              p.write_text(s[:start] + replacement(indent, terminal) + s[end:], encoding='utf-8')
 
-          patch('web/src/compositor.ts', 'states[count]')
-
-          p = Path('server/pipeline/compositor.ts')
-          s = p.read_text(encoding='utf-8')
-          old = '''      let bestKey = -1;
-      let bestCost = Number.POSITIVE_INFINITY;
-      let bestSectionRate = Number.POSITIVE_INFINITY;
-      let foundWithinSectionBudget = false;
-      for (const [key, state] of states[words.length]) {
-        const decoded = decodeState(key);
-        const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
-        const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
-        const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
-        const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
-        const withinBudget = sectionRate <= 0.45 + 1e-9;
-        if (withinBudget) {
-          if (!foundWithinSectionBudget || state.cost < bestCost) {
-            foundWithinSectionBudget = true;
-            bestCost = state.cost;
-            bestSectionRate = sectionRate;
-            bestKey = key;
-          }
-        } else if (!foundWithinSectionBudget
-          && (sectionRate < bestSectionRate - 1e-9
-            || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost))) {
-          bestCost = state.cost;
-          bestSectionRate = sectionRate;
-          bestKey = key;
-        }
-      }'''
-          new = '''      let bestKey = -1;
-      let bestCost = Number.POSITIVE_INFINITY;
-      let bestSectionRate = Number.POSITIVE_INFINITY;
-      let bestHyphenBudgetPriority = 3;
-      for (const [key, state] of states[words.length]) {
-        const decoded = decodeState(key);
-        const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
-        const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
-        const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
-        const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
-        // Keep PDF/print on the same 0.40 operating target as live preview.
-        // The immutable release gate remains 0.45; this only prefers cleaner
-        // feasible states before platform metrics push the result to that edge.
-        const hyphenBudgetPriority = sectionRate <= 0.40 + 1e-9
-          ? 0
-          : sectionRate <= 0.45 + 1e-9 ? 1 : 2;
-        const betterSamePriority = hyphenBudgetPriority < 2
-          ? state.cost < bestCost
-          : sectionRate < bestSectionRate - 1e-9
-            || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);
-        if (hyphenBudgetPriority < bestHyphenBudgetPriority
-          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {
-          bestHyphenBudgetPriority = hyphenBudgetPriority;
-          bestCost = state.cost;
-          bestSectionRate = sectionRate;
-          bestKey = key;
-        }
-      }'''
-          count = s.count(old)
-          if count != 1:
-              raise SystemExit(f'server compositor: expected one selection block, got {count}')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          patch('web/src/compositor.ts', '  ', 'states[count]')
+          patch('server/pipeline/compositor.ts', '      ', 'states[words.length]')
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
