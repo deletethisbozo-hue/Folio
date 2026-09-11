@@ -73,6 +73,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       spaceWidth: number,
       fontSize: number,
       naturalWidth: number,
+      previousGlyphScale = 1,
       emergency = false,
     ): LineFit | null => {
       if (gaps <= 0) return null;
@@ -84,11 +85,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const minTracking = -fontSize * 0.0045;
       const maxGlyphScaleDelta = 0.02;
       const available = naturalWidth + adjustment;
-      const direction = adjustment >= 0 ? 1 : -1;
       let best: LineFit | null = null;
 
-      for (let step = 0; step <= 20; step++) {
-        const glyphScale = 1 + direction * step * 0.001;
+      for (let step = -20; step <= 20; step++) {
+        const glyphScale = 1 + step * 0.001;
         if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
         const scaledAdjustment = available / glyphScale - naturalWidth;
         let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
@@ -104,9 +104,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
         const trackingRatio = tracking / Math.max(1, fontSize);
         const scaleRatio = Math.abs(glyphScale - 1) / 0.01;
+        const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;
         const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
           + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
-          + 42 * Math.pow(scaleRatio, 3);
+          + 42 * Math.pow(scaleRatio, 3)
+          + 90 * Math.pow(scaleJumpRatio, 2);
         const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
         const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
         if (!best || candidate.badness < best.badness) best = candidate;
@@ -338,10 +340,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // Mirror live preview: bounded compression is a normal composition
             // tool, not an unreachable branch hidden behind natural <= measure.
             const strictFit = !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, false)
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false)
               : null;
             const fit = strictFit ?? (emergency && !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, true)
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
               : null);
             if (!canBreak) continue;
             if (natural > available + 0.75 && !fit && (end > start || last)) break;
@@ -371,11 +373,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const fitnessPenalty = lineNo === 0 || !lineFit
               ? 0
               : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
-            const glyphScaleDelta = lineFit ? Math.abs(lineFit.glyphScale - previous.glyphScale) : 0;
-            const glyphContinuityPenalty = lineNo === 0 || !lineFit ? 0 : 45 * Math.pow(glyphScaleDelta / 0.01, 2);
             const currentGaps = lineGapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
             const rivers = riverCost(currentGaps, previous, spaceWidth);
-            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + glyphContinuityPenalty + rivers.cost;
+            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
             const nextKey = encodeState(nextLine, nextStreak, currentFitness);

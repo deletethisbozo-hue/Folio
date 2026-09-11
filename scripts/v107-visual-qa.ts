@@ -194,6 +194,7 @@ try {
         emergency: boolean;
         wordSpacingEm: number;
         trackingEm: number;
+        glyphScale: number;
         gaps: number;
       }> = [];
       let ornamentalBreaksOffCenter = 0;
@@ -221,6 +222,7 @@ try {
             emergency: line.dataset.folioEmergency === "true",
             wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
             trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            glyphScale: Number(line.dataset.folioGlyphScale ?? 1),
             gaps: diagnosticWords.slice(1).filter((word) => word.dataset.folioSpaceBefore === "true").length,
           });
           if (justified) {

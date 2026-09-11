@@ -178,6 +178,7 @@ function fitLine(
   spaceWidth: number,
   fontSize: number,
   naturalWidth: number,
+  previousGlyphScale = 1,
   emergency = false,
 ): LineFit | null {
   if (gaps <= 0) return null;
@@ -190,13 +191,13 @@ function fitLine(
   const minTracking = -fontSize * 0.0045;
   const maxGlyphScaleDelta = 0.02;
   const available = naturalWidth + adjustment;
-  const direction = adjustment >= 0 ? 1 : -1;
   let best: LineFit | null = null;
 
-  // pdfTeX/microtype-style font expansion: use at most ±2%, and only in the
-  // direction that reduces the required interword/tracking correction.
-  for (let step = 0; step <= 20; step++) {
-    const glyphScale = 1 + direction * step * 0.001;
+  // Search the full ±2% microtype window. Usually the scale that helps the
+  // spacing wins, but the continuity term can select a gentler neighbouring
+  // scale when that preserves a more even paragraph colour.
+  for (let step = -20; step <= 20; step++) {
+    const glyphScale = 1 + step * 0.001;
     if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
     const scaledAdjustment = available / glyphScale - naturalWidth;
     let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
@@ -213,9 +214,11 @@ function fitLine(
     const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
     const trackingRatio = tracking / Math.max(1, fontSize);
     const scaleRatio = Math.abs(glyphScale - 1) / 0.01;
+    const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;
     const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
       + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
-      + 42 * Math.pow(scaleRatio, 3);
+      + 42 * Math.pow(scaleRatio, 3)
+      + 90 * Math.pow(scaleJumpRatio, 2);
     const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
     const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
     if (!best || candidate.badness < best.badness) best = candidate;
@@ -345,10 +348,10 @@ function chooseBreaks(
         // Let it use those bounds for slightly overfull candidates too; the old
         // natural-width guard made all negative-spacing logic effectively dead.
         const strictFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, false)
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false)
           : null;
         const fit = strictFit ?? (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, true)
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
           : null);
         if (!canBreak) continue;
         if (natural > available + 0.75 && !fit && (end > start || last)) break;
@@ -391,7 +394,6 @@ function chooseBreaks(
           + punctuationPenalty
           + shortLastPenalty
           + fitnessPenalty
-          + glyphContinuityPenalty
           + rivers.cost;
 
         const nextLine = line + 1;
