@@ -172,6 +172,7 @@ try {
       let hyphenatedLines = 0;
       let maxHyphenStreak = 0;
       let maxRightErrorPx = 0;
+      let maxRightProtrusionPx = 0;
       let maxWordSpacingEm = 0;
       let maxStrictWordSpacingEm = 0;
       let maxRelaxedWordSpacingEm = 0;
@@ -211,6 +212,7 @@ try {
         wordSpacingEm: number;
         trackingEm: number;
         glyphScale: number;
+        rightProtrusionPx: number;
         gaps: number;
       }> = [];
       let ornamentalBreaksOffCenter = 0;
@@ -233,6 +235,8 @@ try {
           const diagnosticWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
           const contentWidthPx = diagnosticRange.getBoundingClientRect().width;
           const availableWidthPx = line.getBoundingClientRect().width;
+          const rightProtrusionPx = Number(line.dataset.folioRightProtrusion ?? 0);
+          maxRightProtrusionPx = Math.max(maxRightProtrusionPx, rightProtrusionPx);
           lineDetails.push({
             paragraphIndex: paragraphs.indexOf(paragraph),
             lineIndex: lines.indexOf(line),
@@ -246,13 +250,14 @@ try {
             wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
             trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
             glyphScale: Number(line.dataset.folioGlyphScale ?? 1),
+            rightProtrusionPx,
             gaps: diagnosticWords.slice(1).filter((word) => word.dataset.folioSpaceBefore === "true").length,
           });
           if (justified) {
             justifiedLines++;
             const range = doc.createRange();
             range.selectNodeContents(line);
-            maxRightErrorPx = Math.max(maxRightErrorPx, Math.abs(line.getBoundingClientRect().right - range.getBoundingClientRect().right));
+            maxRightErrorPx = Math.max(maxRightErrorPx, Math.abs(line.getBoundingClientRect().right + rightProtrusionPx - range.getBoundingClientRect().right));
             const spacing = Number(line.dataset.folioWordSpacing ?? 0) / fontSize;
             const relaxed = line.dataset.folioRelaxed === "true";
             maxWordSpacingEm = Math.max(maxWordSpacingEm, Math.abs(spacing));
@@ -332,6 +337,7 @@ try {
         hyphenRate: hyphenatedLines / Math.max(1, justifiedLines),
         maxHyphenStreak,
         maxRightErrorPx,
+        maxRightProtrusionPx,
         maxWordSpacingEm,
         maxStrictWordSpacingEm,
         maxRelaxedWordSpacingEm,
@@ -350,7 +356,7 @@ try {
     }, needle);
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(report, null, 2) + "\n", "utf8");
     if (
-      report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 ||
+      report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 || report.maxRightProtrusionPx > 4.51 ||
       report.maxWordSpacingEm > 0.141 || report.maxStrictWordSpacingEm > 0.116 || report.maxRelaxedWordSpacingEm > 0.141 ||
       report.relaxedLines > 2 || report.maxTrackingEm > 0.0057 || report.maxGlyphScaleDelta > 0.0201 ||
       report.maxAdjacentGlyphScaleDelta > 0.025 + 1e-9 || report.maxSemanticGapEm > 0.43 ||

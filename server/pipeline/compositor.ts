@@ -44,6 +44,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       hyphenBefore: boolean;
       canBreakBefore: boolean;
       characters: number;
+      rightProtrusion: number;
     };
     type LineFit = { wordSpacing: number; tracking: number; glyphScale: number; badness: number; fitness: number };
     type Break = {
@@ -58,6 +59,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       emergency: boolean;
       relaxed: boolean;
       finalCompressed: boolean;
+      rightProtrusion: number;
     };
     type State = Break & {
       cost: number;
@@ -292,13 +294,30 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         const spaceBefore = node.dataset.folioSpaceBefore === "true";
         const hyphenBefore = node.dataset.folioHyphenBefore === "true";
         const canBreakBefore = hyphenBefore || (spaceBefore && !(atomicId && atomicId === previousAtomic));
+        const rawText = node.textContent ?? "";
+        const cleanText = rawText.replace(/\u00ad/g, "");
+        let rightProtrusion = 0;
+        const terminalPunctuation = cleanText.match(/[.,;:!?…»”’)\]]$/)?.[0];
+        const textNode = node.firstChild;
+        if (terminalPunctuation && textNode?.nodeType === Node.TEXT_NODE && textNode.textContent) {
+          const terminalFactor = terminalPunctuation === "." || terminalPunctuation === ","
+            ? 0.72
+            : terminalPunctuation === "…" ? 0.50
+              : /[»”’)\]]/.test(terminalPunctuation) ? 0.55 : 0.40;
+          const terminalRange = document.createRange();
+          const rawLength = textNode.textContent.length;
+          terminalRange.setStart(textNode, Math.max(0, rawLength - 1));
+          terminalRange.setEnd(textNode, rawLength);
+          rightProtrusion = Math.min(4.5, terminalRange.getBoundingClientRect().width * terminalFactor);
+        }
         const word: Word = {
           node,
           width: node.getBoundingClientRect().width,
           spaceBefore,
           hyphenBefore,
           canBreakBefore,
-          characters: (node.textContent ?? "").replace(/\u00ad/g, "").length,
+          characters: cleanText.length,
+          rightProtrusion,
         };
         previousAtomic = atomicId;
         return word;
@@ -341,6 +360,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         emergency: false,
         relaxed: false,
         finalCompressed: false,
+        rightProtrusion: 0,
         fitness: initialFitness,
         hyphenCount: 0,
         gapPositions: [],
@@ -373,7 +393,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // rescue pass may still recover pathological narrow measures.
             if (hyphenBreak && previousHyphenStreak >= 2 && !allowNaturalRescue) continue;
             const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
-            const adjustment = available - natural;
+            const rightProtrusion = hyphenBreak ? 0 : words[end].rightProtrusion;
+            const opticalAvailable = available + rightProtrusion;
+
+            const adjustment = opticalAvailable - natural;
             const trackingOps = Math.max(0, characters + gaps - 1);
             const semanticWordsOnLine = 1 + words
               .slice(start + 1, end + 1)
@@ -383,8 +406,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const finalCompressionFit = last
               && semanticWordsOnLine >= 2
               && adjustment < -0.75
-              && natural <= available * 1.05
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true)
+                  ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true)
               : null;
             const strictFit = !last
               ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false)
@@ -463,6 +485,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               emergency: emergencyRescue,
               relaxed: relaxedFit,
               finalCompressed,
+              rightProtrusion: lineFit ? rightProtrusion : 0,
               fitness: currentFitness,
               hyphenCount: nextHyphenCount,
               gapPositions: currentGaps,
@@ -499,6 +522,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           emergency: state.emergency,
           relaxed: state.relaxed,
           finalCompressed: state.finalCompressed,
+          rightProtrusion: state.rightProtrusion,
         });
         end = state.from;
         key = state.fromKey;
@@ -541,6 +565,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         line.append(content);
         line.style.marginLeft = `${lineBreak.offset}px`;
         line.style.width = `${lineBreak.available}px`;
+        if (lineBreak.rightProtrusion > 0) line.dataset.folioRightProtrusion = String(lineBreak.rightProtrusion);
         if (lineBreak.justified || lineBreak.finalCompressed) {
           line.style.wordSpacing = `${baseWordSpacing + lineBreak.wordSpacing}px`;
           line.style.letterSpacing = `${baseTracking + lineBreak.tracking}px`;
@@ -579,9 +604,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         if (!content) continue;
         const rendered = content.getBoundingClientRect().width;
         const measure = line.getBoundingClientRect().width;
+        const protrusion = Number(line.dataset.folioRightProtrusion ?? 0);
+        const opticalMeasure = measure + protrusion;
         const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
-        if (rendered <= 0 || measure <= 0 || !Number.isFinite(currentScale)) continue;
-        const correctedScale = Math.max(0.98, Math.min(1.02, currentScale * measure / rendered));
+        if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(currentScale)) continue;
+        const correctedScale = Math.max(0.98, Math.min(1.02, currentScale * opticalMeasure / rendered));
         if (Math.abs(correctedScale - currentScale) > 0.00001) {
           corrections.push({ line, content, scale: correctedScale });
         }
