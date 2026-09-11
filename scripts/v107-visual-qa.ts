@@ -64,10 +64,12 @@ try {
   await page.click(".tone-toggle");
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
   await page.waitForSelector(".preview-loading", { hidden: true });
+  await new Promise((resolve) => setTimeout(resolve, 120));
   await page.screenshot({ path: path.join(qa, "studio-midnight.png") });
   await page.click(".tone-toggle");
 
-  const replaceEditor = async (paragraphs: string[]) => {
+  const replaceEditor = async (paragraphs: string[]): Promise<string> => {
+    await page.waitForSelector(".preview-loading", { hidden: true });
     await page.$eval(".rich-editor", (element, values) => {
       const editor = element as HTMLElement;
       const ornament = '<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>⁂</span><button type="button" class="editor-scene-break-remove">×</button></div>';
@@ -78,14 +80,21 @@ try {
     await page.waitForFunction((value) => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes(value), {}, needle);
     await page.waitForFunction((value) => {
       const doc = document.querySelector("iframe")?.contentDocument;
-      const first = doc?.querySelector<HTMLElement>("section.chapter > p.folio-composed");
-      return Boolean(first?.textContent?.replace(/\u00ad/g, "").includes(value)
-        && first.querySelector(".folio-composed-line"));
+      const paragraphs = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed") ?? [])];
+      return paragraphs.some((paragraph) => paragraph.textContent?.replace(/\u00ad/g, "").includes(value)
+        && paragraph.querySelector(".folio-composed-line"));
     }, {}, needle);
     await page.waitForSelector(".preview-loading", { hidden: true });
     // Let the async compositor finish its viewport batch and prove that the
     // visible frame, rather than a stale hidden string, contains this corpus.
     await new Promise((resolve) => setTimeout(resolve, 250));
+    await page.evaluate((value) => {
+      const doc = document.querySelector("iframe")!.contentDocument!;
+      const paragraph = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")]
+        .find((candidate) => candidate.textContent?.replace(/\u00ad/g, "").includes(value));
+      paragraph?.closest("section")?.scrollIntoView({ block: "start" });
+    }, needle);
+    return needle;
   };
 
   const setLanguage = async (language: string) => {
@@ -128,10 +137,13 @@ try {
     await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed")));
   };
 
-  const metrics = async (label: string) => {
-    const report = await page.evaluate(() => {
+  const metrics = async (label: string, needle: string) => {
+    const report = await page.evaluate((expected) => {
       const doc = document.querySelector("iframe")!.contentDocument!;
-      const paragraphs = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")];
+      const corpusParagraph = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")]
+        .find((paragraph) => paragraph.textContent?.replace(/\u00ad/g, "").includes(expected));
+      const corpusSection = corpusParagraph?.closest("section");
+      const paragraphs = [...(corpusSection?.querySelectorAll<HTMLElement>(":scope > p.folio-composed") ?? [])];
       let justifiedLines = 0;
       let hyphenatedLines = 0;
       let maxHyphenStreak = 0;
@@ -202,7 +214,7 @@ try {
         emergencyDetails,
         ornamentalBreaksOffCenter,
       };
-    });
+    }, needle);
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(report, null, 2) + "\n", "utf8");
     if (
       report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 ||
@@ -215,21 +227,21 @@ try {
 
   await setLanguage("pl");
   await setDropcap(false);
-  await replaceEditor(polish);
+  const polishNeedle = await replaceEditor(polish);
   const screen = await page.$(".reader-screen");
   if (!screen) throw new Error("Reader screen is missing");
   await screen.screenshot({ path: path.join(qa, "reader-polish.png") });
-  const polishReport = await metrics("typesetting-polish");
+  const polishReport = await metrics("typesetting-polish", polishNeedle);
 
   await setDropcap(true);
   await screen.screenshot({ path: path.join(qa, "reader-polish-dropcap.png") });
-  const dropcapReport = await metrics("typesetting-polish-dropcap");
+  const dropcapReport = await metrics("typesetting-polish-dropcap", polishNeedle);
 
   await setLanguage("en");
   await setDropcap(false);
-  await replaceEditor(english);
+  const englishNeedle = await replaceEditor(english);
   await screen.screenshot({ path: path.join(qa, "reader-english.png") });
-  const englishReport = await metrics("typesetting-english");
+  const englishReport = await metrics("typesetting-english", englishNeedle);
 
   console.log(JSON.stringify({ dimensions, polishReport, dropcapReport, englishReport }, null, 2));
 } finally {
