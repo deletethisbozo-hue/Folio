@@ -13,7 +13,7 @@ on:
       - "package-lock.json"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: folio-v107-suite
@@ -27,6 +27,80 @@ jobs:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply live preview race fix
+        if: github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('web/src/App.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          def one(old, new, label):
+              global s
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, got {count}')
+              s = s.replace(old, new, 1)
+
+          one(
+              '  const pendingPreviewIdentityRef = useRef("");\n',
+              '  const pendingPreviewIdentityRef = useRef("");\n  const pendingPreviewDraftRef = useRef("");\n',
+              'pending preview draft ref',
+          )
+
+          one(
+              '    setPreviewDraft("");\n    editorDomDirtyRef.current = false;',
+              '    setPreviewDraft("");\n    livePreviewDraftRef.current = "";\n    pendingPreviewDraftRef.current = "";\n    editorDomDirtyRef.current = false;',
+              'reset represented preview draft',
+          )
+
+          one(
+              '    const timer = window.setTimeout(async () => {\n      try {\n        const result = await api.preview(project.projectId, meta, meta.theme, typography, selectedId, draftRef.current, controller.signal);\n        if (!cancelled) { commitPreviewHtml(result.html); setPreviewError(null); }',
+              '    const requestedDraft = draftRef.current;\n    const timer = window.setTimeout(async () => {\n      try {\n        const result = await api.preview(project.projectId, meta, meta.theme, typography, selectedId, requestedDraft, controller.signal);\n        if (!cancelled) { commitPreviewHtml(result.html, requestedDraft); setPreviewError(null); }',
+              'reading preview request snapshot',
+          )
+
+          one(
+              '    const timer = window.setTimeout(async () => {\n      try {\n        const result = await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, previewDraft, controller.signal);\n        if (!cancelled) { commitPreviewHtml(result.html); setPreviewError(null); }',
+              '    const requestedDraft = previewDraft;\n    const timer = window.setTimeout(async () => {\n      try {\n        const result = await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, requestedDraft, controller.signal);\n        if (!cancelled) { commitPreviewHtml(result.html, requestedDraft); setPreviewError(null); }',
+              'print preview request snapshot',
+          )
+
+          one(
+              '  function commitPreviewHtml(html: string): void {',
+              '  function commitPreviewHtml(html: string, representedDraft: string): void {',
+              'commit signature',
+          )
+
+          one(
+              '      current.body.innerHTML = parsed.body.innerHTML;\n      previewIdentityRef.current = identity;',
+              '      current.body.innerHTML = parsed.body.innerHTML;\n      // The incoming server HTML represents the exact draft captured when the\n      // request started, not necessarily the draft the user has by the time it\n      // returns. Recording that snapshot lets onPreviewLoad patch any newer tail\n      // instead of falsely treating stale server HTML as current.\n      livePreviewDraftRef.current = representedDraft;\n      previewIdentityRef.current = identity;',
+              'current iframe represented draft',
+          )
+
+          one(
+              '    pendingPreviewIdentityRef.current = identity;\n    pendingPreviewScrollRef.current = scrollTop;\n    setPreviewHtml(html);',
+              '    pendingPreviewIdentityRef.current = identity;\n    pendingPreviewDraftRef.current = representedDraft;\n    pendingPreviewScrollRef.current = scrollTop;\n    setPreviewHtml(html);',
+              'pending iframe represented draft',
+          )
+
+          one(
+              '    const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;\n    const compositionMode = typography.bodyAlign === "left" ? "left" : "justify";',
+              '    const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;\n    if (pendingPreviewDraftRef.current) {\n      livePreviewDraftRef.current = pendingPreviewDraftRef.current;\n      pendingPreviewDraftRef.current = "";\n    }\n    const compositionMode = typography.bodyAlign === "left" ? "left" : "justify";',
+              'loaded iframe represented draft',
+          )
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/src/App.tsx
+          git diff --cached --check
+          git commit -m "Fix stale server preview overwriting live draft"
+          git push origin HEAD:fix/v1.0.7
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
