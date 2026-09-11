@@ -87,13 +87,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // strict composition. Tracking and glyph expansion stay at strict limits;
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = emergency
-        ? Math.min(spaceWidth * 0.40, fontSize * 0.10)
-        : Math.min(spaceWidth * 0.34, fontSize * 0.08);
+        ? Math.min(spaceWidth * 0.46, fontSize * 0.12)
+        : Math.min(spaceWidth * 0.40, fontSize * 0.10);
       const minWordSpacing = emergency || finalCompression
-        ? -Math.min(spaceWidth * 0.26, fontSize * 0.05)
-        : -Math.min(spaceWidth * 0.18, fontSize * 0.04);
-      const maxTracking = fontSize * 0.0025;
-      const minTracking = -fontSize * (emergency || finalCompression ? 0.0025 : 0.002);
+        ? -Math.min(spaceWidth * 0.28, fontSize * 0.055)
+        : -Math.min(spaceWidth * 0.20, fontSize * 0.045);
+      const maxTracking = fontSize * 0.003;
+      const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
       const maxGlyphScaleDelta = 0.01;
       const available = naturalWidth + adjustment;
       let best: LineFit | null = null;

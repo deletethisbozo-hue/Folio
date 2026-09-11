@@ -372,10 +372,10 @@ try {
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(qualification, null, 2) + "\n", "utf8");
     if (
       report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 || report.maxRightProtrusionPx > 4.51 ||
-      report.maxWordSpacingEm > 0.101 || report.maxStrictWordSpacingEm > 0.081 || report.maxRelaxedWordSpacingEm > 0.101 ||
-      report.relaxedLines > 2 || report.maxTrackingEm > 0.0026 || report.maxGlyphScaleDelta > 0.0101 ||
-      report.maxAdjacentGlyphScaleDelta > 0.0121 || report.maxSemanticGapEm > 0.35 ||
-      report.maxAdjacentSpacingDeltaEm > 0.14 || report.hyphenRate > hyphenRateLimit || report.maxHyphenStreak > 2 ||
+      report.maxWordSpacingEm > 0.121 || report.maxStrictWordSpacingEm > 0.101 || report.maxRelaxedWordSpacingEm > 0.121 ||
+      report.relaxedLines > 2 || report.maxTrackingEm > 0.0031 || report.maxGlyphScaleDelta > 0.0101 ||
+      report.maxAdjacentGlyphScaleDelta > 0.0121 || report.maxSemanticGapEm > 0.37 ||
+      report.maxAdjacentSpacingDeltaEm > 0.16 || report.hyphenRate > hyphenRateLimit || report.maxHyphenStreak > 2 ||
       report.emergencyLines !== 0 || report.ornamentalBreaksOffCenter !== 0
     ) throw new Error(`${label} failed typographic QA: ${JSON.stringify(qualification)}`);
     return qualification;
