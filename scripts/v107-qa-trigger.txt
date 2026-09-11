@@ -1,4 +1,5 @@
-Folio 1.0.7 diagnostic qualification trigger
-Candidate: 2962a796a1d7d4a255e3ceb2da666dc28d0b476e
-Purpose: capture exact strict breaker dead-end diagnostics before emergency rescue.
+Folio 1.0.7 final qualification trigger
+Candidate: 3bb701f7cb873101c4d87affdba9c3fb05e91b0e
+Reflow preview: device profile is now the sole margin calibration; duplicate 5% body margin is reset only inside device preview.
+PDF/print base geometry restored unchanged.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
