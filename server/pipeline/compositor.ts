@@ -380,8 +380,14 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
 
             const wordsOnLine = end - start + 1;
             const fill = Math.min(1, natural / Math.max(1, available));
+            // A stranded final word is a real book-composition defect, especially
+            // when the preceding line was itself hyphenated. Preserve feasible
+            // alternatives instead of buying an ugly paragraph ending for a
+            // slightly cheaper local line fit.
             const shortLastPenalty = last
-              ? (wordsOnLine === 1 ? 180 : fill < 0.28 ? 80 * Math.pow((0.28 - fill) / 0.28, 2) : 0)
+              ? wordsOnLine === 1
+                ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
+                : fill < 0.28 ? 220 * Math.pow((0.28 - fill) / 0.28, 2) : 0
               : 0;
             const hyphenPenalty = hyphenBreak ? 240 + previousHyphenStreak * 950 : 0;
             const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
