@@ -503,8 +503,14 @@ function chooseBreaks(
         const cumulativeHyphenPenalty = previousHyphenCount < 2
           ? previousHyphenCount * 180
           : 1400 * Math.pow(previousHyphenCount - 1, 2);
+        // Legal hyphenation points are not equally attractive. Very short visible
+        // prefixes create a choppy book page, so prefer longer fragments without
+        // banning language-valid 2/2 breaks when a narrow measure truly needs one.
+        const shortHyphenFragmentPenalty = hyphenBreak
+          ? words[end].characters <= 2 ? 850 : words[end].characters === 3 ? 420 : 0
+          : 0;
         const hyphenPenalty = hyphenBreak
-          ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty
+          ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
         const rescuePenalty = dropcapRescue
