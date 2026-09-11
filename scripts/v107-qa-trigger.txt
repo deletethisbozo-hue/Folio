@@ -1,7 +1,7 @@
 Folio 1.0.7 final qualification trigger
-Candidate: 1ce7a7ea1e34ac3a7c0b94c960bfc30f0e1283df
-Paperwhite Standard uses the normal reader-safe 28px logical side inset, now evaluated against the completed compositor rather than earlier intermediate solver states.
-English relaxed compression may use up to 0.09em, still inside the unchanged relaxed QA envelope; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
+Candidate: d930ef385f30814caaf0101d5b1eeadd0f9a6361
+Paperwhite Standard uses a balanced 17px base font with the normal 28px logical side inset; this creates natural legal line breaks instead of relying on extreme microtype at 18px.
+English relaxed compression is restored to the conservative 0.07em profile; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
 Optical protrusion is directional and recorded only when it actually participates in line fit. Hyphen-density cost and final DP state selection remain section-aware.
 Discretionary hyphen optical protrusion remains capped at 2.55px; English hyphenation remains dictionary-driven with no manual word exceptions.
 Line-fit frontier, closed-up em-dash breakpoint support, exact drop-cap geometry, hard <=2 hyphen ladder, and the unchanged 0.45 hyphen-rate gate remain active.
