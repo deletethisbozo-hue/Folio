@@ -636,24 +636,25 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       let bestKey = -1;
       let bestCost = Number.POSITIVE_INFINITY;
       let bestSectionRate = Number.POSITIVE_INFINITY;
-      let foundWithinSectionBudget = false;
+      let bestHyphenBudgetPriority = 3;
       for (const [key, state] of states[words.length]) {
         const decoded = decodeState(key);
         const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
         const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
         const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
         const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
-        const withinBudget = sectionRate <= 0.45 + 1e-9;
-        if (withinBudget) {
-          if (!foundWithinSectionBudget || state.cost < bestCost) {
-            foundWithinSectionBudget = true;
-            bestCost = state.cost;
-            bestSectionRate = sectionRate;
-            bestKey = key;
-          }
-        } else if (!foundWithinSectionBudget
-          && (sectionRate < bestSectionRate - 1e-9
-            || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost))) {
+        // 0.45 is the release ceiling, not the composition target. Prefer 0.40
+        // when feasible, preserving cross-platform headroom without loosening fit.
+        const hyphenBudgetPriority = sectionRate <= 0.40 + 1e-9
+          ? 0
+          : sectionRate <= 0.45 + 1e-9 ? 1 : 2;
+        const betterSamePriority = hyphenBudgetPriority < 2
+          ? state.cost < bestCost
+          : sectionRate < bestSectionRate - 1e-9
+            || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);
+        if (hyphenBudgetPriority < bestHyphenBudgetPriority
+          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {
+          bestHyphenBudgetPriority = hyphenBudgetPriority;
           bestCost = state.cost;
           bestSectionRate = sectionRate;
           bestKey = key;
