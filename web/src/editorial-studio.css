@@ -356,6 +356,9 @@
   height: 42px;
   min-height: 42px;
   padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   border: 0;
   border-bottom: 1px solid var(--studio-rule);
   background: var(--studio-chrome);

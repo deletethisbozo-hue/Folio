@@ -86,6 +86,31 @@ try {
   if (dimensions.previewWidth < 390 || dimensions.editorWidth < 620 || dimensions.previewBackground === "rgb(36, 37, 40)") {
     throw new Error(`Unprofessional studio geometry: ${JSON.stringify(dimensions)}`);
   }
+
+  const studioTypography = await page.evaluate(() => {
+    const duplicateTopbarTitle = (document.querySelector(".editor-topbar .topbar-title")?.textContent ?? "").trim();
+    const doc = document.querySelector("iframe")?.contentDocument;
+    let strandedEnglishArticleLine = "";
+    for (const paragraph of [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed") ?? [])]) {
+      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
+      for (let index = 0; index < lines.length - 1; index++) {
+        const value = (lines[index].textContent ?? "").replace(/\u00ad/g, "").trim();
+        if (/(?:^|\s)(?:a|an|the)$/i.test(value)) {
+          strandedEnglishArticleLine = value;
+          break;
+        }
+      }
+      if (strandedEnglishArticleLine) break;
+    }
+    return { duplicateTopbarTitle, strandedEnglishArticleLine };
+  });
+  if (studioTypography.duplicateTopbarTitle) {
+    throw new Error(`Duplicate book title remains in editor topbar: ${studioTypography.duplicateTopbarTitle}`);
+  }
+  if (studioTypography.strandedEnglishArticleLine) {
+    throw new Error(`English article stranded at line end: ${studioTypography.strandedEnglishArticleLine}`);
+  }
+
   await page.screenshot({ path: path.join(qa, "studio-ivory.png") });
   await page.click(".tone-toggle");
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");

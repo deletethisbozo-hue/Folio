@@ -548,6 +548,16 @@ function chooseBreaks(
           ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty + hyphenDensityPenalty
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
+        const lineEndLexeme = (words[end].node.textContent ?? "")
+          .replace(/\u00ad/g, "")
+          .replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "")
+          .toLowerCase();
+        const strandedEnglishArticlePenalty = !last
+          && !hyphenBreak
+          && language.toLowerCase().startsWith("en")
+          && /^(?:a|an|the)$/.test(lineEndLexeme)
+          ? 12000
+          : 0;
         const rescuePenalty = dropcapRescue
           ? 115 + 260 * Math.pow(1 - fill, 2)
           : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
@@ -588,6 +598,7 @@ function chooseBreaks(
           + finalHyphenDensityPenalty
           + hyphenPenalty
           + punctuationPenalty
+          + strandedEnglishArticlePenalty
           + shortLastPenalty
           + fitnessPenalty
           + rivers.cost;

@@ -549,6 +549,16 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty + hyphenDensityPenalty
               : 0;
             const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
+            const lineEndLexeme = (words[end].node.textContent ?? "")
+              .replace(/\u00ad/g, "")
+              .replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "")
+              .toLowerCase();
+            const strandedEnglishArticlePenalty = !last
+              && !hyphenBreak
+              && (document.documentElement.lang || "en").toLowerCase().startsWith("en")
+              && /^(?:a|an|the)$/.test(lineEndLexeme)
+              ? 12000
+              : 0;
             const rescuePenalty = dropcapRescue
               ? 115 + 260 * Math.pow(1 - fill, 2)
               : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
@@ -579,7 +589,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
             const currentGaps = lineGapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
             const rivers = riverCost(currentGaps, previous, spaceWidth);
-            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + finalCompressionPenalty + structuralPenalty + finalHyphenDensityPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
+            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + finalCompressionPenalty + structuralPenalty + finalHyphenDensityPenalty + hyphenPenalty + punctuationPenalty + strandedEnglishArticlePenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
             const nextHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
