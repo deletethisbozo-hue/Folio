@@ -6,6 +6,8 @@ const engines = { en: new Hypher(english), pl: new Hypher(polish) };
 type HyphenationLanguage = keyof typeof engines;
 type HyphenationLimits = { minimumWord: number; left: number; right: number };
 const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
+  // Narrow justified book measures need the language-valid 2/2 Polish points;
+  // compositor QA separately caps hyphen density/streaks and forbids emergency lines.
   pl: { minimumWord: 4, left: 2, right: 2 },
   en: { minimumWord: 5, left: 2, right: 3 },
 };
