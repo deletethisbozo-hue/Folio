@@ -44,3 +44,5 @@ jobs:
           name: Folio-1.0.7-visual-qa
           path: build/qa-v107/*
           if-no-files-found: warn
+
+# qualification trigger: protected-space composition repair
