@@ -45,7 +45,7 @@ export function conservativeHyphenation(
   word: string,
   leftMinimum = HYPHENATION_LIMITS.en.left,
   rightMinimum = HYPHENATION_LIMITS.en.right,
-  minimumWord = HYPHENATION_LIMITS.en.minimumWord,
+  minimumWord = 6,
 ): string {
   if (word.length < minimumWord) return word;
   const pieces = engine.hyphenate(word);
