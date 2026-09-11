@@ -34,7 +34,7 @@ def patch(path: Path) -> None:
     # the second. This preserves natural low-hyphen routes in bounded DP buckets.
     if "const cumulativeHyphenPenalty" not in value:
         pattern = re.compile(
-            r"(?P<i>[ \t]*)const hyphenPenalty = hyphenBreak(?:\n(?P=i)  )?\? 240 \+ previousHyphenStreak \* 950 \+ previousHyphenCount \* 180(?:\n(?P=i)  )?: 0;"
+            r"(?P<i>[ \t]*)const hyphenPenalty = hyphenBreak\s*\?\s*240 \+ previousHyphenStreak \* 950 \+ previousHyphenCount \* 180\s*:\s*0;"
         )
         match = pattern.search(value)
         if not match:
