@@ -99,6 +99,11 @@ try {
     });
     await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true });
     await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);
+    // Saving metadata reloads the selected section. Let that authoritative
+    // read settle before replacing the manuscript with the visual corpus.
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await page.waitForSelector('.rich-editor[contenteditable="true"]');
+    await page.waitForFunction(() => Boolean((document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown));
   };
 
   const setDropcap = async (enabled: boolean) => {
