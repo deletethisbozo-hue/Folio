@@ -301,10 +301,14 @@ try {
   await page.keyboard.type(" TRUSTED LARGE TYPING MARKER", { delay: 5 });
   await stage("trusted large-manuscript typing reaches model", () => page.waitForFunction(() =>
     (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes("TRUSTED LARGE TYPING MARKER"), { timeout: 5000 }));
-  await stage("trusted large-manuscript typing reaches preview", () => page.waitForFunction(() =>
-    document.querySelector("iframe")?.contentDocument?.body?.innerText
-      .replace(/[\u00ad-]/g, "")
-      .includes("TRUSTED LARGE TYPING MARKER"), { timeout: 8000 }));
+  await stage("trusted large-manuscript typing reaches preview", () => page.waitForFunction(() => {
+    // Read the semantic tail that received the keystrokes. body.innerText forces
+    // layout for all 5,200 paragraphs on every poll and can consume the entire
+    // responsiveness budget on Windows before it observes the already-patched DOM.
+    const tail = document.querySelector("iframe")?.contentDocument
+      ?.querySelector<HTMLElement>("main.book > section.chapter > p:last-of-type");
+    return tail?.textContent?.replace(/\u00ad/g, "").includes("TRUSTED LARGE TYPING MARKER");
+  }, { timeout: 8000 }));
   check("trusted keyboard input stays responsive after a 100,000-word paste", Date.now() - trustedTypingStarted <= 8000);
   await page.setViewport({ width: 1180, height: 700 });
   const visibleAfterLargePaste = await page.evaluate(() => {
