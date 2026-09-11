@@ -8,10 +8,15 @@ const engines = {
   en: new Hypher(english),
   pl: new Hypher(polish),
 };
+type HyphenationLanguage = keyof typeof engines;
+type HyphenationLimits = { minimumWord: number; left: number; right: number };
+const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
+  pl: { minimumWord: 4, left: 2, right: 2 },
+  en: { minimumWord: 7, left: 3, right: 3 },
+};
 const WORD = /\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu;
-const MIN_HYPHENATED_WORD = 7;
 
-function languageKey(language: string): "pl" | "en" {
+function languageKey(language: string): HyphenationLanguage {
   return /^pl(?:-|$)/i.test(language) ? "pl" : "en";
 }
 
@@ -19,15 +24,21 @@ function engineFor(language: string): Hypher {
   return engines[languageKey(language)];
 }
 
-export function conservativeHyphenation(engine: Hypher, word: string): string {
-  if (word.length < MIN_HYPHENATED_WORD) return word;
+export function conservativeHyphenation(
+  engine: Hypher,
+  word: string,
+  leftMinimum = HYPHENATION_LIMITS.en.left,
+  rightMinimum = HYPHENATION_LIMITS.en.right,
+  minimumWord = HYPHENATION_LIMITS.en.minimumWord,
+): string {
+  if (word.length < minimumWord) return word;
   const pieces = engine.hyphenate(word);
   if (pieces.length < 2) return word;
   const points: number[] = [];
   let offset = 0;
   for (let index = 0; index < pieces.length - 1; index++) {
     offset += pieces[index].length;
-    if (offset >= 3 && word.length - offset >= 3) points.push(offset);
+    if (offset >= leftMinimum && word.length - offset >= rightMinimum) points.push(offset);
   }
   if (!points.length) return word;
   let result = "";
@@ -40,19 +51,21 @@ export function conservativeHyphenation(engine: Hypher, word: string): string {
 }
 
 function discretionaryWords(book: Book): Record<string, string> {
+  const key = languageKey(book.meta.language);
   const engine = engineFor(book.meta.language);
+  const limits = HYPHENATION_LIMITS[key];
   const words = new Set<string>();
   for (const section of book.sections) {
     if (section.kind !== "chapter" && section.kind !== "backmatter") continue;
     for (const match of section.markdown.matchAll(WORD)) {
       const word = match[0];
-      if (word.includes("\u00ad") || word.length < MIN_HYPHENATED_WORD) continue;
+      if (word.includes("\u00ad") || word.length < limits.minimumWord) continue;
       words.add(word);
     }
   }
   const map: Record<string, string> = {};
   for (const word of words) {
-    const hyphenated = conservativeHyphenation(engine, word);
+    const hyphenated = conservativeHyphenation(engine, word, limits.left, limits.right, limits.minimumWord);
     if (hyphenated !== word) map[word] = hyphenated;
   }
   return map;
@@ -63,8 +76,10 @@ function discretionaryWords(book: Book): Record<string, string> {
  * semantics are never rewritten. */
 export async function applyProfessionalHyphenation(page: Page, book: Book): Promise<void> {
   if (book.typography.bodyAlign === "left") return;
+  const key = languageKey(book.meta.language);
+  const limits = HYPHENATION_LIMITS[key];
   const words = discretionaryWords(book);
-  const polishBook = languageKey(book.meta.language) === "pl";
+  const polishBook = key === "pl";
   if (!Object.keys(words).length && !polishBook) return;
   await page.evaluate(({ map, polish, minimum }) => {
     const root = document.querySelector("main.book");
@@ -105,5 +120,5 @@ export async function applyProfessionalHyphenation(page: Page, book: Book): Prom
         });
       }
     }
-  }, { map: words, polish: polishBook, minimum: MIN_HYPHENATED_WORD });
+  }, { map: words, polish: polishBook, minimum: limits.minimumWord });
 }
