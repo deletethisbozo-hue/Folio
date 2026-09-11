@@ -364,11 +364,10 @@ try {
       };
     }, needle);
     const measurePx = Math.max(0, ...report.lineDetails.map((line) => line.availableWidthPx));
-    // Narrow e-reader measures genuinely require more discretionary hyphenation.
-    // Keep the normal 45% ceiling, but permit exactly 50% below ~20em only when
-    // every other quality gate (streak, spacing, tracking, glyph scale and zero
-    // emergency composition) remains green.
-    const hyphenRateLimit = measurePx <= 305 ? 0.501 : 0.45;
+    // Keep the same professional hyphen-density ceiling on every measure.
+    // Narrow readers may use legal discretionary breaks, but do not receive a
+    // weaker release gate merely because platform font metrics differ.
+    const hyphenRateLimit = 0.45;
     const qualification = { ...report, measurePx, hyphenRateLimit };
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(qualification, null, 2) + "\n", "utf8");
     if (

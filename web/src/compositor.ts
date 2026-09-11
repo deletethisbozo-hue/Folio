@@ -268,10 +268,10 @@ function glyphScaleBucket(glyphScale: number): number {
   ));
 }
 
-const HYPHEN_BUCKET_COUNT = 5;
+const HYPHEN_BUCKET_COUNT = 9;
 
 function hyphenCountBucket(hyphenCount: number): number {
-  return Math.min(4, hyphenCount);
+  return Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);
 }
 
 function encodeState(
@@ -474,8 +474,18 @@ function chooseBreaks(
         const shortHyphenFragmentPenalty = hyphenBreak
           ? words[end].characters <= 2 ? 850 : words[end].characters === 3 ? 420 : 0
           : 0;
+        // A paragraph with discretionary hyphens on most lines reads visibly
+        // choppy even when no three-line streak occurs. Preserve more cumulative
+        // hyphen-count states and add a soft density cost once enough lines exist
+        // for the ratio to be meaningful.
+        const projectedLineCount = line + 1;
+        const projectedHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
+        const projectedHyphenRate = projectedHyphenCount / Math.max(1, projectedLineCount);
+        const hyphenDensityPenalty = hyphenBreak && projectedLineCount >= 4 && projectedHyphenRate > 0.42
+          ? 2600 * Math.pow((projectedHyphenRate - 0.42) / 0.18, 2)
+          : 0;
         const hyphenPenalty = hyphenBreak
-          ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty
+          ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty + hyphenDensityPenalty
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
         const rescuePenalty = dropcapRescue

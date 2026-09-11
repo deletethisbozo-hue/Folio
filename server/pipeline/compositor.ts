@@ -137,8 +137,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       GLYPH_SCALE_COUNT - 1,
       Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
     ));
-    const HYPHEN_BUCKET_COUNT = 5;
-    const hyphenCountBucket = (hyphenCount: number) => Math.min(4, hyphenCount);
+    const HYPHEN_BUCKET_COUNT = 9;
+    const hyphenCountBucket = (hyphenCount: number) => Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);
     const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number, hyphenCount: number) => {
       const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
       const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
@@ -453,8 +453,16 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const shortHyphenFragmentPenalty = hyphenBreak
               ? words[end].characters <= 2 ? 850 : words[end].characters === 3 ? 420 : 0
               : 0;
+            // Mirror the preview's paragraph-level hyphen-density cost so PDF and
+            // print composition prefer the same calmer break pattern.
+            const projectedLineCount = lineNo + 1;
+            const projectedHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
+            const projectedHyphenRate = projectedHyphenCount / Math.max(1, projectedLineCount);
+            const hyphenDensityPenalty = hyphenBreak && projectedLineCount >= 4 && projectedHyphenRate > 0.42
+              ? 2600 * Math.pow((projectedHyphenRate - 0.42) / 0.18, 2)
+              : 0;
             const hyphenPenalty = hyphenBreak
-              ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty
+              ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty + hyphenDensityPenalty
               : 0;
             const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
             const rescuePenalty = dropcapRescue
