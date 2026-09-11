@@ -391,7 +391,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // Professional prose never uses three consecutive discretionary
             // hyphens when a justified/relaxed alternative exists. The final
             // rescue pass may still recover pathological narrow measures.
-            if (hyphenBreak && previousHyphenStreak >= 2 && !allowNaturalRescue) continue;
+            const hyphenStreakOverflow = hyphenBreak && previousHyphenStreak >= 2;
             const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
             const rightProtrusion = hyphenBreak ? 0 : words[end].rightProtrusion;
             const opticalAvailable = available + rightProtrusion;
@@ -405,7 +405,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // continuation of a discretionary split on the final line.
             // A final fragment such as `de-` / `cyzji.` is a composition
             // defect, not an acceptable way to satisfy local line fit.
-            if (last && semanticWordsOnLine === 1 && previous.hyphenated) continue;
+            const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;
             // Mirror live preview: bounded compression is a normal composition
             // tool, not an unreachable branch hidden behind natural <= measure.
             const finalCompressionFit = last
@@ -476,6 +476,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : 0;
             const finalCompressed = last && Boolean(finalCompressionFit);
             const finalCompressionPenalty = finalCompressed ? 160 : 0;
+            const structuralPenalty = (hyphenStreakOverflow ? 25000 : 0) + (hyphenWidow ? 25000 : 0);
             // The release gate evaluates hyphenated lines against justified lines.
             // Charge the completed paragraph on the final transition as well, so a
             // sequence that looked acceptable while it was being built cannot end
@@ -496,7 +497,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
             const currentGaps = lineGapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
             const rivers = riverCost(currentGaps, previous, spaceWidth);
-            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + finalCompressionPenalty + finalHyphenDensityPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
+            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + finalCompressionPenalty + structuralPenalty + finalHyphenDensityPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
             const nextHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);

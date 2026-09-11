@@ -183,6 +183,7 @@ try {
       let maxSemanticGapEm = 0;
       let maxAdjacentSpacingDeltaEm = 0;
       let emergencyLines = 0;
+      let oneWordFinalLines = 0;
       const emergencyDetails: Array<{
         text: string;
         previousText: string | null;
@@ -231,6 +232,12 @@ try {
           compositionFailures.push({ paragraphIndex: paragraphs.indexOf(paragraph), failure });
         }
         const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
+        const finalLine = lines.at(-1);
+        if (finalLine && lines.length > 1) {
+          const finalWords = [...finalLine.querySelectorAll<HTMLElement>(".folio-word")];
+          const semanticWords = finalWords.filter((word, index) => index === 0 || word.dataset.folioSpaceBefore === "true").length;
+          if (semanticWords === 1) oneWordFinalLines++;
+        }
         let streak = 0;
         let previousSpacing: number | null = null;
         let previousGlyphScale: number | null = null;
@@ -356,6 +363,7 @@ try {
         maxSemanticGapEm,
         maxAdjacentSpacingDeltaEm,
         emergencyLines,
+        oneWordFinalLines,
         emergencyDetails,
         compositionFailures,
         compositionTraces,
@@ -376,7 +384,7 @@ try {
       report.relaxedLines > 2 || report.maxTrackingEm > 0.0031 || report.maxGlyphScaleDelta > 0.0101 ||
       report.maxAdjacentGlyphScaleDelta > 0.0121 || report.maxSemanticGapEm > 0.37 ||
       report.maxAdjacentSpacingDeltaEm > 0.16 || report.hyphenRate > hyphenRateLimit || report.maxHyphenStreak > 2 ||
-      report.emergencyLines !== 0 || report.ornamentalBreaksOffCenter !== 0
+      report.emergencyLines !== 0 || report.oneWordFinalLines !== 0 || report.ornamentalBreaksOffCenter !== 0
     ) throw new Error(`${label} failed typographic QA: ${JSON.stringify(qualification)}`);
     return qualification;
   };

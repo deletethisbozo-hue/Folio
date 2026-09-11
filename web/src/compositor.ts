@@ -399,7 +399,7 @@ function chooseBreaks(
         const next = last ? null : words[end + 1];
         const canBreak = last || next!.canBreakBefore;
         const hyphenBreak = !last && next!.hyphenBefore;
-        if (hyphenBreak && previousHyphenStreak >= 2 && !allowNaturalRescue) continue;
+        const hyphenStreakOverflow = hyphenBreak && previousHyphenStreak >= 2;
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
         const rightProtrusion = hyphenBreak ? 0 : words[end].rightProtrusion;
         const opticalAvailable = available + rightProtrusion;
@@ -409,7 +409,7 @@ function chooseBreaks(
         const semanticWordsOnLine = 1 + words
           .slice(start + 1, end + 1)
           .filter((word) => word.spaceBefore).length;
-        if (last && semanticWordsOnLine === 1 && previous.hyphenated) continue;
+        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;
         const finalCompressionFit = last
           && semanticWordsOnLine >= 2
           && adjustment < -0.75
@@ -460,6 +460,7 @@ function chooseBreaks(
           : 0;
         const finalCompressed = last && Boolean(finalCompressionFit);
         const finalCompressionPenalty = finalCompressed ? 160 : 0;
+        const structuralPenalty = (hyphenStreakOverflow ? 25000 : 0) + (hyphenWidow ? 25000 : 0);
         // The release gate evaluates hyphenated lines against justified lines.
         // Charge the completed paragraph on the final transition as well, so a
         // sequence that looked acceptable while it was being built cannot end
@@ -486,6 +487,7 @@ function chooseBreaks(
           + rescuePenalty
           + relaxedPenalty
           + finalCompressionPenalty
+          + structuralPenalty
           + finalHyphenDensityPenalty
           + hyphenPenalty
           + punctuationPenalty
