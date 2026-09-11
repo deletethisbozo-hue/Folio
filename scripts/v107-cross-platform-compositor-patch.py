@@ -6,27 +6,25 @@ for relative in ["web/src/compositor.ts", "server/pipeline/compositor.ts"]:
     path = ROOT / relative
     value = path.read_text(encoding="utf-8")
 
-    # Use a moderate base penalty for a discretionary break while keeping a
-    # strong surcharge for consecutive hyphenated lines. Larger base values did
-    # not change the Windows breakpoint set and can make a geometrically worse
-    # fallback win when the hyphenation dictionary is deliberately conservative.
-    replacements = [
-        ("? 900 + previousHyphenStreak * 950", "? 240 + previousHyphenStreak * 950"),
-        ("? 400 + previousHyphenStreak * 950", "? 240 + previousHyphenStreak * 950"),
-    ]
-    changed = False
-    for old, new in replacements:
+    old_spacing = "const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);"
+    new_spacing = "const minWordSpacing = -Math.min(spaceWidth * 0.22, fontSize * 0.055);"
+    if old_spacing in value:
+        value = value.replace(old_spacing, new_spacing, 1)
+    elif new_spacing not in value:
+        raise RuntimeError(f"minimum word-spacing envelope not found in {relative}")
+
+    for old in [
+        "? 900 + previousHyphenStreak * 950",
+        "? 400 + previousHyphenStreak * 950",
+    ]:
         if old in value:
-            value = value.replace(old, new, 1)
-            changed = True
+            value = value.replace(old, "? 240 + previousHyphenStreak * 950", 1)
             break
+    if "240 + previousHyphenStreak * 950" not in value:
+        raise RuntimeError(f"moderate hyphen penalty not found in {relative}")
 
-    if not changed and "240 + previousHyphenStreak * 950" not in value:
-        raise RuntimeError(f"current hyphen penalty block not found in {relative}")
-
-    # The real-width cross-platform calibration must already be present.
     if "const correctedScale = Math.max(0.98, Math.min(1.02, currentScale * measure / rendered));" not in value:
         raise RuntimeError(f"cross-platform line calibration missing in {relative}")
 
     path.write_text(value, encoding="utf-8")
-    print(f"restored moderate discretionary hyphen cost in {relative}")
+    print(f"expanded QA-safe compression envelope in {relative}")
