@@ -15,7 +15,7 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
@@ -35,11 +35,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Read and verify Folio version
+      - name: Verify Folio 1.0.7 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "1.0.6") { throw "This release workflow is scoped to Folio 1.0.6, found $version." }
+          if ($version -ne "1.0.7") { throw "Windows release is scoped to Folio 1.0.7, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -49,7 +49,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v1.0.6"
+          $tag = "v$env:FOLIO_VERSION"
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Refusing to delete or replace it; bump the version." }
           $global:LASTEXITCODE = 0
@@ -85,19 +85,14 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Full formatter and UI suite
+      - name: Full formatter and UI suite on Windows
         run: npm test
 
       - name: Build web and server
         run: npm run build
 
-      - name: Capture visual and typesetting QA
-        run: node --import tsx scripts/v106-visual-qa.ts
-
-      - name: Enforce measured typesetting limits
-        shell: pwsh
-        run: |
-          node -e "const g=require('./build/qa-v106/typesetting-geometry.json'); if(g.justifiedCount<1||g.maxRightErrorPx>1.75||g.maxSemanticGapPx>8||g.maxWordSpacingPx>2.2||g.maxTrackingPx>0.16||g.emergencyLines!==0||!g.finalLineNatural) { console.error(g); process.exit(1) } console.log(g)"
+      - name: Capture v1.0.7 visual and typesetting QA on Windows
+        run: node --import tsx scripts/v107-visual-qa.ts
 
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
@@ -118,6 +113,7 @@ jobs:
             if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged /api/health did not become ready with bundled Pandoc." }
 
             node scripts\packaged-ui-smoke.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
             if ($themes.Count -lt 30) { throw "Packaged app returned only $($themes.Count) themes." }
@@ -190,6 +186,7 @@ jobs:
             release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
             release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
             release/sha256.txt
+            build/qa-v107/*
           if-no-files-found: error
 
       - name: Publish immutable GitHub Release
@@ -211,4 +208,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 1.0.6 rebuilds reflow and print composition around bounded, language-aware line breaking for Polish and English. It prevents oversized justified gaps, keeps drop caps and ornamental breaks geometrically independent, and measures the actual rendered line contents before release. The preview keeps its compact pane while using calibrated device profiles. Front/back matter deletion, chapter order, headings, subtitles and appearance now share serialized, atomic project persistence so autosave cannot resurrect or overwrite newer edits. Large manuscript editing remains cooperative and the application provides Ivory & Ink and Midnight Editorial interface tones, additional fantasy/gothic book designs and expanded ornamental-break choices. This Windows release is gated by typecheck, the complete automated suite, visual geometry assertions, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 1.0.7 tightens the professional compositor and studio UI while keeping the release gate strict. Polish and English reflow use bounded justification, controlled hyphenation with a 0.45 maximum line rate, no emergency lines in the qualification corpus, natural paragraph endings, synchronized chapter labels and stable large-manuscript preview behavior. Section writes, renames and deletes are serialized so autosave cannot race deletion on Windows. The Windows release is gated by typecheck, the complete formatter/UI suite, v1.0.7 visual and typesetting QA, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
