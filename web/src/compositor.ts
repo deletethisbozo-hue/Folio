@@ -282,10 +282,18 @@ function fitLine(
   const maxWordSpacing = emergency
     ? Math.min(spaceWidth * 0.46, fontSize * 0.113)
     : Math.min(spaceWidth * 0.50, fontSize * 0.10);
-  const relaxedCompressionEm = language.toLowerCase().startsWith("en") ? 0.07 : 0.0595;
+  const normalizedLanguage = language.toLowerCase();
+  const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
+  // Windows and Linux rasterize the same serif faces a little differently.
+  // Keep the normal line fitter inside the release gate, but give Polish prose
+  // enough bounded compression headroom to choose a clean word boundary instead
+  // of exceeding the 0.45 section hyphen-density ceiling. The optimiser still
+  // pays badness for every compressed gap, so this is an available rescue path,
+  // not the new preferred spacing.
+  const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;
   const minWordSpacing = emergency || finalCompression
     ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
-    : -Math.min(spaceWidth * 0.24, fontSize * 0.06);
+    : -Math.min(spaceWidth * 0.34, fontSize * strictCompressionEm);
   const maxTracking = fontSize * 0.003;
   const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
   const maxGlyphScaleDelta = 0.01;
