@@ -311,7 +311,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         return { offset, available: Math.max(1, width - offset) };
       };
 
-      const runBreaker = (emergency: boolean): Break[] | null => {
+      const runBreaker = (emergency: boolean, allowNaturalRescue = emergency): Break[] | null => {
       const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());
       const initialFitness = 1;
       states[0].set(encodeState(0, 0, initialFitness, 1), {
@@ -372,7 +372,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const dropcapRescue = !last && Boolean(cap) && lineNo < capLines
               && natural <= available + 0.75
               && (!fit || (gaps <= 2 && fit.wordSpacing > spaceWidth * 0.10));
-            const emergencyRescue = emergency && !last && !fit && natural <= available + 0.75;
+            const emergencyRescue = allowNaturalRescue && !last && !fit && natural <= available + 0.75;
             const rescueNatural = dropcapRescue || emergencyRescue;
             const lineFit = dropcapRescue ? null : fit;
             const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
@@ -456,7 +456,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       return reversed.reverse();
       };
 
-      const breaks = runBreaker(false) ?? runBreaker(true);
+      // Keep rescue out of the cost graph until both strict and relaxed
+      // justified composition have failed completely.
+      const breaks = runBreaker(false, false) ?? runBreaker(true, false) ?? runBreaker(true, true);
       if (!breaks) {
         paragraph.classList.add("folio-compositor-safe-fallback");
         continue;

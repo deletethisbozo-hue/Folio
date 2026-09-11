@@ -317,6 +317,7 @@ function chooseBreaks(
   fontSize: number,
   emergency = false,
   debugTarget: HTMLElement | null = null,
+  allowNaturalRescue = emergency,
 ): Break[] | null {
   const count = words.length;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
@@ -407,7 +408,7 @@ function chooseBreaks(
         const dropcapRescue = !last && Boolean(geometry.cap) && line < geometry.capLines
           && natural <= available + 0.75
           && (!fit || (gaps <= 2 && fit.wordSpacing > spaceWidth * 0.10));
-        const emergencyRescue = emergency && !last && !fit && natural <= available + 0.75;
+        const emergencyRescue = allowNaturalRescue && !last && !fit && natural <= available + 0.75;
         const rescueNatural = dropcapRescue || emergencyRescue;
         const lineFit = dropcapRescue ? null : fit;
         const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
@@ -611,8 +612,11 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, paragraph);
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true);
+  // Three deliberately separate passes. Natural rescue must never compete
+  // on cost with an available justified solution.
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, paragraph, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, true);
   if (!breaks) {
     restore(paragraph);
     paragraph.classList.add("folio-compositor-safe-fallback");
