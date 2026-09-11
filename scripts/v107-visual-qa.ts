@@ -68,21 +68,36 @@ try {
   const replaceEditor = async (paragraphs: string[]) => {
     await page.$eval(".rich-editor", (element, values) => {
       const editor = element as HTMLElement;
-      editor.focus();
-      const range = document.createRange();
-      range.selectNodeContents(editor);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      const transfer = new DataTransfer();
-      transfer.setData("text/html", values.map((value) => `<p>${value}</p>`).join("<p class=\"scene-break\">⁂</p>"));
-      editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
+      const ornament = '<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>⁂</span><button type="button" class="editor-scene-break-remove">×</button></div>';
+      editor.innerHTML = values.map((value) => `<p>${value}</p>`).join(ornament);
+      editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertReplacementText" }));
     }, paragraphs);
+    await page.waitForFunction((needle) => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes(needle), {}, paragraphs[0].slice(0, 36));
     await page.waitForFunction((needle) => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes(needle), {}, paragraphs[0].slice(0, 36));
     await page.waitForFunction(() => {
       const doc = document.querySelector("iframe")?.contentDocument;
       return Boolean(doc?.querySelector("section.chapter > p.folio-composed .folio-composed-line"));
     });
+  };
+
+  const setLanguage = async (language: string) => {
+    await page.click('[data-command="book"]');
+    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]');
+    await page.evaluate((value) => {
+      const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
+      const input = row?.querySelector("input") as HTMLInputElement | null;
+      if (!input) throw new Error("Language field is missing");
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }, language);
+    await page.evaluate(() => {
+      const button = [...document.querySelectorAll(".folio-dialog footer button")].find((node) => node.textContent === "Save");
+      (button as HTMLButtonElement | undefined)?.click();
+    });
+    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true });
+    await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);
   };
 
   const setDropcap = async (enabled: boolean) => {
@@ -176,6 +191,7 @@ try {
     return report;
   };
 
+  await setLanguage("pl");
   await setDropcap(false);
   await replaceEditor(polish);
   const screen = await page.$(".reader-screen");
@@ -187,22 +203,7 @@ try {
   await screen.screenshot({ path: path.join(qa, "reader-polish-dropcap.png") });
   const dropcapReport = await metrics("typesetting-polish-dropcap");
 
-  await page.click(".folio-commandbar nav button:first-child");
-  await page.waitForSelector('.folio-dialog[aria-label="Book Details"]');
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
-    const input = row?.querySelector("input") as HTMLInputElement | null;
-    if (!input) throw new Error("Language field is missing");
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
-    setter.call(input, "en");
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  await page.evaluate(() => {
-    const button = [...document.querySelectorAll(".folio-dialog footer button")].find((node) => node.textContent === "Save");
-    (button as HTMLButtonElement | undefined)?.click();
-  });
-  await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true });
+  await setLanguage("en");
   await setDropcap(false);
   await replaceEditor(english);
   await screen.screenshot({ path: path.join(qa, "reader-english.png") });

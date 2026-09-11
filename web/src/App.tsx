@@ -45,16 +45,13 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "add" | "design" | "drag" | "open" | "reload" | "info" | "up" | "down" | "undo" | "redo" | "search" | "previous" | "next";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "previous" | "next";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
-    add: <path d="M12 5v14M5 12h14"/>,
-    design: <><path d="M4 19 10.5 5h3L20 19M7 13h10"/><path d="M15.5 7.5h4M17.5 5.5v4"/></>,
     drag: <><circle cx="8" cy="7" r="1"/><circle cx="16" cy="7" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="17" r="1"/><circle cx="16" cy="17" r="1"/></>,
     open: <><path d="M3.5 8.5h7l2-2h8v11.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="m7 15 5-5 5 5M12 10v8"/></>,
     reload: <><path d="M20 7v5h-5"/><path d="M18.2 17a8 8 0 1 1 .6-9.8L20 12"/></>,
-    info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.2v.2"/></>,
     up: <path d="m6 14 6-6 6 6"/>,
     down: <path d="m6 10 6 6 6-6"/>,
     undo: <><path d="M9 7 4 12l5 5"/><path d="M5 12h8a6 6 0 0 1 6 6"/></>,
