@@ -144,6 +144,10 @@ export default function App() {
   const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);
+  // Tracks the exact Markdown already represented by the live iframe section.
+  // Large append-only typing can then patch the tail paragraph instead of
+  // reparsing and replacing thousands of unchanged paragraphs.
+  const livePreviewDraftRef = useRef("");
 
   const resetDocumentView = () => {
     draftRef.current = "";
@@ -159,6 +163,7 @@ export default function App() {
     setDirty(false);
     setSaveState("idle");
     setPreviewHtml("");
+    livePreviewDraftRef.current = "";
     previewIdentityRef.current = "";
     pendingPreviewIdentityRef.current = "";
     pendingPreviewScrollRef.current = 0;
@@ -353,6 +358,33 @@ export default function App() {
       subtitle?.remove();
       subtitle = null;
     }
+
+    // For a huge manuscript, normal keyboard typing at the end should not force
+    // Folio to serialize -> parse -> replace every unchanged paragraph again.
+    // If the new Markdown is a small plain-text append to the draft already
+    // represented by this iframe, patch only the final uncomposed paragraph.
+    // The paragraph remains under the existing lazy compositor observer, so it
+    // receives full professional composition if/when the reader scrolls to it.
+    const representedDraft = livePreviewDraftRef.current;
+    const appendDelta = previewDraft.length > 250_000
+      && representedDraft.length > 0
+      && previewDraft.startsWith(representedDraft)
+      ? previewDraft.slice(representedDraft.length)
+      : "";
+    const simpleTailAppend = appendDelta.length > 0
+      && appendDelta.length <= 2048
+      && !/[\r\n*_`#<>[\]\\]/.test(appendDelta);
+    const tail = section.lastElementChild instanceof HTMLElement
+      && section.lastElementChild.matches("p:not(.scene-break)")
+      ? section.lastElementChild
+      : null;
+    if (simpleTailAppend && tail && !tail.classList.contains("folio-composed")) {
+      tail.append(previewDocument.createTextNode(appendDelta));
+      livePreviewDraftRef.current = previewDraft;
+      if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
+      return true;
+    }
+
     Array.from(section.children).forEach((node) => {
       if (node !== heading && node !== subtitle) node.remove();
     });
@@ -361,6 +393,7 @@ export default function App() {
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
     template.innerHTML = markdownToPreviewHtml(previewDraft, ornament);
     section.appendChild(template.content);
+    livePreviewDraftRef.current = previewDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
     applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
