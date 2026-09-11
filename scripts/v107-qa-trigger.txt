@@ -1,10 +1,9 @@
 Folio 1.0.7 final qualification trigger
-Candidate repair: protected Polish NBSP spaces are counted as real adjustable word gaps while remaining non-breakable.
-Paperwhite Standard side inset: neutral 28px logical profile; composition quality is handled by the breaker rather than corpus-tuned geometry.
-Solver: strict expansion ceiling remains 0.10em; strict compression remains capped at 0.06em and 24% of measured base word space; relaxed expansion/compression limits remain unchanged; glyph scale remains inside the unchanged ±1% hard bound.
-Line-fit frontier: each legal breakpoint may preserve at most two bounded fit variants, the minimum-badness fit and the best scale-continuity fit. DP can therefore optimize the whole paragraph instead of losing a globally useful legal scale inside the local fitter.
-Subpixel fit: residual right-edge allowance remains 1.70px internally; release QA remains unchanged at <=1.75px.
-Optical margin alignment: discretionary line-ending hyphens may protrude by 55% of measured hyphen width, capped at 2.75px; punctuation protrusion remains unchanged.
-Hyphen ladder: a third consecutive discretionary line-end hyphen is removed from the graph; release gate max streak remains <=2.
-Drop cap: the compositor reserves exactly the rendered drop-cap bounding box plus measured CSS margin-right for the first two wrapped lines; preview and server pipeline mirror each other.
+Candidate repair: protected Polish NBSP spaces remain adjustable but non-breakable.
+Paperwhite Standard side inset remains the neutral 28px logical profile.
+Solver microtype limits remain unchanged, including the ±1% glyph-scale hard bound and internal 1.70px residual right-edge allowance against release QA <=1.75px.
+Line-fit frontier: at most two legal fit variants per breakpoint, minimum badness plus scale continuity, are preserved for paragraph-level DP.
+Closed-up em dashes: text such as along—how now exposes a legal zero-space breakpoint after the em dash while leading dialogue dashes remain intact; preview and server pipeline mirror each other.
+Optical margin alignment and hard hyphen ladder remain unchanged.
+Drop cap geometry remains exact rendered box plus measured CSS margin-right for the first two wrapped lines.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
