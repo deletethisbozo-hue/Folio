@@ -209,14 +209,16 @@ function fitLine(
   previousGlyphScale = 1,
   emergency = false,
   finalCompression = false,
+  language = "en",
 ): LineFit | null {
   if (gaps <= 0) return null;
 
   const maxWordSpacing = emergency
     ? Math.min(spaceWidth * 0.46, fontSize * 0.113)
     : Math.min(spaceWidth * 0.40, fontSize * 0.10);
+  const relaxedCompressionEm = language.toLowerCase().startsWith("en") ? 0.07 : 0.0595;
   const minWordSpacing = emergency || finalCompression
-    ? -Math.min(spaceWidth * 0.28, fontSize * 0.0595)
+    ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
     : -Math.min(spaceWidth * 0.24, fontSize * 0.06);
   const maxTracking = fontSize * 0.003;
   const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
@@ -361,6 +363,7 @@ function chooseBreaks(
   fontSize: number,
   emergency = false,
   allowNaturalRescue = emergency,
+  language = "en",
 ): Break[] | null {
   const count = words.length;
   lastBreakFailure = null;
@@ -424,13 +427,13 @@ function chooseBreaks(
         const finalCompressionFit = last
           && semanticWordsOnLine >= 2
           && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true)
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language)
           : null;
         const strictFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false)
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)
           : finalCompressionFit;
         const fit = strictFit ?? (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)
           : null);
         if (!canBreak) continue;
         if (natural > available + 0.75 && !fit && (end > start || last)) break;
@@ -686,9 +689,9 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, language);
   const strictFailure = breaks ? null : lastBreakFailure;
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, language);
   if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
     restore(paragraph);

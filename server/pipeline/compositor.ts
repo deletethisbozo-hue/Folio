@@ -89,8 +89,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const maxWordSpacing = emergency
         ? Math.min(spaceWidth * 0.46, fontSize * 0.113)
         : Math.min(spaceWidth * 0.40, fontSize * 0.10);
+      const relaxedCompressionEm = (document.documentElement.lang || "en").toLowerCase().startsWith("en") ? 0.07 : 0.0595;
       const minWordSpacing = emergency || finalCompression
-        ? -Math.min(spaceWidth * 0.28, fontSize * 0.0595)
+        ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
         : -Math.min(spaceWidth * 0.24, fontSize * 0.06);
       const maxTracking = fontSize * 0.003;
       const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
