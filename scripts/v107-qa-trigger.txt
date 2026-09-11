@@ -1,1 +1,1 @@
-qa-run strict-frontier-diagnostics
+qa-run strict-nearmiss-candidates
