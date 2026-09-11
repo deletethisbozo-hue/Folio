@@ -30,6 +30,7 @@ export interface ProjectInfo {
 }
 
 const projects = new Map<string, ProjectRecord>();
+const writableBookDirFlights = new Map<string, Promise<void>>();
 
 /** Safe-join that prevents path traversal outside base. */
 function safeJoin(base: string, rel: string): string {
@@ -143,7 +144,9 @@ export async function loadProject(
 
 /**
  * Return a writable book directory for the project, copying the bundled sample
- * into a temp dir on first write so we never modify the repo's sample.
+ * into a temp dir on first write so we never modify the repo's sample. The copy
+ * is single-flight per project: concurrent first mutations must never fork the
+ * sample into competing writable directories and then race to replace rec.bookDir.
  */
 export async function writableBookDir(id: string): Promise<string> {
   const rec = projects.get(id);
@@ -151,12 +154,29 @@ export async function writableBookDir(id: string): Promise<string> {
   if (!rec.bookDir) throw new Error("This project has no editable book folder. Use a folder, not a single file.");
 
   if (rec.source === "sample" && !rec.copied) {
-    const dest = await makeTempDir("project-");
-    await fs.cp(rec.bookDir, dest, { recursive: true });
-    rec.inputPath = dest;
-    rec.bookDir = dest;
-    rec.tempToClean = dest;
-    rec.copied = true;
+    let flight = writableBookDirFlights.get(id);
+    if (!flight) {
+      flight = (async () => {
+        if (rec.copied) return;
+        const source = rec.bookDir!;
+        const dest = await makeTempDir("project-");
+        try {
+          await fs.cp(source, dest, { recursive: true });
+          rec.inputPath = dest;
+          rec.bookDir = dest;
+          rec.tempToClean = dest;
+          rec.copied = true;
+        } catch (error) {
+          await fs.rm(dest, { recursive: true, force: true }).catch(() => undefined);
+          throw error;
+        }
+      })();
+      writableBookDirFlights.set(id, flight);
+      void flight.finally(() => {
+        if (writableBookDirFlights.get(id) === flight) writableBookDirFlights.delete(id);
+      }).catch(() => undefined);
+    }
+    await flight;
   }
   return rec.bookDir!;
 }
