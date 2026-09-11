@@ -199,6 +199,7 @@ try {
         strictFailure: unknown;
       }> = [];
       const compositionFailures: Array<{ paragraphIndex: number; failure: unknown }> = [];
+      const compositionTraces: Array<{ paragraphIndex: number; trace: unknown }> = [];
       const lineDetails: Array<{
         paragraphIndex: number;
         lineIndex: number;
@@ -217,6 +218,12 @@ try {
       }> = [];
       let ornamentalBreaksOffCenter = 0;
       for (const paragraph of paragraphs) {
+        const rawTrace = paragraph.dataset.folioCompositionTrace;
+        if (rawTrace) {
+          let trace: unknown = rawTrace;
+          try { trace = JSON.parse(rawTrace); } catch { /* keep raw diagnostic */ }
+          compositionTraces.push({ paragraphIndex: paragraphs.indexOf(paragraph), trace });
+        }
         const rawFailure = paragraph.dataset.folioStrictFailure;
         if (rawFailure) {
           let failure: unknown = rawFailure;
@@ -351,6 +358,7 @@ try {
         emergencyLines,
         emergencyDetails,
         compositionFailures,
+        compositionTraces,
         lineDetails,
         ornamentalBreaksOffCenter,
       };

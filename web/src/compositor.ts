@@ -642,7 +642,28 @@ function chooseBreaks(
     end = state.from;
     key = state.fromKey;
   }
-  return reversed.reverse();
+  const result = reversed.reverse();
+  if (debugTarget && emergency && !allowNaturalRescue) {
+    const nearWholeWord = debugCandidates.filter((candidate) => {
+      const item = candidate as { hyphenBreak?: boolean; fill?: number; selectedFit?: unknown };
+      const nearMeasure = typeof item.fill === "number" && item.fill >= 0.78 && item.fill <= 1.12;
+      return item.hyphenBreak === false && (nearMeasure || Boolean(item.selectedFit));
+    }).slice(-180);
+    debugTarget.dataset.folioCompositionTrace = JSON.stringify({
+      result: result.map((lineBreak, line) => ({
+        line,
+        end: lineBreak.end,
+        hyphenated: lineBreak.hyphenated,
+        wordSpacing: lineBreak.wordSpacing,
+        tracking: lineBreak.tracking,
+        glyphScale: lineBreak.glyphScale,
+        relaxed: lineBreak.relaxed,
+        finalCompressed: lineBreak.finalCompressed,
+      })),
+      candidates: nearWholeWord,
+    });
+  }
+  return result;
 }
 
 function cloneLineFragment(document: Document, words: Word[], start: number, end: number): DocumentFragment {
