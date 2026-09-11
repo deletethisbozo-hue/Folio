@@ -40,6 +40,7 @@ type Break = {
   available: number;
   emergency: boolean;
   relaxed: boolean;
+  finalCompressed: boolean;
 };
 
 type State = Break & {
@@ -182,6 +183,7 @@ function fitLine(
   naturalWidth: number,
   previousGlyphScale = 1,
   emergency = false,
+  finalCompression = false,
 ): LineFit | null {
   if (gaps <= 0) return null;
 
@@ -191,9 +193,11 @@ function fitLine(
   const maxWordSpacing = emergency
     ? Math.min(spaceWidth * 0.56, fontSize * 0.14)
     : Math.min(spaceWidth * 0.50, fontSize * 0.115);
-  const minWordSpacing = -Math.min(spaceWidth * 0.22, fontSize * 0.055);
+  const minWordSpacing = finalCompression
+    ? -Math.min(spaceWidth * 0.34, fontSize * 0.065)
+    : -Math.min(spaceWidth * 0.22, fontSize * 0.055);
   const maxTracking = fontSize * 0.0055;
-  const minTracking = -fontSize * 0.0045;
+  const minTracking = -fontSize * (finalCompression ? 0.0055 : 0.0045);
   const maxGlyphScaleDelta = 0.02;
   const available = naturalWidth + adjustment;
   let best: LineFit | null = null;
@@ -357,6 +361,7 @@ function chooseBreaks(
     available: geometry.width,
     emergency: false,
     relaxed: false,
+    finalCompressed: false,
     fitness: initialFitness,
     hyphenCount: 0,
     gapPositions: [],
@@ -388,12 +393,21 @@ function chooseBreaks(
 
         const adjustment = available - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
+        const semanticWordsOnLine = 1 + words
+          .slice(start + 1, end + 1)
+          .filter((word) => word.spaceBefore).length;
         // fitLine already has strict lower bounds for word spacing and tracking.
         // Let it use those bounds for slightly overfull candidates too; the old
         // natural-width guard made all negative-spacing logic effectively dead.
+        const finalCompressionFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          && natural <= available * 1.05
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true)
+          : null;
         const strictFit = !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false)
-          : null;
+          : finalCompressionFit;
         const fit = strictFit ?? (emergency && !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
           : null);
@@ -444,9 +458,6 @@ function chooseBreaks(
         const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
         if (!last && !lineFit && !rescueNatural) continue;
 
-        const semanticWordsOnLine = 1 + words
-          .slice(start + 1, end + 1)
-          .filter((word) => word.spaceBefore).length;
         // Hyphenation splits one visible word into several compositor tokens.
         // Widow control must count semantic words, not discretionary pieces,
         // otherwise endings such as `de-` / `cyzji.` evade the rule entirely.
@@ -472,6 +483,8 @@ function chooseBreaks(
           ? 115 + 260 * Math.pow(1 - fill, 2)
           : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
         const relaxedPenalty = relaxedFit ? 420 : 0;
+        const finalCompressed = last && Boolean(finalCompressionFit);
+        const finalCompressionPenalty = finalCompressed ? 160 : 0;
         const currentFitness = lineFit?.fitness ?? previousFitness;
         const fitnessDelta = Math.abs(currentFitness - previousFitness);
         const fitnessPenalty = line === 0 || !lineFit
@@ -485,6 +498,7 @@ function chooseBreaks(
           + (lineFit?.badness ?? 0)
           + rescuePenalty
           + relaxedPenalty
+          + finalCompressionPenalty
           + hyphenPenalty
           + punctuationPenalty
           + shortLastPenalty
@@ -511,6 +525,7 @@ function chooseBreaks(
             available,
             emergency: emergencyRescue,
             relaxed: relaxedFit,
+            finalCompressed,
             fitness: currentFitness,
             hyphenCount: nextHyphenCount,
             gapPositions: currentGaps,
@@ -584,6 +599,7 @@ function chooseBreaks(
       available: state.available,
       emergency: state.emergency,
       relaxed: state.relaxed,
+      finalCompressed: state.finalCompressed,
     });
     end = state.from;
     key = state.fromKey;
@@ -692,7 +708,7 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   let start = 0;
   for (const [lineIndex, lineBreak] of breaks.entries()) {
     const line = paragraph.ownerDocument.createElement("span");
-    line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.relaxed ? " folio-line-relaxed" : ""}${lineBreak.emergency ? " folio-line-emergency" : ""}`;
+    line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.relaxed ? " folio-line-relaxed" : ""}${lineBreak.emergency ? " folio-line-emergency" : ""}${lineBreak.finalCompressed ? " folio-line-final-compressed" : ""}`;
     if (lineBreak.relaxed) line.dataset.folioRelaxed = "true";
     if (lineBreak.emergency) line.dataset.folioEmergency = "true";
     const content = paragraph.ownerDocument.createElement("span");
@@ -704,7 +720,7 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     line.append(content);
     line.style.marginLeft = `${lineBreak.offset}px`;
     line.style.width = `${lineBreak.available}px`;
-    if (lineBreak.justified) {
+    if (lineBreak.justified || lineBreak.finalCompressed) {
       line.style.wordSpacing = `${baseWordSpacing + lineBreak.wordSpacing}px`;
       line.style.letterSpacing = `${baseTracking + lineBreak.tracking}px`;
       if (Math.abs(lineBreak.glyphScale - 1) > 0.00001) content.style.transform = `scaleX(${lineBreak.glyphScale})`;
@@ -742,7 +758,7 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   // the chosen scale closer to 1; it does not relax spacing or tracking limits.
   const corrections: Array<{ line: HTMLElement; content: HTMLElement; scale: number }> = [];
   for (const line of lines) {
-    if (!line.classList.contains("folio-line-justified")) continue;
+    if (!line.classList.contains("folio-line-justified") && !line.classList.contains("folio-line-final-compressed")) continue;
     const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
     if (!content) continue;
     const rendered = content.getBoundingClientRect().width;
