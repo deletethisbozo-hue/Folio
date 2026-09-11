@@ -1,4 +1,6 @@
-Folio 1.0.7 diagnostic qualification trigger
-Candidate behavior is unchanged from the em-dash breakpoint candidate.
-This run adds exact web-compositor diagnostics for the first overfull breakpoint so the remaining English infeasibility can be measured rather than guessed.
-All release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
+Folio 1.0.7 final qualification trigger
+Candidate: 0138702d97e85b3475fe8af9bf2d5ffc2caaf4cc
+Paperwhite Standard side inset: 33px logical reader-safe profile. This narrows the line measure without loosening compositor microtype or release QA.
+English hyphenation remains dictionary-driven; no manual exceptions were added for along, every, choice, or small.
+Line-fit frontier, closed-up em-dash breakpoint support, exact drop-cap geometry, optical hyphen protrusion, and the hard <=2 hyphen ladder remain active in preview and server composition where applicable.
+Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
