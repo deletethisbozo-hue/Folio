@@ -597,7 +597,7 @@ try {
   await stage("open empty folder", () => page.waitForSelector(".empty-project-editor"));
   check("opening a new project in the same app clears the previous manuscript and preview", !(await page.$("iframe")) && !(await page.$eval("body", (body) => body.innerText.includes("WHOLE BOOK FINAL MARKER"))));
   check("an empty folder shows an actionable empty state instead of Loading section", true);
-  await page.click(".footer-add");
+  await page.click('[data-command="add"]');
   await stage("empty folder Add Content", () => page.waitForSelector(".add-chapter-box input"));
   await page.click(".add-chapter-box input", { clickCount: 3 });
   await page.keyboard.press("Backspace");
@@ -611,7 +611,7 @@ try {
     .includes("The book can now be written.")));
   check("a blank new book can add, edit and preview its first chapter", true);
 
-  await page.click(".footer-add");
+  await page.click('[data-command="add"]');
   await stage("front matter choices", () => page.waitForSelector(".content-kind-group"));
   await page.evaluate(() => {
     const button = [...document.querySelectorAll(".content-kind-group button")].find((item) => item.querySelector("span")?.textContent === "Dedication");
@@ -623,7 +623,7 @@ try {
   await stage("front matter deleted", () => page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Dedication"))));
   check("editable front matter can be deleted from the same title-bar control", true);
 
-  await page.click(".footer-add");
+  await page.click('[data-command="add"]');
   await stage("back matter choices", () => page.waitForSelector(".content-kind-group"));
   await page.evaluate(() => {
     const button = [...document.querySelectorAll(".content-kind-group button")].find((item) => item.querySelector("span")?.textContent === "About the Author");
@@ -635,7 +635,7 @@ try {
   await stage("back matter deleted", () => page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("About the Author"))));
   check("editable back matter can be deleted from the same title-bar control", true);
 
-  await page.click(".book-identity");
+  await page.click('[data-command="book"]');
   await stage("open Book Details", () => page.waitForSelector('.folio-dialog[aria-label="Book Details"]'));
   const coverInput = await page.$('.cover-field input[type="file"]');
   await coverInput!.uploadFile(coverFixture);
