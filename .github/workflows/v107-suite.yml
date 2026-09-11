@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Install preview conversion engine
+        run: sudo apt-get update && sudo apt-get install -y pandoc
       - name: Typecheck
         run: npm run typecheck
       - name: Full formatter and UI suite
