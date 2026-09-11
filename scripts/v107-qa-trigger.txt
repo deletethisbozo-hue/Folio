@@ -1,8 +1,10 @@
 Folio 1.0.7 final qualification trigger
-Candidate: b1df2a5849c6573ace79c59b3a1212dabdb88f72
-Paperwhite Standard uses the calculated 17.5px base font with the normal 28px logical side inset, the overlap where Polish can compose strictly and English gains natural break feasibility.
+Candidate: 5956c4dc85278307e9604b1f71aab558ea8465d5
+Paperwhite Standard uses the calculated 17.5px base font with the normal 28px logical side inset.
+Editor chrome no longer repeats the book title above the chapter heading; the left side of that top bar is intentionally empty and save/word-count stay right-aligned.
+English line breaking strongly avoids stranding articles (a/an/the) at the end of a line while preserving an escape path for pathological narrow measures.
+Visual QA now rejects both duplicate editor-topbar titles and stranded English articles in the sample preview.
 English relaxed compression remains at the conservative 0.07em profile; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
 Optical protrusion is directional and recorded only when it actually participates in line fit. Hyphen-density cost and final DP state selection remain section-aware.
 Discretionary hyphen optical protrusion remains capped at 2.55px; English hyphenation remains dictionary-driven with no manual word exceptions.
-Line-fit frontier, closed-up em-dash breakpoint support, exact drop-cap geometry, hard <=2 hyphen ladder, and the unchanged 0.45 hyphen-rate gate remain active.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
