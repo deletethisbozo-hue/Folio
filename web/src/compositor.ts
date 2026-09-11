@@ -122,14 +122,16 @@ function tokenize(paragraph: HTMLElement): Word[] {
   while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
 
   let separated = true;
+  let separatedBreakable = true;
   let hasWord = false;
   for (const textNode of textNodes) {
     const fragment = document.createDocumentFragment();
-    for (const part of textNode.data.split(/([ \t\r\n]+)/)) {
+    for (const part of textNode.data.split(/([ \t\r\n\u00a0]+)/)) {
       if (!part) continue;
-      if (/^[ \t\r\n]+$/.test(part)) {
+      if (/^[ \t\r\n\u00a0]+$/.test(part)) {
         separated = true;
-        fragment.append(" ");
+        separatedBreakable = !part.includes("\u00a0");
+        fragment.append(separatedBreakable ? " " : "\u00a0");
         continue;
       }
 
@@ -139,12 +141,14 @@ function tokenize(paragraph: HTMLElement): Word[] {
         const discretionary = index > 0;
         span.className = "folio-word";
         span.dataset.folioSpaceBefore = hasWord && separated ? "true" : "false";
+        span.dataset.folioBreakableSpaceBefore = hasWord && separated && separatedBreakable ? "true" : "false";
         span.dataset.folioHyphenBefore = discretionary ? "true" : "false";
         span.textContent = (discretionary ? "\u00ad" : "") + piece;
         span.style.whiteSpace = "nowrap";
         fragment.append(span);
         hasWord = true;
         separated = false;
+        separatedBreakable = true;
       });
     }
     textNode.replaceWith(fragment);
@@ -162,8 +166,9 @@ function tokenize(paragraph: HTMLElement): Word[] {
       atomicIds.set(atomic, atomicId);
     }
     const spaceBefore = node.dataset.folioSpaceBefore === "true";
+    const breakableSpaceBefore = node.dataset.folioBreakableSpaceBefore === "true";
     const hyphenBefore = node.dataset.folioHyphenBefore === "true";
-    const canBreakBefore = hyphenBefore || (spaceBefore && !(atomicId && atomicId === previousAtomic));
+    const canBreakBefore = hyphenBefore || (spaceBefore && breakableSpaceBefore && !(atomicId && atomicId === previousAtomic));
     const rawText = node.textContent ?? "";
     const cleanText = rawText.replace(/\u00ad/g, "");
     let rightProtrusion = 0;

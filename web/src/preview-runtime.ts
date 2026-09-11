@@ -11,10 +11,9 @@ type ReflowProfile = {
 const PROFILES: Record<string, ReflowProfile> = {
   // Logical viewports at Folio's named Standard reading preset. The shell stays
   // the same size; text and margins scale into that reduced visualisation.
-  // Paperwhite Standard uses a 34px logical side inset (~8.25%). An exact QA
-  // sweep found this measure composes Polish, English and drop-cap samples
-  // without emergency ragged lines under the unchanged strict microtype gates.
-  "kindle-paperwhite": { width: 412, height: 549, baseFont: 18, padding: [34, 34, 46, 34], wordsPerPage: 270 },
+  // Paperwhite Standard keeps the original 28px logical side inset. Professional
+  // composition must pass the strict release gates without tuning page geometry.
+  "kindle-paperwhite": { width: 412, height: 549, baseFont: 18, padding: [34, 28, 46, 28], wordsPerPage: 270 },
   "kindle-oasis": { width: 421, height: 560, baseFont: 18, padding: [32, 34, 46, 28], wordsPerPage: 290 },
   ipad: { width: 820, height: 1180, baseFont: 19, padding: [62, 68, 82, 68], wordsPerPage: 455 },
   iphone: { width: 390, height: 844, baseFont: 18, padding: [38, 25, 58, 25], wordsPerPage: 245 },
