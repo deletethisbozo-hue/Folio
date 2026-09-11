@@ -243,19 +243,30 @@ function glyphScaleBucket(glyphScale: number): number {
   ));
 }
 
-function encodeState(line: number, hyphenStreak: number, fitness: number, glyphScale: number): number {
+function encodeState(
+  line: number,
+  hyphenStreak: number,
+  fitness: number,
+  glyphScale: number,
+  previousLineStart: number,
+  stride: number,
+): number {
   const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
-  return base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+  return packed * stride + previousLineStart;
 }
 
-function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number } {
-  const glyphBucket = key % GLYPH_SCALE_COUNT;
-  const base = Math.floor(key / GLYPH_SCALE_COUNT);
+function decodeState(key: number, stride: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; previousLineStart: number } {
+  const previousLineStart = key % stride;
+  const packed = Math.floor(key / stride);
+  const glyphBucket = packed % GLYPH_SCALE_COUNT;
+  const base = Math.floor(packed / GLYPH_SCALE_COUNT);
   return {
     line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
     hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
     fitness: base % FITNESS_COUNT,
     glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+    previousLineStart,
   };
 }
 
@@ -320,10 +331,11 @@ function chooseBreaks(
   allowNaturalRescue = emergency,
 ): Break[] | null {
   const count = words.length;
+  const stateStride = count + 1;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
   const debugCandidates: Array<Record<string, unknown>> = [];
   const initialFitness = 1;
-  states[0].set(encodeState(0, 0, initialFitness, 1), {
+  states[0].set(encodeState(0, 0, initialFitness, 1, 0, stateStride), {
     cost: 0,
     from: -1,
     fromKey: -1,
@@ -344,7 +356,7 @@ function chooseBreaks(
 
   for (let start = 0; start < count; start++) {
     for (const [stateKey, previous] of states[start]) {
-      const decoded = decodeState(stateKey);
+      const decoded = decodeState(stateKey, stateStride);
       const line = decoded.line;
       const previousHyphenStreak = decoded.hyphenStreak;
       const previousFitness = decoded.fitness;
@@ -462,7 +474,7 @@ function chooseBreaks(
 
         const nextLine = line + 1;
         const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
-        const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);
+        const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, start, stateStride);
         const old = states[end + 1].get(nextKey);
         if (!old || cost < old.cost) {
           states[end + 1].set(nextKey, {
@@ -500,7 +512,7 @@ function chooseBreaks(
     if (debugTarget && !allowNaturalRescue) {
       const reachable = states.map((stateMap, index) => {
         if (!stateMap.size) return null;
-        const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey));
+        const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey, stateStride));
         return {
           index,
           nextToken: (words[index]?.node.textContent ?? "").replace(/\u00ad/g, ""),
