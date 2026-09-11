@@ -7,6 +7,12 @@ on:
       - ".github/workflows/v107-windows-qualification.yml"
       - "scripts/v107-qa-trigger.txt"
       - "scripts/v107-windows-trigger.txt"
+      - "web/**"
+      - "server/**"
+      - "tests/**"
+      - "scripts/v107-visual-qa.ts"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
