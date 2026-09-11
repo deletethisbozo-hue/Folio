@@ -288,7 +288,7 @@ export default function App() {
       }
     }, 40);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode, selectedId, document?.id, document?.subtitle]);
+  }, [project?.projectId, meta, typography, previewMode === "print", selectedId, document?.id, document?.subtitle]);
 
   useEffect(() => {
     if (!project || !meta || !selectedId || document?.id !== selectedId || previewMode !== "print") return;
@@ -311,7 +311,7 @@ export default function App() {
       }
     }, previewDraft.length > 250_000 ? 650 : 220);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
+  }, [project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
   function commitPreviewHtml(html: string, representedDraft: string): void {
     const identity = `${project?.projectId ?? ""}:${selectedId ?? ""}:${previewMode}`;
