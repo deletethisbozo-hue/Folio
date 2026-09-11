@@ -31,7 +31,7 @@ if new_delete not in value:
         raise RuntimeError("front matter deletion block not found")
     value = value.replace(old_delete, new_delete, 1)
 
-old_polish = '''  await stage("Polish professional justification", () => page.waitForFunction(() => {
+old_polish_v1 = '''  await stage("Polish professional justification", () => page.waitForFunction(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     if (!doc) return false;
     const paragraphs = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")];
@@ -46,7 +46,7 @@ old_polish = '''  await stage("Polish professional justification", () => page.wa
     return hasParagraphWideComposition && hasRenderedDiscretionaryBreak && doc.body.textContent?.includes("W\\u00a0Polsce");
   }, { timeout: 30000 }));
 '''
-new_polish = '''  await stage("Polish professional justification", () => page.waitForFunction(() => {
+old_polish_v2 = '''  await stage("Polish professional justification", () => page.waitForFunction(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     if (!doc || !/^pl(?:-|$)/i.test(doc.documentElement.lang || "")) return false;
     const paragraphs = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")];
@@ -61,10 +61,42 @@ new_polish = '''  await stage("Polish professional justification", () => page.wa
     return hasParagraphWideComposition && !hasEmergencyLine && doc.body.textContent?.includes("W\\u00a0Polsce");
   }, { timeout: 30000 }));
 '''
+new_polish = '''  await stage("Polish professional justification", () => page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    if (!doc || !/^pl(?:-|$)/i.test(doc.documentElement.lang || "")) return false;
+    const paragraphs = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")];
+    const activeParagraph = paragraphs.find((paragraph) =>
+      Boolean(paragraph.querySelector(".folio-line-justified") && paragraph.lastElementChild?.classList.contains("folio-line-natural"))
+    );
+    if (!activeParagraph) return false;
+    const hasEmergencyLine = Boolean(activeParagraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]'));
+    // U+00AD is an implementation detail of discretionary hyphenation. Strip it
+    // before checking the Polish one-letter-preposition NBSP contract, otherwise
+    // a legal breakpoint inside the following word makes the semantic assertion
+    // fail even though both preprocessing steps worked correctly.
+    const semanticText = (doc.body.textContent ?? "").replace(/\\u00ad/g, "");
+    return !hasEmergencyLine && semanticText.includes("W\\u00a0Polsce");
+  }, { timeout: 30000 }));
+'''
 if new_polish not in value:
-    if old_polish not in value:
+    if old_polish_v2 in value:
+        value = value.replace(old_polish_v2, new_polish, 1)
+    elif old_polish_v1 in value:
+        value = value.replace(old_polish_v1, new_polish, 1)
+    else:
         raise RuntimeError("Polish professional justification block not found")
-    value = value.replace(old_polish, new_polish, 1)
+
+old_geometry = '''    const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p.folio-composed");
+    if (!doc || !paragraph) return { ok: false, reason: "missing composed paragraph" };
+'''
+new_geometry = '''    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed") ?? [])]
+      .find((candidate) => Boolean(candidate.querySelector(".folio-line-justified")));
+    if (!doc || !paragraph) return { ok: false, reason: "missing composed paragraph" };
+'''
+if new_geometry not in value:
+    if old_geometry not in value:
+        raise RuntimeError("professional geometry paragraph lookup not found")
+    value = value.replace(old_geometry, new_geometry, 1)
 
 target.write_text(value, encoding="utf-8")
 print("Made UI deletion diagnostics and Polish composition assertion deterministic")
