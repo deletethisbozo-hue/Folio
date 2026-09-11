@@ -1,5 +1,4 @@
-Folio 1.0.7 final qualification trigger
-Candidate: 0ffa0daa58673f13cd1b219fb35292bcb763ad92
-UI: SF Pro stack for application chrome; manuscript typography unchanged; Export is text-only.
-Composition: global breaker may evaluate heavily penalized structural fallback paths instead of pruning them before paragraph optimization; output still has max 1% glyph scaling and restrained tracking.
-Visual QA still hard-fails on hyphen rate > 0.45, hyphen streak > 2, emergency ragged lines, loose spacing, unjustified drop-cap openings, and now one-word final lines.
+Folio 1.0.7 diagnostic qualification trigger
+Candidate: 2962a796a1d7d4a255e3ceb2da666dc28d0b476e
+Purpose: capture exact strict breaker dead-end diagnostics before emergency rescue.
+Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
