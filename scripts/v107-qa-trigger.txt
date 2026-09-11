@@ -1,10 +1,12 @@
 Folio 1.0.7 final qualification trigger
-Candidate: 1ebcae1b6c239287f6b29b712c9d3bd74a3d212d
+Candidate: cc6250baf2f9ff8094aecbb0783a78e30c936acd
 Paperwhite Standard uses the calculated 17.5px base font with the normal 28px logical side inset.
 Editor chrome no longer repeats the book title above the chapter heading; the left side of that top bar is intentionally empty and save/word-count stay right-aligned.
 English a/an/the are structurally bound to the following word while preserving discretionary hyphenation inside that following word; visual QA rejects stranded English articles.
 Very large manuscripts patch fast keyboard input into the actual final prose paragraph and distinguish an already-current preview, a small tail patch and a full preview rebuild.
-Reader geometry/alignment changes re-run only lazy professional composition when the huge iframe content is already current. They no longer re-hyphenate all 100k+ words synchronously, so the first visible paragraph can recompose immediately on Windows.
+Reader geometry/alignment changes re-run only lazy professional composition when huge iframe content is already current. They no longer re-hyphenate all 100k+ words synchronously.
+Discarded previews explicitly dispose their lazy compositor observer before iframe teardown, preventing a 5200-paragraph manuscript from starving the next project's first live preview.
+Runtime QA now normalizes discretionary soft hyphens when checking typed text and validates the optical edge against the compositor's declared bounded protrusion. The right-edge residual remains <= 1.75px and protrusion itself is capped at 4.5px.
 English relaxed compression remains at the conservative 0.07em profile; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
 Optical protrusion is directional and recorded only when it actually participates in line fit. Hyphen-density cost and final DP state selection remain section-aware.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
