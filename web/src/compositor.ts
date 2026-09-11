@@ -206,9 +206,6 @@ function fitLine(
 ): LineFit | null {
   if (gaps <= 0) return null;
 
-  // The second pass may stretch inter-word space only slightly beyond
-  // strict composition. Tracking and glyph expansion stay at strict limits;
-  // this is a controlled justified fallback, not an excuse for loose copy.
   const maxWordSpacing = emergency
     ? Math.min(spaceWidth * 0.56, fontSize * 0.14)
     : Math.min(spaceWidth * 0.50, fontSize * 0.115);
@@ -221,9 +218,6 @@ function fitLine(
   const available = naturalWidth + adjustment;
   let best: LineFit | null = null;
 
-  // Search the full ±2% microtype window. Usually the scale that helps the
-  // spacing wins, but the continuity term can select a gentler neighbouring
-  // scale when that preserves a more even paragraph colour.
   for (let step = -20; step <= 20; step++) {
     const glyphScale = 1 + step * 0.001;
     if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
@@ -405,9 +399,6 @@ function chooseBreaks(
         const next = last ? null : words[end + 1];
         const canBreak = last || next!.canBreakBefore;
         const hyphenBreak = !last && next!.hyphenBefore;
-        // Professional prose never uses three consecutive discretionary
-        // hyphens when a justified/relaxed alternative exists. The final
-        // rescue pass may still recover pathological narrow measures.
         if (hyphenBreak && previousHyphenStreak >= 2 && !allowNaturalRescue) continue;
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
         const rightProtrusion = hyphenBreak ? 0 : words[end].rightProtrusion;
@@ -418,14 +409,7 @@ function chooseBreaks(
         const semanticWordsOnLine = 1 + words
           .slice(start + 1, end + 1)
           .filter((word) => word.spaceBefore).length;
-        // folio-final-hyphen-fragment-guard: never strand only the
-        // continuation of a discretionary split on the final line.
-        // A final fragment such as `de-` / `cyzji.` is a composition
-        // defect, not an acceptable way to satisfy local line fit.
         if (last && semanticWordsOnLine === 1 && previous.hyphenated) continue;
-        // fitLine already has strict lower bounds for word spacing and tracking.
-        // Let it use those bounds for slightly overfull candidates too; the old
-        // natural-width guard made all negative-spacing logic effectively dead.
         const finalCompressionFit = last
           && semanticWordsOnLine >= 2
           && adjustment < -0.75
@@ -439,9 +423,6 @@ function chooseBreaks(
           : null);
         if (!canBreak) continue;
         if (natural > available + 0.75 && !fit && (end > start || last)) break;
-        // A short line beside a drop cap can be mathematically impossible to
-        // fill without an obvious river of white. Natural setting is the
-        // professional fallback only while the cap occupies the measure.
         const dropcapRescue = !last && Boolean(geometry.cap) && line < geometry.capLines
           && natural <= available + 0.75
           && (!fit || (gaps <= 2 && fit.wordSpacing > spaceWidth * 0.10));
@@ -451,38 +432,18 @@ function chooseBreaks(
         const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
         if (!last && !lineFit && !rescueNatural) continue;
 
-        // Hyphenation splits one visible word into several compositor tokens.
-        // Widow control must count semantic words, not discretionary pieces,
-        // otherwise endings such as `de-` / `cyzji.` evade the rule entirely.
-        // A one-word final line is undesirable, but not composition failure.
-        // Let the existing high widow penalty compare it against alternative paths
-        // instead of forcing the entire paragraph into the emergency rescue pass.
         const fill = Math.min(1, natural / Math.max(1, available));
-        // A stranded final word is a real book-composition defect, especially
-        // when the preceding line was itself hyphenated. Preserve feasible
-        // alternatives instead of buying an ugly paragraph ending for a
-        // slightly cheaper local line fit.
         const shortLastPenalty = last
           ? semanticWordsOnLine === 1
             ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
             : fill < 0.28 ? 220 * Math.pow((0.28 - fill) / 0.28, 2) : 0
           : 0;
-        // Hyphenation is evaluated across the paragraph, not only as a
-        // local streak. Keeping cumulative count in the DP state preserves a
-        // slightly more expensive low-hyphen path instead of merging it away.
         const cumulativeHyphenPenalty = previousHyphenCount < 2
           ? previousHyphenCount * 180
           : 1400 * Math.pow(previousHyphenCount - 1, 2);
-        // Legal hyphenation points are not equally attractive. Very short visible
-        // prefixes create a choppy book page, so prefer longer fragments without
-        // banning language-valid 2/2 breaks when a narrow measure truly needs one.
         const shortHyphenFragmentPenalty = hyphenBreak
           ? words[end].characters <= 2 ? 850 : words[end].characters === 3 ? 420 : 0
           : 0;
-        // A paragraph with discretionary hyphens on most lines reads visibly
-        // choppy even when no three-line streak occurs. Preserve more cumulative
-        // hyphen-count states and add a soft density cost once enough lines exist
-        // for the ratio to be meaningful.
         const projectedLineCount = line + 1;
         const projectedHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
         const projectedHyphenRate = projectedHyphenCount / Math.max(1, projectedLineCount);
@@ -501,6 +462,16 @@ function chooseBreaks(
           : 0;
         const finalCompressed = last && Boolean(finalCompressionFit);
         const finalCompressionPenalty = finalCompressed ? 160 : 0;
+        // The release gate evaluates hyphenated lines against justified lines.
+        // Charge the completed paragraph on the final transition as well, so a
+        // sequence that looked acceptable while it was being built cannot end
+        // above the same 0.45 ceiling merely because the natural final line was
+        // included in the local projected-line denominator.
+        const completedJustifiedLines = last ? Math.max(1, line) : 0;
+        const completedHyphenRate = last ? previousHyphenCount / completedJustifiedLines : 0;
+        const finalHyphenDensityPenalty = last && completedJustifiedLines >= 4 && completedHyphenRate > 0.45
+          ? 12000 * Math.pow((completedHyphenRate - 0.45) / 0.18, 2)
+          : 0;
         const currentFitness = lineFit?.fitness ?? previousFitness;
         const fitnessDelta = Math.abs(currentFitness - previousFitness);
         const fitnessPenalty = line === 0 || !lineFit
@@ -513,6 +484,7 @@ function chooseBreaks(
           + rescuePenalty
           + relaxedPenalty
           + finalCompressionPenalty
+          + finalHyphenDensityPenalty
           + hyphenPenalty
           + punctuationPenalty
           + shortLastPenalty
@@ -583,8 +555,7 @@ function chooseBreaks(
     end = state.from;
     key = state.fromKey;
   }
-  const result = reversed.reverse();
-  return result;
+  return reversed.reverse();
 }
 
 function cloneLineFragment(document: Document, words: Word[], start: number, end: number): DocumentFragment {
@@ -669,11 +640,6 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  // Let the controlled relaxed envelope participate in the same global
-  // optimisation as strict lines. Each relaxed line still carries a large
-  // penalty, so it is selected only when it improves the paragraph as a whole
-  // (for example by avoiding excessive hyphenation or a stranded final word).
-  // Natural rescue remains a separate last resort and never competes on cost.
   let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true);
   if (!breaks) {
@@ -730,13 +696,6 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     if (index < lines.length - 1 && !breaks[index].hyphenated) paragraph.append(" ");
   });
 
-  // Browser font metrics are not perfectly algebraic across platforms. The DP
-  // solves against measured token widths, word spacing, tracking and scale, but
-  // Chromium can still land a transformed inline fragment a fraction of a glyph
-  // away from the intended measure (notably with Windows Palatino/Georgia-class
-  // serif metrics). Calibrate the final visual scale from the actual rendered
-  // width. This stays inside the same ±2% microtype envelope and usually moves
-  // the chosen scale closer to 1; it does not relax spacing or tracking limits.
   const corrections: Array<{ line: HTMLElement; content: HTMLElement; scale: number }> = [];
   for (const line of lines) {
     if (!line.classList.contains("folio-line-justified") && !line.classList.contains("folio-line-final-compressed")) continue;
