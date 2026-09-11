@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/v107-source-patch.yml"
       - "scripts/v107-source-patch.py"
+      - "scripts/v107-nearmiss-patch.py"
 
 permissions:
   contents: write
@@ -19,6 +20,7 @@ jobs:
         with:
           ref: fix/v1.0.7
       - run: python scripts/v107-source-patch.py
+      - run: python scripts/v107-nearmiss-patch.py
       - name: Commit source patch
         run: |
           git config user.name "github-actions[bot]"
