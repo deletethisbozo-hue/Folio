@@ -1,9 +1,10 @@
 Folio 1.0.7 final qualification trigger
 Candidate repair: protected Polish NBSP spaces are counted as real adjustable word gaps while remaining non-breakable.
-Paperwhite Standard side inset: 35px logical profile to encourage earlier legal word breaks on the narrow reader measure.
-Solver: strict expansion ceiling remains 0.10em; strict compression is capped at 0.06em and 24% of measured base word space; relaxed expansion ceiling is 0.113em from measured semantic-gap output; relaxed compression is language-aware: English 0.07em, Polish and other languages 0.0595em, both independently capped at 28% of measured base word space; glyph scale search and DP state both use 0.05% increments inside the unchanged ±1% hard bound.
-Composition tiers: bounded relaxed microtype remains available in the full justified graph to avoid excessive hyphen streaks; natural rescue remains a final fallback only.
-Subpixel fit: legal bounded spacing/tracking/scaling may leave at most 1.70px residual right-edge error instead of forcing an emergency ragged line; release QA right-edge and microtype limits remain unchanged at <=1.75px.
+Paperwhite Standard side inset: restored to the neutral 28px logical profile; composition quality is handled by the breaker rather than corpus-tuned geometry.
+Solver: strict expansion ceiling remains 0.10em; strict compression is capped at 0.06em and 24% of measured base word space; relaxed expansion ceiling is 0.113em; relaxed compression is language-aware: English 0.07em, Polish and other languages 0.0595em, both independently capped at 28% of measured base word space; glyph scale search and DP state both use 0.05% increments inside the unchanged ±1% hard bound.
+Composition tiers: bounded relaxed microtype remains available in the full justified graph; natural ragged rescue remains a final fallback only.
+Subpixel fit: legal bounded spacing/tracking/scaling may leave at most 1.70px residual right-edge error; release QA remains unchanged at <=1.75px.
+Optical margin alignment: discretionary line-ending hyphens may protrude by 55% of measured hyphen width, capped at 2.75px, while punctuation protrusion remains unchanged. This reduces spacing distortion without widening the text measure.
 Final raster correction: adjacent corrected glyph scales stay within 0.012 while every line remains inside the unchanged ±1% glyph-scale hard bound.
 Drop cap: professional compositor reserves an additional measured 0.28em body-text breathing gap beside the first two wrapped lines; preview and server pipeline mirror each other.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
