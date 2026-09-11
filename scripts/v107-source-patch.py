@@ -98,8 +98,33 @@ qa_push_new = """          if (line.dataset.folioEmergency === \"true\") {
           }
 """
 
+qa_browser_safe = """          if (line.dataset.folioEmergency === \"true\") {
+            emergencyLines++;
+            const range = doc.createRange();
+            range.selectNodeContents(line);
+            const words = [...line.querySelectorAll<HTMLElement>(\".folio-word\")];
+            const gaps = words.slice(1).filter((word) => word.dataset.folioSpaceBefore === \"true\").length;
+            const lineIndex = lines.indexOf(line);
+            const naturalWidthPx = range.getBoundingClientRect().width;
+            const availableWidthPx = line.getBoundingClientRect().width;
+            emergencyDetails.push({
+              text: (line.textContent ?? \"\").replace(/\\u00ad/g, \"\"),
+              previousText: lines[lineIndex - 1]?.textContent?.replace(/\\u00ad/g, \"\") ?? null,
+              nextText: lines[lineIndex + 1]?.textContent?.replace(/\\u00ad/g, \"\") ?? null,
+              naturalWidthPx,
+              availableWidthPx,
+              fill: naturalWidthPx / Math.max(1, availableWidthPx),
+              gaps,
+              characters: words.reduce((sum, word) => sum + (word.textContent ?? \"\").replace(/\\u00ad/g, \"\").length, 0),
+              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            });
+          }
+"""
+
 patch("web/src/compositor.ts", web_old, web_new)
 patch("server/pipeline/compositor.ts", server_old, server_new)
 patch("scripts/v107-visual-qa.ts", qa_type_old, qa_type_new)
 patch("scripts/v107-visual-qa.ts", qa_push_old, qa_push_new)
-print("Applied v1.0.7 compositor and QA diagnostics patch")
+patch("scripts/v107-visual-qa.ts", qa_push_new, qa_browser_safe)
+print("Applied v1.0.7 compositor and browser-safe QA diagnostics patch")
