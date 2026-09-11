@@ -646,7 +646,7 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
   const capStyle = getComputedStyle(cap);
   const marginRight = pixels(capStyle.marginRight);
   const marginBottom = pixels(capStyle.marginBottom);
-  const capIntrusion = Math.max(0, capRect.right + marginRight - contentLeft) + pixels(style.fontSize) * 0.28;
+  const capIntrusion = Math.max(0, capRect.right + marginRight - contentLeft);
   const capDepth = Math.max(0, capRect.bottom + marginBottom - contentTop);
   const capLines = 2;
 

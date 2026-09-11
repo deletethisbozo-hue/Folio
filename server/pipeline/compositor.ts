@@ -236,7 +236,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       if (cap) {
         const capRect = cap.getBoundingClientRect();
         const capStyle = getComputedStyle(cap);
-        capIntrusion = Math.max(0, capRect.right + px(capStyle.marginRight) - contentLeft) + fontSize * 0.28;
+        capIntrusion = Math.max(0, capRect.right + px(capStyle.marginRight) - contentLeft);
         capIntrusion = Math.min(width * 0.46, capIntrusion);
         capDepth = Math.max(0, capRect.bottom + px(capStyle.marginBottom) - contentTop);
         capLines = 2;
