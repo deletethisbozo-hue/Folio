@@ -11,10 +11,10 @@ const engines = {
 type HyphenationLanguage = keyof typeof engines;
 type HyphenationLimits = { minimumWord: number; left: number; right: number };
 const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
-  // Keep Polish book composition conservative across preview and export. The
-  // dictionary exposes valid 2/2 points, but 3/3 avoids weak two-letter
-  // fragments while preserving enough discretionary breaks for justified text.
-  pl: { minimumWord: 6, left: 3, right: 3 },
+  // Mirror Folio's Polish 3/2 book house style in exported output: no weak
+  // two-letter starts, while valid two-letter endings remain available when
+  // needed to keep narrow justified measures balanced.
+  pl: { minimumWord: 6, left: 3, right: 2 },
   en: { minimumWord: 5, left: 2, right: 3 },
 };
 const WORD = /\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu;
