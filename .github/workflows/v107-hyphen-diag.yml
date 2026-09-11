@@ -1,0 +1,38 @@
+name: Folio 1.0.7 hyphen diagnostics
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths: [".github/workflows/v107-hyphen-diag.yml"]
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Print Polish dictionary breakpoints
+        run: |
+          node --input-type=module <<'NODE'
+          import Hypher from 'hypher';
+          import polish from 'hyphenation.pl';
+          const h = new Hypher(polish);
+          const corpus = `Poczucie bezsensowności było o wiele większym brzemieniem niż brak zasobów. Porażka nic więcej jak przygnębiająca. Z jego perspektywy życie nie było wyborem, tylko konsekwencją wszystkich przemilczanych decyzji. Niektórzy w mieście chcieli jego śmierci za rzeczy, których nigdy nie uczynił. W Polsce i na świecie profesjonalny skład książki powinien zachowywać równy rytm, rozsądne dzielenie wyrazów oraz spokojną szarość typograficzną bez rzek bieli.`;
+          const words = [...new Set(corpus.match(/\p{L}+/gu) ?? [])];
+          for (const word of words) {
+            const pieces = h.hyphenate(word);
+            const legal = [];
+            let offset = 0;
+            for (let i = 0; i < pieces.length - 1; i++) {
+              offset += pieces[i].length;
+              if (offset >= 2 && word.length - offset >= 2) legal.push(offset);
+            }
+            if (legal.length || ['większym','brzemieniem','zasobów','Niektórzy','mieście','chcieli','śmierci','zachowywać','równy','rytm','rozsądne','dzielenie'].includes(word)) {
+              console.log(`${word.padEnd(22)} pieces=${pieces.join('|')} legal=${legal.join(',')}`);
+            }
+          }
+          NODE
