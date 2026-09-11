@@ -1,1 +1,1 @@
-qa-run full-line-geometry
+qa-run glyph-expansion-gate
