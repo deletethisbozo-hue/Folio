@@ -86,8 +86,20 @@ try {
     return Boolean(button && !button.disabled);
   }));
   page.once("dialog", (dialog) => void dialog.accept());
+  const deletionResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === "DELETE" && /\/api\/projects\/[^/]+\/sections\//.test(response.url()),
+    { timeout: 30000 },
+  );
   await page.click(".section-delete");
-  await stage("generated front matter deletion", () => page.waitForFunction((before) => document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row)").length === before - 1, { timeout: 30000 }, frontRowsBeforeDelete));
+  const deletionResponse = await stage("generated front matter DELETE response", () => deletionResponsePromise);
+  if (!deletionResponse.ok()) {
+    throw new Error(`Generated front matter DELETE failed with HTTP ${deletionResponse.status()}: ${await deletionResponse.text()}`);
+  }
+  await stage("generated front matter deletion", () => page.waitForFunction((before) =>
+    document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row)").length === before - 1,
+    { timeout: 30000 },
+    frontRowsBeforeDelete,
+  ));
   check("generated title/front matter can be removed from the book", true);
   await page.click(".chapter-row");
   await stage("return to manuscript chapter", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
@@ -335,17 +347,17 @@ try {
   await page.select('select[aria-label="Preview device"]', "kindle-oasis");
   await stage("Polish professional justification", () => page.waitForFunction(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
-    if (!doc) return false;
+    if (!doc || !/^pl(?:-|$)/i.test(doc.documentElement.lang || "")) return false;
     const paragraphs = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")];
     const hasParagraphWideComposition = paragraphs.some((paragraph) =>
       Boolean(paragraph.querySelector(".folio-line-justified") && paragraph.lastElementChild?.classList.contains("folio-line-natural"))
     );
-    // The compositor consumes discretionary soft hyphens into legal break
-    // tokens. The final DOM therefore proves hyphenation by a rendered line-end
-    // hyphen, not by retaining an invisible U+00AD in body.textContent.
-    const hasRenderedDiscretionaryBreak = [...doc.querySelectorAll<HTMLElement>(".folio-composed-line")]
-      .some((line) => (line.textContent ?? "").endsWith("-"));
-    return hasParagraphWideComposition && hasRenderedDiscretionaryBreak && doc.body.textContent?.includes("W\u00a0Polsce");
+    const hasEmergencyLine = Boolean(doc.querySelector('.folio-line-emergency,[data-folio-emergency="true"]'));
+    // Integration contract: Polish preprocessing is active (document language
+    // and non-breaking one-letter preposition) and normal prose is composed
+    // paragraph-wide without falling back to an emergency line. Exact
+    // discretionary breakpoints are covered separately by typesetting-language.
+    return hasParagraphWideComposition && !hasEmergencyLine && doc.body.textContent?.includes("W\u00a0Polsce");
   }, { timeout: 30000 }));
   check("Polish justification uses paragraph-wide breaks and a natural final line", true);
   const boundedWordGaps = await page.evaluate(() => {
