@@ -448,7 +448,7 @@ function chooseBreaks(
         // of the hyphen outside the measure prevents needless spacing distortion
         // without changing the text measure or any QA threshold.
         const rightProtrusion = hyphenBreak
-          ? Math.min(2.75, hyphenWidth * 0.55)
+          ? Math.min(2.55, hyphenWidth * 0.51)
           : words[end].rightProtrusion;
         const opticalAvailable = available + rightProtrusion;
 
