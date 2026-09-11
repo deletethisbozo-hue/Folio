@@ -210,6 +210,7 @@ function fitLine(
   emergency = false,
   finalCompression = false,
   language = "en",
+  selection: "badness" | "continuity" = "badness",
 ): LineFit | null {
   if (gaps <= 0) return null;
 
@@ -225,6 +226,7 @@ function fitLine(
   const maxGlyphScaleDelta = 0.01;
   const available = naturalWidth + adjustment;
   let best: LineFit | null = null;
+  let bestRank = Number.POSITIVE_INFINITY;
 
   for (let step = -20; step <= 20; step++) {
     const glyphScale = 1 + step * 0.0005;
@@ -255,7 +257,13 @@ function fitLine(
       + 80 * Math.pow(Math.abs(residualPx) / 1.7, 2);
     const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
     const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
-    if (!best || candidate.badness < best.badness) best = candidate;
+    const rank = selection === "continuity"
+      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness
+      : candidate.badness;
+    if (!best || rank < bestRank) {
+      best = candidate;
+      bestRank = rank;
+    }
   }
   return best;
 }
@@ -439,20 +447,39 @@ function chooseBreaks(
           && adjustment < -0.75
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language)
           : null;
+        const finalCompressionContinuityFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "continuity")
+          : null;
         const strictFit = !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)
           : finalCompressionFit;
+        const strictContinuityFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")
+          : finalCompressionContinuityFit;
         const fit = strictFit ?? (emergency && !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)
           : null);
+        const continuityFit = strictContinuityFit ?? (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")
+          : null);
         if (!canBreak) continue;
-        if (natural > available + 0.75 && !fit && (end > start || last)) break;
+        if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) break;
         const dropcapRescue = false;
-        const emergencyRescue = allowNaturalRescue && !last && !fit && natural <= available + 0.75;
+        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && natural <= available + 0.75;
         const rescueNatural = emergencyRescue;
-        const lineFit = fit;
-        const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
-        if (!last && !lineFit && !rescueNatural) {
+        const fitOptions: Array<LineFit | null> = [];
+        if (fit) fitOptions.push(fit);
+        if (continuityFit && !fitOptions.some((candidate) =>
+          candidate
+          && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001
+          && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001
+          && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001
+        )) fitOptions.push(continuityFit);
+        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
+        const hasStrictFit = Boolean(strictFit || strictContinuityFit);
+        if (!last && !fitOptions.length && !rescueNatural) {
           if (canBreak && rejectedBreaks.length < 160) rejectedBreaks.push({
             reason: "no-fit", start, end, line, hyphenBreak, natural, available, adjustment, gaps, characters,
             startText: (words[start].node.textContent ?? "").replace(/\u00ad/g, ""),
@@ -463,7 +490,9 @@ function chooseBreaks(
           continue;
         }
 
-        const fill = Math.min(1, natural / Math.max(1, available));
+        for (const lineFit of fitOptions) {
+          const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);
+          const fill = Math.min(1, natural / Math.max(1, available));
         const shortLastPenalty = last
           ? semanticWordsOnLine === 1
             ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
@@ -491,7 +520,7 @@ function chooseBreaks(
         const relaxedPenalty = relaxedFit
           ? Math.max(220, 420 - previousHyphenCount * 100)
           : 0;
-        const finalCompressed = last && Boolean(finalCompressionFit);
+        const finalCompressed = last && Boolean(lineFit);
         const finalCompressionPenalty = finalCompressed ? 160 : 0;
         const structuralPenalty = (hyphenStreakOverflow ? 25000 : 0) + (hyphenWidow ? 25000 : 0);
         // The release gate evaluates hyphenated lines against justified lines.
@@ -555,6 +584,7 @@ function chooseBreaks(
             gapPositions: currentGaps,
             riverPositions: rivers.rivers,
           });
+        }
         }
       }
     }

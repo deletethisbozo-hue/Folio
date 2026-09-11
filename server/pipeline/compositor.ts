@@ -81,6 +81,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       previousGlyphScale = 1,
       emergency = false,
       finalCompression = false,
+      selection: "badness" | "continuity" = "badness",
     ): LineFit | null => {
       if (gaps <= 0) return null;
       // The second pass may stretch inter-word space only slightly beyond
@@ -98,6 +99,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const maxGlyphScaleDelta = 0.01;
       const available = naturalWidth + adjustment;
       let best: LineFit | null = null;
+      let bestRank = Number.POSITIVE_INFINITY;
 
       for (let step = -20; step <= 20; step++) {
         const glyphScale = 1 + step * 0.0005;
@@ -127,7 +129,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           + 80 * Math.pow(Math.abs(residualPx) / 1.7, 2);
         const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
         const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
-        if (!best || candidate.badness < best.badness) best = candidate;
+        const rank = selection === "continuity"
+          ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness
+          : candidate.badness;
+        if (!best || rank < bestRank) {
+          best = candidate;
+          bestRank = rank;
+        }
       }
       return best;
     };
@@ -432,24 +440,45 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               && adjustment < -0.75
                   ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true)
               : null;
+            const finalCompressionContinuityFit = last
+              && semanticWordsOnLine >= 2
+              && adjustment < -0.75
+                  ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, "continuity")
+              : null;
             const strictFit = !last
               ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false)
               : finalCompressionFit;
+            const strictContinuityFit = !last
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, "continuity")
+              : finalCompressionContinuityFit;
             const fit = strictFit ?? (emergency && !last
               ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
               : null);
+            const continuityFit = strictContinuityFit ?? (emergency && !last
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, "continuity")
+              : null);
             if (!canBreak) continue;
-            if (natural > available + 0.75 && !fit && (end > start || last)) break;
+            if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) break;
             // Mirror the reflow preview: only lines physically beside a drop
             // cap may stay natural in the strict pass. Ordinary prose still
             // has to reach the measure inside the normal spacing bounds.
             const dropcapRescue = false;
-            const emergencyRescue = allowNaturalRescue && !last && !fit && natural <= available + 0.75;
+            const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && natural <= available + 0.75;
             const rescueNatural = emergencyRescue;
-            const lineFit = fit;
-            const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
-            if (!last && !lineFit && !rescueNatural) continue;
+            const fitOptions: Array<LineFit | null> = [];
+            if (fit) fitOptions.push(fit);
+            if (continuityFit && !fitOptions.some((candidate) =>
+              candidate
+              && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001
+              && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001
+              && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001
+            )) fitOptions.push(continuityFit);
+            if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
+            const hasStrictFit = Boolean(strictFit || strictContinuityFit);
+            if (!last && !fitOptions.length && !rescueNatural) continue;
 
+            for (const lineFit of fitOptions) {
+              const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);
             // Hyphenation splits one visible word into several compositor tokens.
             // Widow control must count semantic words, not discretionary pieces,
             // otherwise endings such as `de-` / `cyzji.` evade the rule entirely.
@@ -493,7 +522,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const relaxedPenalty = relaxedFit
               ? Math.max(220, 420 - previousHyphenCount * 100)
               : 0;
-            const finalCompressed = last && Boolean(finalCompressionFit);
+            const finalCompressed = last && Boolean(lineFit);
             const finalCompressionPenalty = finalCompressed ? 160 : 0;
             const structuralPenalty = (hyphenStreakOverflow ? 25000 : 0) + (hyphenWidow ? 25000 : 0);
             // The release gate evaluates hyphenated lines against justified lines.
@@ -543,6 +572,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               gapPositions: currentGaps,
               riverPositions: rivers.rivers,
             });
+            }
           }
         }
       }
