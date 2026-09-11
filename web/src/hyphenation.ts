@@ -11,11 +11,12 @@ type HyphenationLanguage = keyof typeof engines;
 type HyphenationLimits = { minimumWord: number; left: number; right: number };
 
 const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
-  // TeX's maintained Polish patterns use lefthyphenmin=2 and
-  // righthyphenmin=2. Keeping 3/3 here discarded valid Polish breaks and
-  // forced the compositor into visibly ragged emergency lines.
-  pl: { minimumWord: 4, left: 2, right: 2 },
-  // U.S. English TeX convention: lefthyphenmin=2, righthyphenmin=3.
+  // Polish book composition deliberately uses conservative 3/3 fragment minima.
+  // The underlying TeX patterns expose 2/2 points, but accepting those produced
+  // visually weak two-letter fragments such as "po-", "de-" and "do-" in the
+  // Windows serif stack. A six-letter minimum follows naturally from 3+3.
+  pl: { minimumWord: 6, left: 3, right: 3 },
+  // U.S. English keeps the corresponding TeX-style 2/3 convention.
   en: { minimumWord: 5, left: 2, right: 3 },
 };
 
@@ -38,8 +39,8 @@ function engineFor(language: string): Hypher {
 }
 
 /** Keep only dictionary breakpoints that respect language-specific fragment
- * minima. Polish follows TeX 2/2; U.S. English follows the standard 2/3
- * convention used by the corresponding TeX hyphenation patterns. */
+ * minima. Polish book composition uses conservative 3/3 fragments; U.S.
+ * English keeps the 2/3 convention used by its TeX hyphenation patterns. */
 export function conservativeHyphenation(
   engine: Hypher,
   word: string,
