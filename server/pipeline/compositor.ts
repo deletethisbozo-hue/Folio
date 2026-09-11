@@ -401,6 +401,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const semanticWordsOnLine = 1 + words
               .slice(start + 1, end + 1)
               .filter((word) => word.spaceBefore).length;
+            // folio-final-hyphen-fragment-guard: never strand only the
+            // continuation of a discretionary split on the final line.
+            // A final fragment such as `de-` / `cyzji.` is a composition
+            // defect, not an acceptable way to satisfy local line fit.
+            if (last && semanticWordsOnLine === 1 && previous.hyphenated) continue;
             // Mirror live preview: bounded compression is a normal composition
             // tool, not an unreachable branch hidden behind natural <= measure.
             const finalCompressionFit = last

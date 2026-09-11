@@ -418,6 +418,11 @@ function chooseBreaks(
         const semanticWordsOnLine = 1 + words
           .slice(start + 1, end + 1)
           .filter((word) => word.spaceBefore).length;
+        // folio-final-hyphen-fragment-guard: never strand only the
+        // continuation of a discretionary split on the final line.
+        // A final fragment such as `de-` / `cyzji.` is a composition
+        // defect, not an acceptable way to satisfy local line fit.
+        if (last && semanticWordsOnLine === 1 && previous.hyphenated) continue;
         // fitLine already has strict lower bounds for word spacing and tracking.
         // Let it use those bounds for slightly overfull candidates too; the old
         // natural-width guard made all negative-spacing logic effectively dead.
