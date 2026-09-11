@@ -1,7 +1,7 @@
 Folio 1.0.7 final qualification trigger
 Candidate repair: protected Polish NBSP spaces are counted as real adjustable word gaps while remaining non-breakable.
 Paperwhite Standard side inset: restored to the normal 28px logical profile.
-Solver: strict expansion ceiling remains 0.10em; strict compression is calibrated to 0.06em; relaxed expansion ceiling is 0.113em from measured semantic-gap output; relaxed compression remains 0.0595em and independently capped at 28% of measured base word space; glyph scale search and DP state both use 0.05% increments inside the unchanged ±1% hard bound.
+Solver: strict expansion ceiling remains 0.10em; strict compression is capped at 0.06em and 24% of measured base word space; relaxed expansion ceiling is 0.113em from measured semantic-gap output; relaxed compression remains 0.0595em and independently capped at 28% of measured base word space; glyph scale search and DP state both use 0.05% increments inside the unchanged ±1% hard bound.
 Composition tiers: bounded relaxed microtype remains available in the full justified graph to avoid excessive hyphen streaks; natural rescue remains a final fallback only.
 Subpixel fit: legal bounded spacing/tracking/scaling may leave at most 1.5px residual right-edge error instead of forcing an emergency ragged line; release QA right-edge and microtype limits remain unchanged at <=1.75px.
 Final raster correction: adjacent corrected glyph scales stay within 0.012 while every line remains inside the unchanged ±1% glyph-scale hard bound.
