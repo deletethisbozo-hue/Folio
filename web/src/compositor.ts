@@ -91,6 +91,7 @@ function restore(paragraph: HTMLElement): void {
     "folio-composed-dropcap",
     "folio-compositor-safe-fallback",
   );
+  delete paragraph.dataset.folioCompositionLanguage;
 }
 
 function ensureCompositionStyle(document: Document): void {
@@ -110,7 +111,7 @@ ${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyph
 .scene-break{display:block!important;text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}`;
 }
 
-function tokenize(paragraph: HTMLElement): Word[] {
+function tokenize(paragraph: HTMLElement, language: string): Word[] {
   const document = paragraph.ownerDocument;
   const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -174,7 +175,7 @@ function tokenize(paragraph: HTMLElement): Word[] {
   let nextAtomicId = 1;
   let previousAtomic = 0;
   let previousLexeme = "";
-  const englishProse = (document.documentElement.lang || "en").toLowerCase().startsWith("en");
+  const englishProse = language.toLowerCase().startsWith("en");
   return nodes.map((node) => {
     const atomic = node.closest(ATOMIC_INLINE);
     let atomicId = 0;
@@ -222,6 +223,45 @@ function tokenize(paragraph: HTMLElement): Word[] {
     previousLexeme = cleanText.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").toLowerCase();
     return word;
   });
+}
+
+/**
+ * Metadata supplies the book's default language, but real manuscripts can
+ * contain a paragraph in the other language Folio supports. Applying Polish
+ * patterns to clearly English prose (or vice versa) produces invalid break
+ * points and can make an otherwise strict paragraph require an emergency
+ * ragged line on a different platform/font rasterizer.
+ *
+ * Honour an explicit paragraph language first. Otherwise override the book
+ * default only when the paragraph contains a deliberately strong signal; an
+ * ambiguous or short paragraph keeps the metadata language.
+ */
+export function compositionLanguageForText(text: string, bookLanguage: string, explicitLanguage = ""): string {
+  const explicit = explicitLanguage.trim();
+  if (explicit) return explicit;
+
+  const sample = text
+    .replace(/[\u00ad\u00a0]/g, " ")
+    .toLocaleLowerCase()
+    .slice(0, 4_000);
+  if (sample.length < 80) return bookLanguage;
+
+  const polishDiacritics = sample.match(/[ąćęłńóśźż]/g)?.length ?? 0;
+  const polishWords = sample.match(/\b(?:się|nie|jest|oraz|który|która|przez|jego|jej|był|była|żeby|może|tylko|jeszcze|tego|tych)\b/g)?.length ?? 0;
+  const englishWords = sample.match(/\b(?:the|and|that|this|with|from|would|could|was|were|had|has|have|without|where|which|into|their|there|before|after)\b/g)?.length ?? 0;
+  const defaultPolish = /^pl(?:-|$)/i.test(bookLanguage);
+
+  if (defaultPolish && polishDiacritics === 0 && polishWords === 0 && englishWords >= 5) return "en";
+  if (!defaultPolish && polishDiacritics >= 3 && polishWords >= 3) return "pl";
+  return bookLanguage;
+}
+
+function compositionLanguage(paragraph: HTMLElement, bookLanguage: string): string {
+  return compositionLanguageForText(
+    paragraph.textContent ?? "",
+    bookLanguage,
+    paragraph.getAttribute("lang") ?? "",
+  );
 }
 
 function fitLine(
@@ -781,7 +821,9 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
 
   paragraph.dataset.folioOriginalHtml = paragraph.innerHTML;
   paragraph.dataset.folioOriginalStyle = paragraph.getAttribute("style") ?? "__none__";
-  hyphenateElement(paragraph, language);
+  const paragraphLanguage = compositionLanguage(paragraph, language);
+  paragraph.dataset.folioCompositionLanguage = paragraphLanguage;
+  hyphenateElement(paragraph, paragraphLanguage);
   const geometry = measureGeometry(paragraph, style);
 
   const probe = paragraph.ownerDocument.createElement("span");
@@ -794,15 +836,15 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
   const hyphenWidth = Math.max(fontSize * 0.18, pairWidth - spaceWidth);
   probe.remove();
 
-  const words = tokenize(paragraph);
+  const words = tokenize(paragraph, paragraphLanguage);
   if (!words.length) {
     restore(paragraph);
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, language, sectionStats);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, paragraphLanguage, sectionStats);
   const strictFailure = breaks ? null : lastBreakFailure;
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, language, sectionStats);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, paragraphLanguage, sectionStats);
   if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
     restore(paragraph);

@@ -3,6 +3,7 @@ import Hypher from "hypher";
 import english from "hyphenation.en-us";
 import polish from "hyphenation.pl";
 import { conservativeHyphenation, hyphenationLanguage } from "../web/src/hyphenation.ts";
+import { compositionLanguageForText } from "../web/src/compositor.ts";
 
 let passed = 0;
 let failed = 0;
@@ -64,6 +65,18 @@ test("short words are never hyphenated", () => {
     assert.equal(conservativeHyphenation(en, word), word);
     assert.equal(conservativeHyphenation(pl, word), word);
   }
+});
+
+test("clearly foreign paragraphs use their own supported composition language", () => {
+  const english = "The letter arrived on a Tuesday, which Margaret would later decide was the most ordinary day the universe could have chosen. It came without a stamp and without a postmark.";
+  const polish = "W Polsce i na świecie profesjonalne formatowanie książki jest ważne, ponieważ nie powinno tworzyć niekontrolowanych odstępów oraz błędnych podziałów słów.";
+  assert.equal(compositionLanguageForText(english, "pl-PL"), "en");
+  assert.equal(compositionLanguageForText(polish, "en-US"), "pl");
+});
+
+test("short, ambiguous and explicitly tagged paragraphs keep deterministic language rules", () => {
+  assert.equal(compositionLanguageForText("A brief note.", "pl-PL"), "pl-PL");
+  assert.equal(compositionLanguageForText("The clearly English paragraph remains deliberately tagged.", "pl-PL", "fr"), "fr");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

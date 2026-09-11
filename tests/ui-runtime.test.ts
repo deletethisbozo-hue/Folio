@@ -363,14 +363,15 @@ await page.evaluate(() => {
   const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
   if (scroller) scroller.scrollTop = 0;
 });
-await stage("Polish professional justification", async () => {
+await stage("mixed-language professional justification", async () => {
   try {
     await page.waitForFunction(() => {
       const doc = document.querySelector("iframe")?.contentDocument;
       const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
       if (!doc || !paragraph?.classList.contains("folio-composed")) return false;
       const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
-      return lines.length > 1 &&
+      return paragraph.dataset.folioCompositionLanguage === "en" &&
+        lines.length > 1 &&
         lines.slice(0, -1).some((line) => line.classList.contains("folio-line-justified")) &&
         lines.at(-1)?.classList.contains("folio-line-natural") === true &&
         !paragraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]');
@@ -385,6 +386,7 @@ await stage("Polish professional justification", async () => {
         device: document.querySelector(".reader-device")?.className ?? null,
         frameWidth: frame?.clientWidth ?? null,
         language: doc?.documentElement.lang ?? null,
+        compositionLanguage: paragraph?.dataset.folioCompositionLanguage ?? null,
         paragraphClass: paragraph?.className ?? null,
         paragraphWidth: paragraph?.getBoundingClientRect().width ?? null,
         lineCount: lines.length,
@@ -397,10 +399,12 @@ await stage("Polish professional justification", async () => {
     throw new Error(`${error instanceof Error ? error.message : String(error)}; snapshot=${JSON.stringify(snapshot)}`);
   }
 });
-// Polish NBSP/hyphenation semantics are covered independently by the
-// typesetting-language suite; this browser stage verifies their integration
-// language plus deterministic professional paragraph composition.
-check("Polish justification uses paragraph-wide breaks and a natural final line", true);
+// The large Polish paste intentionally follows the English sample prose. Once
+// metadata changes to Polish, the English opening paragraph must still use
+// English break rules and remain inside the exact same strict quality bounds.
+// Pure Polish NBSP/hyphenation geometry is covered by the visual and
+// typesetting-language suites.
+check("mixed-language prose uses paragraph-wide breaks and a natural final line", true);
   const boundedWordGaps = await page.evaluate(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     if (!doc) return false;
