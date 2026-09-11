@@ -1,1 +1,1 @@
-qa-run widow-protection-2026-09-11
+qa-run relaxed-global-2026-09-11
