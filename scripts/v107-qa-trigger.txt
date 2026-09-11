@@ -1,10 +1,10 @@
 Folio 1.0.7 final qualification trigger
-Candidate: b5eeb19583327a45b0a07d959f30878fc1c8fcf6
+Candidate: 90e9c783d07e122bbeb6b2edfe95b53fa8504c86
 Paperwhite Standard uses the calculated 17.5px base font with the normal 28px logical side inset.
 Editor chrome no longer repeats the book title above the chapter heading; the left side of that top bar is intentionally empty and save/word-count stay right-aligned.
 English a/an/the are structurally bound to the following word while preserving discretionary hyphenation inside that following word; visual QA rejects stranded English articles.
 Very large manuscripts patch fast keyboard input into the actual final prose paragraph and distinguish an already-current preview, a small tail patch and a full preview rebuild.
-Reader device/profile changes now use a dedicated geometry-only refresh path. They cannot enter the content rebuild path even if previewDraft is transiently behind draft on a slow runner. The first visible paragraph is recomposed synchronously after calibration and the rest remain lazy.
+Reader device/profile changes use a dedicated geometry-only refresh path, so a transient draft debounce can never turn a device switch into a full manuscript rebuild. Iframe lifecycle triggers for previewHtml and selectedId remain active, but also execute geometry-only work.
 Discarded previews explicitly dispose their lazy compositor observer before iframe teardown, preventing a 5200-paragraph manuscript from starving the next project's first live preview.
 Runtime QA normalizes discretionary soft hyphens when checking typed text and validates the optical edge against the compositor's declared bounded protrusion. The right-edge residual remains <= 1.75px and protrusion itself is capped at 4.5px.
 English relaxed compression remains at the conservative 0.07em profile; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
