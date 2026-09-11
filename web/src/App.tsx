@@ -67,6 +67,14 @@ function wordCount(text: string): number {
   return text.trim().match(/\S+/g)?.length ?? 0;
 }
 
+function lastPreviewProse(section: Element | null): HTMLElement | null {
+  if (!section) return null;
+  const direct = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"));
+  if (direct.length) return direct.at(-1) ?? null;
+  const nested = Array.from(section.querySelectorAll<HTMLElement>("p:not(.scene-break)"));
+  return nested.at(-1) ?? null;
+}
+
 function applyDraftDropcap(section: Element, enabled: boolean): void {
   if (!enabled || !section.classList.contains("chapter")) return;
   const paragraph = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"))
@@ -383,10 +391,7 @@ export default function App() {
     const simpleTailAppend = appendDelta.length > 0
       && appendDelta.length <= 2048
       && !/[\r\n*_`#<>[\]\\]/.test(appendDelta);
-    const tail = section.lastElementChild instanceof HTMLElement
-      && section.lastElementChild.matches("p:not(.scene-break)")
-      ? section.lastElementChild
-      : null;
+    const tail = lastPreviewProse(section);
     if (simpleTailAppend && tail && !tail.classList.contains("folio-composed")) {
       tail.append(previewDocument.createTextNode(appendDelta));
       livePreviewDraftRef.current = previewDraft;
@@ -829,10 +834,13 @@ export default function App() {
       style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified,.folio-line-natural{text-align:left!important;text-align-last:left!important}.scene-break{text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}" + proseComposition;
     }
     doc.head.appendChild(style);
-    if (previewMode !== "print") calibratePreviewFrame(frame);
+    const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
+    const compositionMode = typography.bodyAlign === "left" ? "left" : "justify";
+    const compositionModeChanged = frame.dataset.folioCompositionMode !== compositionMode;
+    frame.dataset.folioCompositionMode = compositionMode;
     syncLiveChapterLabel(doc);
     const liveApplied = applyLiveDraftToPreview();
-    if (previewMode !== "print" && !liveApplied) {
+    if (previewMode !== "print" && (!liveApplied || calibrationChanged || compositionModeChanged)) {
       if (typography.bodyAlign !== "left") hyphenatePreviewDocument(doc, meta?.language || "en");
       void composePreviewDocument(doc, typography.bodyAlign !== "left");
     }
@@ -946,15 +954,12 @@ export default function App() {
   }
 
   function applyFastKeyToLivePreview(nextDraft: string, key: string): void {
-    if (nextDraft.length < 250_000 || previewMode === "print" || !selectedId || document?.id !== selectedId) return;
+    if (nextDraft.length < 250_000 || previewMode === "print" || !selectedId || !document?.editable) return;
     const previewDocument = previewRef.current?.contentDocument;
     if (!previewDocument) return;
     const section = previewDocument.getElementById(selectedId)
       ?? previewDocument.querySelector<HTMLElement>("main.book > section.chapter, main.book > section.level1");
-    const tail = section?.lastElementChild instanceof HTMLElement
-      && section.lastElementChild.matches("p:not(.scene-break)")
-      ? section.lastElementChild
-      : null;
+    const tail = lastPreviewProse(section);
     if (!tail) return;
 
     // A visible tail may already have been composed. Restore only this one
