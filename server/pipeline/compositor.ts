@@ -401,6 +401,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // hyphens when a justified/relaxed alternative exists. The final
             // rescue pass may still recover pathological narrow measures.
             const hyphenStreakOverflow = hyphenBreak && previousHyphenStreak >= 2;
+            // Three consecutive discretionary hyphens are never an acceptable book
+            // composition outcome. Remove that path from the graph instead of merely
+            // making it expensive, so the optimiser must choose an earlier clean break.
+            if (hyphenStreakOverflow) continue;
             const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
             // Optical margin alignment: a line-ending discretionary hyphen may hang
         // slightly into the margin, just like terminal punctuation. Keeping part

@@ -414,6 +414,10 @@ function chooseBreaks(
         const canBreak = last || next!.canBreakBefore;
         const hyphenBreak = !last && next!.hyphenBefore;
         const hyphenStreakOverflow = hyphenBreak && previousHyphenStreak >= 2;
+        // Three consecutive discretionary hyphens are never an acceptable book
+        // composition outcome. Remove that path from the graph instead of merely
+        // making it expensive, so the optimiser must choose an earlier clean break.
+        if (hyphenStreakOverflow) continue;
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
         // Optical margin alignment: a line-ending discretionary hyphen may hang
         // slightly into the margin, just like terminal punctuation. Keeping part
