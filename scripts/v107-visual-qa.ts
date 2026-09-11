@@ -52,14 +52,22 @@ try {
     (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText = (paragraph) => {
       const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
       if (!lines.length) return (paragraph.textContent ?? "").replace(/\u00ad/g, "").replace(/\s+/g, " ").trim();
-      return lines.map((line, index) => {
+      const capText = (paragraph.querySelector<HTMLElement>(":scope > .dropcap")?.textContent ?? "")
+        .replace(/\u00ad/g, "")
+        .replace(/\s+/g, "")
+        .trim();
+      const lineText = lines.map((line, index) => {
         let text = (line.textContent ?? "").replace(/\u00ad/g, "");
         const nextWord = lines[index + 1]?.querySelector<HTMLElement>(".folio-word");
         const discretionary = nextWord?.dataset.folioHyphenBefore === "true" && text.endsWith("-");
         if (discretionary) text = text.slice(0, -1);
         else if (index < lines.length - 1) text += " ";
         return text;
-      }).join("").replace(/\s+/g, " ").trim();
+      }).join("");
+      // Drop caps are removed from the line fragments and positioned separately,
+      // so prepend their glyph without adding a space. This reconstructs the
+      // semantic first word ("P" + "oczucie" => "Poczucie") for QA freshness.
+      return `${capText}${lineText}`.replace(/\s+/g, " ").trim();
     };
   });
 
