@@ -47,6 +47,7 @@ type State = Break & {
   from: number;
   fromKey: number;
   fitness: number;
+  hyphenCount: number;
   gapPositions: number[];
   riverPositions: number[];
 };
@@ -243,7 +244,14 @@ function glyphScaleBucket(glyphScale: number): number {
   ));
 }
 
-const HYPHEN_COUNT_COUNT = 16;
+const HYPHEN_BUCKET_COUNT = 4;
+
+function hyphenCountBucket(hyphenCount: number): number {
+  if (hyphenCount <= 4) return 0;
+  if (hyphenCount === 5) return 1;
+  if (hyphenCount === 6) return 2;
+  return 3;
+}
 
 function encodeState(
   line: number,
@@ -254,12 +262,12 @@ function encodeState(
 ): number {
   const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
   const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
-  return packed * HYPHEN_COUNT_COUNT + Math.max(0, Math.min(HYPHEN_COUNT_COUNT - 1, hyphenCount));
+  return packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);
 }
 
-function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenCount: number } {
-  const hyphenCount = key % HYPHEN_COUNT_COUNT;
-  const packed = Math.floor(key / HYPHEN_COUNT_COUNT);
+function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number } {
+  const hyphenBucket = key % HYPHEN_BUCKET_COUNT;
+  const packed = Math.floor(key / HYPHEN_BUCKET_COUNT);
   const glyphBucket = packed % GLYPH_SCALE_COUNT;
   const base = Math.floor(packed / GLYPH_SCALE_COUNT);
   return {
@@ -267,7 +275,7 @@ function decodeState(key: number): { line: number; hyphenStreak: number; fitness
     hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
     fitness: base % FITNESS_COUNT,
     glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
-    hyphenCount,
+    hyphenBucket,
   };
 }
 
@@ -350,6 +358,7 @@ function chooseBreaks(
     emergency: false,
     relaxed: false,
     fitness: initialFitness,
+    hyphenCount: 0,
     gapPositions: [],
     riverPositions: [],
   });
@@ -360,7 +369,7 @@ function chooseBreaks(
       const line = decoded.line;
       const previousHyphenStreak = decoded.hyphenStreak;
       const previousFitness = decoded.fitness;
-      const previousHyphenCount = decoded.hyphenCount;
+      const previousHyphenCount = previous.hyphenCount;
       const { offset, available } = lineGeometry(line, geometry);
       let wordWidth = 0;
       let gaps = 0;
@@ -478,7 +487,7 @@ function chooseBreaks(
 
         const nextLine = line + 1;
         const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
-        const nextHyphenCount = Math.min(HYPHEN_COUNT_COUNT - 1, previousHyphenCount + (hyphenBreak ? 1 : 0));
+        const nextHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
         const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);
         const old = states[end + 1].get(nextKey);
         if (!old || cost < old.cost) {
@@ -497,6 +506,7 @@ function chooseBreaks(
             emergency: emergencyRescue,
             relaxed: relaxedFit,
             fitness: currentFitness,
+            hyphenCount: nextHyphenCount,
             gapPositions: currentGaps,
             riverPositions: rivers.rivers,
           });

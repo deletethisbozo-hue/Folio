@@ -63,6 +63,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       from: number;
       fromKey: number;
       fitness: number;
+      hyphenCount: number;
       gapPositions: number[];
       riverPositions: number[];
     };
@@ -129,15 +130,17 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       GLYPH_SCALE_COUNT - 1,
       Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
     ));
-    const HYPHEN_COUNT_COUNT = 16;
+    const HYPHEN_BUCKET_COUNT = 4;
+    const hyphenCountBucket = (hyphenCount: number) =>
+      hyphenCount <= 4 ? 0 : hyphenCount === 5 ? 1 : hyphenCount === 6 ? 2 : 3;
     const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number, hyphenCount: number) => {
       const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
       const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
-      return packed * HYPHEN_COUNT_COUNT + Math.max(0, Math.min(HYPHEN_COUNT_COUNT - 1, hyphenCount));
+      return packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);
     };
     const decodeState = (key: number) => {
-      const hyphenCount = key % HYPHEN_COUNT_COUNT;
-      const packed = Math.floor(key / HYPHEN_COUNT_COUNT);
+      const hyphenBucket = key % HYPHEN_BUCKET_COUNT;
+      const packed = Math.floor(key / HYPHEN_BUCKET_COUNT);
       const glyphBucket = packed % GLYPH_SCALE_COUNT;
       const base = Math.floor(packed / GLYPH_SCALE_COUNT);
       return {
@@ -145,7 +148,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
         fitness: base % FITNESS_COUNT,
         glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
-        hyphenCount,
+        hyphenBucket,
       };
     };
     const lineGapPositions = (
@@ -334,6 +337,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         emergency: false,
         relaxed: false,
         fitness: initialFitness,
+        hyphenCount: 0,
         gapPositions: [],
         riverPositions: [],
       });
@@ -344,7 +348,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           const lineNo = decoded.line;
           const previousHyphenStreak = decoded.hyphenStreak;
           const previousFitness = decoded.fitness;
-          const previousHyphenCount = decoded.hyphenCount;
+          const previousHyphenCount = previous.hyphenCount;
           const { offset, available } = lineGeometry(lineNo);
           let wordWidth = 0;
           let gaps = 0;
@@ -411,7 +415,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
-            const nextHyphenCount = Math.min(HYPHEN_COUNT_COUNT - 1, previousHyphenCount + (hyphenBreak ? 1 : 0));
+            const nextHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
             const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);
             const old = states[end + 1].get(nextKey);
             if (!old || cost < old.cost) states[end + 1].set(nextKey, {
@@ -429,6 +433,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               emergency: emergencyRescue,
               relaxed: relaxedFit,
               fitness: currentFitness,
+              hyphenCount: nextHyphenCount,
               gapPositions: currentGaps,
               riverPositions: rivers.rivers,
             });
