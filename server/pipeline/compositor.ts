@@ -88,7 +88,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = emergency
         ? Math.min(spaceWidth * 0.46, fontSize * 0.12)
-        : Math.min(spaceWidth * 0.46, fontSize * 0.12);
+        : Math.min(spaceWidth * 0.40, fontSize * 0.10);
       const minWordSpacing = emergency || finalCompression
         ? -Math.min(spaceWidth * 0.28, fontSize * 0.055)
         : -Math.min(spaceWidth * 0.20, fontSize * 0.045);
@@ -98,8 +98,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const available = naturalWidth + adjustment;
       let best: LineFit | null = null;
 
-      for (let step = -10; step <= 10; step++) {
-        const glyphScale = 1 + step * 0.001;
+      for (let step = -20; step <= 20; step++) {
+        const glyphScale = 1 + step * 0.0005;
         if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
         if (Math.abs(glyphScale - previousGlyphScale) > 0.012) continue;
         const scaledAdjustment = available / glyphScale - naturalWidth;
