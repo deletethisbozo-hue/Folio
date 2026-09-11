@@ -1,1 +1,1 @@
-qa-run dropcap-aware-full-corpus
+qa-run english-tex-minima
