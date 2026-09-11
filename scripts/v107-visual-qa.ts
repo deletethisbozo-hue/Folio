@@ -197,6 +197,7 @@ try {
         nextLineTokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
         strictFailure: unknown;
       }> = [];
+      const compositionFailures: Array<{ paragraphIndex: number; failure: unknown }> = [];
       const lineDetails: Array<{
         paragraphIndex: number;
         lineIndex: number;
@@ -214,6 +215,12 @@ try {
       }> = [];
       let ornamentalBreaksOffCenter = 0;
       for (const paragraph of paragraphs) {
+        const rawFailure = paragraph.dataset.folioStrictFailure;
+        if (rawFailure) {
+          let failure: unknown = rawFailure;
+          try { failure = JSON.parse(rawFailure); } catch { /* keep raw diagnostic */ }
+          compositionFailures.push({ paragraphIndex: paragraphs.indexOf(paragraph), failure });
+        }
         const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
         let streak = 0;
         let previousSpacing: number | null = null;
@@ -336,6 +343,7 @@ try {
         maxAdjacentSpacingDeltaEm,
         emergencyLines,
         emergencyDetails,
+        compositionFailures,
         lineDetails,
         ornamentalBreaksOffCenter,
       };
