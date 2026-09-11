@@ -1,7 +1,8 @@
 Folio 1.0.7 final qualification trigger
-Candidate: 010abf967d9c88a4449d130f33746894a5aeeaca
+Candidate: 184aa60c64863381eaeb21f8f923fdb90c9b9c68
 Paperwhite Standard remains at the final 36px logical side inset; no further geometry tuning is permitted for this release candidate.
-Strict word-spacing search reaches the unchanged hard 0.10em limit. Optical protrusion is now directional: it may relieve a full/overfull line, but it never forces a short line to stretch farther merely to hang punctuation.
+Strict word-spacing search reaches the unchanged hard 0.10em limit. Optical protrusion is directional and recorded only when it actually participates in line fit.
+Hyphen-density cost is now section-aware: each paragraph optimizes against hyphens and justified lines already composed in its section, matching the release QA denominator instead of optimizing paragraphs in isolation.
 Discretionary hyphen optical protrusion remains capped at 2.55px; English hyphenation remains dictionary-driven with no manual word exceptions.
 Line-fit frontier, closed-up em-dash breakpoint support, exact drop-cap geometry, hard <=2 hyphen ladder, and the unchanged 0.45 hyphen-rate gate remain active.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
