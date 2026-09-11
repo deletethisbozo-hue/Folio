@@ -173,6 +173,8 @@ function tokenize(paragraph: HTMLElement): Word[] {
   const atomicIds = new WeakMap<Element, number>();
   let nextAtomicId = 1;
   let previousAtomic = 0;
+  let previousLexeme = "";
+  const englishProse = (document.documentElement.lang || "en").toLowerCase().startsWith("en");
   return nodes.map((node) => {
     const atomic = node.closest(ATOMIC_INLINE);
     let atomicId = 0;
@@ -184,7 +186,11 @@ function tokenize(paragraph: HTMLElement): Word[] {
     const breakableSpaceBefore = node.dataset.folioBreakableSpaceBefore === "true";
     const hyphenBefore = node.dataset.folioHyphenBefore === "true";
     const dashBreakBefore = node.dataset.folioDashBreakBefore === "true";
-    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore))
+    const articleGlue = englishProse
+      && spaceBefore
+      && breakableSpaceBefore
+      && /^(?:a|an|the)$/.test(previousLexeme);
+    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && !articleGlue))
       && !(atomicId && atomicId === previousAtomic);
     const canBreakBefore = hyphenBefore || structuralBreakBefore;
     const rawText = node.textContent ?? "";
@@ -213,6 +219,7 @@ function tokenize(paragraph: HTMLElement): Word[] {
       rightProtrusion,
     };
     previousAtomic = atomicId;
+    previousLexeme = cleanText.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").toLowerCase();
     return word;
   });
 }

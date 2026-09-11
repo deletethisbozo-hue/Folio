@@ -322,6 +322,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const atomicIds = new WeakMap<Element, number>();
       let nextAtomicId = 1;
       let previousAtomic = 0;
+      let previousLexeme = "";
+      const englishProse = (document.documentElement.lang || "en").toLowerCase().startsWith("en");
       const words: Word[] = wordNodes.map((node) => {
         const atomic = node.closest(atomicInline);
         let atomicId = 0;
@@ -333,7 +335,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         const breakableSpaceBefore = node.dataset.folioBreakableSpaceBefore === "true";
         const hyphenBefore = node.dataset.folioHyphenBefore === "true";
         const dashBreakBefore = node.dataset.folioDashBreakBefore === "true";
-        const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore))
+        const articleGlue = englishProse
+          && spaceBefore
+          && breakableSpaceBefore
+          && /^(?:a|an|the)$/.test(previousLexeme);
+        const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && !articleGlue))
           && !(atomicId && atomicId === previousAtomic);
         const canBreakBefore = hyphenBefore || structuralBreakBefore;
         const rawText = node.textContent ?? "";
@@ -362,6 +368,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           rightProtrusion,
         };
         previousAtomic = atomicId;
+        previousLexeme = cleanText.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").toLowerCase();
         return word;
       });
 
