@@ -302,7 +302,9 @@ try {
   await stage("trusted large-manuscript typing reaches model", () => page.waitForFunction(() =>
     (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes("TRUSTED LARGE TYPING MARKER"), { timeout: 5000 }));
   await stage("trusted large-manuscript typing reaches preview", () => page.waitForFunction(() =>
-    document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("TRUSTED LARGE TYPING MARKER"), { timeout: 8000 }));
+    document.querySelector("iframe")?.contentDocument?.body?.innerText
+      .replace(/[\u00ad-]/g, "")
+      .includes("TRUSTED LARGE TYPING MARKER"), { timeout: 8000 }));
   check("trusted keyboard input stays responsive after a 100,000-word paste", Date.now() - trustedTypingStarted <= 8000);
   await page.setViewport({ width: 1180, height: 700 });
   const visibleAfterLargePaste = await page.evaluate(() => {
@@ -393,12 +395,16 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
     const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
     if (lines.length < 2) return { ok: false, reason: "too few composed lines" };
     const justified = lines.slice(0, -1).filter((line) => line.classList.contains("folio-line-justified"));
-    const errors = justified.map((line) => {
+    const protrusions = justified.map((line) => Math.max(0, Number(line.dataset.folioRightProtrusion ?? 0)));
+    const errors = justified.map((line, index) => {
       const lineRect = line.getBoundingClientRect();
       const range = doc.createRange();
       range.selectNodeContents(line);
       const contentRect = range.getBoundingClientRect();
-      return Math.abs(lineRect.right - contentRect.right);
+      // Optical margin alignment deliberately lets punctuation/hyphens hang
+      // outside the text measure. Validate the optical edge against that
+      // declared protrusion while keeping the same 1.75px residual gate.
+      return Math.abs(lineRect.right + protrusions[index] - contentRect.right);
     });
     const fontSize = Number.parseFloat(getComputedStyle(paragraph).fontSize) || 16;
     const wordSpacing = justified.map((line) => Math.abs(Number(line.dataset.folioWordSpacing ?? 0)));
@@ -423,12 +429,14 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
     return {
       ok: justified.length > 0 &&
         Math.max(...errors, 0) <= 1.75 &&
+        Math.max(...protrusions, 0) <= 4.5 &&
         Math.max(...wordSpacing, 0) <= fontSize * .116 &&
         Math.max(...tracking, 0) <= fontSize * .0056 &&
         Math.max(...semanticGaps, 0) <= fontSize * .42 &&
         lines.at(-1)?.classList.contains("folio-line-natural") === true &&
         dropcapOk,
       maxRightError: Math.max(...errors, 0),
+      maxRightProtrusion: Math.max(...protrusions, 0),
       maxWordSpacing: Math.max(...wordSpacing, 0),
       maxTracking: Math.max(...tracking, 0),
       maxSemanticGap: Math.max(...semanticGaps, 0),

@@ -171,6 +171,11 @@ export default function App() {
     if (editorSyncTimerRef.current !== null) { window.clearTimeout(editorSyncTimerRef.current); editorSyncTimerRef.current = null; }
     setDirty(false);
     setSaveState("idle");
+    // Tear down the lazy compositor before the iframe is discarded. Otherwise
+    // an observer from a 100k-word manuscript can keep scheduling composition
+    // work after another project is opened and starve the first new preview.
+    const livePreviewDocument = previewRef.current?.contentDocument;
+    if (livePreviewDocument) void composePreviewDocument(livePreviewDocument, false);
     setPreviewHtml("");
     livePreviewDraftRef.current = "";
     if (fastPreviewComposeTimerRef.current !== null) {
