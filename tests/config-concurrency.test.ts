@@ -4,6 +4,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import yaml from "js-yaml";
 import { removeMatter, saveMeta, saveTypography } from "../server/matter.ts";
+import { createSampleProject, projectInfo, writableBookDir } from "../server/projects.ts";
 import type { BookMeta } from "../server/pipeline/types.ts";
 
 let passed = 0;
@@ -65,6 +66,34 @@ await test("metadata and typography updates merge instead of overwriting each ot
   };
   assert.equal(config.title, "Final Title");
   assert.deepEqual(config.typography, { bodyAlign: "justified", dropCaps: true });
+});
+
+await test("concurrent first writes share one sample copy-on-write directory", async () => {
+  // Run several fresh sample projects because the old implementation raced at
+  // the first await and could leave projectInfo pointing at only one of two
+  // independently mutated copies. The final copy must contain both mutations.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const projectId = createSampleProject();
+    await Promise.all([
+      (async () => {
+        const dir = await writableBookDir(projectId);
+        await saveMeta(dir, { ...meta, subtitle: `Concurrent subtitle ${attempt}` });
+      })(),
+      (async () => {
+        const dir = await writableBookDir(projectId);
+        await removeMatter(dir, "titlepage");
+      })(),
+    ]);
+
+    const finalDir = projectInfo(projectId).folder;
+    assert.ok(finalDir, "sample should have a writable copy");
+    const config = yaml.load(await fs.readFile(path.join(finalDir, "book.yaml"), "utf8")) as {
+      subtitle?: string;
+      frontmatter?: string[];
+    };
+    assert.equal(config.subtitle, `Concurrent subtitle ${attempt}`);
+    assert.deepEqual(config.frontmatter, ["copyright"]);
+  }
 });
 
 await fs.rm(root, { recursive: true, force: true });
