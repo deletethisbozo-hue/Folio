@@ -1,11 +1,13 @@
 Folio 1.0.7 final qualification trigger
-Candidate: 90e9c783d07e122bbeb6b2edfe95b53fa8504c86
+Candidate: e3bde9de4efe0eb14b68eb80f3f193996cd5bb5e
 Paperwhite Standard uses the calculated 17.5px base font with the normal 28px logical side inset.
 Editor chrome no longer repeats the book title above the chapter heading; the left side of that top bar is intentionally empty and save/word-count stay right-aligned.
 English a/an/the are structurally bound to the following word while preserving discretionary hyphenation inside that following word; visual QA rejects stranded English articles.
-Very large manuscripts patch fast keyboard input into the actual final prose paragraph and distinguish an already-current preview, a small tail patch and a full preview rebuild.
+Local editable live preview now uses draftRef as the authoritative draft, so a delayed previewDraft debounce or late server preview can never overwrite fresh typing in a newly created chapter.
+Huge-manuscript fast typing finds the last direct prose paragraph by walking backward from the tail instead of allocating/scanning all 5,200 paragraphs for every keystroke.
 Reader device/profile changes use a dedicated geometry-only refresh path, so a transient draft debounce can never turn a device switch into a full manuscript rebuild. Iframe lifecycle triggers for previewHtml and selectedId remain active, but also execute geometry-only work.
 Discarded previews explicitly dispose their lazy compositor observer before iframe teardown, preventing a 5200-paragraph manuscript from starving the next project's first live preview.
+Windows Polish-composition timeout diagnostics now capture device, frame/paragraph width, line classes, strict failure and calibration if the hard 30s gate is missed; no timeout or quality threshold was raised.
 Runtime QA normalizes discretionary soft hyphens when checking typed text and validates the optical edge against the compositor's declared bounded protrusion. The right-edge residual remains <= 1.75px and protrusion itself is capped at 4.5px.
 English relaxed compression remains at the conservative 0.07em profile; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
 Optical protrusion is directional and recorded only when it actually participates in line fit. Hyphen-density cost and final DP state selection remain section-aware.
