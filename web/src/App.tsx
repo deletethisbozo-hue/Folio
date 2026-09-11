@@ -148,6 +148,7 @@ export default function App() {
   const redoRef = useRef<string[]>([]);
   const previewIdentityRef = useRef("");
   const pendingPreviewIdentityRef = useRef("");
+  const pendingPreviewDraftRef = useRef("");
   const pendingPreviewScrollRef = useRef(0);
   const editorDomDirtyRef = useRef(false);
   const editorDomGenerationRef = useRef(0);
@@ -170,6 +171,8 @@ export default function App() {
     setDocument(null);
     setDraft("");
     setPreviewDraft("");
+    livePreviewDraftRef.current = "";
+    pendingPreviewDraftRef.current = "";
     editorDomDirtyRef.current = false;
     editorDomGenerationRef.current++;
     if (editorSyncTimerRef.current !== null) { window.clearTimeout(editorSyncTimerRef.current); editorSyncTimerRef.current = null; }
@@ -269,10 +272,11 @@ export default function App() {
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
+    const requestedDraft = draftRef.current;
     const timer = window.setTimeout(async () => {
       try {
-        const result = await api.preview(project.projectId, meta, meta.theme, typography, selectedId, draftRef.current, controller.signal);
-        if (!cancelled) { commitPreviewHtml(result.html); setPreviewError(null); }
+        const result = await api.preview(project.projectId, meta, meta.theme, typography, selectedId, requestedDraft, controller.signal);
+        if (!cancelled) { commitPreviewHtml(result.html, requestedDraft); setPreviewError(null); }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         if (!cancelled) {
@@ -291,10 +295,11 @@ export default function App() {
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
+    const requestedDraft = previewDraft;
     const timer = window.setTimeout(async () => {
       try {
-        const result = await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, previewDraft, controller.signal);
-        if (!cancelled) { commitPreviewHtml(result.html); setPreviewError(null); }
+        const result = await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, requestedDraft, controller.signal);
+        if (!cancelled) { commitPreviewHtml(result.html, requestedDraft); setPreviewError(null); }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         if (!cancelled) {
@@ -308,7 +313,7 @@ export default function App() {
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
-  function commitPreviewHtml(html: string): void {
+  function commitPreviewHtml(html: string, representedDraft: string): void {
     const identity = `${project?.projectId ?? ""}:${selectedId ?? ""}:${previewMode}`;
     const frame = previewRef.current;
     const current = frame?.contentDocument;
@@ -320,12 +325,18 @@ export default function App() {
       for (const attr of Array.from(current.body.attributes)) current.body.removeAttribute(attr.name);
       for (const attr of Array.from(parsed.body.attributes)) current.body.setAttribute(attr.name, attr.value);
       current.body.innerHTML = parsed.body.innerHTML;
+      // The incoming server HTML represents the exact draft captured when the
+      // request started, not necessarily the draft the user has by the time it
+      // returns. Recording that snapshot lets onPreviewLoad patch any newer tail
+      // instead of falsely treating stale server HTML as current.
+      livePreviewDraftRef.current = representedDraft;
       previewIdentityRef.current = identity;
       pendingPreviewIdentityRef.current = "";
       onPreviewLoad(scrollTop);
       return;
     }
     pendingPreviewIdentityRef.current = identity;
+    pendingPreviewDraftRef.current = representedDraft;
     pendingPreviewScrollRef.current = scrollTop;
     setPreviewHtml(html);
   }
@@ -849,6 +860,10 @@ export default function App() {
     }
     doc.head.appendChild(style);
     const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
+    if (pendingPreviewDraftRef.current) {
+      livePreviewDraftRef.current = pendingPreviewDraftRef.current;
+      pendingPreviewDraftRef.current = "";
+    }
     const compositionMode = typography.bodyAlign === "left" ? "left" : "justify";
     const compositionModeChanged = frame.dataset.folioCompositionMode !== compositionMode;
     frame.dataset.folioCompositionMode = compositionMode;
