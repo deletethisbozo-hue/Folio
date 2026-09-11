@@ -6,7 +6,7 @@ const engines = { en: new Hypher(english), pl: new Hypher(polish) };
 type HyphenationLanguage = keyof typeof engines;
 type HyphenationLimits = { minimumWord: number; left: number; right: number };
 const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
-  pl: { minimumWord: 6, left: 3, right: 2 },
+  pl: { minimumWord: 4, left: 2, right: 2 },
   en: { minimumWord: 5, left: 2, right: 3 },
 };
 const PROSE_SELECTOR = ["section.chapter > p:not(.scene-break)","section.chapter > blockquote p","section.chapter li","section.backmatter > p:not(.scene-break)","section.backmatter li"].join(",");
