@@ -227,6 +227,7 @@ function fitLine(
   for (let step = -20; step <= 20; step++) {
     const glyphScale = 1 + step * 0.001;
     if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
+    if (Math.abs(glyphScale - previousGlyphScale) > 0.025) continue;
     const scaledAdjustment = available / glyphScale - naturalWidth;
     let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
     let remaining = scaledAdjustment - wordSpacing * gaps;
@@ -267,13 +268,10 @@ function glyphScaleBucket(glyphScale: number): number {
   ));
 }
 
-const HYPHEN_BUCKET_COUNT = 4;
+const HYPHEN_BUCKET_COUNT = 5;
 
 function hyphenCountBucket(hyphenCount: number): number {
-  if (hyphenCount <= 4) return 0;
-  if (hyphenCount === 5) return 1;
-  if (hyphenCount === 6) return 2;
-  return 3;
+  return Math.min(4, hyphenCount);
 }
 
 function encodeState(

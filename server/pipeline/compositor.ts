@@ -101,6 +101,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       for (let step = -20; step <= 20; step++) {
         const glyphScale = 1 + step * 0.001;
         if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
+        if (Math.abs(glyphScale - previousGlyphScale) > 0.025) continue;
         const scaledAdjustment = available / glyphScale - naturalWidth;
         let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
         let remaining = scaledAdjustment - wordSpacing * gaps;
@@ -136,9 +137,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       GLYPH_SCALE_COUNT - 1,
       Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
     ));
-    const HYPHEN_BUCKET_COUNT = 4;
-    const hyphenCountBucket = (hyphenCount: number) =>
-      hyphenCount <= 4 ? 0 : hyphenCount === 5 ? 1 : hyphenCount === 6 ? 2 : 3;
+    const HYPHEN_BUCKET_COUNT = 5;
+    const hyphenCountBucket = (hyphenCount: number) => Math.min(4, hyphenCount);
     const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number, hyphenCount: number) => {
       const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
       const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
