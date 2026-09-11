@@ -1,5 +1,5 @@
 Folio 1.0.7 final qualification trigger
-Candidate: 3bb701f7cb873101c4d87affdba9c3fb05e91b0e
-Reflow preview: device profile is now the sole margin calibration; duplicate 5% body margin is reset only inside device preview.
-PDF/print base geometry restored unchanged.
+Candidate: 48e826057f79db00e4f9881136a613c74e12d9a7
+Paperwhite Standard side inset: 21px logical (~5.1%).
+Solver: strict spacing restored to 0.10em ceiling; emergency-only spacing remains 0.12em; glyph scale search refined to 0.05% increments within the unchanged ±1% hard bound.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
