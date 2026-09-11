@@ -2,5 +2,6 @@ Folio 1.0.7 final qualification trigger
 Candidate repair: protected Polish NBSP spaces are counted as real adjustable word gaps while remaining non-breakable.
 Paperwhite Standard side inset: restored to the normal 28px logical profile.
 Solver: strict spacing ceiling 0.10em; emergency-only spacing 0.12em; glyph scale search and DP state both use 0.05% increments inside the unchanged ±1% hard bound.
+Subpixel fit: legal bounded spacing/tracking/scaling may leave at most 0.5px residual right-edge error instead of forcing an emergency ragged line; release QA right-edge and microtype limits remain unchanged.
 Drop cap: professional compositor reserves an additional measured 0.28em body-text breathing gap beside the first two wrapped lines; preview and server pipeline mirror each other.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
