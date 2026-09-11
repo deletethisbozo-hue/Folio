@@ -5,7 +5,7 @@ on:
     branches: ["fix/v1.0.7"]
     paths:
       - ".github/workflows/v107-source-patch.yml"
-      - "scripts/v107-qa-failure-report-patch.py"
+      - "scripts/v107-semantic-widow-patch.py"
 
 permissions:
   contents: write
@@ -18,15 +18,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: fix/v1.0.7
-      - run: python scripts/v107-qa-failure-report-patch.py
-      - name: Commit QA diagnostics
+      - run: python scripts/v107-semantic-widow-patch.py
+      - name: Commit source patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/v107-visual-qa.ts
+          git add web/src/compositor.ts server/pipeline/compositor.ts
           if git diff --cached --quiet; then
-            echo "No diagnostic changes needed"
+            echo "No source changes needed"
             exit 0
           fi
-          git commit -m "Expose compositor failure diagnostics"
+          git commit -m "Count semantic words for widow control"
           git push origin HEAD:fix/v1.0.7
