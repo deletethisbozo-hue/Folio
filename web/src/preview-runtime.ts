@@ -14,7 +14,7 @@ const PROFILES: Record<string, ReflowProfile> = {
   // Paperwhite Standard uses a restrained reader-safe side inset. The slightly
   // reader-safe measure is evaluated against the completed professional compositor,
   // keeping device geometry independent from temporary solver workarounds.
-  "kindle-paperwhite": { width: 412, height: 549, baseFont: 18, padding: [34, 28, 46, 28], wordsPerPage: 270 },
+  "kindle-paperwhite": { width: 412, height: 549, baseFont: 17, padding: [34, 28, 46, 28], wordsPerPage: 270 },
   "kindle-oasis": { width: 421, height: 560, baseFont: 18, padding: [32, 34, 46, 28], wordsPerPage: 290 },
   ipad: { width: 820, height: 1180, baseFont: 19, padding: [62, 68, 82, 68], wordsPerPage: 455 },
   iphone: { width: 390, height: 844, baseFont: 18, padding: [38, 25, 58, 25], wordsPerPage: 245 },
