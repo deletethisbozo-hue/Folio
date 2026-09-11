@@ -456,7 +456,7 @@ export default function App() {
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => onPreviewLoad(undefined, true));
     return () => window.cancelAnimationFrame(frame);
-  }, [previewMode, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex]);
+  }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
