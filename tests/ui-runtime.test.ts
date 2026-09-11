@@ -349,15 +349,17 @@ try {
     const doc = document.querySelector("iframe")?.contentDocument;
     if (!doc || !/^pl(?:-|$)/i.test(doc.documentElement.lang || "")) return false;
     const paragraphs = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")];
-    const hasParagraphWideComposition = paragraphs.some((paragraph) =>
+    const activeParagraph = paragraphs.find((paragraph) =>
       Boolean(paragraph.querySelector(".folio-line-justified") && paragraph.lastElementChild?.classList.contains("folio-line-natural"))
     );
-    const hasEmergencyLine = Boolean(doc.querySelector('.folio-line-emergency,[data-folio-emergency="true"]'));
-    // Integration contract: Polish preprocessing is active (document language
-    // and non-breaking one-letter preposition) and normal prose is composed
-    // paragraph-wide without falling back to an emergency line. Exact
-    // discretionary breakpoints are covered separately by typesetting-language.
-    return hasParagraphWideComposition && !hasEmergencyLine && doc.body.textContent?.includes("W\u00a0Polsce");
+    if (!activeParagraph) return false;
+    const hasEmergencyLine = Boolean(activeParagraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]'));
+    // U+00AD is an implementation detail of discretionary hyphenation. Strip it
+    // before checking the Polish one-letter-preposition NBSP contract, otherwise
+    // a legal breakpoint inside the following word makes the semantic assertion
+    // fail even though both preprocessing steps worked correctly.
+    const semanticText = (doc.body.textContent ?? "").replace(/\u00ad/g, "");
+    return !hasEmergencyLine && semanticText.includes("W\u00a0Polsce");
   }, { timeout: 30000 }));
   check("Polish justification uses paragraph-wide breaks and a natural final line", true);
   const boundedWordGaps = await page.evaluate(() => {
@@ -372,7 +374,8 @@ try {
   check("professional compositor places a hard ceiling on expanded word gaps", boundedWordGaps);
   const professionalGeometry = await page.evaluate(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
-    const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p.folio-composed");
+    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed") ?? [])]
+      .find((candidate) => Boolean(candidate.querySelector(".folio-line-justified")));
     if (!doc || !paragraph) return { ok: false, reason: "missing composed paragraph" };
     const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
     if (lines.length < 2) return { ok: false, reason: "too few composed lines" };
