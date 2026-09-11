@@ -91,7 +91,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         : Math.min(spaceWidth * 0.40, fontSize * 0.10);
       const minWordSpacing = emergency || finalCompression
         ? -Math.min(spaceWidth * 0.28, fontSize * 0.0595)
-        : -Math.min(spaceWidth * 0.20, fontSize * 0.045);
+        : -Math.min(spaceWidth * 0.20, fontSize * 0.06);
       const maxTracking = fontSize * 0.003;
       const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
       const maxGlyphScaleDelta = 0.01;
@@ -573,7 +573,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
 
       // Keep rescue out of the cost graph until both strict and relaxed
       // justified composition have failed completely.
-      const breaks = runBreaker(false, false) ?? runBreaker(true, false) ?? runBreaker(true, true);
+      const breaks = runBreaker(true, false) ?? runBreaker(true, true);
       if (!breaks) {
         paragraph.classList.add("folio-compositor-safe-fallback");
         continue;

@@ -217,7 +217,7 @@ function fitLine(
     : Math.min(spaceWidth * 0.40, fontSize * 0.10);
   const minWordSpacing = emergency || finalCompression
     ? -Math.min(spaceWidth * 0.28, fontSize * 0.0595)
-    : -Math.min(spaceWidth * 0.20, fontSize * 0.045);
+    : -Math.min(spaceWidth * 0.20, fontSize * 0.06);
   const maxTracking = fontSize * 0.003;
   const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
   const maxGlyphScaleDelta = 0.01;
@@ -686,9 +686,8 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, false);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
   const strictFailure = breaks ? null : lastBreakFailure;
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true);
   if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
