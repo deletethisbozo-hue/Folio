@@ -1,1 +1,1 @@
-qa-run emergency-geometry
+qa-run emergency-geometry-browser-safe
