@@ -240,7 +240,7 @@ function fitLine(
     wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
     tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
     const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
-    if (Math.abs(residualPx) > 1.0) continue;
+    if (Math.abs(residualPx) > 1.5) continue;
 
     const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
     const trackingRatio = tracking / Math.max(1, fontSize);
@@ -250,7 +250,7 @@ function fitLine(
       + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
       + 42 * Math.pow(scaleRatio, 3)
       + 90 * Math.pow(scaleJumpRatio, 2)
-      + 80 * Math.pow(Math.abs(residualPx) / 1.0, 2);
+      + 80 * Math.pow(Math.abs(residualPx) / 1.5, 2);
     const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
     const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
     if (!best || candidate.badness < best.badness) best = candidate;
@@ -744,27 +744,40 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     if (index < lines.length - 1 && !breaks[index].hyphenated) paragraph.append(" ");
   });
 
-  const corrections: Array<{ line: HTMLElement; content: HTMLElement; scale: number }> = [];
+  const maxAdjacentScaleDelta = 0.012;
+  let previousCorrectedScale: number | null = null;
   for (const line of lines) {
-    if (!line.classList.contains("folio-line-justified") && !line.classList.contains("folio-line-final-compressed")) continue;
+    if (!line.classList.contains("folio-line-justified") && !line.classList.contains("folio-line-final-compressed")) {
+      previousCorrectedScale = null;
+      continue;
+    }
     const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
-    if (!content) continue;
+    if (!content) {
+      previousCorrectedScale = null;
+      continue;
+    }
     const rendered = content.getBoundingClientRect().width;
     const measure = line.getBoundingClientRect().width;
     const protrusion = Number(line.dataset.folioRightProtrusion ?? 0);
     const opticalMeasure = measure + protrusion;
     const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
-    if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(currentScale)) continue;
-    const correctedScale = Math.max(0.99, Math.min(1.01, currentScale * opticalMeasure / rendered));
-    if (Math.abs(correctedScale - currentScale) > 0.00001) {
-      corrections.push({ line, content, scale: correctedScale });
+    if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(currentScale)) {
+      previousCorrectedScale = null;
+      continue;
     }
-  }
-  for (const correction of corrections) {
-    correction.content.style.transform = Math.abs(correction.scale - 1) > 0.00001
-      ? `scaleX(${correction.scale})`
+    let correctedScale = Math.max(0.99, Math.min(1.01, currentScale * opticalMeasure / rendered));
+    if (previousCorrectedScale !== null) {
+      correctedScale = Math.max(
+        previousCorrectedScale - maxAdjacentScaleDelta,
+        Math.min(previousCorrectedScale + maxAdjacentScaleDelta, correctedScale),
+      );
+      correctedScale = Math.max(0.99, Math.min(1.01, correctedScale));
+    }
+    content.style.transform = Math.abs(correctedScale - 1) > 0.00001
+      ? "scaleX(" + correctedScale + ")"
       : "";
-    correction.line.dataset.folioGlyphScale = String(correction.scale);
+    line.dataset.folioGlyphScale = String(correctedScale);
+    previousCorrectedScale = correctedScale;
   }
 }
 
