@@ -218,13 +218,12 @@ try {
             const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
             const gaps = words.slice(1).filter((word) => word.dataset.folioSpaceBefore === "true").length;
             const lineIndex = lines.indexOf(line);
-            const clean = (value: string | null | undefined) => value?.replace(/\u00ad/g, "") ?? null;
             const naturalWidthPx = range.getBoundingClientRect().width;
             const availableWidthPx = line.getBoundingClientRect().width;
             emergencyDetails.push({
-              text: clean(line.textContent) ?? "",
-              previousText: clean(lines[lineIndex - 1]?.textContent),
-              nextText: clean(lines[lineIndex + 1]?.textContent),
+              text: (line.textContent ?? "").replace(/\u00ad/g, ""),
+              previousText: lines[lineIndex - 1]?.textContent?.replace(/\u00ad/g, "") ?? null,
+              nextText: lines[lineIndex + 1]?.textContent?.replace(/\u00ad/g, "") ?? null,
               naturalWidthPx,
               availableWidthPx,
               fill: naturalWidthPx / Math.max(1, availableWidthPx),
