@@ -14,117 +14,62 @@ def patch(path: str, old: str, new: str) -> None:
     target.write_text(value.replace(old, new, 1), encoding="utf-8")
 
 
-web_old = """  const maxWordSpacing = emergency
-    ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
-    : Math.min(spaceWidth * 0.38, fontSize * 0.115);
-  const minWordSpacing = emergency
-    ? -Math.min(spaceWidth * 0.18, fontSize * 0.045)
-    : -Math.min(spaceWidth * 0.14, fontSize * 0.035);
-  const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
-  const minTracking = -fontSize * (emergency ? 0.0045 : 0.0035);
+qa_decl_old = """      let ornamentalBreaksOffCenter = 0;
 """
-web_new = """  const maxWordSpacing = emergency
-    ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
-    : Math.min(spaceWidth * 0.50, fontSize * 0.115);
-  const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);
-  const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
-  const minTracking = -fontSize * 0.0045;
-"""
-
-server_old = """      const maxWordSpacing = emergency
-        ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
-        : Math.min(spaceWidth * 0.38, fontSize * 0.115);
-      const minWordSpacing = emergency
-        ? -Math.min(spaceWidth * 0.18, fontSize * 0.045)
-        : -Math.min(spaceWidth * 0.14, fontSize * 0.035);
-      const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
-      const minTracking = -fontSize * (emergency ? 0.0045 : 0.0035);
-"""
-server_new = """      const maxWordSpacing = emergency
-        ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
-        : Math.min(spaceWidth * 0.50, fontSize * 0.115);
-      const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);
-      const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
-      const minTracking = -fontSize * 0.0045;
-"""
-
-qa_type_old = """      const emergencyDetails: Array<{ text: string; wordSpacingEm: number; trackingEm: number }> = [];
-"""
-qa_type_new = """      const emergencyDetails: Array<{
+qa_decl_new = """      const lineDetails: Array<{
+        paragraphIndex: number;
+        lineIndex: number;
         text: string;
-        previousText: string | null;
-        nextText: string | null;
-        naturalWidthPx: number;
+        contentWidthPx: number;
         availableWidthPx: number;
         fill: number;
-        gaps: number;
-        characters: number;
+        justified: boolean;
+        emergency: boolean;
         wordSpacingEm: number;
         trackingEm: number;
+        gaps: number;
       }> = [];
+      let ornamentalBreaksOffCenter = 0;
 """
 
-qa_push_old = """          if (line.dataset.folioEmergency === \"true\") {
-            emergencyLines++;
-            emergencyDetails.push({
-              text: line.textContent?.replace(/\\u00ad/g, \"\") ?? \"\",
-              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
-              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
-            });
-          }
+qa_line_old = """        for (const line of lines) {
+          const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
+          const justified = line.classList.contains(\"folio-line-justified\");
 """
-qa_push_new = """          if (line.dataset.folioEmergency === \"true\") {
-            emergencyLines++;
-            const range = doc.createRange();
-            range.selectNodeContents(line);
-            const words = [...line.querySelectorAll<HTMLElement>(\".folio-word\")];
-            const gaps = words.slice(1).filter((word) => word.dataset.folioSpaceBefore === \"true\").length;
-            const lineIndex = lines.indexOf(line);
-            const clean = (value: string | null | undefined) => value?.replace(/\\u00ad/g, \"\") ?? null;
-            const naturalWidthPx = range.getBoundingClientRect().width;
-            const availableWidthPx = line.getBoundingClientRect().width;
-            emergencyDetails.push({
-              text: clean(line.textContent) ?? \"\",
-              previousText: clean(lines[lineIndex - 1]?.textContent),
-              nextText: clean(lines[lineIndex + 1]?.textContent),
-              naturalWidthPx,
-              availableWidthPx,
-              fill: naturalWidthPx / Math.max(1, availableWidthPx),
-              gaps,
-              characters: words.reduce((sum, word) => sum + (word.textContent ?? \"\").replace(/\\u00ad/g, \"\").length, 0),
-              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
-              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
-            });
-          }
+qa_line_new = """        for (const line of lines) {
+          const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
+          const justified = line.classList.contains(\"folio-line-justified\");
+          const diagnosticRange = doc.createRange();
+          diagnosticRange.selectNodeContents(line);
+          const diagnosticWords = [...line.querySelectorAll<HTMLElement>(\".folio-word\")];
+          const contentWidthPx = diagnosticRange.getBoundingClientRect().width;
+          const availableWidthPx = line.getBoundingClientRect().width;
+          lineDetails.push({
+            paragraphIndex: paragraphs.indexOf(paragraph),
+            lineIndex: lines.indexOf(line),
+            text: (line.textContent ?? \"\").replace(/\\u00ad/g, \"\"),
+            contentWidthPx,
+            availableWidthPx,
+            fill: contentWidthPx / Math.max(1, availableWidthPx),
+            justified,
+            emergency: line.dataset.folioEmergency === \"true\",
+            wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+            trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            gaps: diagnosticWords.slice(1).filter((word) => word.dataset.folioSpaceBefore === \"true\").length,
+          });
 """
 
-qa_browser_safe = """          if (line.dataset.folioEmergency === \"true\") {
-            emergencyLines++;
-            const range = doc.createRange();
-            range.selectNodeContents(line);
-            const words = [...line.querySelectorAll<HTMLElement>(\".folio-word\")];
-            const gaps = words.slice(1).filter((word) => word.dataset.folioSpaceBefore === \"true\").length;
-            const lineIndex = lines.indexOf(line);
-            const naturalWidthPx = range.getBoundingClientRect().width;
-            const availableWidthPx = line.getBoundingClientRect().width;
-            emergencyDetails.push({
-              text: (line.textContent ?? \"\").replace(/\\u00ad/g, \"\"),
-              previousText: lines[lineIndex - 1]?.textContent?.replace(/\\u00ad/g, \"\") ?? null,
-              nextText: lines[lineIndex + 1]?.textContent?.replace(/\\u00ad/g, \"\") ?? null,
-              naturalWidthPx,
-              availableWidthPx,
-              fill: naturalWidthPx / Math.max(1, availableWidthPx),
-              gaps,
-              characters: words.reduce((sum, word) => sum + (word.textContent ?? \"\").replace(/\\u00ad/g, \"\").length, 0),
-              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
-              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
-            });
-          }
+qa_return_old = """        emergencyLines,
+        emergencyDetails,
+        ornamentalBreaksOffCenter,
+"""
+qa_return_new = """        emergencyLines,
+        emergencyDetails,
+        lineDetails,
+        ornamentalBreaksOffCenter,
 """
 
-patch("web/src/compositor.ts", web_old, web_new)
-patch("server/pipeline/compositor.ts", server_old, server_new)
-patch("scripts/v107-visual-qa.ts", qa_type_old, qa_type_new)
-patch("scripts/v107-visual-qa.ts", qa_push_old, qa_push_new)
-patch("scripts/v107-visual-qa.ts", qa_push_new, qa_browser_safe)
-print("Applied v1.0.7 compositor and browser-safe QA diagnostics patch")
+patch("scripts/v107-visual-qa.ts", qa_decl_old, qa_decl_new)
+patch("scripts/v107-visual-qa.ts", qa_line_old, qa_line_new)
+patch("scripts/v107-visual-qa.ts", qa_return_old, qa_return_new)
+print("Expanded v1.0.7 line diagnostics")
