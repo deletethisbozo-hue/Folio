@@ -64,6 +64,71 @@ for relative in ["web/src/compositor.ts", "server/pipeline/compositor.ts"]:
             value = value.replace(old_passes, new_passes, 1)
         elif new_passes not in value:
             raise RuntimeError("preview pass-order block not found")
+
+        old_state_codec = '''function encodeState(line: number, hyphenStreak: number, fitness: number, glyphScale: number): number {
+  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+  return base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+}
+
+function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number } {
+  const glyphBucket = key % GLYPH_SCALE_COUNT;
+  const base = Math.floor(key / GLYPH_SCALE_COUNT);
+  return {
+    line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+    hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+    fitness: base % FITNESS_COUNT,
+    glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+  };
+}'''
+        new_state_codec = '''function encodeState(
+  line: number,
+  hyphenStreak: number,
+  fitness: number,
+  glyphScale: number,
+  previousLineStart: number,
+  stride: number,
+): number {
+  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+  return packed * stride + previousLineStart;
+}
+
+function decodeState(key: number, stride: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; previousLineStart: number } {
+  const previousLineStart = key % stride;
+  const packed = Math.floor(key / stride);
+  const glyphBucket = packed % GLYPH_SCALE_COUNT;
+  const base = Math.floor(packed / GLYPH_SCALE_COUNT);
+  return {
+    line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+    hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+    fitness: base % FITNESS_COUNT,
+    glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+    previousLineStart,
+  };
+}'''
+        if old_state_codec in value:
+            value = value.replace(old_state_codec, new_state_codec, 1)
+        elif new_state_codec not in value:
+            raise RuntimeError("preview DP state codec not found")
+
+        value = value.replace(
+            "  const count = words.length;\n  const states: Array<Map<number, State>>",
+            "  const count = words.length;\n  const stateStride = count + 1;\n  const states: Array<Map<number, State>>",
+            1,
+        )
+        value = value.replace(
+            "states[0].set(encodeState(0, 0, initialFitness, 1),",
+            "states[0].set(encodeState(0, 0, initialFitness, 1, 0, stateStride),",
+            1,
+        )
+        value = value.replace("decodeState(stateKey)", "decodeState(stateKey, stateStride)")
+        value = value.replace(
+            "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);",
+            "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, start, stateStride);",
+            1,
+        )
+        if "previousLineStart: number" not in value or "start, stateStride" not in value:
+            raise RuntimeError("preview previous-line DP context was not installed")
     else:
         old_passes = "const breaks = runBreaker(false, false) ?? runBreaker(true, false) ?? runBreaker(true, true);"
         new_passes = "const breaks = runBreaker(true, false) ?? runBreaker(true, true);"
@@ -71,6 +136,64 @@ for relative in ["web/src/compositor.ts", "server/pipeline/compositor.ts"]:
             value = value.replace(old_passes, new_passes, 1)
         elif new_passes not in value:
             raise RuntimeError("export pass-order block not found")
+
+        old_state_codec = '''    const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number) => {
+      const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+      return base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+    };
+    const decodeState = (key: number) => {
+      const glyphBucket = key % GLYPH_SCALE_COUNT;
+      const base = Math.floor(key / GLYPH_SCALE_COUNT);
+      return {
+        line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+        hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+        fitness: base % FITNESS_COUNT,
+        glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+      };
+    };'''
+        new_state_codec = '''    const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number, previousLineStart: number, stride: number) => {
+      const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+      const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+      return packed * stride + previousLineStart;
+    };
+    const decodeState = (key: number, stride: number) => {
+      const previousLineStart = key % stride;
+      const packed = Math.floor(key / stride);
+      const glyphBucket = packed % GLYPH_SCALE_COUNT;
+      const base = Math.floor(packed / GLYPH_SCALE_COUNT);
+      return {
+        line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+        hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+        fitness: base % FITNESS_COUNT,
+        glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+        previousLineStart,
+      };
+    };'''
+        if old_state_codec in value:
+            value = value.replace(old_state_codec, new_state_codec, 1)
+        elif new_state_codec not in value:
+            raise RuntimeError("export DP state codec not found")
+
+        value = value.replace(
+            "      const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());",
+            "      const stateStride = words.length + 1;\n      const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());",
+            1,
+        )
+        value = value.replace(
+            "states[0].set(encodeState(0, 0, initialFitness, 1),",
+            "states[0].set(encodeState(0, 0, initialFitness, 1, 0, stateStride),",
+            1,
+        )
+        value = value.replace("decodeState(stateKey)", "decodeState(stateKey, stateStride)")
+        value = value.replace(
+            "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);",
+            "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, start, stateStride);",
+            1,
+        )
+        if "previousLineStart: number" not in value and "previousLineStart, stride" not in value:
+            raise RuntimeError("export previous-line DP context was not installed")
+        if "start, stateStride" not in value:
+            raise RuntimeError("export previous-line start was not included in state key")
 
     if "const correctedScale = Math.max(0.98, Math.min(1.02, currentScale * measure / rendered));" not in value:
         raise RuntimeError(f"cross-platform line calibration missing in {relative}")
