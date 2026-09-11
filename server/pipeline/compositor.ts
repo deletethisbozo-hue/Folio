@@ -56,6 +56,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       offset: number;
       available: number;
       emergency: boolean;
+      relaxed: boolean;
     };
     type State = Break & {
       cost: number;
@@ -77,11 +78,14 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       emergency = false,
     ): LineFit | null => {
       if (gaps <= 0) return null;
+      // The second pass may stretch inter-word space only slightly beyond
+      // strict composition. Tracking and glyph expansion stay at strict limits;
+      // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = emergency
-        ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
+        ? Math.min(spaceWidth * 0.56, fontSize * 0.13)
         : Math.min(spaceWidth * 0.50, fontSize * 0.115);
       const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);
-      const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
+      const maxTracking = fontSize * 0.0055;
       const minTracking = -fontSize * 0.0045;
       const maxGlyphScaleDelta = 0.02;
       const available = naturalWidth + adjustment;
@@ -322,7 +326,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         hyphenated: false,
         offset: 0,
         available: width,
-        emergency,
+        emergency: false,
+        relaxed: false,
         fitness: initialFitness,
         gapPositions: [],
         riverPositions: [],
@@ -370,6 +375,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const emergencyRescue = emergency && !last && !fit && natural <= available + 0.75;
             const rescueNatural = dropcapRescue || emergencyRescue;
             const lineFit = dropcapRescue ? null : fit;
+            const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
             if (!last && !lineFit && !rescueNatural) continue;
 
             const wordsOnLine = end - start + 1;
@@ -382,6 +388,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const rescuePenalty = dropcapRescue
               ? 115 + 260 * Math.pow(1 - fill, 2)
               : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
+            const relaxedPenalty = relaxedFit ? 420 : 0;
             const currentFitness = lineFit?.fitness ?? previousFitness;
             const fitnessDelta = Math.abs(currentFitness - previousFitness);
             const fitnessPenalty = lineNo === 0 || !lineFit
@@ -389,7 +396,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
             const currentGaps = lineGapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
             const rivers = riverCost(currentGaps, previous, spaceWidth);
-            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
+            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
             const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);
@@ -406,7 +413,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               hyphenated: hyphenBreak,
               offset,
               available,
-              emergency: !last && emergency && !dropcapRescue && (!strictFit || emergencyRescue),
+              emergency: emergencyRescue,
+              relaxed: relaxedFit,
               fitness: currentFitness,
               gapPositions: currentGaps,
               riverPositions: rivers.rivers,
@@ -440,6 +448,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           offset: state.offset,
           available: state.available,
           emergency: state.emergency,
+          relaxed: state.relaxed,
         });
         end = state.from;
         key = state.fromKey;
@@ -468,7 +477,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const lines: HTMLElement[] = [];
       for (const [lineNo, lineBreak] of breaks.entries()) {
         const line = document.createElement("span");
-        line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.emergency ? " folio-line-emergency" : ""}`;
+        line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.relaxed ? " folio-line-relaxed" : ""}${lineBreak.emergency ? " folio-line-emergency" : ""}`;
+        if (lineBreak.relaxed) line.dataset.folioRelaxed = "true";
         if (lineBreak.emergency) line.dataset.folioEmergency = "true";
         const content = document.createElement("span");
         content.className = "folio-line-content";

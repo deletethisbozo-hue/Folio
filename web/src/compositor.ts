@@ -39,6 +39,7 @@ type Break = {
   offset: number;
   available: number;
   emergency: boolean;
+  relaxed: boolean;
 };
 
 type State = Break & {
@@ -183,11 +184,14 @@ function fitLine(
 ): LineFit | null {
   if (gaps <= 0) return null;
 
+  // The second pass may stretch inter-word space only slightly beyond
+  // strict composition. Tracking and glyph expansion stay at strict limits;
+  // this is a controlled justified fallback, not an excuse for loose copy.
   const maxWordSpacing = emergency
-    ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
+    ? Math.min(spaceWidth * 0.56, fontSize * 0.13)
     : Math.min(spaceWidth * 0.50, fontSize * 0.115);
   const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);
-  const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
+  const maxTracking = fontSize * 0.0055;
   const minTracking = -fontSize * 0.0045;
   const maxGlyphScaleDelta = 0.02;
   const available = naturalWidth + adjustment;
@@ -330,7 +334,8 @@ function chooseBreaks(
     hyphenated: false,
     offset: 0,
     available: geometry.width,
-    emergency,
+    emergency: false,
+    relaxed: false,
     fitness: initialFitness,
     gapPositions: [],
     riverPositions: [],
@@ -405,6 +410,7 @@ function chooseBreaks(
         const emergencyRescue = emergency && !last && !fit && natural <= available + 0.75;
         const rescueNatural = dropcapRescue || emergencyRescue;
         const lineFit = dropcapRescue ? null : fit;
+        const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
         if (!last && !lineFit && !rescueNatural) continue;
 
         const wordsOnLine = end - start + 1;
@@ -419,6 +425,7 @@ function chooseBreaks(
         const rescuePenalty = dropcapRescue
           ? 115 + 260 * Math.pow(1 - fill, 2)
           : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
+        const relaxedPenalty = relaxedFit ? 420 : 0;
         const currentFitness = lineFit?.fitness ?? previousFitness;
         const fitnessDelta = Math.abs(currentFitness - previousFitness);
         const fitnessPenalty = line === 0 || !lineFit
@@ -431,6 +438,7 @@ function chooseBreaks(
         const cost = previous.cost
           + (lineFit?.badness ?? 0)
           + rescuePenalty
+          + relaxedPenalty
           + hyphenPenalty
           + punctuationPenalty
           + shortLastPenalty
@@ -454,7 +462,8 @@ function chooseBreaks(
             hyphenated: hyphenBreak,
             offset,
             available,
-            emergency: !last && emergency && !dropcapRescue && (!strictFit || emergencyRescue),
+            emergency: emergencyRescue,
+            relaxed: relaxedFit,
             fitness: currentFitness,
             gapPositions: currentGaps,
             riverPositions: rivers.rivers,
@@ -512,6 +521,7 @@ function chooseBreaks(
       offset: state.offset,
       available: state.available,
       emergency: state.emergency,
+      relaxed: state.relaxed,
     });
     end = state.from;
     key = state.fromKey;
@@ -615,7 +625,8 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   let start = 0;
   for (const [lineIndex, lineBreak] of breaks.entries()) {
     const line = paragraph.ownerDocument.createElement("span");
-    line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.emergency ? " folio-line-emergency" : ""}`;
+    line.className = `folio-composed-line ${lineBreak.justified ? "folio-line-justified" : "folio-line-natural"}${lineBreak.relaxed ? " folio-line-relaxed" : ""}${lineBreak.emergency ? " folio-line-emergency" : ""}`;
+    if (lineBreak.relaxed) line.dataset.folioRelaxed = "true";
     if (lineBreak.emergency) line.dataset.folioEmergency = "true";
     const content = paragraph.ownerDocument.createElement("span");
     content.className = "folio-line-content";

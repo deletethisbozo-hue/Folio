@@ -173,6 +173,9 @@ try {
       let maxHyphenStreak = 0;
       let maxRightErrorPx = 0;
       let maxWordSpacingEm = 0;
+      let maxStrictWordSpacingEm = 0;
+      let maxRelaxedWordSpacingEm = 0;
+      let relaxedLines = 0;
       let maxTrackingEm = 0;
       let maxGlyphScaleDelta = 0;
       let maxAdjacentGlyphScaleDelta = 0;
@@ -203,6 +206,7 @@ try {
         fill: number;
         justified: boolean;
         emergency: boolean;
+        relaxed: boolean;
         wordSpacingEm: number;
         trackingEm: number;
         glyphScale: number;
@@ -231,6 +235,7 @@ try {
             fill: contentWidthPx / Math.max(1, availableWidthPx),
             justified,
             emergency: line.dataset.folioEmergency === "true",
+            relaxed: line.dataset.folioRelaxed === "true",
             wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
             trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
             glyphScale: Number(line.dataset.folioGlyphScale ?? 1),
@@ -242,7 +247,14 @@ try {
             range.selectNodeContents(line);
             maxRightErrorPx = Math.max(maxRightErrorPx, Math.abs(line.getBoundingClientRect().right - range.getBoundingClientRect().right));
             const spacing = Number(line.dataset.folioWordSpacing ?? 0) / fontSize;
+            const relaxed = line.dataset.folioRelaxed === "true";
             maxWordSpacingEm = Math.max(maxWordSpacingEm, Math.abs(spacing));
+            if (relaxed) {
+              relaxedLines++;
+              maxRelaxedWordSpacingEm = Math.max(maxRelaxedWordSpacingEm, Math.abs(spacing));
+            } else {
+              maxStrictWordSpacingEm = Math.max(maxStrictWordSpacingEm, Math.abs(spacing));
+            }
             maxTrackingEm = Math.max(maxTrackingEm, Math.abs(Number(line.dataset.folioTracking ?? 0) / fontSize));
             const glyphScale = Number(line.dataset.folioGlyphScale ?? 1);
             maxGlyphScaleDelta = Math.max(maxGlyphScaleDelta, Math.abs(glyphScale - 1));
@@ -314,6 +326,9 @@ try {
         maxHyphenStreak,
         maxRightErrorPx,
         maxWordSpacingEm,
+        maxStrictWordSpacingEm,
+        maxRelaxedWordSpacingEm,
+        relaxedLines,
         maxTrackingEm,
         maxGlyphScaleDelta,
         maxAdjacentGlyphScaleDelta,
@@ -328,7 +343,8 @@ try {
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(report, null, 2) + "\n", "utf8");
     if (
       report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 ||
-      report.maxWordSpacingEm > 0.116 || report.maxTrackingEm > 0.0057 || report.maxGlyphScaleDelta > 0.0201 ||
+      report.maxWordSpacingEm > 0.131 || report.maxStrictWordSpacingEm > 0.116 || report.maxRelaxedWordSpacingEm > 0.131 ||
+      report.relaxedLines > 2 || report.maxTrackingEm > 0.0057 || report.maxGlyphScaleDelta > 0.0201 ||
       report.maxAdjacentGlyphScaleDelta > 0.025 + 1e-9 || report.maxSemanticGapEm > 0.43 ||
       report.maxAdjacentSpacingDeltaEm > 0.22 || report.hyphenRate > 0.45 || report.maxHyphenStreak > 2 ||
       report.emergencyLines !== 0 || report.ornamentalBreaksOffCenter !== 0
