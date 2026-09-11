@@ -131,8 +131,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
     const FITNESS_COUNT = 4;
     const HYPHEN_STREAK_COUNT = 3;
     const GLYPH_SCALE_MIN = 0.99;
-    const GLYPH_SCALE_STEP = 0.001;
-    const GLYPH_SCALE_COUNT = 21;
+    const GLYPH_SCALE_STEP = 0.0005;
+    const GLYPH_SCALE_COUNT = 41;
     const glyphScaleBucket = (glyphScale: number) => Math.max(0, Math.min(
       GLYPH_SCALE_COUNT - 1,
       Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
