@@ -437,8 +437,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // Widow control must count semantic words, not discretionary pieces,
             // otherwise endings such as `de-` / `cyzji.` evade the rule entirely.
             // A one-word final line is undesirable, but not composition failure.
-        // Let the existing high widow penalty compare it against alternative paths
-        // instead of forcing the entire paragraph into the emergency rescue pass.
+            // Let the existing high widow penalty compare it against alternative paths
+            // instead of forcing the entire paragraph into the emergency rescue pass.
             const fill = Math.min(1, natural / Math.max(1, available));
             // A stranded final word is a real book-composition defect, especially
             // when the preceding line was itself hyphenated. Preserve feasible
@@ -478,6 +478,16 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : 0;
             const finalCompressed = last && Boolean(finalCompressionFit);
             const finalCompressionPenalty = finalCompressed ? 160 : 0;
+            // The release gate evaluates hyphenated lines against justified lines.
+            // Charge the completed paragraph on the final transition as well, so a
+            // sequence that looked acceptable while it was being built cannot end
+            // above the same 0.45 ceiling merely because the natural final line was
+            // included in the local projected-line denominator.
+            const completedJustifiedLines = last ? Math.max(1, lineNo) : 0;
+            const completedHyphenRate = last ? previousHyphenCount / completedJustifiedLines : 0;
+            const finalHyphenDensityPenalty = last && completedJustifiedLines >= 4 && completedHyphenRate > 0.45
+              ? 12000 * Math.pow((completedHyphenRate - 0.45) / 0.18, 2)
+              : 0;
             const currentFitness = lineFit?.fitness ?? previousFitness;
             const fitnessDelta = Math.abs(currentFitness - previousFitness);
             const fitnessPenalty = lineNo === 0 || !lineFit
@@ -485,7 +495,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
             const currentGaps = lineGapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
             const rivers = riverCost(currentGaps, previous, spaceWidth);
-            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + finalCompressionPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
+            const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + finalCompressionPenalty + finalHyphenDensityPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
             const nextHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
