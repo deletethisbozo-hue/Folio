@@ -428,7 +428,7 @@ function chooseBreaks(
           ? (wordsOnLine === 1 ? 180 : fill < 0.28 ? 80 * Math.pow((0.28 - fill) / 0.28, 2) : 0)
           : 0;
         const hyphenPenalty = hyphenBreak
-          ? 240 + previousHyphenStreak * 950
+          ? 400 + previousHyphenStreak * 950
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
         const rescuePenalty = dropcapRescue
