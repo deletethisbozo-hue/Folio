@@ -6,21 +6,23 @@ for relative in ["web/src/compositor.ts", "server/pipeline/compositor.ts"]:
     path = ROOT / relative
     value = path.read_text(encoding="utf-8")
 
-    # Isolated discretionary breaks remain available, but they must beat a
-    # meaningful typographic cost rather than win merely because they shave a
-    # little spacing badness. Seven hyphenated lines in fifteen justified lines
-    # is visibly too dense even when every individual break is linguistically
-    # legal, so prefer bounded microspacing before cutting another word.
-    old_web = "const hyphenPenalty = hyphenBreak\n          ? 240 + previousHyphenStreak * 950\n          : 0;"
-    new_web = "const hyphenPenalty = hyphenBreak\n          ? 400 + previousHyphenStreak * 950\n          : 0;"
-    old_server = "const hyphenPenalty = hyphenBreak ? 240 + previousHyphenStreak * 950 : 0;"
-    new_server = "const hyphenPenalty = hyphenBreak ? 400 + previousHyphenStreak * 950 : 0;"
+    # Prefer clean whole-word breaks unless the spacing cost would become genuinely
+    # worse. The compositor badness function is cubic, so a 400-point break cost was
+    # still too small to compete with otherwise QA-safe spacing on Windows. Keep a
+    # separate strong surcharge for repeated hyphenated lines.
+    replacements = [
+        ("? 400 + previousHyphenStreak * 950", "? 900 + previousHyphenStreak * 950"),
+        ("? 240 + previousHyphenStreak * 950", "? 900 + previousHyphenStreak * 950"),
+        ("? 240 + previousHyphenStreak * 560", "? 900 + previousHyphenStreak * 950"),
+    ]
+    changed = False
+    for old, new in replacements:
+        if old in value:
+            value = value.replace(old, new, 1)
+            changed = True
+            break
 
-    if old_web in value:
-        value = value.replace(old_web, new_web, 1)
-    elif old_server in value:
-        value = value.replace(old_server, new_server, 1)
-    elif "400 + previousHyphenStreak * 950" not in value:
+    if not changed and "900 + previousHyphenStreak * 950" not in value:
         raise RuntimeError(f"current hyphen penalty block not found in {relative}")
 
     # The real-width cross-platform calibration must already be present from the
