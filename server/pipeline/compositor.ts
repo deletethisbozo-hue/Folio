@@ -474,7 +474,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, "continuity")
               : null);
             if (!canBreak) continue;
-            if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) break;
+            if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) {
+              break;
+            }
             // Mirror the reflow preview: only lines physically beside a drop
             // cap may stay natural in the strict pass. Ordinary prose still
             // has to reach the measure inside the normal spacing bounds.

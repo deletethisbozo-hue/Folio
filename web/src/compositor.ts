@@ -481,7 +481,16 @@ function chooseBreaks(
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")
           : null);
         if (!canBreak) continue;
-        if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) break;
+        if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) {
+          if (canBreak && rejectedBreaks.length < 160) rejectedBreaks.push({
+            reason: "overfull-break", start, end, line, hyphenBreak, natural, available, adjustment, gaps, characters,
+            startText: (words[start].node.textContent ?? "").replace(/\u00ad/g, ""),
+            endText: (words[end].node.textContent ?? "").replace(/\u00ad/g, ""),
+            nextText: (words[end + 1]?.node.textContent ?? "").replace(/\u00ad/g, ""),
+            previousGlyphScale: previous.glyphScale, previousHyphenStreak, previousHyphenCount,
+          });
+          break;
+        }
         const dropcapRescue = false;
         const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && natural <= available + 0.75;
         const rescueNatural = emergencyRescue;
