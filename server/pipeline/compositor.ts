@@ -88,7 +88,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = emergency
         ? Math.min(spaceWidth * 0.46, fontSize * 0.12)
-        : Math.min(spaceWidth * 0.40, fontSize * 0.10);
+        : Math.min(spaceWidth * 0.46, fontSize * 0.12);
       const minWordSpacing = emergency || finalCompression
         ? -Math.min(spaceWidth * 0.28, fontSize * 0.055)
         : -Math.min(spaceWidth * 0.20, fontSize * 0.045);
