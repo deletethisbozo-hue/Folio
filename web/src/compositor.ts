@@ -312,6 +312,7 @@ function chooseBreaks(
   hyphenWidth: number,
   fontSize: number,
   emergency = false,
+  debugTarget: HTMLElement | null = null,
 ): Break[] | null {
   const count = words.length;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
@@ -445,7 +446,29 @@ function chooseBreaks(
       bestKey = key;
     }
   }
-  if (bestKey < 0) return null;
+  if (bestKey < 0) {
+    if (debugTarget && !emergency) {
+      const reachable = states.map((stateMap, index) => {
+        if (!stateMap.size) return null;
+        const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey));
+        return {
+          index,
+          nextToken: (words[index]?.node.textContent ?? "").replace(/\u00ad/g, ""),
+          stateCount: stateMap.size,
+          lines: [...new Set(decodedStates.map((state) => state.line))],
+          glyphScales: [...new Set(decodedStates.map((state) => Number(state.glyphScale.toFixed(3))))],
+          fitness: [...new Set(decodedStates.map((state) => state.fitness))],
+        };
+      }).filter((entry) => entry !== null);
+      debugTarget.dataset.folioStrictFailure = JSON.stringify({
+        tokenCount: count,
+        furthestIndex: reachable.length ? reachable[reachable.length - 1]!.index : 0,
+        frontier: reachable.slice(-18),
+      });
+    }
+    return null;
+  }
+  if (debugTarget && !emergency) delete debugTarget.dataset.folioStrictFailure;
 
   const reversed: Break[] = [];
   let end = count;
@@ -551,7 +574,7 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, paragraph);
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true);
   if (!breaks) {
     restore(paragraph);

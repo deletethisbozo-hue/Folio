@@ -192,6 +192,7 @@ try {
         trackingEm: number;
         tokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
         nextLineTokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
+        strictFailure: unknown;
       }> = [];
       const lineDetails: Array<{
         paragraphIndex: number;
@@ -293,6 +294,9 @@ try {
                 hyphenBefore: word.dataset.folioHyphenBefore === "true",
                 widthPx: word.getBoundingClientRect().width,
               })),
+              strictFailure: paragraph.dataset.folioStrictFailure
+                ? JSON.parse(paragraph.dataset.folioStrictFailure)
+                : null,
             });
           }
         }
