@@ -1,0 +1,33 @@
+name: Apply Folio 1.0.7 compositor compression
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-apply-compression.yml"
+      - "scripts/v107-enable-compression.py"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+      - name: Apply source fix
+        run: python scripts/v107-enable-compression.py
+      - name: Commit source fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/src/compositor.ts server/pipeline/compositor.ts
+          if git diff --cached --quiet; then
+            echo "No compositor changes needed"
+            exit 0
+          fi
+          git commit -m "Allow bounded compression in line composition"
+          git push origin HEAD:fix/v1.0.7
