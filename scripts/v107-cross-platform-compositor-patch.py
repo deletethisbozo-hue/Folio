@@ -6,20 +6,21 @@ for relative in ["web/src/compositor.ts", "server/pipeline/compositor.ts"]:
     path = ROOT / relative
     value = path.read_text(encoding="utf-8")
 
-    # Keep isolated discretionary breaks available, but make a second/third
-    # hyphenated line materially more expensive. Consecutive hyphens are a much
-    # stronger typographic defect than one well-chosen break and should not win
-    # merely to save a little word spacing.
-    old_web = "const hyphenPenalty = hyphenBreak\n          ? 240 + previousHyphenStreak * 560\n          : 0;"
-    new_web = "const hyphenPenalty = hyphenBreak\n          ? 240 + previousHyphenStreak * 950\n          : 0;"
-    old_server = "const hyphenPenalty = hyphenBreak ? 240 + previousHyphenStreak * 560 : 0;"
-    new_server = "const hyphenPenalty = hyphenBreak ? 240 + previousHyphenStreak * 950 : 0;"
+    # Isolated discretionary breaks remain available, but they must beat a
+    # meaningful typographic cost rather than win merely because they shave a
+    # little spacing badness. Seven hyphenated lines in fifteen justified lines
+    # is visibly too dense even when every individual break is linguistically
+    # legal, so prefer bounded microspacing before cutting another word.
+    old_web = "const hyphenPenalty = hyphenBreak\n          ? 240 + previousHyphenStreak * 950\n          : 0;"
+    new_web = "const hyphenPenalty = hyphenBreak\n          ? 400 + previousHyphenStreak * 950\n          : 0;"
+    old_server = "const hyphenPenalty = hyphenBreak ? 240 + previousHyphenStreak * 950 : 0;"
+    new_server = "const hyphenPenalty = hyphenBreak ? 400 + previousHyphenStreak * 950 : 0;"
 
     if old_web in value:
         value = value.replace(old_web, new_web, 1)
     elif old_server in value:
         value = value.replace(old_server, new_server, 1)
-    elif "240 + previousHyphenStreak * 950" not in value:
+    elif "400 + previousHyphenStreak * 950" not in value:
         raise RuntimeError(f"current hyphen penalty block not found in {relative}")
 
     # The real-width cross-platform calibration must already be present from the
@@ -28,4 +29,4 @@ for relative in ["web/src/compositor.ts", "server/pipeline/compositor.ts"]:
         raise RuntimeError(f"cross-platform line calibration missing in {relative}")
 
     path.write_text(value, encoding="utf-8")
-    print(f"strengthened consecutive hyphen penalty in {relative}")
+    print(f"raised base discretionary hyphen cost in {relative}")
