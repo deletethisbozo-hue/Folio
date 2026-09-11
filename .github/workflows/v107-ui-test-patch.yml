@@ -1,4 +1,4 @@
-name: Folio 1.0.7 one-shot UI test patch
+name: Folio 1.0.7 one-shot UI test cleanup
 
 on:
   push:
@@ -10,71 +10,33 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  cleanup:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Make whole-book Polish integration check deterministic
+      - name: Make Windows qualification follow source and test changes
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path("tests/ui-runtime.test.ts")
+          path = Path(".github/workflows/v107-windows-qualification.yml")
           text = path.read_text(encoding="utf-8")
-          start_marker = '  await page.select(\'select[aria-label="Preview device"]\', "kindle-oasis");\n  await stage("Polish professional justification"'
-          start = text.find(start_marker)
-          if start < 0:
-              raise SystemExit("Polish professional justification block start not found")
-          end_marker = '  check("Polish justification uses paragraph-wide breaks and a natural final line", true);'
-          end = text.find(end_marker, start)
-          if end < 0:
-              raise SystemExit("Polish professional justification block end not found")
-          end += len(end_marker)
-
-          replacement = '''  // The large-manuscript scroll check deliberately leaves the iframe at the
-          // bottom. Composition is lazy, so reset to the top before asserting the
-          // first paragraph rather than racing whichever of 5,200 paragraphs happens
-          // to be inside IntersectionObserver's window on this runner.
-          await page.evaluate(() => {
-            const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
-            if (scroller) scroller.scrollTop = 0;
-          });
-          await page.select('select[aria-label="Preview device"]', "kindle-oasis");
-          await stage("Polish preview language", () => page.waitForFunction(() => {
-            const doc = document.querySelector("iframe")?.contentDocument;
-            return Boolean(doc && /^pl(?:-|$)/i.test(doc.documentElement.lang || ""));
-          }, { timeout: 30000 }));
-          await page.evaluate(() => {
-            const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
-            if (scroller) scroller.scrollTop = 0;
-          });
-          await stage("Polish professional justification", () => page.waitForFunction(() => {
-            const doc = document.querySelector("iframe")?.contentDocument;
-            const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
-            if (!doc || !paragraph?.classList.contains("folio-composed")) return false;
-            const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
-            return lines.length > 1 &&
-              lines.slice(0, -1).some((line) => line.classList.contains("folio-line-justified")) &&
-              lines.at(-1)?.classList.contains("folio-line-natural") === true &&
-              !paragraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]');
-          }, { timeout: 30000 }));
-          // Polish NBSP/hyphenation semantics are covered independently by the
-          // typesetting-language suite; this browser stage verifies their integration
-          // language plus deterministic professional paragraph composition.
-          check("Polish justification uses paragraph-wide breaks and a natural final line", true);'''
-
-          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
+          needle = '''      - ".github/workflows/v107-windows-qualification.yml"\n      - "scripts/v107-qa-trigger.txt"\n      - "scripts/v107-windows-trigger.txt"'''
+          replacement = '''      - ".github/workflows/v107-windows-qualification.yml"\n      - "scripts/v107-qa-trigger.txt"\n      - "scripts/v107-windows-trigger.txt"\n      - "web/**"\n      - "server/**"\n      - "tests/**"\n      - "scripts/v107-visual-qa.ts"\n      - "package.json"\n      - "package-lock.json"'''
+          if needle not in text:
+              raise SystemExit("Windows qualification trigger block not found")
+          path.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
           PY
-      - name: Commit the test-only determinism fix
+          git rm .github/workflows/v107-ui-test-patch.yml
+      - name: Commit permanent trigger cleanup
         shell: bash
         run: |
           git diff --check
-          git diff --exit-code -- tests/ui-runtime.test.ts && { echo "Expected UI test patch did not change the file"; exit 1; } || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/ui-runtime.test.ts
-          git commit -m "Make whole-book Polish UI assertion deterministic"
+          git add .github/workflows/v107-windows-qualification.yml .github/workflows/v107-ui-test-patch.yml
+          git commit -m "Clean UI test patch scaffold and harden Windows qualification triggers"
           git push origin HEAD:fix/v1.0.7
