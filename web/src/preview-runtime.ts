@@ -48,7 +48,7 @@ export function calibratePreviewFrame(frame: HTMLIFrameElement): boolean {
     style.id = "folio-device-calibration";
   }
   const css = [
-    `body{font-size:${profile.baseFont * scale}px!important}`,
+    `body{margin:0!important;font-size:${profile.baseFont * scale}px!important}`,
     `main.book{padding:${top}px ${right}px ${bottom}px ${left}px!important}`,
   ].join("");
   const changed = style.textContent !== css;
