@@ -72,8 +72,9 @@ try {
       editor.innerHTML = values.map((value) => `<p>${value}</p>`).join(ornament);
       editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertReplacementText" }));
     }, paragraphs);
-    await page.waitForFunction((needle) => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes(needle), {}, paragraphs[0].slice(0, 36));
-    await page.waitForFunction((needle) => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes(needle), {}, paragraphs[0].slice(0, 36));
+    const needle = paragraphs[0].split(/\s+/)[0];
+    await page.waitForFunction((value) => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes(value), {}, needle);
+    await page.waitForFunction((value) => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes(value), {}, needle);
     await page.waitForFunction(() => {
       const doc = document.querySelector("iframe")?.contentDocument;
       return Boolean(doc?.querySelector("section.chapter > p.folio-composed .folio-composed-line"));
