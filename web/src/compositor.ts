@@ -389,6 +389,10 @@ function chooseBreaks(
         const next = last ? null : words[end + 1];
         const canBreak = last || next!.canBreakBefore;
         const hyphenBreak = !last && next!.hyphenBefore;
+        // Professional prose never uses three consecutive discretionary
+        // hyphens when a justified/relaxed alternative exists. The final
+        // rescue pass may still recover pathological narrow measures.
+        if (hyphenBreak && previousHyphenStreak >= 2 && !allowNaturalRescue) continue;
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
 
         const adjustment = available - natural;
@@ -475,14 +479,19 @@ function chooseBreaks(
         // Hyphenation is evaluated across the paragraph, not only as a
         // local streak. Keeping cumulative count in the DP state preserves a
         // slightly more expensive low-hyphen path instead of merging it away.
+        const cumulativeHyphenPenalty = previousHyphenCount < 2
+          ? previousHyphenCount * 180
+          : 1400 * Math.pow(previousHyphenCount - 1, 2);
         const hyphenPenalty = hyphenBreak
-          ? 240 + previousHyphenStreak * 950 + previousHyphenCount * 180
+          ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
         const rescuePenalty = dropcapRescue
           ? 115 + 260 * Math.pow(1 - fill, 2)
           : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
-        const relaxedPenalty = relaxedFit ? 420 : 0;
+        const relaxedPenalty = relaxedFit
+          ? Math.max(220, 420 - previousHyphenCount * 100)
+          : 0;
         const finalCompressed = last && Boolean(finalCompressionFit);
         const finalCompressionPenalty = finalCompressed ? 160 : 0;
         const currentFitness = lineFit?.fitness ?? previousFitness;
