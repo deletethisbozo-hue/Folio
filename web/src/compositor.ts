@@ -213,7 +213,7 @@ function fitLine(
   if (gaps <= 0) return null;
 
   const maxWordSpacing = emergency
-    ? Math.min(spaceWidth * 0.46, fontSize * 0.12)
+    ? Math.min(spaceWidth * 0.46, fontSize * 0.118)
     : Math.min(spaceWidth * 0.40, fontSize * 0.10);
   const minWordSpacing = emergency || finalCompression
     ? -Math.min(spaceWidth * 0.28, fontSize * 0.055)
