@@ -469,9 +469,11 @@ function chooseBreaks(
         // included in the local projected-line denominator.
         const completedJustifiedLines = last ? Math.max(1, line) : 0;
         const completedHyphenRate = last ? previousHyphenCount / completedJustifiedLines : 0;
-        const finalHyphenDensityPenalty = last && completedJustifiedLines >= 4 && completedHyphenRate > 0.45
-          ? 12000 * Math.pow((completedHyphenRate - 0.45) / 0.18, 2)
-          : 0;
+        // folio-final-hyphen-density-guard: this is a release-quality ceiling,
+        // not a cost hint. Platform font metrics may change which path is cheapest,
+        // but they must never make an over-hyphenated paragraph acceptable.
+        if (last && completedJustifiedLines >= 4 && completedHyphenRate > 0.45) continue;
+        const finalHyphenDensityPenalty = 0;
         const currentFitness = lineFit?.fitness ?? previousFitness;
         const fitnessDelta = Math.abs(currentFitness - previousFitness);
         const fitnessPenalty = line === 0 || !lineFit

@@ -485,9 +485,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // included in the local projected-line denominator.
             const completedJustifiedLines = last ? Math.max(1, lineNo) : 0;
             const completedHyphenRate = last ? previousHyphenCount / completedJustifiedLines : 0;
-            const finalHyphenDensityPenalty = last && completedJustifiedLines >= 4 && completedHyphenRate > 0.45
-              ? 12000 * Math.pow((completedHyphenRate - 0.45) / 0.18, 2)
-              : 0;
+            // folio-final-hyphen-density-guard: mirror preview exactly.
+            if (last && completedJustifiedLines >= 4 && completedHyphenRate > 0.45) continue;
+            const finalHyphenDensityPenalty = 0;
             const currentFitness = lineFit?.fitness ?? previousFitness;
             const fitnessDelta = Math.abs(currentFitness - previousFitness);
             const fitnessPenalty = lineNo === 0 || !lineFit
