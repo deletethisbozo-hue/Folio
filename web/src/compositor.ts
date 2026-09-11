@@ -357,12 +357,10 @@ function chooseBreaks(
   hyphenWidth: number,
   fontSize: number,
   emergency = false,
-  debugTarget: HTMLElement | null = null,
   allowNaturalRescue = emergency,
 ): Break[] | null {
   const count = words.length;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
-  const debugCandidates: Array<Record<string, unknown>> = [];
   const initialFitness = 1;
   states[0].set(encodeState(0, 0, initialFitness, 1, 0), {
     cost: 0,
@@ -435,39 +433,6 @@ function chooseBreaks(
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
           : null);
         if (!canBreak) continue;
-        if (debugTarget) {
-          debugCandidates.push({
-            pass: emergency ? (allowNaturalRescue ? "emergency" : "relaxed") : "strict",
-            start,
-            end,
-            nextIndex: end + 1,
-            line,
-            currentText: (words[end].node.textContent ?? "").replace(/\u00ad/g, ""),
-            nextText: (next?.node.textContent ?? "").replace(/\u00ad/g, ""),
-            hyphenBreak,
-            natural,
-            available,
-            adjustment,
-            fill: natural / Math.max(1, available),
-            gaps,
-            characters,
-            previousGlyphScale: previous.glyphScale,
-            strictFit: strictFit ? {
-              wordSpacing: strictFit.wordSpacing,
-              tracking: strictFit.tracking,
-              glyphScale: strictFit.glyphScale,
-              fitness: strictFit.fitness,
-              badness: strictFit.badness,
-            } : null,
-            selectedFit: fit ? {
-              wordSpacing: fit.wordSpacing,
-              tracking: fit.tracking,
-              glyphScale: fit.glyphScale,
-              fitness: fit.fitness,
-              badness: fit.badness,
-            } : null,
-          });
-        }
         if (natural > available + 0.75 && !fit && (end > start || last)) break;
         // A short line beside a drop cap can be mathematically impossible to
         // fill without an obvious river of white. Natural setting is the
@@ -526,8 +491,6 @@ function chooseBreaks(
         const fitnessPenalty = line === 0 || !lineFit
           ? 0
           : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
-        const glyphScaleDelta = lineFit ? Math.abs(lineFit.glyphScale - previous.glyphScale) : 0;
-        const glyphContinuityPenalty = line === 0 || !lineFit ? 0 : 45 * Math.pow(glyphScaleDelta / 0.01, 2);
         const currentGaps = gapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
         const rivers = riverCost(currentGaps, previous, spaceWidth);
         const cost = previous.cost
@@ -581,44 +544,7 @@ function chooseBreaks(
       bestKey = key;
     }
   }
-  if (bestKey < 0) {
-    if (debugTarget && !allowNaturalRescue) {
-      const reachable = states.map((stateMap, index) => {
-        if (!stateMap.size) return null;
-        const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey));
-        return {
-          index,
-          nextToken: (words[index]?.node.textContent ?? "").replace(/\u00ad/g, ""),
-          stateCount: stateMap.size,
-          lines: [...new Set(decodedStates.map((state) => state.line))],
-          glyphScales: [...new Set(decodedStates.map((state) => Number(state.glyphScale.toFixed(3))))],
-          fitness: [...new Set(decodedStates.map((state) => state.fitness))],
-        };
-      }).filter((entry) => entry !== null);
-      const failure = {
-        pass: emergency ? "relaxed" : "strict",
-        tokenCount: count,
-        furthestIndex: reachable.length ? reachable[reachable.length - 1]!.index : 0,
-        frontier: reachable.slice(-24),
-        candidates: debugCandidates.slice(-180),
-      };
-      if (emergency) {
-        let strictFailure: Record<string, unknown> = {};
-        try {
-          strictFailure = debugTarget.dataset.folioStrictFailure
-            ? JSON.parse(debugTarget.dataset.folioStrictFailure)
-            : {};
-        } catch {
-          strictFailure = {};
-        }
-        debugTarget.dataset.folioStrictFailure = JSON.stringify({ ...strictFailure, relaxedFailure: failure });
-      } else {
-        debugTarget.dataset.folioStrictFailure = JSON.stringify(failure);
-      }
-    }
-    return null;
-  }
-  if (debugTarget && !emergency) delete debugTarget.dataset.folioStrictFailure;
+  if (bestKey < 0) return null;
 
   const reversed: Break[] = [];
   let end = count;
@@ -643,31 +569,6 @@ function chooseBreaks(
     key = state.fromKey;
   }
   const result = reversed.reverse();
-  if (debugTarget && emergency && !allowNaturalRescue) {
-    const nearWholeWord = debugCandidates.filter((candidate) => {
-      const item = candidate as { hyphenBreak?: boolean; fill?: number; selectedFit?: unknown };
-      const nearMeasure = typeof item.fill === "number" && item.fill >= 0.78 && item.fill <= 1.12;
-      return item.hyphenBreak === false && (nearMeasure || Boolean(item.selectedFit));
-    }).slice(-180);
-    const reachableHyphenCounts = [...new Set(
-      [...states[count].values()].map((state) => state.hyphenCount),
-    )].sort((a, b) => a - b);
-    debugTarget.dataset.folioCompositionTrace = JSON.stringify({
-      minimumReachableHyphens: reachableHyphenCounts[0] ?? null,
-      reachableHyphenCounts,
-      result: result.map((lineBreak, line) => ({
-        line,
-        end: lineBreak.end,
-        hyphenated: lineBreak.hyphenated,
-        wordSpacing: lineBreak.wordSpacing,
-        tracking: lineBreak.tracking,
-        glyphScale: lineBreak.glyphScale,
-        relaxed: lineBreak.relaxed,
-        finalCompressed: lineBreak.finalCompressed,
-      })),
-      candidates: nearWholeWord,
-    });
-  }
   return result;
 }
 
@@ -758,8 +659,8 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   // penalty, so it is selected only when it improves the paragraph as a whole
   // (for example by avoiding excessive hyphenation or a stranded final word).
   // Natural rescue remains a separate last resort and never competes on cost.
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, paragraph, false);
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, true);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true);
   if (!breaks) {
     restore(paragraph);
     paragraph.classList.add("folio-compositor-safe-fallback");
