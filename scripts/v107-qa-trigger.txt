@@ -1,1 +1,1 @@
-qa-run relaxed-justified-pass
+qa-run three-pass-breaker
