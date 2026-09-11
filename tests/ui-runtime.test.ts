@@ -362,7 +362,10 @@ await stage("Polish preview language", () => page.waitForFunction(() => {
 await stage("locate pasted Polish prose", () => page.evaluate(() => {
   const doc = document.querySelector("iframe")?.contentDocument;
   const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
-    .find((candidate) => candidate.textContent?.includes("W Polsce i na świecie najprawdopodobniej"));
+    .find((candidate) => candidate.textContent
+      ?.replace(/\u00ad/g, "")
+      .replace(/\u00a0/g, " ")
+      .includes("W Polsce i na świecie najprawdopodobniej"));
   if (!paragraph) throw new Error("Pasted Polish qualification paragraph is missing");
   paragraph.dataset.folioQaPolish = "true";
   paragraph.scrollIntoView({ block: "center" });
