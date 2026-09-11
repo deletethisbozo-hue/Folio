@@ -11,11 +11,11 @@ type HyphenationLanguage = keyof typeof engines;
 type HyphenationLimits = { minimumWord: number; left: number; right: number };
 
 const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
-  // Polish book composition deliberately uses conservative 3/3 fragment minima.
-  // The underlying TeX patterns expose 2/2 points, but accepting those produced
-  // visually weak two-letter fragments such as "po-", "de-" and "do-" in the
-  // Windows serif stack. A six-letter minimum follows naturally from 3+3.
-  pl: { minimumWord: 6, left: 3, right: 3 },
+  // Folio's Polish book house style keeps at least three letters before a
+  // discretionary break, preventing weak two-letter starts such as "po-",
+  // "de-" and "do-". Two-letter endings remain available where the dictionary
+  // permits them, which preserves enough breakpoints for narrow justified text.
+  pl: { minimumWord: 6, left: 3, right: 2 },
   // U.S. English keeps the corresponding TeX-style 2/3 convention.
   en: { minimumWord: 5, left: 2, right: 3 },
 };
@@ -39,8 +39,8 @@ function engineFor(language: string): Hypher {
 }
 
 /** Keep only dictionary breakpoints that respect language-specific fragment
- * minima. Polish book composition uses conservative 3/3 fragments; U.S.
- * English keeps the 2/3 convention used by its TeX hyphenation patterns. */
+ * minima. Polish book composition uses Folio's conservative 3/2 house style;
+ * U.S. English keeps the 2/3 convention used by its TeX patterns. */
 export function conservativeHyphenation(
   engine: Hypher,
   word: string,
