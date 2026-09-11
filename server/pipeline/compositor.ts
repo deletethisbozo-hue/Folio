@@ -276,20 +276,33 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             fragment.append(separatedBreakable ? " " : "\u00a0");
             continue;
           }
-          part.split("\u00ad").forEach((piece, index) => {
-            if (!piece) return;
-            const span = document.createElement("span");
-            const discretionary = index > 0;
-            span.className = "folio-word";
-            span.dataset.folioSpaceBefore = hasWord && separated ? "true" : "false";
-            span.dataset.folioBreakableSpaceBefore = hasWord && separated && separatedBreakable ? "true" : "false";
-            span.dataset.folioHyphenBefore = discretionary ? "true" : "false";
-            span.textContent = (discretionary ? "\u00ad" : "") + piece;
-            span.style.whiteSpace = "nowrap";
-            fragment.append(span);
-            hasWord = true;
-            separated = false;
-            separatedBreakable = true;
+          const dashPieces: string[] = [];
+          let dashStart = 0;
+          for (let dashIndex = 0; dashIndex < part.length - 1; dashIndex++) {
+            if (part[dashIndex] === "—" && dashIndex > dashStart && /[\p{L}\p{N}]/u.test(part[dashIndex + 1])) {
+              dashPieces.push(part.slice(dashStart, dashIndex + 1));
+              dashStart = dashIndex + 1;
+            }
+          }
+          dashPieces.push(part.slice(dashStart));
+          dashPieces.forEach((dashPiece, dashPieceIndex) => {
+            dashPiece.split("\u00ad").forEach((piece, index) => {
+              if (!piece) return;
+              const span = document.createElement("span");
+              const discretionary = index > 0;
+              const dashBreakBefore = dashPieceIndex > 0 && index === 0;
+              span.className = "folio-word";
+              span.dataset.folioSpaceBefore = hasWord && separated ? "true" : "false";
+              span.dataset.folioBreakableSpaceBefore = hasWord && separated && separatedBreakable ? "true" : "false";
+              span.dataset.folioHyphenBefore = discretionary ? "true" : "false";
+              span.dataset.folioDashBreakBefore = dashBreakBefore ? "true" : "false";
+              span.textContent = (discretionary ? "\u00ad" : "") + piece;
+              span.style.whiteSpace = "nowrap";
+              fragment.append(span);
+              hasWord = true;
+              separated = false;
+              separatedBreakable = true;
+            });
           });
         }
         textNode.replaceWith(fragment);
@@ -310,7 +323,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         const spaceBefore = node.dataset.folioSpaceBefore === "true";
         const breakableSpaceBefore = node.dataset.folioBreakableSpaceBefore === "true";
         const hyphenBefore = node.dataset.folioHyphenBefore === "true";
-        const canBreakBefore = hyphenBefore || (spaceBefore && breakableSpaceBefore && !(atomicId && atomicId === previousAtomic));
+        const dashBreakBefore = node.dataset.folioDashBreakBefore === "true";
+        const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore))
+          && !(atomicId && atomicId === previousAtomic);
+        const canBreakBefore = hyphenBefore || structuralBreakBefore;
         const rawText = node.textContent ?? "";
         const cleanText = rawText.replace(/\u00ad/g, "");
         let rightProtrusion = 0;
