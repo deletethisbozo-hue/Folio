@@ -5,6 +5,7 @@ on:
     branches: ["fix/v1.0.7"]
     paths:
       - ".github/workflows/v107-windows-qualification.yml"
+      - "scripts/v107-qa-trigger.txt"
       - "scripts/v107-windows-trigger.txt"
   workflow_dispatch:
 
