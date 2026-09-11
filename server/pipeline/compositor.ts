@@ -129,14 +129,15 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       GLYPH_SCALE_COUNT - 1,
       Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
     ));
-    const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number, previousLineStart: number, stride: number) => {
+    const HYPHEN_COUNT_COUNT = 16;
+    const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number, hyphenCount: number) => {
       const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
       const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
-      return packed * stride + previousLineStart;
+      return packed * HYPHEN_COUNT_COUNT + Math.max(0, Math.min(HYPHEN_COUNT_COUNT - 1, hyphenCount));
     };
-    const decodeState = (key: number, stride: number) => {
-      const previousLineStart = key % stride;
-      const packed = Math.floor(key / stride);
+    const decodeState = (key: number) => {
+      const hyphenCount = key % HYPHEN_COUNT_COUNT;
+      const packed = Math.floor(key / HYPHEN_COUNT_COUNT);
       const glyphBucket = packed % GLYPH_SCALE_COUNT;
       const base = Math.floor(packed / GLYPH_SCALE_COUNT);
       return {
@@ -144,7 +145,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
         fitness: base % FITNESS_COUNT,
         glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
-        previousLineStart,
+        hyphenCount,
       };
     };
     const lineGapPositions = (
@@ -316,10 +317,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       };
 
       const runBreaker = (emergency: boolean, allowNaturalRescue = emergency): Break[] | null => {
-      const stateStride = words.length + 1;
       const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());
       const initialFitness = 1;
-      states[0].set(encodeState(0, 0, initialFitness, 1, 0, stateStride), {
+      states[0].set(encodeState(0, 0, initialFitness, 1, 0), {
         cost: 0,
         from: -1,
         fromKey: -1,
@@ -340,10 +340,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
 
       for (let start = 0; start < words.length; start++) {
         for (const [stateKey, previous] of states[start]) {
-          const decoded = decodeState(stateKey, stateStride);
+          const decoded = decodeState(stateKey);
           const lineNo = decoded.line;
           const previousHyphenStreak = decoded.hyphenStreak;
           const previousFitness = decoded.fitness;
+          const previousHyphenCount = decoded.hyphenCount;
           const { offset, available } = lineGeometry(lineNo);
           let wordWidth = 0;
           let gaps = 0;
@@ -394,7 +395,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
                 ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
                 : fill < 0.28 ? 220 * Math.pow((0.28 - fill) / 0.28, 2) : 0
               : 0;
-            const hyphenPenalty = hyphenBreak ? 240 + previousHyphenStreak * 950 : 0;
+            const hyphenPenalty = hyphenBreak ? 240 + previousHyphenStreak * 950 + previousHyphenCount * 180 : 0;
             const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
             const rescuePenalty = dropcapRescue
               ? 115 + 260 * Math.pow(1 - fill, 2)
@@ -410,7 +411,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
-            const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, start, stateStride);
+            const nextHyphenCount = Math.min(HYPHEN_COUNT_COUNT - 1, previousHyphenCount + (hyphenBreak ? 1 : 0));
+            const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);
             const old = states[end + 1].get(nextKey);
             if (!old || cost < old.cost) states[end + 1].set(nextKey, {
               cost,

@@ -243,22 +243,23 @@ function glyphScaleBucket(glyphScale: number): number {
   ));
 }
 
+const HYPHEN_COUNT_COUNT = 16;
+
 function encodeState(
   line: number,
   hyphenStreak: number,
   fitness: number,
   glyphScale: number,
-  previousLineStart: number,
-  stride: number,
+  hyphenCount: number,
 ): number {
   const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
   const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
-  return packed * stride + previousLineStart;
+  return packed * HYPHEN_COUNT_COUNT + Math.max(0, Math.min(HYPHEN_COUNT_COUNT - 1, hyphenCount));
 }
 
-function decodeState(key: number, stride: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; previousLineStart: number } {
-  const previousLineStart = key % stride;
-  const packed = Math.floor(key / stride);
+function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenCount: number } {
+  const hyphenCount = key % HYPHEN_COUNT_COUNT;
+  const packed = Math.floor(key / HYPHEN_COUNT_COUNT);
   const glyphBucket = packed % GLYPH_SCALE_COUNT;
   const base = Math.floor(packed / GLYPH_SCALE_COUNT);
   return {
@@ -266,7 +267,7 @@ function decodeState(key: number, stride: number): { line: number; hyphenStreak:
     hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
     fitness: base % FITNESS_COUNT,
     glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
-    previousLineStart,
+    hyphenCount,
   };
 }
 
@@ -331,11 +332,10 @@ function chooseBreaks(
   allowNaturalRescue = emergency,
 ): Break[] | null {
   const count = words.length;
-  const stateStride = count + 1;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
   const debugCandidates: Array<Record<string, unknown>> = [];
   const initialFitness = 1;
-  states[0].set(encodeState(0, 0, initialFitness, 1, 0, stateStride), {
+  states[0].set(encodeState(0, 0, initialFitness, 1, 0), {
     cost: 0,
     from: -1,
     fromKey: -1,
@@ -356,10 +356,11 @@ function chooseBreaks(
 
   for (let start = 0; start < count; start++) {
     for (const [stateKey, previous] of states[start]) {
-      const decoded = decodeState(stateKey, stateStride);
+      const decoded = decodeState(stateKey);
       const line = decoded.line;
       const previousHyphenStreak = decoded.hyphenStreak;
       const previousFitness = decoded.fitness;
+      const previousHyphenCount = decoded.hyphenCount;
       const { offset, available } = lineGeometry(line, geometry);
       let wordWidth = 0;
       let gaps = 0;
@@ -445,8 +446,11 @@ function chooseBreaks(
             ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
             : fill < 0.28 ? 220 * Math.pow((0.28 - fill) / 0.28, 2) : 0
           : 0;
+        // Hyphenation is evaluated across the paragraph, not only as a
+        // local streak. Keeping cumulative count in the DP state preserves a
+        // slightly more expensive low-hyphen path instead of merging it away.
         const hyphenPenalty = hyphenBreak
-          ? 240 + previousHyphenStreak * 950
+          ? 240 + previousHyphenStreak * 950 + previousHyphenCount * 180
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
         const rescuePenalty = dropcapRescue
@@ -474,7 +478,8 @@ function chooseBreaks(
 
         const nextLine = line + 1;
         const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
-        const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, start, stateStride);
+        const nextHyphenCount = Math.min(HYPHEN_COUNT_COUNT - 1, previousHyphenCount + (hyphenBreak ? 1 : 0));
+        const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);
         const old = states[end + 1].get(nextKey);
         if (!old || cost < old.cost) {
           states[end + 1].set(nextKey, {
@@ -512,7 +517,7 @@ function chooseBreaks(
     if (debugTarget && !allowNaturalRescue) {
       const reachable = states.map((stateMap, index) => {
         if (!stateMap.size) return null;
-        const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey, stateStride));
+        const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey));
         return {
           index,
           nextToken: (words[index]?.node.textContent ?? "").replace(/\u00ad/g, ""),
