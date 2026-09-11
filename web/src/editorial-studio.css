@@ -936,3 +936,66 @@
     padding-inline: 38px;
   }
 }
+
+
+/* v1.0.7 final UI polish: SF chrome + text Export */
+.folio-shell[data-ui-tone] {
+  font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+
+.folio-shell[data-ui-tone] button,
+.folio-shell[data-ui-tone] input,
+.folio-shell[data-ui-tone] select,
+.folio-shell[data-ui-tone] textarea,
+.folio-shell[data-ui-tone] .command-wordmark,
+.folio-shell[data-ui-tone] .pane-label,
+.folio-shell[data-ui-tone] .book-title,
+.folio-shell[data-ui-tone] .contents-heading,
+.folio-shell[data-ui-tone] .section-index,
+.folio-shell[data-ui-tone] .section-title,
+.folio-shell[data-ui-tone] .section-title-button,
+.folio-shell[data-ui-tone] .section-subtitle-button,
+.folio-shell[data-ui-tone] .section-title-input,
+.folio-shell[data-ui-tone] .section-subtitle-input,
+.folio-shell[data-ui-tone] .scene-break-button span,
+.folio-shell[data-ui-tone] .folio-dialog > header h2,
+.folio-shell[data-ui-tone] .style-library-title,
+.folio-empty-shell[data-ui-tone] .folio-wordmark,
+.folio-empty-shell[data-ui-tone] .empty-state h1 {
+  font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* The writing surface remains deliberately typographic rather than UI-like. */
+.folio-shell[data-ui-tone] .manuscript-editor,
+.folio-shell[data-ui-tone] .manuscript-editor input,
+.folio-shell[data-ui-tone] .manuscript-editor textarea {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* Export is a clear text action, not another little dashboard rectangle. */
+.folio-shell[data-ui-tone] .generate-button,
+.folio-shell[data-ui-tone="midnight"] .generate-button {
+  height: auto;
+  min-height: 28px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  background-image: none;
+  color: var(--studio-preview-ink);
+  box-shadow: none;
+  font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.folio-shell[data-ui-tone] .generate-button:hover {
+  border: 0;
+  background: transparent;
+  color: var(--studio-accent);
+  box-shadow: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
