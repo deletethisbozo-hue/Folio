@@ -613,9 +613,27 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
 
       let bestKey = -1;
       let bestCost = Number.POSITIVE_INFINITY;
+      let bestSectionRate = Number.POSITIVE_INFINITY;
+      let foundWithinSectionBudget = false;
       for (const [key, state] of states[words.length]) {
-        if (state.cost < bestCost) {
+        const decoded = decodeState(key);
+        const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
+        const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
+        const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
+        const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
+        const withinBudget = sectionRate <= 0.45 + 1e-9;
+        if (withinBudget) {
+          if (!foundWithinSectionBudget || state.cost < bestCost) {
+            foundWithinSectionBudget = true;
+            bestCost = state.cost;
+            bestSectionRate = sectionRate;
+            bestKey = key;
+          }
+        } else if (!foundWithinSectionBudget
+          && (sectionRate < bestSectionRate - 1e-9
+            || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost))) {
           bestCost = state.cost;
+          bestSectionRate = sectionRate;
           bestKey = key;
         }
       }
