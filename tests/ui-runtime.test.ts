@@ -467,7 +467,7 @@ try {
 
   const chapterCountBeforeAdd = await page.$$eval(".contents-row.chapter-row", (rows) => rows.length);
   const addedChapterNumber = chapterCountBeforeAdd + 1;
-  await page.click(".footer-add");
+  await page.click('[data-command="add"]');
   await stage("open Add Content", () => page.waitForSelector(".add-chapter-box input"));
   await page.click(".add-chapter-box input", { clickCount: 3 });
   await page.keyboard.press("Backspace");
