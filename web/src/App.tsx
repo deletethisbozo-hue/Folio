@@ -332,7 +332,9 @@ export default function App() {
       livePreviewDraftRef.current = representedDraft;
       previewIdentityRef.current = identity;
       pendingPreviewIdentityRef.current = "";
-      onPreviewLoad(scrollTop);
+      // Replacing body invalidates compositor markers even when the Markdown snapshot is unchanged.
+      // Force a fresh lazy composition pass so a late authoritative response cannot leave new DOM inert.
+      onPreviewLoad(scrollTop, false, true);
       return;
     }
     pendingPreviewIdentityRef.current = identity;
@@ -838,7 +840,7 @@ export default function App() {
     doc.head.appendChild(style);
   }
 
-  function onPreviewLoad(restoreScroll?: number, geometryOnly = false) {
+  function onPreviewLoad(restoreScroll?: number, geometryOnly = false, forceRecompose = false) {
     const frame = previewRef.current;
     const doc = frame?.contentDocument;
     if (!doc?.head || !frame) return;
@@ -878,7 +880,7 @@ export default function App() {
       void composePreviewDocument(doc, typography.bodyAlign !== "left");
     } else if (previewMode !== "print"
       && liveApply !== "rebuilt"
-      && (geometryOnly || calibrationChanged || compositionModeChanged)) {
+      && (forceRecompose || geometryOnly || calibrationChanged || compositionModeChanged)) {
       // The content is already current. Geometry/alignment changes only need a
       // new lazy composition pass; composeParagraph hyphenates each paragraph
       // as it becomes visible. Re-hyphenating an entire 100k-word book here

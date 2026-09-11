@@ -378,8 +378,18 @@ await stage("Polish professional justification", async () => {
   try {
     await page.waitForFunction(() => {
       const doc = document.querySelector("iframe")?.contentDocument;
-      const paragraph = doc?.querySelector<HTMLElement>('section.chapter > p[data-folio-qa-polish="true"]');
-      if (!doc || !paragraph?.classList.contains("folio-composed")) return false;
+      if (!doc) return false;
+      // A slow authoritative preview may replace the iframe body after this stage
+      // first tagged the target paragraph. Reacquire the same semantic paragraph
+      // instead of confusing a replaced test-only attribute with missing content.
+      const paragraph = [...doc.querySelectorAll<HTMLElement>("section.chapter > p")]
+        .find((candidate) => candidate.textContent
+          ?.replace(/\u00ad/g, "")
+          .replace(/\u00a0/g, " ")
+          .includes("W Polsce i na świecie najprawdopodobniej"));
+      if (!paragraph) return false;
+      paragraph.dataset.folioQaPolish = "true";
+      if (!paragraph.classList.contains("folio-composed")) return false;
       const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
       return /^pl(?:-|$)/i.test(paragraph.dataset.folioCompositionLanguage ?? "") &&
         lines.length > 1 &&
