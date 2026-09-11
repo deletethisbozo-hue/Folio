@@ -15,8 +15,8 @@ const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
   // righthyphenmin=2. Keeping 3/3 here discarded valid Polish breaks and
   // forced the compositor into visibly ragged emergency lines.
   pl: { minimumWord: 4, left: 2, right: 2 },
-  // Keep English deliberately conservative for book prose.
-  en: { minimumWord: 7, left: 3, right: 3 },
+  // U.S. English TeX convention: lefthyphenmin=2, righthyphenmin=3.
+  en: { minimumWord: 5, left: 2, right: 3 },
 };
 
 const PROSE_SELECTOR = [
@@ -38,8 +38,8 @@ function engineFor(language: string): Hypher {
 }
 
 /** Keep only dictionary breakpoints that respect language-specific fragment
- * minima. Polish follows the maintained TeX 2/2 convention; English remains
- * intentionally stricter at 3/3 with a seven-letter word floor. */
+ * minima. Polish follows TeX 2/2; U.S. English follows the standard 2/3
+ * convention used by the corresponding TeX hyphenation patterns. */
 export function conservativeHyphenation(
   engine: Hypher,
   word: string,

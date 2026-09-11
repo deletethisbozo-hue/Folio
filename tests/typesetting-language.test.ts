@@ -29,10 +29,10 @@ function breakpoints(value: string): number[] {
   return points;
 }
 
-function validThreeThree(value: string): boolean {
+function validMinima(value: string, left: number, right: number): boolean {
   const plainLength = value.replace(/\u00ad/g, "").length;
   const points = breakpoints(value);
-  return points.length > 0 && points.every((point) => point >= 3 && plainLength - point >= 3);
+  return points.length > 0 && points.every((point) => point >= left && plainLength - point >= right);
 }
 
 const pl = new Hypher(polish);
@@ -44,18 +44,19 @@ test("Polish locale variants select only the Polish dictionary", () => {
   assert.equal(hyphenationLanguage("en-GB"), "en");
 });
 
-test("seven-to-nine-letter Polish words can provide conservative breakpoints", () => {
+test("Polish dictionary breakpoints respect the 2/2 TeX minima", () => {
   const candidates = ["czytanie", "pisanie", "rozdział", "książkami", "wydanie"];
-  const hyphenated = candidates.map((word) => conservativeHyphenation(pl, word));
-  assert.ok(hyphenated.some((word) => validThreeThree(word)), hyphenated.join(" | "));
-  assert.ok(hyphenated.every((word) => word === word.replace(/\u00ad/g, "") || validThreeThree(word)));
+  const hyphenated = candidates.map((word) => conservativeHyphenation(pl, word, 2, 2, 4));
+  assert.ok(hyphenated.some((word) => validMinima(word, 2, 2)), hyphenated.join(" | "));
+  assert.ok(hyphenated.every((word) => word === word.replace(/\u00ad/g, "") || validMinima(word, 2, 2)));
 });
 
-test("seven-to-nine-letter English words can provide conservative breakpoints", () => {
-  const candidates = ["reading", "writing", "chapter", "printer", "spacing"];
-  const hyphenated = candidates.map((word) => conservativeHyphenation(en, word));
-  assert.ok(hyphenated.some((word) => validThreeThree(word)), hyphenated.join(" | "));
-  assert.ok(hyphenated.every((word) => word === word.replace(/\u00ad/g, "") || validThreeThree(word)));
+test("U.S. English dictionary breakpoints respect the standard 2/3 TeX minima", () => {
+  const candidates = ["ordinary", "contained", "reading", "writing", "chapter", "printer", "spacing"];
+  const hyphenated = candidates.map((word) => conservativeHyphenation(en, word, 2, 3, 5));
+  assert.ok(hyphenated.some((word) => validMinima(word, 2, 3)), hyphenated.join(" | "));
+  assert.ok(hyphenated.every((word) => word === word.replace(/\u00ad/g, "") || validMinima(word, 2, 3)));
+  assert.ok(breakpoints(conservativeHyphenation(en, "ordinary", 2, 3, 5)).includes(2));
 });
 
 test("short words are never hyphenated", () => {

@@ -12,7 +12,7 @@ type HyphenationLanguage = keyof typeof engines;
 type HyphenationLimits = { minimumWord: number; left: number; right: number };
 const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
   pl: { minimumWord: 4, left: 2, right: 2 },
-  en: { minimumWord: 7, left: 3, right: 3 },
+  en: { minimumWord: 5, left: 2, right: 3 },
 };
 const WORD = /\p{L}(?:[\p{L}\u00ad]*\p{L})?/gu;
 
