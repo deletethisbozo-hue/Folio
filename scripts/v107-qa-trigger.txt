@@ -1,5 +1,5 @@
 Folio 1.0.7 final qualification trigger
-Candidate: b49007554736c5537b2389d0ecfbaf669241b279
+Candidate: 4141b3509364bbff8042879ab3c00f216064b8c1
 UI: SF Pro stack for application chrome; manuscript typography unchanged; Export is text-only.
-Composition: tighter word spacing/tracking/glyph scaling; two-line drop caps; no ragged drop-cap rescue; hyphen rate hard-capped at 0.45.
-Visual QA now rejects loose spacing and unjustified drop-cap opening lines.
+Composition: balanced professional justification, max 1% glyph scaling, restrained tracking, explicit two-line drop caps, no ragged drop-cap rescue, hyphen rate hard-capped at 0.45.
+Visual QA rejects emergency ragged lines, loose spacing and unjustified drop-cap opening lines.
