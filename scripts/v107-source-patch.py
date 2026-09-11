@@ -69,8 +69,6 @@ patch(
     "const nextKey = encodeState(nextLine, nextStreak, currentFitness);",
     "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);",
 )
-# Remove a stale local continuity calculation. Continuity is already included
-# inside fitLine's badness, where it can influence the chosen scale candidate.
 patch(
     "web/src/compositor.ts",
     '''        const glyphScaleDelta = lineFit ? Math.abs(lineFit.glyphScale - previous.glyphScale) : 0;
@@ -159,4 +157,95 @@ qa_push_new = '''              wordSpacingEm: Number(line.dataset.folioWordSpaci
 '''
 patch("scripts/v107-visual-qa.ts", qa_push_old, qa_push_new)
 
-print("Made glyph scale part of the compositor DP state and instrumented rescue tokenization")
+# Temporary strict-pass reachability trace. The breaker is deterministic, so a
+# compact tail of reachable token boundaries is enough to show exactly where a
+# paragraph stops being feasible without weakening any typography limits.
+choose_sig_old = '''function chooseBreaks(
+  words: Word[],
+  geometry: Geometry,
+  spaceWidth: number,
+  hyphenWidth: number,
+  fontSize: number,
+  emergency = false,
+): Break[] | null {
+'''
+choose_sig_new = '''function chooseBreaks(
+  words: Word[],
+  geometry: Geometry,
+  spaceWidth: number,
+  hyphenWidth: number,
+  fontSize: number,
+  emergency = false,
+  debugTarget: HTMLElement | null = null,
+): Break[] | null {
+'''
+patch("web/src/compositor.ts", choose_sig_old, choose_sig_new)
+
+frontier_old = '''  if (bestKey < 0) return null;
+
+  const reversed: Break[] = [];
+'''
+frontier_new = '''  if (bestKey < 0) {
+    if (debugTarget && !emergency) {
+      const reachable = states.map((stateMap, index) => {
+        if (!stateMap.size) return null;
+        const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey));
+        return {
+          index,
+          nextToken: (words[index]?.node.textContent ?? "").replace(/\\u00ad/g, ""),
+          stateCount: stateMap.size,
+          lines: [...new Set(decodedStates.map((state) => state.line))],
+          glyphScales: [...new Set(decodedStates.map((state) => Number(state.glyphScale.toFixed(3))))],
+          fitness: [...new Set(decodedStates.map((state) => state.fitness))],
+        };
+      }).filter((entry) => entry !== null);
+      debugTarget.dataset.folioStrictFailure = JSON.stringify({
+        tokenCount: count,
+        furthestIndex: reachable.length ? reachable[reachable.length - 1]!.index : 0,
+        frontier: reachable.slice(-18),
+      });
+    }
+    return null;
+  }
+  if (debugTarget && !emergency) delete debugTarget.dataset.folioStrictFailure;
+
+  const reversed: Break[] = [];
+'''
+patch("web/src/compositor.ts", frontier_old, frontier_new)
+patch(
+    "web/src/compositor.ts",
+    "let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false);",
+    "let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, paragraph);",
+)
+
+qa_frontier_type_old = '''        nextLineTokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
+      }> = [];
+'''
+qa_frontier_type_new = '''        nextLineTokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
+        strictFailure: unknown;
+      }> = [];
+'''
+patch("scripts/v107-visual-qa.ts", qa_frontier_type_old, qa_frontier_type_new)
+
+qa_frontier_push_old = '''              nextLineTokens: [...(lines[lineIndex + 1]?.querySelectorAll<HTMLElement>(".folio-word") ?? [])].map((word) => ({
+                text: (word.textContent ?? "").replace(/\\u00ad/g, ""),
+                spaceBefore: word.dataset.folioSpaceBefore === "true",
+                hyphenBefore: word.dataset.folioHyphenBefore === "true",
+                widthPx: word.getBoundingClientRect().width,
+              })),
+            });
+'''
+qa_frontier_push_new = '''              nextLineTokens: [...(lines[lineIndex + 1]?.querySelectorAll<HTMLElement>(".folio-word") ?? [])].map((word) => ({
+                text: (word.textContent ?? "").replace(/\\u00ad/g, ""),
+                spaceBefore: word.dataset.folioSpaceBefore === "true",
+                hyphenBefore: word.dataset.folioHyphenBefore === "true",
+                widthPx: word.getBoundingClientRect().width,
+              })),
+              strictFailure: paragraph.dataset.folioStrictFailure
+                ? JSON.parse(paragraph.dataset.folioStrictFailure)
+                : null,
+            });
+'''
+patch("scripts/v107-visual-qa.ts", qa_frontier_push_old, qa_frontier_push_new)
+
+print("Made glyph scale part of compositor DP state and added strict frontier diagnostics")
