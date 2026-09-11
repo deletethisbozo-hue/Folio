@@ -1,9 +1,4 @@
-Folio 1.0.7 final qualification trigger
-Candidate repair: protected Polish NBSP spaces remain adjustable but non-breakable.
-Paperwhite Standard side inset remains the neutral 28px logical profile.
-Solver microtype limits remain unchanged, including the ±1% glyph-scale hard bound and internal 1.70px residual right-edge allowance against release QA <=1.75px.
-Line-fit frontier: at most two legal fit variants per breakpoint, minimum badness plus scale continuity, are preserved for paragraph-level DP.
-Closed-up em dashes: text such as along—how now exposes a legal zero-space breakpoint after the em dash while leading dialogue dashes remain intact; preview and server pipeline mirror each other.
-Optical margin alignment and hard hyphen ladder remain unchanged.
-Drop cap geometry remains exact rendered box plus measured CSS margin-right for the first two wrapped lines.
-Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
+Folio 1.0.7 diagnostic qualification trigger
+Candidate behavior is unchanged from the em-dash breakpoint candidate.
+This run adds exact web-compositor diagnostics for the first overfull breakpoint so the remaining English infeasibility can be measured rather than guessed.
+All release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
