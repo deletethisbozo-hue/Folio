@@ -11,10 +11,10 @@ type ReflowProfile = {
 const PROFILES: Record<string, ReflowProfile> = {
   // Logical viewports at Folio's named Standard reading preset. The shell stays
   // the same size; text and margins scale into that reduced visualisation.
-  // Paperwhite Standard uses a calm 32px logical side inset. At the 18px
-  // reading preset this keeps the measure in a book-like range where the
-  // compositor can choose natural word breaks without inflating word space.
-  "kindle-paperwhite": { width: 412, height: 549, baseFont: 18, padding: [34, 32, 46, 32], wordsPerPage: 270 },
+  // Paperwhite Standard uses a 34px logical side inset. At the 18px reading
+  // preset this keeps the measure near 287px, which stays inside the compositor's
+  // bounded spacing/tracking/scaling envelope for both PL and EN prose.
+  "kindle-paperwhite": { width: 412, height: 549, baseFont: 18, padding: [34, 34, 46, 34], wordsPerPage: 270 },
   "kindle-oasis": { width: 421, height: 560, baseFont: 18, padding: [32, 34, 46, 28], wordsPerPage: 290 },
   ipad: { width: 820, height: 1180, baseFont: 19, padding: [62, 68, 82, 68], wordsPerPage: 455 },
   iphone: { width: 390, height: 844, baseFont: 18, padding: [38, 25, 58, 25], wordsPerPage: 245 },
