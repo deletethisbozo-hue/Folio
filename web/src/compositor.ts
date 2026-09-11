@@ -237,8 +237,10 @@ function fitLine(
       tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
       wordSpacing = (scaledAdjustment - tracking * trackingOps) / gaps;
     }
-    if (wordSpacing > maxWordSpacing + 0.001 || wordSpacing < minWordSpacing - 0.001) continue;
-    if (tracking > maxTracking + 0.001 || tracking < minTracking - 0.001) continue;
+    wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
+    tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
+    if (Math.abs(residualPx) > 0.5) continue;
 
     const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
     const trackingRatio = tracking / Math.max(1, fontSize);
@@ -247,7 +249,8 @@ function fitLine(
     const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
       + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
       + 42 * Math.pow(scaleRatio, 3)
-      + 90 * Math.pow(scaleJumpRatio, 2);
+      + 90 * Math.pow(scaleJumpRatio, 2)
+      + 80 * Math.pow(Math.abs(residualPx) / 0.5, 2);
     const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
     const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
     if (!best || candidate.badness < best.badness) best = candidate;
