@@ -1,10 +1,9 @@
 Folio 1.0.7 final qualification trigger
-Candidate: 5956c4dc85278307e9604b1f71aab558ea8465d5
+Candidate: 75ed482f8f11a2f7e972b485f7b3d918f5c39fe2
 Paperwhite Standard uses the calculated 17.5px base font with the normal 28px logical side inset.
 Editor chrome no longer repeats the book title above the chapter heading; the left side of that top bar is intentionally empty and save/word-count stay right-aligned.
-English line breaking strongly avoids stranding articles (a/an/the) at the end of a line while preserving an escape path for pathological narrow measures.
-Visual QA now rejects both duplicate editor-topbar titles and stranded English articles in the sample preview.
+English a/an/the are structurally bound to the following word while preserving discretionary hyphenation inside that following word; visual QA rejects stranded English articles.
+Very large manuscripts use an append-only live-preview fast path for small plain-text tail typing, avoiding reparsing/replacing thousands of unchanged paragraphs while preserving lazy professional composition.
 English relaxed compression remains at the conservative 0.07em profile; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
 Optical protrusion is directional and recorded only when it actually participates in line fit. Hyphen-density cost and final DP state selection remain section-aware.
-Discretionary hyphen optical protrusion remains capped at 2.55px; English hyphenation remains dictionary-driven with no manual word exceptions.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
