@@ -100,10 +100,17 @@ if new_geometry not in value:
 
 old_add = '  await page.click(".footer-add");\n'
 new_add = '  await page.click(\'[data-command="add"]\');\n'
-if new_add not in value:
-    if old_add not in value:
-        raise RuntimeError("stale Add Content selector not found")
-    value = value.replace(old_add, new_add, 1)
+if old_add in value:
+    value = value.replace(old_add, new_add)
+elif new_add not in value:
+    raise RuntimeError("Add Content selector not found")
+
+old_book = '  await page.click(".book-identity");\n'
+new_book = '  await page.click(\'[data-command="book"]\');\n'
+if old_book in value:
+    value = value.replace(old_book, new_book)
+elif new_book not in value:
+    raise RuntimeError("Book Details selector not found")
 
 target.write_text(value, encoding="utf-8")
-print("Made UI qualification deterministic and aligned it with current Add Content UI")
+print("Made UI qualification deterministic and aligned stale command selectors with the current UI")
