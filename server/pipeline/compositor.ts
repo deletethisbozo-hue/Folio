@@ -46,6 +46,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       characters: number;
       rightProtrusion: number;
     };
+    type SectionHyphenStats = { justifiedLines: number; hyphenatedLines: number };
     type LineFit = { wordSpacing: number; tracking: number; glyphScale: number; badness: number; fitness: number };
     type Break = {
       end: number;
@@ -207,6 +208,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       return { cost, rivers };
     };
 
+    const statsBySection = new WeakMap<HTMLElement, SectionHyphenStats>();
     for (const paragraph of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
       if (
         paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
@@ -221,6 +223,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       if (estimatedWords > 1400) {
         paragraph.classList.add("folio-compositor-safe-fallback");
         continue;
+      }
+
+      const section = paragraph.closest<HTMLElement>("section.chapter,section.backmatter") ?? paragraph.parentElement;
+      let sectionStats = section ? statsBySection.get(section) : undefined;
+      if (!sectionStats) {
+        sectionStats = { justifiedLines: 0, hyphenatedLines: 0 };
+        if (section) statsBySection.set(section, sectionStats);
       }
 
       const borderLeft = px(computed.borderLeftWidth);
@@ -440,9 +449,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // Optical protrusion should relieve an already-full line, not force a
         // short line to stretch farther merely to hang punctuation. For expansion
         // keep the normal measure; for full/overfull lines allow the optical edge.
-        const opticalAvailable = natural >= available
-          ? available + rightProtrusion
-          : available;
+        const appliedRightProtrusion = natural >= available ? rightProtrusion : 0;
+        const opticalAvailable = available + appliedRightProtrusion;
 
             const adjustment = opticalAvailable - natural;
             const trackingOps = Math.max(0, characters + gaps - 1);
@@ -531,7 +539,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // print composition prefer the same calmer break pattern.
             const projectedLineCount = lineNo + 1;
             const projectedHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
-            const projectedHyphenRate = projectedHyphenCount / Math.max(1, projectedLineCount);
+            const projectedSectionLineCount = sectionStats.justifiedLines + projectedLineCount;
+            const projectedSectionHyphenCount = sectionStats.hyphenatedLines + projectedHyphenCount;
+            const projectedHyphenRate = projectedSectionHyphenCount / Math.max(1, projectedSectionLineCount);
             const hyphenDensityPenalty = hyphenBreak && projectedLineCount >= 4 && projectedHyphenRate > 0.42
               ? 2600 * Math.pow((projectedHyphenRate - 0.42) / 0.18, 2)
               : 0;
@@ -553,8 +563,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // sequence that looked acceptable while it was being built cannot end
             // above the same 0.45 ceiling merely because the natural final line was
             // included in the local projected-line denominator.
-            const completedJustifiedLines = last ? Math.max(1, lineNo) : 0;
-            const completedHyphenRate = last ? previousHyphenCount / completedJustifiedLines : 0;
+            const completedJustifiedLines = last ? Math.max(1, sectionStats.justifiedLines + lineNo) : 0;
+            const completedHyphenCount = last ? sectionStats.hyphenatedLines + previousHyphenCount : 0;
+            const completedHyphenRate = last ? completedHyphenCount / completedJustifiedLines : 0;
             // Mirror preview: section QA remains hard-capped at 0.45, while a
             // short paragraph may cross that discrete ratio only at a huge cost
             // rather than forcing a visibly ragged emergency line.
@@ -589,7 +600,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               emergency: emergencyRescue,
               relaxed: relaxedFit,
               finalCompressed,
-              rightProtrusion: lineFit ? rightProtrusion : 0,
+              rightProtrusion: lineFit ? appliedRightProtrusion : 0,
               fitness: currentFitness,
               hyphenCount: nextHyphenCount,
               gapPositions: currentGaps,
@@ -696,6 +707,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         paragraph.append(line);
         if (index < lines.length - 1 && !breaks[index].hyphenated) paragraph.append(" ");
       });
+
+      sectionStats.justifiedLines += breaks.filter((lineBreak) => lineBreak.justified).length;
+      sectionStats.hyphenatedLines += breaks.filter((lineBreak) => lineBreak.justified && lineBreak.hyphenated).length;
 
       // Mirror live preview exactly: calibrate the final transformed fragment
       // against Chromium's real rendered width. Platform font rasterizers can

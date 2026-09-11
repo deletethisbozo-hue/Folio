@@ -67,6 +67,8 @@ type Geometry = {
   capDepth: number;
 };
 
+type SectionHyphenStats = { justifiedLines: number; hyphenatedLines: number };
+
 function pixels(value: string): number {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -388,6 +390,7 @@ function chooseBreaks(
   emergency = false,
   allowNaturalRescue = emergency,
   language = "en",
+  sectionStats: SectionHyphenStats = { justifiedLines: 0, hyphenatedLines: 0 },
 ): Break[] | null {
   const count = words.length;
   lastBreakFailure = null;
@@ -453,9 +456,8 @@ function chooseBreaks(
         // Optical protrusion should relieve an already-full line, not force a
         // short line to stretch farther merely to hang punctuation. For expansion
         // keep the normal measure; for full/overfull lines allow the optical edge.
-        const opticalAvailable = natural >= available
-          ? available + rightProtrusion
-          : available;
+        const appliedRightProtrusion = natural >= available ? rightProtrusion : 0;
+        const opticalAvailable = available + appliedRightProtrusion;
 
         const adjustment = opticalAvailable - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
@@ -536,7 +538,9 @@ function chooseBreaks(
           : 0;
         const projectedLineCount = line + 1;
         const projectedHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
-        const projectedHyphenRate = projectedHyphenCount / Math.max(1, projectedLineCount);
+        const projectedSectionLineCount = sectionStats.justifiedLines + projectedLineCount;
+        const projectedSectionHyphenCount = sectionStats.hyphenatedLines + projectedHyphenCount;
+        const projectedHyphenRate = projectedSectionHyphenCount / Math.max(1, projectedSectionLineCount);
         const hyphenDensityPenalty = hyphenBreak && projectedLineCount >= 4 && projectedHyphenRate > 0.42
           ? 2600 * Math.pow((projectedHyphenRate - 0.42) / 0.18, 2)
           : 0;
@@ -558,8 +562,9 @@ function chooseBreaks(
         // sequence that looked acceptable while it was being built cannot end
         // above the same 0.45 ceiling merely because the natural final line was
         // included in the local projected-line denominator.
-        const completedJustifiedLines = last ? Math.max(1, line) : 0;
-        const completedHyphenRate = last ? previousHyphenCount / completedJustifiedLines : 0;
+        const completedJustifiedLines = last ? Math.max(1, sectionStats.justifiedLines + line) : 0;
+        const completedHyphenCount = last ? sectionStats.hyphenatedLines + previousHyphenCount : 0;
+        const completedHyphenRate = last ? completedHyphenCount / completedJustifiedLines : 0;
         // The release gate is section-level. A hard per-paragraph 0.45 cut made
         // short paragraphs mathematically impossible to compose: 2 hyphens over
         // 4 justified lines is 0.50 even when the whole section is well below 0.45.
@@ -608,7 +613,7 @@ function chooseBreaks(
             emergency: emergencyRescue,
             relaxed: relaxedFit,
             finalCompressed,
-            rightProtrusion: lineFit ? rightProtrusion : 0,
+            rightProtrusion: lineFit ? appliedRightProtrusion : 0,
             fitness: currentFitness,
             hyphenCount: nextHyphenCount,
             gapPositions: currentGaps,
@@ -722,7 +727,7 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
   };
 }
 
-function composeParagraph(paragraph: HTMLElement, language: string): void {
+function composeParagraph(paragraph: HTMLElement, language: string, sectionStats: SectionHyphenStats): void {
   if (
     paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
     paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
@@ -759,9 +764,9 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, language);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, language, sectionStats);
   const strictFailure = breaks ? null : lastBreakFailure;
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, language);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, language, sectionStats);
   if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
     restore(paragraph);
@@ -817,6 +822,9 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     if (index < lines.length - 1 && !breaks[index].hyphenated) paragraph.append(" ");
   });
 
+  sectionStats.justifiedLines += breaks.filter((lineBreak) => lineBreak.justified).length;
+  sectionStats.hyphenatedLines += breaks.filter((lineBreak) => lineBreak.justified && lineBreak.hyphenated).length;
+
   const maxAdjacentScaleDelta = 0.012;
   let previousCorrectedScale: number | null = null;
   for (const line of lines) {
@@ -854,6 +862,20 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   }
 }
 
+function sectionStatsFor(
+  paragraph: HTMLElement,
+  statsBySection: WeakMap<HTMLElement, SectionHyphenStats>,
+): SectionHyphenStats {
+  const section = paragraph.closest<HTMLElement>("section.chapter,section.backmatter") ?? paragraph.parentElement;
+  if (!section) return { justifiedLines: 0, hyphenatedLines: 0 };
+  let stats = statsBySection.get(section);
+  if (!stats) {
+    stats = { justifiedLines: 0, hyphenatedLines: 0 };
+    statsBySection.set(section, stats);
+  }
+  return stats;
+}
+
 function installObserver(
   document: Document,
   paragraphs: HTMLElement[],
@@ -861,6 +883,7 @@ function installObserver(
   queued: WeakSet<HTMLElement>,
   generation: number,
   language: string,
+  statsBySection: WeakMap<HTMLElement, SectionHyphenStats>,
 ): void {
   const view = document.defaultView;
   if (!view) return;
@@ -882,7 +905,7 @@ function installObserver(
       const paragraph = queue.shift()!;
       if (!paragraph.isConnected) continue;
       observer.unobserve(paragraph);
-      composeParagraph(paragraph, language);
+      composeParagraph(paragraph, language, sectionStatsFor(paragraph, statsBySection));
       processed++;
     }
     if (queue.length) request();
@@ -924,14 +947,15 @@ export async function composePreviewDocument(document: Document, enabled: boolea
 
   const queue: HTMLElement[] = [];
   const queued = new WeakSet<HTMLElement>();
+  const statsBySection = new WeakMap<HTMLElement, SectionHyphenStats>();
   for (const paragraph of paragraphs.slice(0, 4)) {
     queued.add(paragraph);
     queue.push(paragraph);
   }
 
   const first = queue.shift();
-  if (first && compositionGeneration.get(document) === generation) composeParagraph(first, language);
-  installObserver(document, paragraphs, queue, queued, generation, language);
+  if (first && compositionGeneration.get(document) === generation) composeParagraph(first, language, sectionStatsFor(first, statsBySection));
+  installObserver(document, paragraphs, queue, queued, generation, language, statsBySection);
 
   if (document.fonts?.status === "loading") {
     void document.fonts.ready.then(() => {
