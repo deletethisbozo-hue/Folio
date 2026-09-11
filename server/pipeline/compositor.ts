@@ -431,7 +431,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // Hyphenation splits one visible word into several compositor tokens.
             // Widow control must count semantic words, not discretionary pieces,
             // otherwise endings such as `de-` / `cyzji.` evade the rule entirely.
-            if (last && semanticWordsOnLine === 1 && !allowNaturalRescue) continue;
+            // A one-word final line is undesirable, but not composition failure.
+        // Let the existing high widow penalty compare it against alternative paths
+        // instead of forcing the entire paragraph into the emergency rescue pass.
             const fill = Math.min(1, natural / Math.max(1, available));
             // A stranded final word is a real book-composition defect, especially
             // when the preceding line was itself hyphenated. Preserve feasible
