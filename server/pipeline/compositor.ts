@@ -402,7 +402,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // rescue pass may still recover pathological narrow measures.
             const hyphenStreakOverflow = hyphenBreak && previousHyphenStreak >= 2;
             const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
-            const rightProtrusion = hyphenBreak ? 0 : words[end].rightProtrusion;
+            // Optical margin alignment: a line-ending discretionary hyphen may hang
+        // slightly into the margin, just like terminal punctuation. Keeping part
+        // of the hyphen outside the measure prevents needless spacing distortion
+        // without changing the text measure or any QA threshold.
+        const rightProtrusion = hyphenBreak
+          ? Math.min(2.75, hyphenWidth * 0.55)
+          : words[end].rightProtrusion;
             const opticalAvailable = available + rightProtrusion;
 
             const adjustment = opticalAvailable - natural;
