@@ -372,10 +372,10 @@ try {
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(qualification, null, 2) + "\n", "utf8");
     if (
       report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 || report.maxRightProtrusionPx > 4.51 ||
-      report.maxWordSpacingEm > 0.141 || report.maxStrictWordSpacingEm > 0.116 || report.maxRelaxedWordSpacingEm > 0.141 ||
-      report.relaxedLines > 2 || report.maxTrackingEm > 0.0057 || report.maxGlyphScaleDelta > 0.0201 ||
-      report.maxAdjacentGlyphScaleDelta > 0.025 + 1e-9 || report.maxSemanticGapEm > 0.43 ||
-      report.maxAdjacentSpacingDeltaEm > 0.22 || report.hyphenRate > hyphenRateLimit || report.maxHyphenStreak > 2 ||
+      report.maxWordSpacingEm > 0.101 || report.maxStrictWordSpacingEm > 0.081 || report.maxRelaxedWordSpacingEm > 0.101 ||
+      report.relaxedLines > 2 || report.maxTrackingEm > 0.0026 || report.maxGlyphScaleDelta > 0.0101 ||
+      report.maxAdjacentGlyphScaleDelta > 0.0121 || report.maxSemanticGapEm > 0.35 ||
+      report.maxAdjacentSpacingDeltaEm > 0.14 || report.hyphenRate > hyphenRateLimit || report.maxHyphenStreak > 2 ||
       report.emergencyLines !== 0 || report.ornamentalBreaksOffCenter !== 0
     ) throw new Error(`${label} failed typographic QA: ${JSON.stringify(qualification)}`);
     return qualification;
@@ -392,6 +392,15 @@ try {
   await setDropcap(true);
   await screen.screenshot({ path: path.join(qa, "reader-polish-dropcap.png") });
   const dropcapReport = await metrics("typesetting-polish-dropcap", polishNeedle);
+  const dropcapOpening = await page.evaluate(() => {
+    const doc = document.querySelector("iframe")!.contentDocument!;
+    const paragraph = doc.querySelector<HTMLElement>("section.chapter > p.folio-composed-dropcap");
+    const lines = [...(paragraph?.querySelectorAll<HTMLElement>(":scope > .folio-composed-line") ?? [])].slice(0, 2);
+    return lines.map((line) => ({ text: line.textContent ?? "", justified: line.classList.contains("folio-line-justified") }));
+  });
+  if (dropcapOpening.length < 2 || dropcapOpening.some((line) => !line.justified)) {
+    throw new Error(`Drop-cap opening lines are not justified: ${JSON.stringify(dropcapOpening)}`);
+  }
 
   await setLanguage("en");
   await setDropcap(false);
