@@ -90,12 +90,9 @@ section.epigraph *,
 }
 
 /* In the live preview / PDF we constrain to a page-like column.
-   EPUB has no <main class="book">, so reading systems control width.
-   `body` already supplies the reader margin. Keep this inner inset modest: the
-   former 1.4em stacked two generous horizontal margins and produced an
-   artificially narrow ~18.6em measure that could not be professionally justified
-   without loose spaces. 0.8em retains a clear page inset while giving the line
-   breaker a normal fiction measure and keeping microtype restrained. */
+   EPUB has no <main class="book">, so reading systems control width. The body
+   already supplies the reader margin, so keep this inner inset modest instead
+   of stacking a second generous margin onto a narrow device preview. */
 main.book {
   max-width: 34em;
   margin: 0 auto;
@@ -188,202 +185,260 @@ section.level1 {
   }
 }
 
-/* --- Title page --- */
-section.titlepage {
-  text-align: center;
-  padding-top: 18vh;
-}
-section.titlepage > h1 {
-  font-size: 2.2em;
-  line-height: 1.1;
-  text-align: center;
-  margin: 0 0 0.3em;
-}
-.tp-subtitle {
-  font-style: italic;
-  margin: 0 0 2.5em;
-}
-.tp-author {
-  font-variant: small-caps;
-  letter-spacing: 0.06em;
-  margin-top: 2em;
-}
-.tp-series,
-.tp-publisher {
-  margin-top: 1em;
-  font-size: 0.9em;
+/* --- Scene break --- */
+.scene-break {
+  text-align: center !important;
+  text-align-last: center !important;
+  text-indent: 0 !important;
+  -webkit-hyphens: none !important;
+  hyphens: none !important;
+  margin: 1.4em 0;
+  break-inside: avoid;
+  break-after: avoid;
 }
 
-/* --- Copyright page --- */
-section.copyright {
-  font-size: 0.82em;
-  line-height: 1.35;
-  padding-top: 40vh;
-}
-section.copyright p {
-  text-indent: 0;
-  margin: 0.4em 0;
-}
-
-/* --- Dedication / epigraph --- */
-section.dedication,
-section.epigraph {
-  padding-top: 24vh;
-  text-align: center;
-}
-section.dedication p,
-section.epigraph p {
-  text-indent: 0;
-  text-align: center;
-  margin: 0.7em 0;
-}
-section.epigraph blockquote {
-  margin: 0 auto;
-  max-width: 25em;
-}
-
-/* --- Chapter headings --- */
-section.chapter > h1,
-h1.chapter {
-  font-size: 1.65em;
-  margin: 0 0 1.8em;
-}
-.chapter-number {
-  display: block;
-  font-size: 0.5em;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  margin-bottom: 0.7em;
-}
-
-/* --- Drop caps --- */
+/* --- Drop cap ---
+   Float fallback for EPUB / preview, active in EVERY theme (the drop-cap toggle
+   used to be dead on Classic/Modern because only Decorative styled .dropcap).
+   Tuned for a 2-line seat at the 1.5 body leading: cap height + one line of
+   leading ≈ 2.2 body-em → font-size ≈ 3.1em; line-height:1 keeps the box height
+   predictable; the negative margin-bottom clamps it so exactly two lines wrap.
+   The print path swaps this for CSS initial-letter (see print-base.css).
+   Per-theme colour/face live in each theme.css. */
 .dropcap {
   float: left;
   font-size: 3em;
-  line-height: 0.8;
+  line-height: 1;
   padding: 0 0.10em 0 0;
+  /* A floated cap aligns its BOX to the line top, but the glyph sits on its
+     baseline with the ascender above it, so the capital lands low. This lifts it
+     by roughly (ascender − cap-height) for a serif face. It is a default, not an
+     exact answer: the true value depends on the font that resolves, and the PDF
+     paths measure each cap and override this (see pipeline/dropcap.ts). EPUB has
+     no browser to measure in, so it keeps the constant. */
   margin: -0.06em 0 0 0;
 }
 
-/* --- Scene breaks --- */
-.scene-break {
-  display: block;
-  clear: both;
+/* --- Title page --- */
+section.titlepage {
   text-align: center;
+  padding-top: 2em;
+}
+section.titlepage > h1 {
+  text-align: center;
+}
+.tp-subtitle {
   text-indent: 0;
-  margin: 1.35em 0;
-  letter-spacing: 0.15em;
+  font-style: italic;
+  margin-top: 0.4em;
+}
+.tp-author {
+  text-indent: 0;
+  margin-top: 2.5em;
+}
+.tp-series {
+  text-indent: 0;
+  margin-top: 0.4em;
+  font-size: 0.9em;
+}
+.tp-publisher {
+  text-indent: 0;
+  margin-top: 3em;
+  font-size: 0.85em;
 }
 
-/* --- Block quotes --- */
+/* --- Copyright --- */
+section.copyright {
+  font-size: 0.85em;
+  text-align: center;
+}
+section.copyright p {
+  text-indent: 0;
+  margin: 0.6em 0;
+}
+
+/* --- Dedication / epigraph --- */
+section.dedication {
+  text-align: center;
+  font-style: italic;
+  margin-top: 5em;
+}
+section.dedication p {
+  text-indent: 0;
+  margin: 0.4em 0;
+}
+section.epigraph {
+  margin-top: 4em;
+}
+section.epigraph blockquote {
+  font-style: italic;
+  border: 0;
+  margin: 1em 2em;
+}
+section.epigraph blockquote p {
+  text-indent: 0;
+}
+
+/* --- Blockquotes (in-text notes) --- */
 blockquote {
-  margin: 1em 1.5em;
+  margin: 1.2em 1.8em;
+  font-style: italic;
 }
 blockquote p {
   text-indent: 0;
-  margin: 0.5em 0;
 }
 
-/* --- Lists --- */
-ul,
-ol {
-  margin: 0.8em 0;
-  padding-left: 1.8em;
-}
-li {
-  margin: 0.15em 0;
+/* --- Back matter --- */
+section.backmatter ul,
+section.backmatter ol {
+  text-indent: 0;
 }
 
-/* --- Images and captions --- */
 img {
   max-width: 100%;
   height: auto;
 }
-figure {
-  margin: 1.5em auto;
-  text-align: center;
-}
-figcaption {
-  margin-top: 0.4em;
-  font-size: 0.82em;
-  font-style: italic;
-  text-align: center;
-}
 
-/* --- Footnotes --- */
-.footnotes {
-  margin-top: 2em;
-  padding-top: 0.8em;
-  border-top: 1px solid currentColor;
-  font-size: 0.8em;
-}
-.footnotes ol {
-  padding-left: 1.4em;
-}
-.footnotes p {
-  text-indent: 0;
-}
+/* ============================================================
+   Embedded documents — letters, journals, text messages, etc.
+   Block form:   ::: letter  …  :::
+   Inline form:  [the written words]{.letter}
+   Aliases are styled together (journal/diary, text/message/sms/chat,
+   sign/inscription, verse/poem).
+   ============================================================ */
 
-/* --- Embedded documents / special blocks --- */
+.letter,
+.journal,
+.diary,
 .note,
 .telegram,
 .sign,
 .inscription,
 .verse,
-.poem {
-  margin: 1.5em auto;
-  max-width: 26em;
-  text-align: center;
+.poem,
+.text,
+.message,
+.sms,
+.chat {
+  margin: 1.5em 0;
 }
+.letter p,
+.journal p,
+.diary p,
 .note p,
 .telegram p,
-.sign p,
-.inscription p,
 .verse p,
 .poem p {
   text-indent: 0;
 }
 
-/* Default drop-cap fallback for EPUB/static rendering. Live preview/PDF use the
-   compositor's explicit two-line geometry, but the fallback keeps the same visual
-   scale and no longer reaches into a third line through a negative bottom margin. */
-section.chapter > p:first-of-type::first-letter,
-.chapter-subtitle + p::first-letter {
-  font-size: 3em;
-  line-height: 0.8;
-  float: left;
-  padding: 0 0.10em 0 0;
-  margin: -0.06em 0 0 0;
+/* Letter / correspondence — inset, with a right-aligned signature line. */
+.letter {
+  margin-left: 1.6em;
+  margin-right: 1.6em;
+}
+.letter p {
+  margin: 0 0 0.7em;
+}
+.signature {
+  display: block;
+  text-align: right;
+  /* Override the body rule that forces a paragraph's last line ragged-left;
+     a signature is a single line, so without this it would stay left. */
+  text-align-last: right;
 }
 
-/* Avoid applying the first-letter fallback when explicit markup is present. */
-section.chapter > p:first-of-type:has(.dropcap)::first-letter,
-.chapter-subtitle + p:has(.dropcap)::first-letter {
-  float: none;
-  font-size: inherit;
-  line-height: inherit;
+/* Journal / diary — handwriting feel (falls back to italic), ruled margin. */
+.journal,
+.diary {
+  font-family: "Segoe Script", "Bradley Hand", "Brush Script MT", cursive;
+  font-style: italic;
+  margin-left: 1.4em;
+  padding-left: 1em;
+  border-left: 2px solid rgba(120, 90, 60, 0.3);
+}
+.journal p,
+.diary p {
+  margin: 0 0 0.5em;
+}
+/* inline form: just the lettering, no block frame */
+span.journal,
+span.diary,
+span.note {
+  margin: 0;
   padding: 0;
+  border: 0;
+  display: inline;
+}
+
+/* Handwritten note / scrap — centered. */
+.note {
+  font-family: "Segoe Script", "Bradley Hand", cursive;
+  text-align: center;
+}
+
+/* Text messages / chat — bubbles (alignment set by the book.lua filter). */
+.text,
+.message,
+.sms,
+.chat {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 0.95em;
+}
+.msg {
+  margin: 0.45em 0;
+  padding: 0.4em 0.8em;
+  border-radius: 1.1em;
+  width: fit-content;
+  max-width: 78%;
+  background: rgba(0, 0, 0, 0.07);
+}
+.msg p {
+  text-indent: 0;
   margin: 0;
 }
+.msg.me {
+  margin-left: auto;
+  background: #d9efd6;
+}
+/* fallback when the filter hasn't wrapped messages */
+.text > p,
+.message > p,
+.sms > p,
+.chat > p {
+  text-indent: 0;
+  margin: 0.45em 0;
+  padding: 0.4em 0.8em;
+  border-radius: 1.1em;
+  width: fit-content;
+  max-width: 78%;
+  background: rgba(0, 0, 0, 0.07);
+}
 
-/* --- Small caps / semantic inline styles --- */
-.smallcaps {
+/* Telegram / typed dispatch — monospace, spaced caps. */
+.telegram {
+  font-family: "Courier New", Courier, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+  font-size: 0.9em;
+}
+
+/* Sign / inscription / plaque — boxed small caps. */
+.sign,
+.inscription {
+  text-align: center;
   font-variant: small-caps;
+  letter-spacing: 0.08em;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  padding: 0.7em 1em;
+  margin: 1.5em auto;
+  max-width: 72%;
 }
 
-/* --- Page headers / footers (paged output) --- */
-.running-header,
-.running-footer {
-  font-size: 0.8em;
-  letter-spacing: 0.04em;
-}
-
-/* --- Utilities --- */
-.keep-together {
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-.page-break {
-  break-before: page;
-  page-break-before: always;
+/* Verse / poem / song. */
+.verse,
+.poem {
+  font-style: italic;
+  text-align: center;
 }
