@@ -1,5 +1,5 @@
 Folio 1.0.7 final qualification trigger
-Candidate: e3bde9de4efe0eb14b68eb80f3f193996cd5bb5e
+Candidate: final Polish composition qualification after bounded strict-spacing rescue
 Paperwhite Standard uses the calculated 17.5px base font with the normal 28px logical side inset.
 Editor chrome no longer repeats the book title above the chapter heading; the left side of that top bar is intentionally empty and save/word-count stay right-aligned.
 English a/an/the are structurally bound to the following word while preserving discretionary hyphenation inside that following word; visual QA rejects stranded English articles.
@@ -9,6 +9,6 @@ Reader device/profile changes use a dedicated geometry-only refresh path, so a t
 Discarded previews explicitly dispose their lazy compositor observer before iframe teardown, preventing a 5200-paragraph manuscript from starving the next project's first live preview.
 Windows Polish-composition timeout diagnostics now capture device, frame/paragraph width, line classes, strict failure and calibration if the hard 30s gate is missed; no timeout or quality threshold was raised.
 Runtime QA normalizes discretionary soft hyphens when checking typed text and validates the optical edge against the compositor's declared bounded protrusion. The right-edge residual remains <= 1.75px and protrusion itself is capped at 4.5px.
-English relaxed compression remains at the conservative 0.07em profile; Polish remains at 0.0595em. Strict word-spacing and all release gates remain unchanged.
+English relaxed compression remains at the conservative 0.07em profile; Polish relaxed compression remains at 0.0595em. Polish strict fitting may use bounded compression up to 0.085em as an alternative to an extra discretionary hyphen; the 0.101em release spacing ceiling remains unchanged.
 Optical protrusion is directional and recorded only when it actually participates in line fit. Hyphen-density cost and final DP state selection remain section-aware.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
