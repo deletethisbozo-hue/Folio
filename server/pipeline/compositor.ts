@@ -318,17 +318,18 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const canBreak = last || next!.canBreakBefore;
             const hyphenBreak = !last && next!.hyphenBefore;
             const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
-            if (natural > available + 0.75 && end > start) break;
-            if (!canBreak) continue;
-
             const adjustment = available - natural;
             const trackingOps = Math.max(0, characters + gaps - 1);
-            const strictFit = !last && natural <= available + 0.75
+            // Mirror live preview: bounded compression is a normal composition
+            // tool, not an unreachable branch hidden behind natural <= measure.
+            const strictFit = !last
               ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, false)
               : null;
-            const fit = strictFit ?? (emergency && !last && natural <= available + 0.75
+            const fit = strictFit ?? (emergency && !last
               ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, true)
               : null);
+            if (!canBreak) continue;
+            if (natural > available + 0.75 && !fit && (end > start || last)) break;
             // Mirror the reflow preview: only lines physically beside a drop
             // cap may stay natural in the strict pass. Ordinary prose still
             // has to reach the measure inside the normal spacing bounds.

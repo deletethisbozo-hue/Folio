@@ -321,17 +321,19 @@ function chooseBreaks(
         const hyphenBreak = !last && next!.hyphenBefore;
         const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
 
-        if (natural > available + 0.75 && end > start) break;
-        if (!canBreak) continue;
-
         const adjustment = available - natural;
         const trackingOps = Math.max(0, characters + gaps - 1);
-        const strictFit = !last && natural <= available + 0.75
+        // fitLine already has strict lower bounds for word spacing and tracking.
+        // Let it use those bounds for slightly overfull candidates too; the old
+        // natural-width guard made all negative-spacing logic effectively dead.
+        const strictFit = !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, false)
           : null;
-        const fit = strictFit ?? (emergency && !last && natural <= available + 0.75
+        const fit = strictFit ?? (emergency && !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, true)
           : null);
+        if (!canBreak) continue;
+        if (natural > available + 0.75 && !fit && (end > start || last)) break;
         // A short line beside a drop cap can be mathematically impossible to
         // fill without an obvious river of white. Natural setting is the
         // professional fallback only while the cap occupies the measure.
