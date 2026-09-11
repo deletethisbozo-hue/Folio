@@ -428,7 +428,7 @@ function chooseBreaks(
           ? (wordsOnLine === 1 ? 180 : fill < 0.28 ? 80 * Math.pow((0.28 - fill) / 0.28, 2) : 0)
           : 0;
         const hyphenPenalty = hyphenBreak
-          ? 165 + previousHyphenStreak * 560
+          ? 240 + previousHyphenStreak * 560
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
         const rescuePenalty = dropcapRescue
@@ -691,6 +691,34 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     paragraph.append(line);
     if (index < lines.length - 1 && !breaks[index].hyphenated) paragraph.append(" ");
   });
+
+  // Browser font metrics are not perfectly algebraic across platforms. The DP
+  // solves against measured token widths, word spacing, tracking and scale, but
+  // Chromium can still land a transformed inline fragment a fraction of a glyph
+  // away from the intended measure (notably with Windows Palatino/Georgia-class
+  // serif metrics). Calibrate the final visual scale from the actual rendered
+  // width. This stays inside the same ±2% microtype envelope and usually moves
+  // the chosen scale closer to 1; it does not relax spacing or tracking limits.
+  const corrections: Array<{ line: HTMLElement; content: HTMLElement; scale: number }> = [];
+  for (const line of lines) {
+    if (!line.classList.contains("folio-line-justified")) continue;
+    const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
+    if (!content) continue;
+    const rendered = content.getBoundingClientRect().width;
+    const measure = line.getBoundingClientRect().width;
+    const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
+    if (rendered <= 0 || measure <= 0 || !Number.isFinite(currentScale)) continue;
+    const correctedScale = Math.max(0.98, Math.min(1.02, currentScale * measure / rendered));
+    if (Math.abs(correctedScale - currentScale) > 0.00001) {
+      corrections.push({ line, content, scale: correctedScale });
+    }
+  }
+  for (const correction of corrections) {
+    correction.content.style.transform = Math.abs(correction.scale - 1) > 0.00001
+      ? `scaleX(${correction.scale})`
+      : "";
+    correction.line.dataset.folioGlyphScale = String(correction.scale);
+  }
 }
 
 function installObserver(
