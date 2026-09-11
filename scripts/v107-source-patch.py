@@ -14,36 +14,115 @@ def patch(path: str, old: str, new: str) -> None:
     target.write_text(value.replace(old, new, 1), encoding="utf-8")
 
 
-# American English TeX patterns conventionally use 2/3 fragment minima.
-# Folio's previous 3/3 + 7-letter floor discarded legal dictionary breaks
-# and could force an otherwise avoidable emergency line.
+web_state_old = '''const FITNESS_COUNT = 4;
+const HYPHEN_STREAK_COUNT = 3;
+
+function encodeState(line: number, hyphenStreak: number, fitness: number): number {
+  return (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+}
+
+function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number } {
+  return {
+    line: Math.floor(key / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+    hyphenStreak: Math.floor(key / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+    fitness: key % FITNESS_COUNT,
+  };
+}
+'''
+web_state_new = '''const FITNESS_COUNT = 4;
+const HYPHEN_STREAK_COUNT = 3;
+const GLYPH_SCALE_MIN = 0.98;
+const GLYPH_SCALE_STEP = 0.001;
+const GLYPH_SCALE_COUNT = 41;
+
+function glyphScaleBucket(glyphScale: number): number {
+  return Math.max(0, Math.min(
+    GLYPH_SCALE_COUNT - 1,
+    Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
+  ));
+}
+
+function encodeState(line: number, hyphenStreak: number, fitness: number, glyphScale: number): number {
+  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+  return base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+}
+
+function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number } {
+  const glyphBucket = key % GLYPH_SCALE_COUNT;
+  const base = Math.floor(key / GLYPH_SCALE_COUNT);
+  return {
+    line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+    hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+    fitness: base % FITNESS_COUNT,
+    glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+  };
+}
+'''
+patch("web/src/compositor.ts", web_state_old, web_state_new)
 patch(
-    "web/src/hyphenation.ts",
-    '''  // Keep English deliberately conservative for book prose.\n  en: { minimumWord: 7, left: 3, right: 3 },''',
-    '''  // U.S. English TeX convention: lefthyphenmin=2, righthyphenmin=3.\n  en: { minimumWord: 5, left: 2, right: 3 },''',
+    "web/src/compositor.ts",
+    "states[0].set(encodeState(0, 0, initialFitness), {",
+    "states[0].set(encodeState(0, 0, initialFitness, 1), {",
 )
 patch(
-    "web/src/hyphenation.ts",
-    '''/** Keep only dictionary breakpoints that respect language-specific fragment\n * minima. Polish follows the maintained TeX 2/2 convention; English remains\n * intentionally stricter at 3/3 with a seven-letter word floor. */''',
-    '''/** Keep only dictionary breakpoints that respect language-specific fragment\n * minima. Polish follows TeX 2/2; U.S. English follows the standard 2/3\n * convention used by the corresponding TeX hyphenation patterns. */''',
+    "web/src/compositor.ts",
+    "const nextKey = encodeState(nextLine, nextStreak, currentFitness);",
+    "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);",
 )
+# Remove a stale local continuity calculation. Continuity is already included
+# inside fitLine's badness, where it can influence the chosen scale candidate.
 patch(
-    "server/pipeline/hyphenation.ts",
-    '''  en: { minimumWord: 7, left: 3, right: 3 },''',
-    '''  en: { minimumWord: 5, left: 2, right: 3 },''',
+    "web/src/compositor.ts",
+    '''        const glyphScaleDelta = lineFit ? Math.abs(lineFit.glyphScale - previous.glyphScale) : 0;
+        const glyphContinuityPenalty = line === 0 || !lineFit ? 0 : 45 * Math.pow(glyphScaleDelta / 0.01, 2);
+''',
+    "",
 )
 
-# Turn the language rule into a regression test instead of relying on a vague
-# "conservative" invariant that accidentally encoded the old 3/3 policy.
+server_state_old = '''    const FITNESS_COUNT = 4;
+    const HYPHEN_STREAK_COUNT = 3;
+    const encodeState = (line: number, hyphenStreak: number, fitness: number) =>
+      (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+    const decodeState = (key: number) => ({
+      line: Math.floor(key / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+      hyphenStreak: Math.floor(key / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+      fitness: key % FITNESS_COUNT,
+    });
+'''
+server_state_new = '''    const FITNESS_COUNT = 4;
+    const HYPHEN_STREAK_COUNT = 3;
+    const GLYPH_SCALE_MIN = 0.98;
+    const GLYPH_SCALE_STEP = 0.001;
+    const GLYPH_SCALE_COUNT = 41;
+    const glyphScaleBucket = (glyphScale: number) => Math.max(0, Math.min(
+      GLYPH_SCALE_COUNT - 1,
+      Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
+    ));
+    const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number) => {
+      const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+      return base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+    };
+    const decodeState = (key: number) => {
+      const glyphBucket = key % GLYPH_SCALE_COUNT;
+      const base = Math.floor(key / GLYPH_SCALE_COUNT);
+      return {
+        line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+        hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+        fitness: base % FITNESS_COUNT,
+        glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+      };
+    };
+'''
+patch("server/pipeline/compositor.ts", server_state_old, server_state_new)
 patch(
-    "tests/typesetting-language.test.ts",
-    '''function validThreeThree(value: string): boolean {\n  const plainLength = value.replace(/\\u00ad/g, "").length;\n  const points = breakpoints(value);\n  return points.length > 0 && points.every((point) => point >= 3 && plainLength - point >= 3);\n}\n''',
-    '''function validMinima(value: string, left: number, right: number): boolean {\n  const plainLength = value.replace(/\\u00ad/g, "").length;\n  const points = breakpoints(value);\n  return points.length > 0 && points.every((point) => point >= left && plainLength - point >= right);\n}\n''',
+    "server/pipeline/compositor.ts",
+    "states[0].set(encodeState(0, 0, initialFitness), {",
+    "states[0].set(encodeState(0, 0, initialFitness, 1), {",
 )
 patch(
-    "tests/typesetting-language.test.ts",
-    '''test("seven-to-nine-letter Polish words can provide conservative breakpoints", () => {\n  const candidates = ["czytanie", "pisanie", "rozdział", "książkami", "wydanie"];\n  const hyphenated = candidates.map((word) => conservativeHyphenation(pl, word));\n  assert.ok(hyphenated.some((word) => validThreeThree(word)), hyphenated.join(" | "));\n  assert.ok(hyphenated.every((word) => word === word.replace(/\\u00ad/g, "") || validThreeThree(word)));\n});\n\ntest("seven-to-nine-letter English words can provide conservative breakpoints", () => {\n  const candidates = ["reading", "writing", "chapter", "printer", "spacing"];\n  const hyphenated = candidates.map((word) => conservativeHyphenation(en, word));\n  assert.ok(hyphenated.some((word) => validThreeThree(word)), hyphenated.join(" | "));\n  assert.ok(hyphenated.every((word) => word === word.replace(/\\u00ad/g, "") || validThreeThree(word)));\n});''',
-    '''test("Polish dictionary breakpoints respect the 2/2 TeX minima", () => {\n  const candidates = ["czytanie", "pisanie", "rozdział", "książkami", "wydanie"];\n  const hyphenated = candidates.map((word) => conservativeHyphenation(pl, word, 2, 2, 4));\n  assert.ok(hyphenated.some((word) => validMinima(word, 2, 2)), hyphenated.join(" | "));\n  assert.ok(hyphenated.every((word) => word === word.replace(/\\u00ad/g, "") || validMinima(word, 2, 2)));\n});\n\ntest("U.S. English dictionary breakpoints respect the standard 2/3 TeX minima", () => {\n  const candidates = ["ordinary", "contained", "reading", "writing", "chapter", "printer", "spacing"];\n  const hyphenated = candidates.map((word) => conservativeHyphenation(en, word, 2, 3, 5));\n  assert.ok(hyphenated.some((word) => validMinima(word, 2, 3)), hyphenated.join(" | "));\n  assert.ok(hyphenated.every((word) => word === word.replace(/\\u00ad/g, "") || validMinima(word, 2, 3)));\n  assert.ok(breakpoints(conservativeHyphenation(en, "ordinary", 2, 3, 5)).includes(2));\n});''',
+    "server/pipeline/compositor.ts",
+    "const nextKey = encodeState(nextLine, nextStreak, currentFitness);",
+    "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);",
 )
 
-print("Applied TeX-standard U.S. English 2/3 hyphenation minima and regression tests")
+print("Made glyph scale part of the compositor DP state in preview and export")
