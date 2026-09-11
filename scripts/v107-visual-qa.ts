@@ -190,6 +190,8 @@ try {
         characters: number;
         wordSpacingEm: number;
         trackingEm: number;
+        tokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
+        nextLineTokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
       }> = [];
       const lineDetails: Array<{
         paragraphIndex: number;
@@ -279,6 +281,18 @@ try {
               characters: words.reduce((sum, word) => sum + (word.textContent ?? "").replace(/\u00ad/g, "").length, 0),
               wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
               trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+              tokens: words.map((word) => ({
+                text: (word.textContent ?? "").replace(/\u00ad/g, ""),
+                spaceBefore: word.dataset.folioSpaceBefore === "true",
+                hyphenBefore: word.dataset.folioHyphenBefore === "true",
+                widthPx: word.getBoundingClientRect().width,
+              })),
+              nextLineTokens: [...(lines[lineIndex + 1]?.querySelectorAll<HTMLElement>(".folio-word") ?? [])].map((word) => ({
+                text: (word.textContent ?? "").replace(/\u00ad/g, ""),
+                spaceBefore: word.dataset.folioSpaceBefore === "true",
+                hyphenBefore: word.dataset.folioHyphenBefore === "true",
+                widthPx: word.getBoundingClientRect().width,
+              })),
             });
           }
         }
