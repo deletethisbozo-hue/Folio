@@ -125,4 +125,38 @@ patch(
     "const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);",
 )
 
-print("Made glyph scale part of the compositor DP state in preview and export")
+qa_type_old = '''        wordSpacingEm: number;
+        trackingEm: number;
+      }> = [];
+'''
+qa_type_new = '''        wordSpacingEm: number;
+        trackingEm: number;
+        tokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
+        nextLineTokens: Array<{ text: string; spaceBefore: boolean; hyphenBefore: boolean; widthPx: number }>;
+      }> = [];
+'''
+patch("scripts/v107-visual-qa.ts", qa_type_old, qa_type_new)
+
+qa_push_old = '''              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            });
+'''
+qa_push_new = '''              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+              tokens: words.map((word) => ({
+                text: (word.textContent ?? "").replace(/\\u00ad/g, ""),
+                spaceBefore: word.dataset.folioSpaceBefore === "true",
+                hyphenBefore: word.dataset.folioHyphenBefore === "true",
+                widthPx: word.getBoundingClientRect().width,
+              })),
+              nextLineTokens: [...(lines[lineIndex + 1]?.querySelectorAll<HTMLElement>(".folio-word") ?? [])].map((word) => ({
+                text: (word.textContent ?? "").replace(/\\u00ad/g, ""),
+                spaceBefore: word.dataset.folioSpaceBefore === "true",
+                hyphenBefore: word.dataset.folioHyphenBefore === "true",
+                widthPx: word.getBoundingClientRect().width,
+              })),
+            });
+'''
+patch("scripts/v107-visual-qa.ts", qa_push_old, qa_push_new)
+
+print("Made glyph scale part of the compositor DP state and instrumented rescue tokenization")
