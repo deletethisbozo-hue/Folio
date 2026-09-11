@@ -376,8 +376,9 @@ function chooseBreaks(
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
           : null);
         if (!canBreak) continue;
-        if (debugTarget && !emergency && line <= 1) {
+        if (debugTarget) {
           debugCandidates.push({
+            pass: emergency ? (allowNaturalRescue ? "emergency" : "relaxed") : "strict",
             start,
             end,
             nextIndex: end + 1,
@@ -398,6 +399,13 @@ function chooseBreaks(
               glyphScale: strictFit.glyphScale,
               fitness: strictFit.fitness,
               badness: strictFit.badness,
+            } : null,
+            selectedFit: fit ? {
+              wordSpacing: fit.wordSpacing,
+              tracking: fit.tracking,
+              glyphScale: fit.glyphScale,
+              fitness: fit.fitness,
+              badness: fit.badness,
             } : null,
           });
         }
@@ -483,7 +491,7 @@ function chooseBreaks(
     }
   }
   if (bestKey < 0) {
-    if (debugTarget && !emergency) {
+    if (debugTarget && !allowNaturalRescue) {
       const reachable = states.map((stateMap, index) => {
         if (!stateMap.size) return null;
         const decodedStates = [...stateMap.keys()].map((stateKey) => decodeState(stateKey));
@@ -496,12 +504,26 @@ function chooseBreaks(
           fitness: [...new Set(decodedStates.map((state) => state.fitness))],
         };
       }).filter((entry) => entry !== null);
-      debugTarget.dataset.folioStrictFailure = JSON.stringify({
+      const failure = {
+        pass: emergency ? "relaxed" : "strict",
         tokenCount: count,
         furthestIndex: reachable.length ? reachable[reachable.length - 1]!.index : 0,
-        frontier: reachable.slice(-18),
-        candidates: debugCandidates.slice(-80),
-      });
+        frontier: reachable.slice(-24),
+        candidates: debugCandidates.slice(-180),
+      };
+      if (emergency) {
+        let strictFailure: Record<string, unknown> = {};
+        try {
+          strictFailure = debugTarget.dataset.folioStrictFailure
+            ? JSON.parse(debugTarget.dataset.folioStrictFailure)
+            : {};
+        } catch {
+          strictFailure = {};
+        }
+        debugTarget.dataset.folioStrictFailure = JSON.stringify({ ...strictFailure, relaxedFailure: failure });
+      } else {
+        debugTarget.dataset.folioStrictFailure = JSON.stringify(failure);
+      }
     }
     return null;
   }
@@ -615,7 +637,7 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   // Three deliberately separate passes. Natural rescue must never compete
   // on cost with an available justified solution.
   let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, paragraph, false);
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, false);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, paragraph, false);
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, true);
   if (!breaks) {
     restore(paragraph);
