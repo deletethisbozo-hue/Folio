@@ -148,6 +148,7 @@ export default function App() {
   // Large append-only typing can then patch the tail paragraph instead of
   // reparsing and replacing thousands of unchanged paragraphs.
   const livePreviewDraftRef = useRef("");
+  const fastPreviewComposeTimerRef = useRef<number | null>(null);
 
   const resetDocumentView = () => {
     draftRef.current = "";
@@ -164,6 +165,10 @@ export default function App() {
     setSaveState("idle");
     setPreviewHtml("");
     livePreviewDraftRef.current = "";
+    if (fastPreviewComposeTimerRef.current !== null) {
+      window.clearTimeout(fastPreviewComposeTimerRef.current);
+      fastPreviewComposeTimerRef.current = null;
+    }
     previewIdentityRef.current = "";
     pendingPreviewIdentityRef.current = "";
     pendingPreviewScrollRef.current = 0;
@@ -366,6 +371,10 @@ export default function App() {
     // The paragraph remains under the existing lazy compositor observer, so it
     // receives full professional composition if/when the reader scrolls to it.
     const representedDraft = livePreviewDraftRef.current;
+    if (previewDraft.length > 250_000 && representedDraft === previewDraft) {
+      if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
+      return true;
+    }
     const appendDelta = previewDraft.length > 250_000
       && representedDraft.length > 0
       && previewDraft.startsWith(representedDraft)
@@ -936,6 +945,45 @@ export default function App() {
     }
   }
 
+  function applyFastKeyToLivePreview(nextDraft: string, key: string): void {
+    if (nextDraft.length < 250_000 || previewMode === "print" || !selectedId || document?.id !== selectedId) return;
+    const previewDocument = previewRef.current?.contentDocument;
+    if (!previewDocument) return;
+    const section = previewDocument.getElementById(selectedId)
+      ?? previewDocument.querySelector<HTMLElement>("main.book > section.chapter, main.book > section.level1");
+    const tail = section?.lastElementChild instanceof HTMLElement
+      && section.lastElementChild.matches("p:not(.scene-break)")
+      ? section.lastElementChild
+      : null;
+    if (!tail) return;
+
+    // A visible tail may already have been composed. Restore only this one
+    // paragraph to its semantic form, instead of rebuilding the whole book.
+    const originalHtml = tail.dataset.folioOriginalHtml;
+    if (originalHtml !== undefined) {
+      const originalStyle = tail.dataset.folioOriginalStyle;
+      tail.innerHTML = originalHtml;
+      delete tail.dataset.folioOriginalHtml;
+      delete tail.dataset.folioOriginalStyle;
+      delete tail.dataset.folioStrictFailure;
+      tail.classList.remove("folio-composed", "folio-composed-dropcap", "folio-compositor-safe-fallback");
+      if (originalStyle === "__none__" || originalStyle === undefined) tail.removeAttribute("style");
+      else tail.setAttribute("style", originalStyle);
+    }
+
+    tail.append(previewDocument.createTextNode(key));
+    livePreviewDraftRef.current = nextDraft;
+
+    // Re-arm lazy professional composition after the typing burst. This is cheap:
+    // no Markdown/Pandoc rebuild, and off-screen paragraphs remain lazy.
+    if (fastPreviewComposeTimerRef.current !== null) window.clearTimeout(fastPreviewComposeTimerRef.current);
+    fastPreviewComposeTimerRef.current = window.setTimeout(() => {
+      fastPreviewComposeTimerRef.current = null;
+      const doc = previewRef.current?.contentDocument;
+      if (doc && typography.bodyAlign !== "left") void composePreviewDocument(doc, true);
+    }, 900);
+  }
+
   function applyFastEditorKey(event: React.KeyboardEvent<HTMLDivElement>): boolean {
     const editor = editorRef.current;
     if (!editor || draftRef.current.length < 100_000) return false;
@@ -992,6 +1040,7 @@ export default function App() {
 
     editor.dataset.markdown = next;
     draftRef.current = next;
+    applyFastKeyToLivePreview(next, event.key);
     setDraft(next);
     setDirty(true);
     return true;
