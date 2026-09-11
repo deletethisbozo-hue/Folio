@@ -427,7 +427,7 @@ export default function App() {
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [previewDraft, document?.id, document?.subtitle, selectedId, previewMode, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
+  }, [previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -454,9 +454,9 @@ export default function App() {
   // its layout even when switching profiles produces byte-identical srcDoc and
   // React therefore has no reason to reload the iframe.
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => onPreviewLoad());
+    const frame = window.requestAnimationFrame(() => onPreviewLoad(undefined, true));
     return () => window.cancelAnimationFrame(frame);
-  }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
+  }, [previewMode, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
@@ -818,7 +818,7 @@ export default function App() {
     doc.head.appendChild(style);
   }
 
-  function onPreviewLoad(restoreScroll?: number) {
+  function onPreviewLoad(restoreScroll?: number, geometryOnly = false) {
     const frame = previewRef.current;
     const doc = frame?.contentDocument;
     if (!doc?.head || !frame) return;
@@ -844,13 +844,17 @@ export default function App() {
     const compositionModeChanged = frame.dataset.folioCompositionMode !== compositionMode;
     frame.dataset.folioCompositionMode = compositionMode;
     syncLiveChapterLabel(doc);
-    const liveApply = applyLiveDraftToPreview();
+    // Device/profile changes are geometry-only. Never let a transient debounce
+    // difference between draft and previewDraft turn a reader switch into a
+    // 5,200-paragraph content rebuild. Authoritative iframe loads still apply
+    // the live draft through the normal content path.
+    const liveApply = geometryOnly ? "reused" as const : applyLiveDraftToPreview();
     if (previewMode !== "print" && liveApply === "none") {
       if (typography.bodyAlign !== "left") hyphenatePreviewDocument(doc, meta?.language || "en");
       void composePreviewDocument(doc, typography.bodyAlign !== "left");
     } else if (previewMode !== "print"
       && liveApply !== "rebuilt"
-      && (calibrationChanged || compositionModeChanged)) {
+      && (geometryOnly || calibrationChanged || compositionModeChanged)) {
       // The content is already current. Geometry/alignment changes only need a
       // new lazy composition pass; composeParagraph hyphenates each paragraph
       // as it becomes visible. Re-hyphenating an entire 100k-word book here
