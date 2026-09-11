@@ -439,6 +439,24 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       // declared protrusion while keeping the same 1.75px residual gate.
       return Math.abs(lineRect.right + protrusions[index] - contentRect.right);
     });
+    const lineGeometry = justified.map((line, index) => {
+      const lineRect = line.getBoundingClientRect();
+      const range = doc.createRange();
+      range.selectNodeContents(line);
+      const contentRect = range.getBoundingClientRect();
+      const content = line.querySelector<HTMLElement>(":scope > .folio-line-content")?.getBoundingClientRect();
+      return {
+        text: line.textContent?.replace(/\u00ad/g, "") ?? "",
+        lineWidth: lineRect.width,
+        rangeWidth: contentRect.width,
+        contentWidth: content?.width ?? null,
+        error: errors[index],
+        wordSpacing: Number(line.dataset.folioWordSpacing ?? 0),
+        tracking: Number(line.dataset.folioTracking ?? 0),
+        glyphScale: Number(line.dataset.folioGlyphScale ?? 1),
+        protrusion: protrusions[index],
+      };
+    });
     const fontSize = Number.parseFloat(getComputedStyle(paragraph).fontSize) || 16;
     const wordSpacing = justified.map((line) => Math.abs(Number(line.dataset.folioWordSpacing ?? 0)));
     const tracking = justified.map((line) => Math.abs(Number(line.dataset.folioTracking ?? 0)));
@@ -474,6 +492,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       maxTracking: Math.max(...tracking, 0),
       maxSemanticGap: Math.max(...semanticGaps, 0),
       dropcapOk,
+      lineGeometry,
     };
   });
   check("non-final lines really reach the measure inside professional spacing limits", professionalGeometry.ok, JSON.stringify(professionalGeometry));
