@@ -1,4 +1,5 @@
 Folio 1.0.7 final qualification trigger
-Candidate tree: 236cbc6ddd4ef854c7dfdf42cb487e5db5b07f61
-UI polish: SF Pro stack for application chrome; manuscript typography unchanged; Export is text-only.
-Typesetting gate: completed paragraph hyphen rate remains hard-capped at 0.45.
+Candidate: b49007554736c5537b2389d0ecfbaf669241b279
+UI: SF Pro stack for application chrome; manuscript typography unchanged; Export is text-only.
+Composition: tighter word spacing/tracking/glyph scaling; two-line drop caps; no ragged drop-cap rescue; hyphen rate hard-capped at 0.45.
+Visual QA now rejects loose spacing and unjustified drop-cap opening lines.
