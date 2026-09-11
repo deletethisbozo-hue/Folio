@@ -10,7 +10,7 @@ def patch(path: str, old: str, new: str) -> None:
         print(f"{path}: already patched")
         return
     if old not in value:
-        raise RuntimeError(f"expected compositor marker missing in {path}")
+        raise RuntimeError(f"expected patch marker missing in {path}")
     target.write_text(value.replace(old, new, 1), encoding="utf-8")
 
 
@@ -48,6 +48,58 @@ server_new = """      const maxWordSpacing = emergency
       const minTracking = -fontSize * 0.0045;
 """
 
+qa_type_old = """      const emergencyDetails: Array<{ text: string; wordSpacingEm: number; trackingEm: number }> = [];
+"""
+qa_type_new = """      const emergencyDetails: Array<{
+        text: string;
+        previousText: string | null;
+        nextText: string | null;
+        naturalWidthPx: number;
+        availableWidthPx: number;
+        fill: number;
+        gaps: number;
+        characters: number;
+        wordSpacingEm: number;
+        trackingEm: number;
+      }> = [];
+"""
+
+qa_push_old = """          if (line.dataset.folioEmergency === \"true\") {
+            emergencyLines++;
+            emergencyDetails.push({
+              text: line.textContent?.replace(/\\u00ad/g, \"\") ?? \"\",
+              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            });
+          }
+"""
+qa_push_new = """          if (line.dataset.folioEmergency === \"true\") {
+            emergencyLines++;
+            const range = doc.createRange();
+            range.selectNodeContents(line);
+            const words = [...line.querySelectorAll<HTMLElement>(\".folio-word\")];
+            const gaps = words.slice(1).filter((word) => word.dataset.folioSpaceBefore === \"true\").length;
+            const lineIndex = lines.indexOf(line);
+            const clean = (value: string | null | undefined) => value?.replace(/\\u00ad/g, \"\") ?? null;
+            const naturalWidthPx = range.getBoundingClientRect().width;
+            const availableWidthPx = line.getBoundingClientRect().width;
+            emergencyDetails.push({
+              text: clean(line.textContent) ?? \"\",
+              previousText: clean(lines[lineIndex - 1]?.textContent),
+              nextText: clean(lines[lineIndex + 1]?.textContent),
+              naturalWidthPx,
+              availableWidthPx,
+              fill: naturalWidthPx / Math.max(1, availableWidthPx),
+              gaps,
+              characters: words.reduce((sum, word) => sum + (word.textContent ?? \"\").replace(/\\u00ad/g, \"\").length, 0),
+              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            });
+          }
+"""
+
 patch("web/src/compositor.ts", web_old, web_new)
 patch("server/pipeline/compositor.ts", server_old, server_new)
-print("Strict compositor now uses the full QA-safe spacing envelope")
+patch("scripts/v107-visual-qa.ts", qa_type_old, qa_type_new)
+patch("scripts/v107-visual-qa.ts", qa_push_old, qa_push_new)
+print("Applied v1.0.7 compositor and QA diagnostics patch")
