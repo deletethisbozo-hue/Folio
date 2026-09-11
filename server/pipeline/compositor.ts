@@ -76,12 +76,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       if (gaps <= 0) return null;
       const maxWordSpacing = emergency
         ? Math.min(spaceWidth * 0.48, fontSize * 0.14)
-        : Math.min(spaceWidth * 0.38, fontSize * 0.115);
-      const minWordSpacing = emergency
-        ? -Math.min(spaceWidth * 0.18, fontSize * 0.045)
-        : -Math.min(spaceWidth * 0.14, fontSize * 0.035);
+        : Math.min(spaceWidth * 0.50, fontSize * 0.115);
+      const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);
       const maxTracking = fontSize * (emergency ? 0.007 : 0.0055);
-      const minTracking = -fontSize * (emergency ? 0.0045 : 0.0035);
+      const minTracking = -fontSize * 0.0045;
 
       let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, adjustment / gaps));
       let remaining = adjustment - wordSpacing * gaps;
