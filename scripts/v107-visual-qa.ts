@@ -343,7 +343,7 @@ try {
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(report, null, 2) + "\n", "utf8");
     if (
       report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 ||
-      report.maxWordSpacingEm > 0.131 || report.maxStrictWordSpacingEm > 0.116 || report.maxRelaxedWordSpacingEm > 0.131 ||
+      report.maxWordSpacingEm > 0.141 || report.maxStrictWordSpacingEm > 0.116 || report.maxRelaxedWordSpacingEm > 0.141 ||
       report.relaxedLines > 2 || report.maxTrackingEm > 0.0057 || report.maxGlyphScaleDelta > 0.0201 ||
       report.maxAdjacentGlyphScaleDelta > 0.025 + 1e-9 || report.maxSemanticGapEm > 0.43 ||
       report.maxAdjacentSpacingDeltaEm > 0.22 || report.hyphenRate > 0.45 || report.maxHyphenStreak > 2 ||

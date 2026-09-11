@@ -82,7 +82,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // strict composition. Tracking and glyph expansion stay at strict limits;
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = emergency
-        ? Math.min(spaceWidth * 0.56, fontSize * 0.13)
+        ? Math.min(spaceWidth * 0.56, fontSize * 0.14)
         : Math.min(spaceWidth * 0.50, fontSize * 0.115);
       const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);
       const maxTracking = fontSize * 0.0055;
