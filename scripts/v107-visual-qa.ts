@@ -181,6 +181,19 @@ try {
         wordSpacingEm: number;
         trackingEm: number;
       }> = [];
+      const lineDetails: Array<{
+        paragraphIndex: number;
+        lineIndex: number;
+        text: string;
+        contentWidthPx: number;
+        availableWidthPx: number;
+        fill: number;
+        justified: boolean;
+        emergency: boolean;
+        wordSpacingEm: number;
+        trackingEm: number;
+        gaps: number;
+      }> = [];
       let ornamentalBreaksOffCenter = 0;
       for (const paragraph of paragraphs) {
         const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
@@ -189,6 +202,24 @@ try {
         for (const line of lines) {
           const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
           const justified = line.classList.contains("folio-line-justified");
+          const diagnosticRange = doc.createRange();
+          diagnosticRange.selectNodeContents(line);
+          const diagnosticWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+          const contentWidthPx = diagnosticRange.getBoundingClientRect().width;
+          const availableWidthPx = line.getBoundingClientRect().width;
+          lineDetails.push({
+            paragraphIndex: paragraphs.indexOf(paragraph),
+            lineIndex: lines.indexOf(line),
+            text: (line.textContent ?? "").replace(/\u00ad/g, ""),
+            contentWidthPx,
+            availableWidthPx,
+            fill: contentWidthPx / Math.max(1, availableWidthPx),
+            justified,
+            emergency: line.dataset.folioEmergency === "true",
+            wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+            trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            gaps: diagnosticWords.slice(1).filter((word) => word.dataset.folioSpaceBefore === "true").length,
+          });
           if (justified) {
             justifiedLines++;
             const range = doc.createRange();
@@ -253,6 +284,7 @@ try {
         maxAdjacentSpacingDeltaEm,
         emergencyLines,
         emergencyDetails,
+        lineDetails,
         ornamentalBreaksOffCenter,
       };
     }, needle);
