@@ -321,13 +321,13 @@ export default function App() {
     setPreviewHtml(html);
   }
 
-  function applyLiveDraftToPreview(): boolean {
+  function applyLiveDraftToPreview(): "none" | "reused" | "patched" | "rebuilt" {
     // Generated title/copyright pages already have authoritative Pandoc HTML.
     // Re-rendering their internal markup as Markdown exposed literal <p> tags
     // and could add chapter-only typography such as drop caps.
-    if (previewMode === "print" || !selectedId || document?.id !== selectedId || !document.editable) return false;
+    if (previewMode === "print" || !selectedId || document?.id !== selectedId || !document.editable) return "none";
     const previewDocument = previewRef.current?.contentDocument;
-    if (!previewDocument) return false;
+    if (!previewDocument) return "none";
     const previewScroller = previewDocument.scrollingElement as HTMLElement | null;
     const preservedScrollTop = previewScroller?.scrollTop ?? 0;
     let section = previewDocument.getElementById(selectedId)
@@ -381,7 +381,7 @@ export default function App() {
     const representedDraft = livePreviewDraftRef.current;
     if (previewDraft.length > 250_000 && representedDraft === previewDraft) {
       if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
-      return true;
+      return "reused";
     }
     const appendDelta = previewDraft.length > 250_000
       && representedDraft.length > 0
@@ -396,7 +396,7 @@ export default function App() {
       tail.append(previewDocument.createTextNode(appendDelta));
       livePreviewDraftRef.current = previewDraft;
       if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
-      return true;
+      return "patched";
     }
 
     Array.from(section.children).forEach((node) => {
@@ -412,7 +412,7 @@ export default function App() {
     applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
     void composePreviewDocument(previewDocument, typography.bodyAlign !== "left");
-    return true;
+    return "rebuilt";
   }
 
   // A full-book paste must not wait for Pandoc. Update the already loaded
@@ -839,9 +839,17 @@ export default function App() {
     const compositionModeChanged = frame.dataset.folioCompositionMode !== compositionMode;
     frame.dataset.folioCompositionMode = compositionMode;
     syncLiveChapterLabel(doc);
-    const liveApplied = applyLiveDraftToPreview();
-    if (previewMode !== "print" && (!liveApplied || calibrationChanged || compositionModeChanged)) {
+    const liveApply = applyLiveDraftToPreview();
+    if (previewMode !== "print" && liveApply === "none") {
       if (typography.bodyAlign !== "left") hyphenatePreviewDocument(doc, meta?.language || "en");
+      void composePreviewDocument(doc, typography.bodyAlign !== "left");
+    } else if (previewMode !== "print"
+      && liveApply !== "rebuilt"
+      && (calibrationChanged || compositionModeChanged)) {
+      // The content is already current. Geometry/alignment changes only need a
+      // new lazy composition pass; composeParagraph hyphenates each paragraph
+      // as it becomes visible. Re-hyphenating an entire 100k-word book here
+      // would block Windows for tens of seconds before line one can render.
       void composePreviewDocument(doc, typography.bodyAlign !== "left");
     }
     if (pendingPreviewIdentityRef.current) {
