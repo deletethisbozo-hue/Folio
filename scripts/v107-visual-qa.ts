@@ -43,6 +43,7 @@ try {
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.body));
+  await page.waitForSelector(".preview-loading", { hidden: true });
 
   const dimensions = await page.evaluate(() => {
     const shell = document.querySelector(".folio-shell")!.getBoundingClientRect();
@@ -62,6 +63,7 @@ try {
   await page.screenshot({ path: path.join(qa, "studio-ivory.png") });
   await page.click(".tone-toggle");
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await page.waitForSelector(".preview-loading", { hidden: true });
   await page.screenshot({ path: path.join(qa, "studio-midnight.png") });
   await page.click(".tone-toggle");
 
@@ -72,13 +74,18 @@ try {
       editor.innerHTML = values.map((value) => `<p>${value}</p>`).join(ornament);
       editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertReplacementText" }));
     }, paragraphs);
-    const needle = paragraphs[0].split(/\s+/)[0];
+    const needle = paragraphs[0].slice(0, 48);
     await page.waitForFunction((value) => (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown?.includes(value), {}, needle);
-    await page.waitForFunction((value) => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes(value), {}, needle);
-    await page.waitForFunction(() => {
+    await page.waitForFunction((value) => {
       const doc = document.querySelector("iframe")?.contentDocument;
-      return Boolean(doc?.querySelector("section.chapter > p.folio-composed .folio-composed-line"));
-    });
+      const first = doc?.querySelector<HTMLElement>("section.chapter > p.folio-composed");
+      return Boolean(first?.textContent?.replace(/\u00ad/g, "").includes(value)
+        && first.querySelector(".folio-composed-line"));
+    }, {}, needle);
+    await page.waitForSelector(".preview-loading", { hidden: true });
+    // Let the async compositor finish its viewport batch and prove that the
+    // visible frame, rather than a stale hidden string, contains this corpus.
+    await new Promise((resolve) => setTimeout(resolve, 250));
   };
 
   const setLanguage = async (language: string) => {
@@ -134,6 +141,7 @@ try {
       let maxSemanticGapEm = 0;
       let maxAdjacentSpacingDeltaEm = 0;
       let emergencyLines = 0;
+      const emergencyDetails: Array<{ text: string; wordSpacingEm: number; trackingEm: number }> = [];
       let ornamentalBreaksOffCenter = 0;
       for (const paragraph of paragraphs) {
         const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
@@ -164,7 +172,14 @@ try {
             streak++;
             maxHyphenStreak = Math.max(maxHyphenStreak, streak);
           } else streak = 0;
-          if (line.dataset.folioEmergency === "true") emergencyLines++;
+          if (line.dataset.folioEmergency === "true") {
+            emergencyLines++;
+            emergencyDetails.push({
+              text: line.textContent?.replace(/\u00ad/g, "") ?? "",
+              wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
+              trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
+            });
+          }
         }
       }
       for (const ornament of doc.querySelectorAll<HTMLElement>(".scene-break")) {
@@ -184,6 +199,7 @@ try {
         maxSemanticGapEm,
         maxAdjacentSpacingDeltaEm,
         emergencyLines,
+        emergencyDetails,
         ornamentalBreaksOffCenter,
       };
     });
@@ -220,3 +236,4 @@ try {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
 }
+4a5f1f20202e0ffaa7051a6bd2716aace3b8ce16
