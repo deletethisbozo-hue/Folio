@@ -84,7 +84,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const maxWordSpacing = emergency
         ? Math.min(spaceWidth * 0.56, fontSize * 0.14)
         : Math.min(spaceWidth * 0.50, fontSize * 0.115);
-      const minWordSpacing = -Math.min(spaceWidth * 0.18, fontSize * 0.045);
+      const minWordSpacing = -Math.min(spaceWidth * 0.22, fontSize * 0.055);
       const maxTracking = fontSize * 0.0055;
       const minTracking = -fontSize * 0.0045;
       const maxGlyphScaleDelta = 0.02;
