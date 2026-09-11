@@ -53,7 +53,7 @@ try {
   await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes("Packaged Libre paragraph"), { timeout: 15000 });
   await page.click('[title="Insert ornamental scene break"]');
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break")), { timeout: 15000 });
-  await page.click(".preview-style-button");
+  await page.click('[data-command="design"]');
   await page.waitForSelector(".theme-sample");
   const themes = await page.$$eval(".theme-sample", (items) => items.length);
   if (themes < 30) throw new Error("Packaged style browser contains only " + themes + " themes.");

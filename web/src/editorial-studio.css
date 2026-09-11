@@ -1,4 +1,4 @@
-/* Folio 1.0.6 Editorial Studio
+/* Folio Editorial Studio
  *
  * This layer intentionally changes the application composition rather than
  * recolouring the legacy UI. Existing selectors/actions remain intact so no
@@ -6,27 +6,27 @@
  */
 
 .folio-shell[data-ui-tone="ivory"] {
-  --studio-bg: #e9e5dd;
-  --studio-chrome: #f7f4ee;
-  --studio-sidebar: #eee9df;
+  --studio-bg: #f0ede7;
+  --studio-chrome: #faf8f3;
+  --studio-sidebar: #f4f0e8;
   --studio-surface: #fffdf8;
   --studio-paper: #fffdfa;
-  --studio-editor-canvas: #ddd8cf;
-  --studio-preview: #d8d4cc;
-  --studio-preview-chrome: #f3f0e9;
+  --studio-editor-canvas: #e5e1da;
+  --studio-preview: #e4e1db;
+  --studio-preview-chrome: #faf8f3;
   --studio-preview-ink: #4c4740;
   --studio-preview-muted: #777066;
-  --studio-preview-rule: #c5beb3;
-  --studio-preview-control: #ebe7df;
-  --studio-preview-hover: #e2dcd2;
+  --studio-preview-rule: #d4cdc2;
+  --studio-preview-control: #f3efe8;
+  --studio-preview-hover: #ebe4da;
   --studio-preview-scrollbar: #aaa298;
   --studio-ink: #211f1c;
   --studio-muted: #776f64;
   --studio-faint: #a69d90;
-  --studio-rule: #cec6ba;
-  --studio-rule-strong: #b7ad9e;
-  --studio-accent: #9a6744;
-  --studio-accent-soft: #e4d5c5;
+  --studio-rule: #ddd6cc;
+  --studio-rule-strong: #c9c0b4;
+  --studio-accent: #a47148;
+  --studio-accent-soft: #e8dcca;
   --studio-danger: #98554e;
   --studio-control: #f8f5ef;
 }
@@ -301,6 +301,11 @@
 .folio-shell[data-ui-tone] .chapter-row:focus-visible .chapter-grip,
 .folio-shell[data-ui-tone] .chapter-row.dragging .chapter-grip {
   opacity: .75;
+}
+
+.folio-shell[data-ui-tone] .chapter-grip .ui-icon circle {
+  fill: currentColor;
+  stroke: none;
 }
 
 .folio-shell[data-ui-tone] .chapter-number {
@@ -671,19 +676,12 @@
   background: var(--studio-preview-chrome);
 }
 
-.folio-shell[data-ui-tone] .preview-style-button {
-  height: 28px;
-  padding: 0 7px;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  color: var(--studio-preview-ink);
-  font: 11px Georgia, serif;
-}
-
-.folio-shell[data-ui-tone] .preview-style-button:hover {
-  background: var(--studio-preview-hover);
-  color: var(--studio-ink);
+.folio-shell[data-ui-tone] .preview-pane-title {
+  color: var(--studio-preview-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .11em;
+  text-transform: uppercase;
 }
 
 .folio-shell[data-ui-tone] .generate-button {

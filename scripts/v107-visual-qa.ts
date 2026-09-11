@@ -86,7 +86,7 @@ try {
   };
 
   const setDropcap = async (enabled: boolean) => {
-    await page.click(".preview-style-button");
+    await page.click('[data-command="design"]');
     await page.waitForSelector(".style-category-list");
     await page.evaluate(() => {
       const button = [...document.querySelectorAll(".style-category-list button")].find((node) => node.textContent === "First Paragraph");

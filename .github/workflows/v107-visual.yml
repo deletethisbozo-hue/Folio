@@ -25,6 +25,8 @@ jobs:
           node-version: 22.23.2
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Install preview conversion engine
+        run: sudo apt-get update && sudo apt-get install -y pandoc
       - run: npx puppeteer browsers install chrome-headless-shell
       - run: npm run typecheck
       - run: npm run build

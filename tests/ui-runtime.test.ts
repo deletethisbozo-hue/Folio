@@ -162,7 +162,7 @@ try {
     (window as any).__folioFrameLoads = 0;
     frame?.addEventListener("load", () => (window as any).__folioFrameLoads++);
   });
-  await page.click(".preview-style-button");
+  await page.click('[data-command="design"]');
   await stage("open visual theme gallery", () => page.waitForSelector(".theme-sample"));
   const themeCount = await page.$$eval(".theme-sample", (items) => items.length);
   const distinctCards = await page.$$eval(".theme-sample", (items) => {
@@ -311,7 +311,7 @@ try {
   await stage("whole-book autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 60000 }));
   check("the complete pasted book reaches autosave", true);
 
-  await page.click(".preview-style-button");
+  await page.click('[data-command="design"]');
   await stage("whole-book typography controls", () => page.waitForSelector(".style-category-list"));
   await page.evaluate(() => {
     const bodyButton = [...document.querySelectorAll(".style-category-list button")].find((button) => button.textContent === "Body");
@@ -411,7 +411,7 @@ try {
     const sidebar = getComputedStyle(document.querySelector(".library-pane")!);
     const title = getComputedStyle(document.querySelector(".section-title")!);
     return {
-      ok: command.height >= 46 && library.width >= 190 && preview.width <= 350 &&
+      ok: command.height >= 46 && library.width >= 190 && preview.width >= 390 && preview.width <= 470 &&
         manuscript.width < editorPane.width - 20 && manuscript.left > editorPane.left + 10 &&
         Number.parseFloat(title.fontSize) >= 18 && sidebar.backgroundImage === "none" &&
         selected.borderRadius === "0px" && shell.bottom <= innerHeight + 1,
@@ -425,7 +425,7 @@ try {
       selectedRadius: selected.borderRadius,
     };
   });
-  check("1.0.6 uses the new Editorial Studio layout rather than the recoloured legacy geometry", studioGeometry.ok, JSON.stringify(studioGeometry));
+  check("1.0.7 keeps a legible professional preview beside the manuscript", studioGeometry.ok, JSON.stringify(studioGeometry));
   await stage("ornament remains centered under justification", () => page.waitForFunction(() => {
     const ornament = document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break");
     return ornament ? getComputedStyle(ornament).textAlign === "center" && getComputedStyle(ornament).textAlignLast === "center" : false;
