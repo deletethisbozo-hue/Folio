@@ -98,5 +98,12 @@ if new_geometry not in value:
         raise RuntimeError("professional geometry paragraph lookup not found")
     value = value.replace(old_geometry, new_geometry, 1)
 
+old_add = '  await page.click(".footer-add");\n'
+new_add = '  await page.click(\'[data-command="add"]\');\n'
+if new_add not in value:
+    if old_add not in value:
+        raise RuntimeError("stale Add Content selector not found")
+    value = value.replace(old_add, new_add, 1)
+
 target.write_text(value, encoding="utf-8")
-print("Made UI deletion diagnostics and Polish composition assertion deterministic")
+print("Made UI qualification deterministic and aligned it with current Add Content UI")
