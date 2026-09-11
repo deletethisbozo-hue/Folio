@@ -118,13 +118,27 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
 
     const FITNESS_COUNT = 4;
     const HYPHEN_STREAK_COUNT = 3;
-    const encodeState = (line: number, hyphenStreak: number, fitness: number) =>
-      (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
-    const decodeState = (key: number) => ({
-      line: Math.floor(key / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
-      hyphenStreak: Math.floor(key / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
-      fitness: key % FITNESS_COUNT,
-    });
+    const GLYPH_SCALE_MIN = 0.98;
+    const GLYPH_SCALE_STEP = 0.001;
+    const GLYPH_SCALE_COUNT = 41;
+    const glyphScaleBucket = (glyphScale: number) => Math.max(0, Math.min(
+      GLYPH_SCALE_COUNT - 1,
+      Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
+    ));
+    const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number) => {
+      const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+      return base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+    };
+    const decodeState = (key: number) => {
+      const glyphBucket = key % GLYPH_SCALE_COUNT;
+      const base = Math.floor(key / GLYPH_SCALE_COUNT);
+      return {
+        line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+        hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+        fitness: base % FITNESS_COUNT,
+        glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
+      };
+    };
     const lineGapPositions = (
       words: Word[],
       start: number,
@@ -296,7 +310,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const runBreaker = (emergency: boolean): Break[] | null => {
       const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());
       const initialFitness = 1;
-      states[0].set(encodeState(0, 0, initialFitness), {
+      states[0].set(encodeState(0, 0, initialFitness, 1), {
         cost: 0,
         from: -1,
         fromKey: -1,
@@ -378,7 +392,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + hyphenPenalty + punctuationPenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
-            const nextKey = encodeState(nextLine, nextStreak, currentFitness);
+            const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1);
             const old = states[end + 1].get(nextKey);
             if (!old || cost < old.cost) states[end + 1].set(nextKey, {
               cost,
