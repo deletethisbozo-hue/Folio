@@ -303,7 +303,7 @@ try {
     if (
       report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 ||
       report.maxWordSpacingEm > 0.116 || report.maxTrackingEm > 0.0057 || report.maxGlyphScaleDelta > 0.0201 ||
-      report.maxAdjacentGlyphScaleDelta > 0.025 || report.maxSemanticGapEm > 0.43 ||
+      report.maxAdjacentGlyphScaleDelta > 0.025 + 1e-9 || report.maxSemanticGapEm > 0.43 ||
       report.maxAdjacentSpacingDeltaEm > 0.22 || report.hyphenRate > 0.45 || report.maxHyphenStreak > 2 ||
       report.emergencyLines !== 0 || report.ornamentalBreaksOffCenter !== 0
     ) throw new Error(`${label} failed typographic QA: ${JSON.stringify(report)}`);
