@@ -1,1 +1,1 @@
-qa-run symmetric-relaxed-windows-visual-2026-09-11-1
+qa-run widow-penalty-windows-visual-2026-09-11-1
