@@ -23,10 +23,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/src/compositor.ts server/pipeline/compositor.ts scripts/v107-visual-qa.ts
+          git add \
+            web/src/compositor.ts \
+            server/pipeline/compositor.ts \
+            web/src/hyphenation.ts \
+            server/pipeline/hyphenation.ts \
+            scripts/v107-visual-qa.ts \
+            tests/typesetting-language.test.ts
           if git diff --cached --quiet; then
             echo "No source changes needed"
             exit 0
           fi
-          git commit -m "Expand v1.0.7 line geometry diagnostics"
+          git commit -m "Apply Folio 1.0.7 typesetting source patch"
           git push origin HEAD:fix/v1.0.7
