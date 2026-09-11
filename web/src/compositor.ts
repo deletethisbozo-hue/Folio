@@ -640,10 +640,12 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  // Three deliberately separate passes. Natural rescue must never compete
-  // on cost with an available justified solution.
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, paragraph, false);
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, paragraph, false);
+  // Let the controlled relaxed envelope participate in the same global
+  // optimisation as strict lines. Each relaxed line still carries a large
+  // penalty, so it is selected only when it improves the paragraph as a whole
+  // (for example by avoiding excessive hyphenation or a stranded final word).
+  // Natural rescue remains a separate last resort and never competes on cost.
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, paragraph, false);
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, null, true);
   if (!breaks) {
     restore(paragraph);
