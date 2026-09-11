@@ -1,1 +1,1 @@
-qa-run english-tex-minima
+qa-run english-rescue-token-diagnostics
