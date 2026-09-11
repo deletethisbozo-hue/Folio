@@ -445,6 +445,11 @@ function chooseBreaks(
         if (!last && !lineFit && !rescueNatural) continue;
 
         const wordsOnLine = end - start + 1;
+        // A one-token final line is a true widow, and a discretionary
+        // hyphen continuation there is worse still. Do not accept it in the
+        // professional justified pass. The final rescue pass may still use it
+        // when the paragraph has no feasible alternative at all.
+        if (last && wordsOnLine === 1 && !allowNaturalRescue) continue;
         const fill = Math.min(1, natural / Math.max(1, available));
         // A stranded final word is a real book-composition defect, especially
         // when the preceding line was itself hyphenated. Preserve feasible
