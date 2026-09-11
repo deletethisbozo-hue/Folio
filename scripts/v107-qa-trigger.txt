@@ -1,1 +1,1 @@
-qa-run glyph-expansion-gate
+qa-run glyph-continuity-gate
