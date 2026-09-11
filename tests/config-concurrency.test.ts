@@ -92,7 +92,9 @@ await test("concurrent first writes share one sample copy-on-write directory", a
       frontmatter?: string[];
     };
     assert.equal(config.subtitle, `Concurrent subtitle ${attempt}`);
-    assert.deepEqual(config.frontmatter, ["copyright"]);
+    assert.ok(config.frontmatter, "sample front matter should remain configured");
+    assert.equal(config.frontmatter.includes("titlepage"), false, "deleted generated title page must stay deleted");
+    assert.deepEqual(config.frontmatter, ["copyright", "frontmatter/dedication.md", "frontmatter/epigraph.md"]);
   }
 });
 
