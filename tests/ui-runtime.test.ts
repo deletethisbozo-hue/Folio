@@ -344,24 +344,37 @@ try {
     scroll: (document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null)?.scrollTop ?? 0,
   }));
   check("style changes patch preview in place without reloading or losing reading position", stableStyleUpdate.loads === 0 && stableStyleUpdate.scroll > 0, JSON.stringify(stableStyleUpdate));
-  await page.select('select[aria-label="Preview device"]', "kindle-oasis");
-  await stage("Polish professional justification", () => page.waitForFunction(() => {
-    const doc = document.querySelector("iframe")?.contentDocument;
-    if (!doc || !/^pl(?:-|$)/i.test(doc.documentElement.lang || "")) return false;
-    const paragraphs = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")];
-    const activeParagraph = paragraphs.find((paragraph) =>
-      Boolean(paragraph.querySelector(".folio-line-justified") && paragraph.lastElementChild?.classList.contains("folio-line-natural"))
-    );
-    if (!activeParagraph) return false;
-    const hasEmergencyLine = Boolean(activeParagraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]'));
-    // U+00AD is an implementation detail of discretionary hyphenation. Strip it
-    // before checking the Polish one-letter-preposition NBSP contract, otherwise
-    // a legal breakpoint inside the following word makes the semantic assertion
-    // fail even though both preprocessing steps worked correctly.
-    const semanticText = (doc.body.textContent ?? "").replace(/\u00ad/g, "");
-    return !hasEmergencyLine && semanticText.includes("W\u00a0Polsce");
-  }, { timeout: 30000 }));
-  check("Polish justification uses paragraph-wide breaks and a natural final line", true);
+  // The large-manuscript scroll check deliberately leaves the iframe at the
+// bottom. Composition is lazy, so reset to the top before asserting the
+// first paragraph rather than racing whichever of 5,200 paragraphs happens
+// to be inside IntersectionObserver's window on this runner.
+await page.evaluate(() => {
+  const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
+  if (scroller) scroller.scrollTop = 0;
+});
+await page.select('select[aria-label="Preview device"]', "kindle-oasis");
+await stage("Polish preview language", () => page.waitForFunction(() => {
+  const doc = document.querySelector("iframe")?.contentDocument;
+  return Boolean(doc && /^pl(?:-|$)/i.test(doc.documentElement.lang || ""));
+}, { timeout: 30000 }));
+await page.evaluate(() => {
+  const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
+  if (scroller) scroller.scrollTop = 0;
+});
+await stage("Polish professional justification", () => page.waitForFunction(() => {
+  const doc = document.querySelector("iframe")?.contentDocument;
+  const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
+  if (!doc || !paragraph?.classList.contains("folio-composed")) return false;
+  const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
+  return lines.length > 1 &&
+    lines.slice(0, -1).some((line) => line.classList.contains("folio-line-justified")) &&
+    lines.at(-1)?.classList.contains("folio-line-natural") === true &&
+    !paragraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]');
+}, { timeout: 30000 }));
+// Polish NBSP/hyphenation semantics are covered independently by the
+// typesetting-language suite; this browser stage verifies their integration
+// language plus deterministic professional paragraph composition.
+check("Polish justification uses paragraph-wide breaks and a natural final line", true);
   const boundedWordGaps = await page.evaluate(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     if (!doc) return false;
