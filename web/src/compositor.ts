@@ -686,8 +686,9 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, false);
   const strictFailure = breaks ? null : lastBreakFailure;
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true);
   if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
