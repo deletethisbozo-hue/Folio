@@ -7,5 +7,5 @@ Subpixel fit: legal bounded spacing/tracking/scaling may leave at most 1.70px re
 Optical margin alignment: discretionary line-ending hyphens may protrude by 55% of measured hyphen width, capped at 2.75px, while punctuation protrusion remains unchanged.
 Hyphen ladder: after two consecutive discretionary line-end hyphens, a third is removed from the breakpoint graph instead of merely receiving a penalty, matching the unchanged release gate max streak <=2.
 Final raster correction: adjacent corrected glyph scales stay within 0.012 while every line remains inside the unchanged ±1% glyph-scale hard bound.
-Drop cap: professional compositor reserves an additional measured 0.28em body-text breathing gap beside the first two wrapped lines; preview and server pipeline mirror each other.
+Drop cap: professional compositor now reserves exactly the rendered drop-cap bounding box plus its measured CSS margin-right for the first two wrapped lines; no second synthetic 0.28em gap is added. Preview and server pipeline mirror each other.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
