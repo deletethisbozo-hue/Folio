@@ -11,6 +11,7 @@ const PROSE_SELECTOR = PROSE_SELECTORS.join(",");
 const ATOMIC_INLINE = "a,em,strong,b,i,u,s,sup,sub";
 const compositionGeneration = new WeakMap<Document, number>();
 const compositionObservers = new WeakMap<Document, IntersectionObserver>();
+let lastBreakFailure: unknown = null;
 
 type Word = {
   node: HTMLElement;
@@ -354,6 +355,8 @@ function chooseBreaks(
   allowNaturalRescue = emergency,
 ): Break[] | null {
   const count = words.length;
+  lastBreakFailure = null;
+  const rejectedBreaks: Array<Record<string, unknown>> = [];
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
   const initialFitness = 1;
   states[0].set(encodeState(0, 0, initialFitness, 1, 0), {
@@ -428,7 +431,16 @@ function chooseBreaks(
         const rescueNatural = emergencyRescue;
         const lineFit = fit;
         const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
-        if (!last && !lineFit && !rescueNatural) continue;
+        if (!last && !lineFit && !rescueNatural) {
+          if (canBreak && rejectedBreaks.length < 160) rejectedBreaks.push({
+            reason: "no-fit", start, end, line, hyphenBreak, natural, available, adjustment, gaps, characters,
+            startText: (words[start].node.textContent ?? "").replace(/\u00ad/g, ""),
+            endText: (words[end].node.textContent ?? "").replace(/\u00ad/g, ""),
+            nextText: (words[end + 1]?.node.textContent ?? "").replace(/\u00ad/g, ""),
+            previousGlyphScale: previous.glyphScale, previousHyphenStreak, previousHyphenCount,
+          });
+          continue;
+        }
 
         const fill = Math.min(1, natural / Math.max(1, available));
         const shortLastPenalty = last
@@ -535,7 +547,29 @@ function chooseBreaks(
       bestKey = key;
     }
   }
-  if (bestKey < 0) return null;
+  if (bestKey < 0) {
+    let furthest = 0;
+    for (let index = 0; index < states.length; index++) if (states[index].size) furthest = index;
+    lastBreakFailure = {
+      tokenCount: count,
+      furthest,
+      boundary: words.slice(Math.max(0, furthest - 5), Math.min(count, furthest + 8)).map((word, relativeIndex) => ({
+        index: Math.max(0, furthest - 5) + relativeIndex,
+        text: (word.node.textContent ?? "").replace(/\u00ad/g, ""),
+        spaceBefore: word.spaceBefore,
+        hyphenBefore: word.hyphenBefore,
+        canBreakBefore: word.canBreakBefore,
+        width: word.width,
+      })),
+      reachableStateCount: states[furthest].size,
+      reachableStates: [...states[furthest]].slice(0, 24).map(([key, state]) => ({
+        key, decoded: decodeState(key), cost: state.cost, from: state.from, glyphScale: state.glyphScale,
+        hyphenated: state.hyphenated, hyphenCount: state.hyphenCount, emergency: state.emergency, relaxed: state.relaxed,
+      })),
+      rejectedBreaks: rejectedBreaks.slice(-60),
+    };
+    return null;
+  }
 
   const reversed: Break[] = [];
   let end = count;
@@ -645,7 +679,9 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
   }
 
   let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false);
+  const strictFailure = breaks ? null : lastBreakFailure;
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true);
+  if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
     restore(paragraph);
     paragraph.classList.add("folio-compositor-safe-fallback");
