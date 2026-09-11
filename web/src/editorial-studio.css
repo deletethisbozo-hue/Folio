@@ -999,3 +999,7 @@
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
 }
+
+
+/* v1.0.7 export chrome cleanup */
+.folio-shell[data-ui-tone] .generate-wrap { background:transparent!important; border:0!important; box-shadow:none!important; }

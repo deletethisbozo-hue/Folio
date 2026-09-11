@@ -207,21 +207,21 @@ function fitLine(
   if (gaps <= 0) return null;
 
   const maxWordSpacing = emergency
-    ? Math.min(spaceWidth * 0.56, fontSize * 0.14)
-    : Math.min(spaceWidth * 0.50, fontSize * 0.115);
+    ? Math.min(spaceWidth * 0.40, fontSize * 0.10)
+    : Math.min(spaceWidth * 0.34, fontSize * 0.08);
   const minWordSpacing = emergency || finalCompression
-    ? -Math.min(spaceWidth * 0.34, fontSize * 0.065)
-    : -Math.min(spaceWidth * 0.22, fontSize * 0.055);
-  const maxTracking = fontSize * 0.0055;
-  const minTracking = -fontSize * (emergency || finalCompression ? 0.0055 : 0.0045);
-  const maxGlyphScaleDelta = 0.02;
+    ? -Math.min(spaceWidth * 0.26, fontSize * 0.05)
+    : -Math.min(spaceWidth * 0.18, fontSize * 0.04);
+  const maxTracking = fontSize * 0.0025;
+  const minTracking = -fontSize * (emergency || finalCompression ? 0.0025 : 0.002);
+  const maxGlyphScaleDelta = 0.01;
   const available = naturalWidth + adjustment;
   let best: LineFit | null = null;
 
-  for (let step = -20; step <= 20; step++) {
+  for (let step = -10; step <= 10; step++) {
     const glyphScale = 1 + step * 0.001;
     if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
-    if (Math.abs(glyphScale - previousGlyphScale) > 0.025) continue;
+    if (Math.abs(glyphScale - previousGlyphScale) > 0.012) continue;
     const scaledAdjustment = available / glyphScale - naturalWidth;
     let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
     let remaining = scaledAdjustment - wordSpacing * gaps;
@@ -251,9 +251,9 @@ function fitLine(
 
 const FITNESS_COUNT = 4;
 const HYPHEN_STREAK_COUNT = 3;
-const GLYPH_SCALE_MIN = 0.98;
+const GLYPH_SCALE_MIN = 0.99;
 const GLYPH_SCALE_STEP = 0.001;
-const GLYPH_SCALE_COUNT = 41;
+const GLYPH_SCALE_COUNT = 21;
 
 function glyphScaleBucket(glyphScale: number): number {
   return Math.max(0, Math.min(
@@ -423,12 +423,10 @@ function chooseBreaks(
           : null);
         if (!canBreak) continue;
         if (natural > available + 0.75 && !fit && (end > start || last)) break;
-        const dropcapRescue = !last && Boolean(geometry.cap) && line < geometry.capLines
-          && natural <= available + 0.75
-          && (!fit || (gaps <= 2 && fit.wordSpacing > spaceWidth * 0.10));
+        const dropcapRescue = false;
         const emergencyRescue = allowNaturalRescue && !last && !fit && natural <= available + 0.75;
-        const rescueNatural = dropcapRescue || emergencyRescue;
-        const lineFit = dropcapRescue ? null : fit;
+        const rescueNatural = emergencyRescue;
+        const lineFit = fit;
         const relaxedFit = !last && emergency && !strictFit && Boolean(lineFit);
         if (!last && !lineFit && !rescueNatural) continue;
 
@@ -591,7 +589,7 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
   const marginBottom = pixels(capStyle.marginBottom);
   const capIntrusion = Math.max(0, capRect.right + marginRight - contentLeft);
   const capDepth = Math.max(0, capRect.bottom + marginBottom - contentTop);
-  const capLines = Math.max(1, Math.ceil((capDepth - 0.01) / Math.max(1, lineHeight)));
+  const capLines = 2;
 
   return {
     width,
@@ -709,7 +707,7 @@ function composeParagraph(paragraph: HTMLElement, language: string): void {
     const opticalMeasure = measure + protrusion;
     const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
     if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(currentScale)) continue;
-    const correctedScale = Math.max(0.98, Math.min(1.02, currentScale * opticalMeasure / rendered));
+    const correctedScale = Math.max(0.99, Math.min(1.01, currentScale * opticalMeasure / rendered));
     if (Math.abs(correctedScale - currentScale) > 0.00001) {
       corrections.push({ line, content, scale: correctedScale });
     }
