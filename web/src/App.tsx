@@ -69,8 +69,12 @@ function wordCount(text: string): number {
 
 function lastPreviewProse(section: Element | null): HTMLElement | null {
   if (!section) return null;
-  const direct = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"));
-  if (direct.length) return direct.at(-1) ?? null;
+  // Fast typing in a huge manuscript calls this once per keystroke. Walking
+  // backward from the tail is O(distance-to-last-paragraph), unlike building
+  // a 5,200-element NodeList/Array every time a character is typed.
+  for (let node = section.lastElementChild; node; node = node.previousElementSibling) {
+    if (node.tagName === "P" && !node.classList.contains("scene-break")) return node as HTMLElement;
+  }
   const nested = Array.from(section.querySelectorAll<HTMLElement>("p:not(.scene-break)"));
   return nested.at(-1) ?? null;
 }
@@ -333,6 +337,11 @@ export default function App() {
     if (previewMode === "print" || !selectedId || document?.id !== selectedId || !document.editable) return "none";
     const previewDocument = previewRef.current?.contentDocument;
     if (!previewDocument) return "none";
+    // The editor model is authoritative. previewDraft is deliberately debounced
+    // for expensive server/print work and can lag a fresh chapter by one render.
+    // Local live preview must never re-apply that stale snapshot after an iframe
+    // or server preview refresh.
+    const liveDraft = draftRef.current;
     const previewScroller = previewDocument.scrollingElement as HTMLElement | null;
     const preservedScrollTop = previewScroller?.scrollTop ?? 0;
     let section = previewDocument.getElementById(selectedId)
@@ -384,14 +393,14 @@ export default function App() {
     // The paragraph remains under the existing lazy compositor observer, so it
     // receives full professional composition if/when the reader scrolls to it.
     const representedDraft = livePreviewDraftRef.current;
-    if (previewDraft.length > 250_000 && representedDraft === previewDraft) {
+    if (liveDraft.length > 250_000 && representedDraft === liveDraft) {
       if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
       return "reused";
     }
-    const appendDelta = previewDraft.length > 250_000
+    const appendDelta = liveDraft.length > 250_000
       && representedDraft.length > 0
-      && previewDraft.startsWith(representedDraft)
-      ? previewDraft.slice(representedDraft.length)
+      && liveDraft.startsWith(representedDraft)
+      ? liveDraft.slice(representedDraft.length)
       : "";
     const simpleTailAppend = appendDelta.length > 0
       && appendDelta.length <= 2048
@@ -399,7 +408,7 @@ export default function App() {
     const tail = lastPreviewProse(section);
     if (simpleTailAppend && tail && !tail.classList.contains("folio-composed")) {
       tail.append(previewDocument.createTextNode(appendDelta));
-      livePreviewDraftRef.current = previewDraft;
+      livePreviewDraftRef.current = liveDraft;
       if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
       return "patched";
     }
@@ -410,9 +419,9 @@ export default function App() {
     const template = previewDocument.createElement("template");
     const theme = themes.find((item) => item.name === meta?.theme);
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
-    template.innerHTML = markdownToPreviewHtml(previewDraft, ornament);
+    template.innerHTML = markdownToPreviewHtml(liveDraft, ornament);
     section.appendChild(template.content);
-    livePreviewDraftRef.current = previewDraft;
+    livePreviewDraftRef.current = liveDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
     applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");

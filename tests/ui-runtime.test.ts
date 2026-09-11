@@ -363,16 +363,40 @@ await page.evaluate(() => {
   const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
   if (scroller) scroller.scrollTop = 0;
 });
-await stage("Polish professional justification", () => page.waitForFunction(() => {
-  const doc = document.querySelector("iframe")?.contentDocument;
-  const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
-  if (!doc || !paragraph?.classList.contains("folio-composed")) return false;
-  const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
-  return lines.length > 1 &&
-    lines.slice(0, -1).some((line) => line.classList.contains("folio-line-justified")) &&
-    lines.at(-1)?.classList.contains("folio-line-natural") === true &&
-    !paragraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]');
-}, { timeout: 30000 }));
+await stage("Polish professional justification", async () => {
+  try {
+    await page.waitForFunction(() => {
+      const doc = document.querySelector("iframe")?.contentDocument;
+      const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
+      if (!doc || !paragraph?.classList.contains("folio-composed")) return false;
+      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
+      return lines.length > 1 &&
+        lines.slice(0, -1).some((line) => line.classList.contains("folio-line-justified")) &&
+        lines.at(-1)?.classList.contains("folio-line-natural") === true &&
+        !paragraph.querySelector('.folio-line-emergency,[data-folio-emergency="true"]');
+    }, { timeout: 30000 });
+  } catch (error) {
+    const snapshot = await page.evaluate(() => {
+      const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+      const doc = frame?.contentDocument;
+      const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
+      const lines = [...(paragraph?.querySelectorAll<HTMLElement>(":scope > .folio-composed-line") ?? [])];
+      return {
+        device: document.querySelector(".reader-device")?.className ?? null,
+        frameWidth: frame?.clientWidth ?? null,
+        language: doc?.documentElement.lang ?? null,
+        paragraphClass: paragraph?.className ?? null,
+        paragraphWidth: paragraph?.getBoundingClientRect().width ?? null,
+        lineCount: lines.length,
+        lineClasses: lines.slice(0, 8).map((line) => line.className),
+        firstText: paragraph?.textContent?.replace(/\u00ad/g, "").slice(0, 240) ?? null,
+        strictFailure: paragraph?.dataset.folioStrictFailure ?? null,
+        calibration: doc?.getElementById("folio-device-calibration")?.textContent ?? null,
+      };
+    });
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; snapshot=${JSON.stringify(snapshot)}`);
+  }
+});
 // Polish NBSP/hyphenation semantics are covered independently by the
 // typesetting-language suite; this browser stage verifies their integration
 // language plus deterministic professional paragraph composition.
