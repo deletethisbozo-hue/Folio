@@ -1,1 +1,1 @@
-qa-run strict-nearmiss-candidates
+qa-run relaxed-justified-pass
