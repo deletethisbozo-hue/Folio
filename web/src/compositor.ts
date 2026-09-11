@@ -216,7 +216,7 @@ function fitLine(
     ? Math.min(spaceWidth * 0.46, fontSize * 0.113)
     : Math.min(spaceWidth * 0.40, fontSize * 0.10);
   const minWordSpacing = emergency || finalCompression
-    ? -Math.min(spaceWidth * 0.28, fontSize * 0.07)
+    ? -Math.min(spaceWidth * 0.28, fontSize * 0.0595)
     : -Math.min(spaceWidth * 0.20, fontSize * 0.045);
   const maxTracking = fontSize * 0.003;
   const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
