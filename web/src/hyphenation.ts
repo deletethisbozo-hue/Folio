@@ -8,8 +8,8 @@ type HyphenationLimits = { minimumWord: number; left: number; right: number };
 const HYPHENATION_LIMITS: Record<HyphenationLanguage, HyphenationLimits> = {
   // Narrow justified book measures need the language-valid 2/2 Polish points;
   // compositor QA separately caps hyphen density/streaks and forbids emergency lines.
-  // This policy is covered by the cross-platform v1.0.7 qualification gates,
-  // including the Windows packaged-app path after sample copy-on-write.
+  // Final v1.0.7 gates exercise this policy on Linux and Windows, including
+  // packaged-app and large-manuscript browser checks.
   pl: { minimumWord: 4, left: 2, right: 2 },
   en: { minimumWord: 5, left: 2, right: 3 },
 };
