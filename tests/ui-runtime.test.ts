@@ -359,18 +359,22 @@ await stage("Polish preview language", () => page.waitForFunction(() => {
   const doc = document.querySelector("iframe")?.contentDocument;
   return Boolean(doc && /^pl(?:-|$)/i.test(doc.documentElement.lang || ""));
 }, { timeout: 30000 }));
-await page.evaluate(() => {
-  const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
-  if (scroller) scroller.scrollTop = 0;
-});
-await stage("mixed-language professional justification", async () => {
+await stage("locate pasted Polish prose", () => page.evaluate(() => {
+  const doc = document.querySelector("iframe")?.contentDocument;
+  const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+    .find((candidate) => candidate.textContent?.includes("W Polsce i na świecie najprawdopodobniej"));
+  if (!paragraph) throw new Error("Pasted Polish qualification paragraph is missing");
+  paragraph.dataset.folioQaPolish = "true";
+  paragraph.scrollIntoView({ block: "center" });
+}));
+await stage("Polish professional justification", async () => {
   try {
     await page.waitForFunction(() => {
       const doc = document.querySelector("iframe")?.contentDocument;
-      const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
+      const paragraph = doc?.querySelector<HTMLElement>('section.chapter > p[data-folio-qa-polish="true"]');
       if (!doc || !paragraph?.classList.contains("folio-composed")) return false;
       const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
-      return paragraph.dataset.folioCompositionLanguage === "en" &&
+      return /^pl(?:-|$)/i.test(paragraph.dataset.folioCompositionLanguage ?? "") &&
         lines.length > 1 &&
         lines.slice(0, -1).some((line) => line.classList.contains("folio-line-justified")) &&
         lines.at(-1)?.classList.contains("folio-line-natural") === true &&
@@ -380,7 +384,7 @@ await stage("mixed-language professional justification", async () => {
     const snapshot = await page.evaluate(() => {
       const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
       const doc = frame?.contentDocument;
-      const paragraph = doc?.querySelector<HTMLElement>("section.chapter > p");
+      const paragraph = doc?.querySelector<HTMLElement>('section.chapter > p[data-folio-qa-polish="true"]');
       const lines = [...(paragraph?.querySelectorAll<HTMLElement>(":scope > .folio-composed-line") ?? [])];
       return {
         device: document.querySelector(".reader-device")?.className ?? null,
@@ -399,12 +403,11 @@ await stage("mixed-language professional justification", async () => {
     throw new Error(`${error instanceof Error ? error.message : String(error)}; snapshot=${JSON.stringify(snapshot)}`);
   }
 });
-// The large Polish paste intentionally follows the English sample prose. Once
-// metadata changes to Polish, the English opening paragraph must still use
-// English break rules and remain inside the exact same strict quality bounds.
-// Pure Polish NBSP/hyphenation geometry is covered by the visual and
-// typesetting-language suites.
-check("mixed-language prose uses paragraph-wide breaks and a natural final line", true);
+// This stage deliberately targets the pasted Polish corpus, rather than the
+// English sample paragraph that precedes it in this cumulative UI scenario.
+// English and Polish full-corpus geometry are independently covered by visual
+// QA; this check verifies the actual Polish live-preview integration on Oasis.
+check("Polish justification uses paragraph-wide breaks and a natural final line", true);
   const boundedWordGaps = await page.evaluate(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     if (!doc) return false;
@@ -417,8 +420,7 @@ check("mixed-language prose uses paragraph-wide breaks and a natural final line"
   check("professional compositor places a hard ceiling on expanded word gaps", boundedWordGaps);
   const professionalGeometry = await page.evaluate(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
-    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed") ?? [])]
-      .find((candidate) => Boolean(candidate.querySelector(".folio-line-justified")));
+    const paragraph = doc?.querySelector<HTMLElement>('section.chapter > p[data-folio-qa-polish="true"].folio-composed');
     if (!doc || !paragraph) return { ok: false, reason: "missing composed paragraph" };
     const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
     if (lines.length < 2) return { ok: false, reason: "too few composed lines" };
