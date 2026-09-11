@@ -166,6 +166,8 @@ try {
       let maxRightErrorPx = 0;
       let maxWordSpacingEm = 0;
       let maxTrackingEm = 0;
+      let maxGlyphScaleDelta = 0;
+      let maxAdjacentGlyphScaleDelta = 0;
       let maxSemanticGapEm = 0;
       let maxAdjacentSpacingDeltaEm = 0;
       let emergencyLines = 0;
@@ -199,6 +201,7 @@ try {
         const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
         let streak = 0;
         let previousSpacing: number | null = null;
+        let previousGlyphScale: number | null = null;
         for (const line of lines) {
           const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
           const justified = line.classList.contains("folio-line-justified");
@@ -228,6 +231,10 @@ try {
             const spacing = Number(line.dataset.folioWordSpacing ?? 0) / fontSize;
             maxWordSpacingEm = Math.max(maxWordSpacingEm, Math.abs(spacing));
             maxTrackingEm = Math.max(maxTrackingEm, Math.abs(Number(line.dataset.folioTracking ?? 0) / fontSize));
+            const glyphScale = Number(line.dataset.folioGlyphScale ?? 1);
+            maxGlyphScaleDelta = Math.max(maxGlyphScaleDelta, Math.abs(glyphScale - 1));
+            if (previousGlyphScale !== null) maxAdjacentGlyphScaleDelta = Math.max(maxAdjacentGlyphScaleDelta, Math.abs(glyphScale - previousGlyphScale));
+            previousGlyphScale = glyphScale;
             if (previousSpacing !== null) maxAdjacentSpacingDeltaEm = Math.max(maxAdjacentSpacingDeltaEm, Math.abs(spacing - previousSpacing));
             previousSpacing = spacing;
             const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
@@ -280,6 +287,8 @@ try {
         maxRightErrorPx,
         maxWordSpacingEm,
         maxTrackingEm,
+        maxGlyphScaleDelta,
+        maxAdjacentGlyphScaleDelta,
         maxSemanticGapEm,
         maxAdjacentSpacingDeltaEm,
         emergencyLines,
@@ -291,7 +300,8 @@ try {
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(report, null, 2) + "\n", "utf8");
     if (
       report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 ||
-      report.maxWordSpacingEm > 0.116 || report.maxTrackingEm > 0.0057 || report.maxSemanticGapEm > 0.43 ||
+      report.maxWordSpacingEm > 0.116 || report.maxTrackingEm > 0.0057 || report.maxGlyphScaleDelta > 0.0201 ||
+      report.maxAdjacentGlyphScaleDelta > 0.025 || report.maxSemanticGapEm > 0.43 ||
       report.maxAdjacentSpacingDeltaEm > 0.22 || report.hyphenRate > 0.45 || report.maxHyphenStreak > 2 ||
       report.emergencyLines !== 0 || report.ornamentalBreaksOffCenter !== 0
     ) throw new Error(`${label} failed typographic QA: ${JSON.stringify(report)}`);
