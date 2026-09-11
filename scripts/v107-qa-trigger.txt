@@ -1,6 +1,6 @@
 Folio 1.0.7 final qualification trigger
-Candidate: 591c011e9a6c541768a734029aa8d89c84f4f9d1
+Candidate: 977ced92590f7b3861294be833a5998eb292a8bb
 Paperwhite Standard side inset: 22.5px logical (~5.5%).
-Solver: strict spacing ceiling 0.10em; emergency-only spacing 0.12em; glyph scale search 0.05% increments inside unchanged ±1% hard bound.
+Solver: strict spacing ceiling 0.10em; emergency-only spacing 0.12em; glyph scale search and DP state both use 0.05% increments inside the unchanged ±1% hard bound.
 Drop cap: professional compositor reserves an additional measured 0.28em body-text breathing gap beside the first two wrapped lines; preview and server pipeline mirror each other.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
