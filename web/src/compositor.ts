@@ -25,6 +25,7 @@ type LineFit = {
   wordSpacing: number;
   tracking: number;
   badness: number;
+  fitness: number;
 };
 
 type Break = {
@@ -42,6 +43,9 @@ type State = Break & {
   cost: number;
   from: number;
   fromKey: number;
+  fitness: number;
+  gapPositions: number[];
+  riverPositions: number[];
 };
 
 type Geometry = {
@@ -197,9 +201,63 @@ function fitLine(
 
   const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
   const trackingRatio = tracking / Math.max(1, fontSize);
-  const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.22, 3)
+  const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
     + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3);
-  return { wordSpacing, tracking, badness };
+  const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
+  return { wordSpacing, tracking, badness, fitness };
+}
+
+const FITNESS_COUNT = 4;
+const HYPHEN_STREAK_COUNT = 3;
+
+function encodeState(line: number, hyphenStreak: number, fitness: number): number {
+  return (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
+}
+
+function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number } {
+  return {
+    line: Math.floor(key / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
+    hyphenStreak: Math.floor(key / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
+    fitness: key % FITNESS_COUNT,
+  };
+}
+
+function gapPositions(
+  words: Word[],
+  start: number,
+  end: number,
+  offset: number,
+  spaceWidth: number,
+  fit: LineFit | null,
+): number[] {
+  const positions: number[] = [];
+  let cursor = offset;
+  for (let index = start; index < end; index++) {
+    const word = words[index];
+    if (index > start && word.spaceBefore) {
+      const gapWidth = spaceWidth + (fit?.wordSpacing ?? 0) + (fit?.tracking ?? 0);
+      positions.push(cursor + gapWidth / 2);
+      cursor += gapWidth;
+    }
+    cursor += word.width + (fit?.tracking ?? 0) * word.characters;
+  }
+  return positions;
+}
+
+function riverCost(current: number[], previous: State, spaceWidth: number): { cost: number; rivers: number[] } {
+  const tolerance = Math.max(1.5, spaceWidth * 0.72);
+  const rivers: number[] = [];
+  let cost = 0;
+  for (const position of current) {
+    const adjacent = previous.gapPositions.reduce((best, candidate) => Math.min(best, Math.abs(position - candidate)), Infinity);
+    if (adjacent < tolerance) {
+      rivers.push(position);
+      cost += 7 * Math.pow(1 - adjacent / tolerance, 2);
+    }
+    const established = previous.riverPositions.reduce((best, candidate) => Math.min(best, Math.abs(position - candidate)), Infinity);
+    if (established < tolerance) cost += 95 * Math.pow(1 - established / tolerance, 2);
+  }
+  return { cost, rivers };
 }
 
 function lineGeometry(line: number, geometry: Geometry): { offset: number; available: number } {
@@ -223,7 +281,8 @@ function chooseBreaks(
 ): Break[] | null {
   const count = words.length;
   const states: Array<Map<number, State>> = Array.from({ length: count + 1 }, () => new Map());
-  states[0].set(0, {
+  const initialFitness = 1;
+  states[0].set(encodeState(0, 0, initialFitness), {
     cost: 0,
     from: -1,
     fromKey: -1,
@@ -235,12 +294,17 @@ function chooseBreaks(
     offset: 0,
     available: geometry.width,
     emergency,
+    fitness: initialFitness,
+    gapPositions: [],
+    riverPositions: [],
   });
 
   for (let start = 0; start < count; start++) {
     for (const [stateKey, previous] of states[start]) {
-      const line = Math.floor(stateKey / 3);
-      const previousHyphenStreak = stateKey % 3;
+      const decoded = decodeState(stateKey);
+      const line = decoded.line;
+      const previousHyphenStreak = decoded.hyphenStreak;
+      const previousFitness = decoded.fitness;
       const { offset, available } = lineGeometry(line, geometry);
       let wordWidth = 0;
       let gaps = 0;
@@ -271,11 +335,13 @@ function chooseBreaks(
         // A short line beside a drop cap can be mathematically impossible to
         // fill without an obvious river of white. Natural setting is the
         // professional fallback only while the cap occupies the measure.
-        const dropcapRescue = !last && !fit && Boolean(geometry.cap) && line < geometry.capLines
-          && natural <= available + 0.75;
+        const dropcapRescue = !last && Boolean(geometry.cap) && line < geometry.capLines
+          && natural <= available + 0.75
+          && (!fit || (gaps <= 2 && fit.wordSpacing > spaceWidth * 0.10));
         const emergencyRescue = emergency && !last && !fit && natural <= available + 0.75;
         const rescueNatural = dropcapRescue || emergencyRescue;
-        if (!last && !fit && !rescueNatural) continue;
+        const lineFit = dropcapRescue ? null : fit;
+        if (!last && !lineFit && !rescueNatural) continue;
 
         const wordsOnLine = end - start + 1;
         const fill = Math.min(1, natural / Math.max(1, available));
@@ -283,20 +349,31 @@ function chooseBreaks(
           ? (wordsOnLine === 1 ? 180 : fill < 0.28 ? 80 * Math.pow((0.28 - fill) / 0.28, 2) : 0)
           : 0;
         const hyphenPenalty = hyphenBreak
-          ? 58 + previousHyphenStreak * 310
+          ? 165 + previousHyphenStreak * 560
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
-        const rescuePenalty = rescueNatural ? 900 + 700 * Math.pow(1 - fill, 2) : 0;
+        const rescuePenalty = dropcapRescue
+          ? 115 + 260 * Math.pow(1 - fill, 2)
+          : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
+        const currentFitness = lineFit?.fitness ?? previousFitness;
+        const fitnessDelta = Math.abs(currentFitness - previousFitness);
+        const fitnessPenalty = line === 0 || !lineFit
+          ? 0
+          : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
+        const currentGaps = gapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
+        const rivers = riverCost(currentGaps, previous, spaceWidth);
         const cost = previous.cost
-          + (fit?.badness ?? 0)
+          + (lineFit?.badness ?? 0)
           + rescuePenalty
           + hyphenPenalty
           + punctuationPenalty
-          + shortLastPenalty;
+          + shortLastPenalty
+          + fitnessPenalty
+          + rivers.cost;
 
         const nextLine = line + 1;
         const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
-        const nextKey = nextLine * 3 + nextStreak;
+        const nextKey = encodeState(nextLine, nextStreak, currentFitness);
         const old = states[end + 1].get(nextKey);
         if (!old || cost < old.cost) {
           states[end + 1].set(nextKey, {
@@ -304,13 +381,16 @@ function chooseBreaks(
             from: start,
             fromKey: stateKey,
             end: end + 1,
-            justified: !last && Boolean(fit),
-            wordSpacing: fit?.wordSpacing ?? 0,
-            tracking: fit?.tracking ?? 0,
+            justified: !last && Boolean(lineFit),
+            wordSpacing: lineFit?.wordSpacing ?? 0,
+            tracking: lineFit?.tracking ?? 0,
             hyphenated: hyphenBreak,
             offset,
             available,
             emergency: !last && emergency && !dropcapRescue && (!strictFit || emergencyRescue),
+            fitness: currentFitness,
+            gapPositions: currentGaps,
+            riverPositions: rivers.rivers,
           });
         }
       }

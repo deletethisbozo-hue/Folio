@@ -12,8 +12,14 @@
   --studio-surface: #fffdf8;
   --studio-paper: #fffdfa;
   --studio-editor-canvas: #ddd8cf;
-  --studio-preview: #242528;
-  --studio-preview-chrome: #2d2e32;
+  --studio-preview: #d8d4cc;
+  --studio-preview-chrome: #f3f0e9;
+  --studio-preview-ink: #4c4740;
+  --studio-preview-muted: #777066;
+  --studio-preview-rule: #c5beb3;
+  --studio-preview-control: #ebe7df;
+  --studio-preview-hover: #e2dcd2;
+  --studio-preview-scrollbar: #aaa298;
   --studio-ink: #211f1c;
   --studio-muted: #776f64;
   --studio-faint: #a69d90;
@@ -34,6 +40,12 @@
   --studio-editor-canvas: #1b1c20;
   --studio-preview: #111215;
   --studio-preview-chrome: #191a1e;
+  --studio-preview-ink: #e5e0d8;
+  --studio-preview-muted: #aaa59d;
+  --studio-preview-rule: #383a40;
+  --studio-preview-control: #242529;
+  --studio-preview-hover: #33343a;
+  --studio-preview-scrollbar: #4b4c51;
   --studio-ink: #eee7dc;
   --studio-muted: #b4a99a;
   --studio-faint: #777169;
@@ -47,7 +59,7 @@
 
 .folio-shell:not(.folio-empty-shell)[data-ui-tone] {
   min-width: 980px;
-  grid-template-columns: 218px minmax(0, 1fr) clamp(320px, 24vw, 348px);
+  grid-template-columns: 218px minmax(0, 1fr) clamp(390px, 30vw, 460px);
   grid-template-rows: 48px minmax(0, 1fr) 26px;
   grid-template-areas:
     "command command command"
@@ -81,8 +93,8 @@
   padding: 0 18px;
   border-right: 1px solid var(--studio-rule);
   color: var(--studio-ink);
-  font: 600 21px/1 Georgia, "Times New Roman", serif;
-  letter-spacing: -.035em;
+  font: 600 15px/1 Georgia, "Times New Roman", serif;
+  letter-spacing: -.015em;
 }
 
 .folio-shell[data-ui-tone] .folio-commandbar nav {
@@ -102,8 +114,8 @@
   border-radius: 0;
   background: transparent;
   color: var(--studio-muted);
-  font-size: 11px;
-  font-weight: 560;
+  font-size: 12px;
+  font-weight: 500;
   letter-spacing: .005em;
   box-shadow: none;
 }
@@ -120,7 +132,7 @@
   padding-inline: 18px;
   border-left: 1px solid var(--studio-rule);
   color: var(--studio-accent);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* Editorial navigator --------------------------------------------------- */
@@ -147,8 +159,8 @@
 
 .folio-shell[data-ui-tone] .pane-label {
   color: var(--studio-muted);
-  font: 650 9px/1 "Segoe UI", sans-serif;
-  letter-spacing: .14em;
+  font: 650 10px/1 "Segoe UI", sans-serif;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 
@@ -163,7 +175,25 @@
   border-radius: 2px;
   background: transparent;
   color: var(--studio-muted);
-  font-size: 10px;
+  font-size: 11px;
+}
+
+.folio-shell[data-ui-tone] .toolbar-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.folio-shell[data-ui-tone] .ui-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .folio-shell[data-ui-tone] .toolbar-text-button:hover,
@@ -172,9 +202,10 @@
   color: var(--studio-ink);
 }
 
-.folio-shell[data-ui-tone] .icon-button.infinity {
-  width: 25px;
-  font: 600 15px/26px Georgia, serif;
+.folio-shell[data-ui-tone] .icon-button {
+  width: 28px;
+  display: grid;
+  place-items: center;
 }
 
 .folio-shell[data-ui-tone] .book-identity {
@@ -200,7 +231,7 @@
 .folio-shell[data-ui-tone] .book-author {
   margin-top: 5px;
   color: var(--studio-muted);
-  font-size: 9.5px;
+  font-size: 11px;
   letter-spacing: .015em;
 }
 
@@ -213,7 +244,7 @@
   margin: 12px 0 5px;
   padding: 0 16px;
   color: var(--studio-faint);
-  font: 650 8.5px/1.4 "Segoe UI", sans-serif;
+  font: 650 9.5px/1.4 "Segoe UI", sans-serif;
   font-style: normal;
   letter-spacing: .13em;
   text-transform: uppercase;
@@ -232,7 +263,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--studio-muted);
-  font-size: 10.5px;
+  font-size: 11.5px;
   line-height: 31px;
   gap: 6px;
 }
@@ -260,10 +291,16 @@
 }
 
 .folio-shell[data-ui-tone] .chapter-grip {
-  width: 8px;
-  flex: 0 0 8px;
+  width: 13px;
+  flex: 0 0 13px;
   color: var(--studio-faint);
-  opacity: .55;
+  opacity: 0;
+}
+
+.folio-shell[data-ui-tone] .chapter-row:hover .chapter-grip,
+.folio-shell[data-ui-tone] .chapter-row:focus-visible .chapter-grip,
+.folio-shell[data-ui-tone] .chapter-row.dragging .chapter-grip {
+  opacity: .75;
 }
 
 .folio-shell[data-ui-tone] .chapter-number {
@@ -290,7 +327,8 @@
   height: 28px;
   border-radius: 2px;
   color: var(--studio-muted);
-  font-size: 12px;
+  display: grid;
+  place-items: center;
 }
 
 .folio-shell[data-ui-tone] .tiny-footer-button:hover {
@@ -320,7 +358,7 @@
 
 .folio-shell[data-ui-tone] .topbar-title {
   color: var(--studio-muted);
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -333,7 +371,7 @@
 .folio-shell[data-ui-tone] .word-count,
 .folio-shell[data-ui-tone] .save-indicator {
   color: var(--studio-muted);
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -411,22 +449,27 @@
 }
 
 .folio-shell[data-ui-tone] .section-move,
-.folio-shell[data-ui-tone] .section-gear,
+.folio-shell[data-ui-tone] .section-design,
 .folio-shell[data-ui-tone] .section-delete {
   height: 28px;
   border: 1px solid transparent;
   border-radius: 2px;
   background: transparent;
   color: var(--studio-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .folio-shell[data-ui-tone] .section-move {
   width: 28px;
 }
 
-.folio-shell[data-ui-tone] .section-gear {
-  width: 34px;
+.folio-shell[data-ui-tone] .section-design {
+  min-width: 66px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .folio-shell[data-ui-tone] .section-delete {
@@ -435,7 +478,7 @@
 }
 
 .folio-shell[data-ui-tone] .section-move:hover:not(:disabled),
-.folio-shell[data-ui-tone] .section-gear:hover,
+.folio-shell[data-ui-tone] .section-design:hover,
 .folio-shell[data-ui-tone] .section-delete:hover {
   border-color: var(--studio-rule);
   background: var(--studio-control);
@@ -483,7 +526,7 @@
   border-radius: 2px;
   background: transparent;
   color: var(--studio-muted);
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
 }
 
@@ -511,6 +554,8 @@
   border-radius: 2px;
   background: transparent;
   color: var(--studio-muted);
+  display: grid;
+  place-items: center;
 }
 
 .folio-shell[data-ui-tone] .search-pill:hover {
@@ -555,7 +600,7 @@
   color: var(--studio-ink);
   box-shadow: none;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.56;
   letter-spacing: 0;
   scrollbar-color: var(--studio-rule-strong) transparent;
@@ -614,7 +659,7 @@
   height: 100%;
   border: 0;
   background: var(--studio-preview);
-  color: #ece8e0;
+  color: var(--studio-preview-ink);
 }
 
 .folio-shell[data-ui-tone] .preview-topbar {
@@ -622,7 +667,7 @@
   min-height: 42px;
   padding: 0 12px;
   border: 0;
-  border-bottom: 1px solid #3a3b40;
+  border-bottom: 1px solid var(--studio-preview-rule);
   background: var(--studio-preview-chrome);
 }
 
@@ -632,13 +677,13 @@
   border: 0;
   border-radius: 2px;
   background: transparent;
-  color: #c8c2b8;
-  font: 10px Georgia, serif;
+  color: var(--studio-preview-ink);
+  font: 11px Georgia, serif;
 }
 
 .folio-shell[data-ui-tone] .preview-style-button:hover {
-  background: #38393e;
-  color: #fffaf0;
+  background: var(--studio-preview-hover);
+  color: var(--studio-ink);
 }
 
 .folio-shell[data-ui-tone] .generate-button {
@@ -686,36 +731,38 @@
   min-height: 38px;
   padding: 0 10px 0 12px;
   border: 0;
-  border-bottom: 1px solid #38393e;
+  border-bottom: 1px solid var(--studio-preview-rule);
   background: var(--studio-preview-chrome);
-  color: #bdb8af;
+  color: var(--studio-preview-muted);
 }
 
 .folio-shell[data-ui-tone] .device-label select,
 .folio-shell[data-ui-tone] .trim-select {
   height: 26px;
-  border: 1px solid #484a50;
+  border: 1px solid var(--studio-preview-rule);
   border-radius: 2px;
-  background: #242529;
-  color: #e5e0d8;
-  font-size: 9.5px;
+  background: var(--studio-preview-control);
+  color: var(--studio-preview-ink);
+  font-size: 10.5px;
   outline: 0;
 }
 
 .folio-shell[data-ui-tone] .device-nav {
-  color: #aaa59d;
-  font-size: 9px;
+  color: var(--studio-preview-muted);
+  font-size: 10px;
 }
 
 .folio-shell[data-ui-tone] .device-nav button {
   width: 25px;
   height: 25px;
   border-radius: 2px;
-  color: #d4cec4;
+  color: var(--studio-preview-ink);
+  display: grid;
+  place-items: center;
 }
 
 .folio-shell[data-ui-tone] .device-nav button:hover:not(:disabled) {
-  background: #3b3c42;
+  background: var(--studio-preview-hover);
 }
 
 .folio-shell[data-ui-tone] .preview-stage {
@@ -724,11 +771,11 @@
   padding: 16px 12px 18px;
   overflow: auto;
   background: var(--studio-preview);
-  scrollbar-color: #4b4c51 transparent;
+  scrollbar-color: var(--studio-preview-scrollbar) transparent;
 }
 
-/* Keep the right preview footprint fixed. Only the internal device drawing may
- * scale down to fit; it never grows the application column. */
+/* The preview remains a stable application pane. Its wider editorial measure
+ * lets named devices render at a legible scale without stealing the workspace. */
 .folio-shell[data-ui-tone] .reader-device {
   max-width: 100%;
 }
@@ -749,7 +796,7 @@
   border-top: 1px solid var(--studio-rule-strong);
   background: var(--studio-chrome);
   color: var(--studio-muted);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: .015em;
 }
 
@@ -881,7 +928,7 @@
 
 @media (max-width: 1120px) {
   .folio-shell:not(.folio-empty-shell)[data-ui-tone] {
-    grid-template-columns: 196px minmax(0, 1fr) 320px;
+    grid-template-columns: 196px minmax(0, 1fr) 360px;
   }
   .folio-shell[data-ui-tone] .folio-commandbar {
     grid-template-columns: 196px minmax(0,1fr) auto;

@@ -1,0 +1,37 @@
+name: Folio 1.0.7 visual qualification
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-v107-visual
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx puppeteer browsers install chrome-headless-shell
+      - run: npm run typecheck
+      - run: npm run build
+      - run: node --import tsx scripts/v107-visual-qa.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Folio-1.0.7-visual-qa
+          path: build/qa-v107/*
+          if-no-files-found: warn
