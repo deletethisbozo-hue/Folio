@@ -11,4 +11,5 @@ Discarded previews explicitly dispose their lazy compositor observer before ifra
 Windows Polish-composition timeout diagnostics remain hard-gated; no responsiveness timeout or quality threshold was raised.
 Runtime QA normalizes discretionary soft hyphens when checking typed text and validates the optical edge against the compositor's declared bounded protrusion. The right-edge residual remains <= 1.75px and protrusion itself is capped at 4.5px.
 English relaxed compression remains at the conservative 0.07em profile; Polish relaxed compression remains at 0.0595em. Polish strict fitting may use bounded compression up to 0.085em as an alternative to an extra discretionary hyphen; the 0.101em release spacing ceiling remains unchanged.
+The compositor now prefers a 0.40 hyphen-rate operating target whenever a strict feasible state exists, preserving cross-platform headroom while the immutable release ceiling remains 0.45.
 Release quality gates remain unchanged: hyphen rate <= 0.45, streak <= 2, relaxed lines <= 2, zero emergency ragged lines, zero one-word final lines, bounded spacing/tracking/scaling, justified drop-cap opening lines.
