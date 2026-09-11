@@ -13,7 +13,7 @@ on:
       - "package-lock.json"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: folio-v107-suite
@@ -27,66 +27,6 @@ jobs:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Apply 40 percent hyphen target with 45 percent hard ceiling
-        if: github.actor != 'github-actions[bot]'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          def replacement(indent: str, terminal: str) -> str:
-              i = indent
-              lines = [
-                  i + 'let bestKey = -1;',
-                  i + 'let bestCost = Number.POSITIVE_INFINITY;',
-                  i + 'let bestSectionRate = Number.POSITIVE_INFINITY;',
-                  i + 'let bestHyphenBudgetPriority = 3;',
-                  i + f'for (const [key, state] of {terminal}) {{',
-                  i + '  const decoded = decodeState(key);',
-                  i + '  const paragraphJustifiedLines = Math.max(0, decoded.line - 1);',
-                  i + '  const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;',
-                  i + '  const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;',
-                  i + '  const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);',
-                  i + '  // 0.45 is the release ceiling, not the composition target. Prefer 0.40',
-                  i + '  // when feasible, preserving cross-platform headroom without loosening fit.',
-                  i + '  const hyphenBudgetPriority = sectionRate <= 0.40 + 1e-9',
-                  i + '    ? 0',
-                  i + '    : sectionRate <= 0.45 + 1e-9 ? 1 : 2;',
-                  i + '  const betterSamePriority = hyphenBudgetPriority < 2',
-                  i + '    ? state.cost < bestCost',
-                  i + '    : sectionRate < bestSectionRate - 1e-9',
-                  i + '      || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);',
-                  i + '  if (hyphenBudgetPriority < bestHyphenBudgetPriority',
-                  i + '    || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {',
-                  i + '    bestHyphenBudgetPriority = hyphenBudgetPriority;',
-                  i + '    bestCost = state.cost;',
-                  i + '    bestSectionRate = sectionRate;',
-                  i + '    bestKey = key;',
-                  i + '  }',
-                  i + '}',
-              ]
-              return '\n'.join(lines) + '\n'
-
-          def patch(path: str, indent: str, terminal: str):
-              p = Path(path)
-              s = p.read_text(encoding='utf-8')
-              start_token = indent + 'let bestKey = -1;'
-              end_token = indent + 'if (bestKey < 0)'
-              start = s.index(start_token)
-              end = s.index(end_token, start)
-              p.write_text(s[:start] + replacement(indent, terminal) + s[end:], encoding='utf-8')
-
-          patch('web/src/compositor.ts', '  ', 'states[count]')
-          patch('server/pipeline/compositor.ts', '      ', 'states[words.length]')
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/src/compositor.ts server/pipeline/compositor.ts
-          git diff --cached --check
-          git commit -m "Add hyphenation headroom below release ceiling"
-          git push origin HEAD:fix/v1.0.7
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
