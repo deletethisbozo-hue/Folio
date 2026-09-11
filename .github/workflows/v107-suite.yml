@@ -13,7 +13,7 @@ on:
       - "package-lock.json"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: folio-v107-suite
@@ -27,60 +27,6 @@ jobs:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Apply bounded Polish compression patch
-        if: github.actor != 'github-actions[bot]'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          web = Path('web/src/compositor.ts')
-          text = web.read_text(encoding='utf-8')
-          old_lang = '  const relaxedCompressionEm = language.toLowerCase().startsWith("en") ? 0.07 : 0.0595;'
-          new_lang = '\n'.join([
-              '  const normalizedLanguage = language.toLowerCase();',
-              '  const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;',
-              '  // Windows and Linux rasterize the same serif faces a little differently.',
-              '  // Keep the normal line fitter inside the release gate, but give Polish prose',
-              '  // enough bounded compression headroom to choose a clean word boundary instead',
-              '  // of exceeding the 0.45 section hyphen-density ceiling. The optimiser still',
-              '  // pays badness for every compressed gap, so this is an available rescue path,',
-              '  // not the new preferred spacing.',
-              '  const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;',
-          ])
-          old_min = '    : -Math.min(spaceWidth * 0.24, fontSize * 0.06);'
-          new_min = '    : -Math.min(spaceWidth * 0.34, fontSize * strictCompressionEm);'
-          if text.count(old_lang) != 1 or text.count(old_min) != 1:
-              raise SystemExit(f'web compositor targets wrong: lang={text.count(old_lang)} min={text.count(old_min)}')
-          text = text.replace(old_lang, new_lang, 1).replace(old_min, new_min, 1)
-          web.write_text(text, encoding='utf-8')
-
-          server = Path('server/pipeline/compositor.ts')
-          text = server.read_text(encoding='utf-8')
-          old_lang = '      const relaxedCompressionEm = (document.documentElement.lang || "en").toLowerCase().startsWith("en") ? 0.07 : 0.0595;'
-          new_lang = '\n'.join([
-              '      const normalizedLanguage = (document.documentElement.lang || "en").toLowerCase();',
-              '      const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;',
-              '      // Match the live preview cross-platform Polish density rescue. It stays',
-              '      // below the 0.101em strict-spacing qualification ceiling and only wins when',
-              '      // its badness is cheaper than another discretionary hyphen.',
-              '      const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;',
-          ])
-          old_min = '        : -Math.min(spaceWidth * 0.24, fontSize * 0.06);'
-          new_min = '        : -Math.min(spaceWidth * 0.34, fontSize * strictCompressionEm);'
-          if text.count(old_lang) != 1 or text.count(old_min) != 1:
-              raise SystemExit(f'server compositor targets wrong: lang={text.count(old_lang)} min={text.count(old_min)}')
-          text = text.replace(old_lang, new_lang, 1).replace(old_min, new_min, 1)
-          server.write_text(text, encoding='utf-8')
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/src/compositor.ts server/pipeline/compositor.ts
-          git diff --cached --check
-          git commit -m "Reduce Polish hyphen density across platform metrics"
-          git push origin HEAD:fix/v1.0.7
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
