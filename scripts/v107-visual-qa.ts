@@ -169,7 +169,18 @@ try {
       let maxSemanticGapEm = 0;
       let maxAdjacentSpacingDeltaEm = 0;
       let emergencyLines = 0;
-      const emergencyDetails: Array<{ text: string; wordSpacingEm: number; trackingEm: number }> = [];
+      const emergencyDetails: Array<{
+        text: string;
+        previousText: string | null;
+        nextText: string | null;
+        naturalWidthPx: number;
+        availableWidthPx: number;
+        fill: number;
+        gaps: number;
+        characters: number;
+        wordSpacingEm: number;
+        trackingEm: number;
+      }> = [];
       let ornamentalBreaksOffCenter = 0;
       for (const paragraph of paragraphs) {
         const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
@@ -202,8 +213,23 @@ try {
           } else streak = 0;
           if (line.dataset.folioEmergency === "true") {
             emergencyLines++;
+            const range = doc.createRange();
+            range.selectNodeContents(line);
+            const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+            const gaps = words.slice(1).filter((word) => word.dataset.folioSpaceBefore === "true").length;
+            const lineIndex = lines.indexOf(line);
+            const clean = (value: string | null | undefined) => value?.replace(/\u00ad/g, "") ?? null;
+            const naturalWidthPx = range.getBoundingClientRect().width;
+            const availableWidthPx = line.getBoundingClientRect().width;
             emergencyDetails.push({
-              text: line.textContent?.replace(/\u00ad/g, "") ?? "",
+              text: clean(line.textContent) ?? "",
+              previousText: clean(lines[lineIndex - 1]?.textContent),
+              nextText: clean(lines[lineIndex + 1]?.textContent),
+              naturalWidthPx,
+              availableWidthPx,
+              fill: naturalWidthPx / Math.max(1, availableWidthPx),
+              gaps,
+              characters: words.reduce((sum, word) => sum + (word.textContent ?? "").replace(/\u00ad/g, "").length, 0),
               wordSpacingEm: Number(line.dataset.folioWordSpacing ?? 0) / fontSize,
               trackingEm: Number(line.dataset.folioTracking ?? 0) / fontSize,
             });
