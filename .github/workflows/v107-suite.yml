@@ -13,7 +13,7 @@ on:
       - "package-lock.json"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: folio-v107-suite
@@ -27,31 +27,6 @@ jobs:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Apply geometry-only device preview fix
-        if: github.actor != 'github-actions[bot]'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('web/src/App.tsx')
-          s = p.read_text(encoding='utf-8')
-          old1 = '  }, [project?.projectId, meta, typography, previewMode, selectedId, document?.id, document?.subtitle]);'
-          new1 = '  }, [project?.projectId, meta, typography, previewMode === "print", selectedId, document?.id, document?.subtitle]);'
-          old2 = '  }, [project?.projectId, meta, typography, previewMode, printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);'
-          new2 = '  }, [project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);'
-          if s.count(old1) != 1 or s.count(old2) != 1:
-              raise SystemExit(f'dependency targets mismatch: reading={s.count(old1)} print={s.count(old2)}')
-          s = s.replace(old1, new1, 1).replace(old2, new2, 1)
-          p.write_text(s, encoding='utf-8')
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/src/App.tsx
-          git diff --cached --check
-          git commit -m "Keep reader device switches geometry-only"
-          git push origin HEAD:fix/v1.0.7
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
