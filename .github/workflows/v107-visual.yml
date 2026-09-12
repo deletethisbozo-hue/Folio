@@ -41,11 +41,13 @@ jobs:
         run: node --import tsx scripts/v107-visual-qa.ts
       - name: Qualify all 30 book themes
         run: node --import tsx scripts/v107-theme-matrix.ts
+      - name: Render comparable 30-theme gallery
+        run: node --import tsx scripts/v107-theme-gallery.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Folio-1.0.7-visual-qa
-          path: build/qa-v107/*
+          path: build/qa-v107/**
           if-no-files-found: warn
 
-# qualification trigger: all-theme matrix diagnostics
+# qualification trigger: bundled fonts + all-theme gallery
