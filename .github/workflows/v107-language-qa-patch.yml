@@ -1,0 +1,30 @@
+name: Temporary v1.0.7 language QA harness patch
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-language-qa-patch.yml"
+      - "scripts/patch-v107-language-qa-close.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply language QA harness fix
+        run: python3 scripts/patch-v107-language-qa-close.py
+      - name: Commit visual QA harness fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/v107-visual-qa.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "Stabilize visual QA language switching"
+          git push origin HEAD:fix/v1.0.7
