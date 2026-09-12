@@ -52,6 +52,26 @@ function encodeRepoPath(value) {
   return value.split("/").map(encodeURIComponent).join("/");
 }
 
+async function fetchWithRetry(relativePath, attempts = 4) {
+  const url = `${RAW}/${encodeRepoPath(relativePath)}`;
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return response;
+      const retryable = response.status === 429 || response.status >= 500;
+      lastError = new Error(`Unable to fetch ${relativePath}: HTTP ${response.status}`);
+      if (!retryable) throw lastError;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, 500 * (2 ** (attempt - 1))));
+    }
+  }
+  throw lastError ?? new Error(`Unable to fetch ${relativePath}`);
+}
+
 async function download(relativePath, destination, font = false) {
   try {
     const existing = await fs.readFile(destination);
@@ -60,8 +80,7 @@ async function download(relativePath, destination, font = false) {
     // Missing file: fetch it below.
   }
 
-  const response = await fetch(`${RAW}/${encodeRepoPath(relativePath)}`);
-  if (!response.ok) throw new Error(`Unable to fetch ${relativePath}: HTTP ${response.status}`);
+  const response = await fetchWithRetry(relativePath);
   const data = Buffer.from(await response.arrayBuffer());
   if (font) {
     if (data.length < 30_000) throw new Error(`Downloaded font is unexpectedly small: ${relativePath}`);
