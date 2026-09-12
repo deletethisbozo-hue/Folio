@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 hyphen protrusion calibration
+name: Temporary v1.0.7 wider Paperwhite calibration
 
 on:
   push:
@@ -17,11 +17,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        hang: ["3.0", "3.4", "3.8", "4.2", "4.4"]
+        side: ["8", "10", "12", "14", "16", "18", "20"]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
-      HANG: ${{ matrix.hang }}
+      SIDE: ${{ matrix.side }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,11 +37,10 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply bounded fitter and optical hyphen hang candidate
+      - name: Apply bounded fitter candidate
         shell: bash
         run: |
           python3 - <<'PY'
-          import os
           from pathlib import Path
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
@@ -53,23 +52,27 @@ jobs:
           if text.count(old_residual) != 1:
               raise SystemExit("residual marker missing")
           text = text.replace(old_residual, "    if (Math.abs(residualPx) > 1.705) continue;", 1)
-          old_hang = "          ? Math.min(2.55, hyphenWidth * 0.51)"
-          if text.count(old_hang) != 1:
-              raise SystemExit("hyphen protrusion marker missing")
-          new_hang = f'          ? Math.min({os.environ["HANG"]}, hyphenWidth * 0.85)'
-          text = text.replace(old_hang, new_hang, 1)
           path.write_text(text, encoding="utf-8")
           PY
-      - name: Use Polish sample language
+      - name: Patch wider Paperwhite and Polish sample
         shell: bash
         run: |
           python3 - <<'PY'
+          import os, re
           from pathlib import Path
+          preview = Path("web/src/preview-runtime.ts")
+          text = preview.read_text(encoding="utf-8")
+          pattern = r'("kindle-paperwhite": \{ width: 412, height: 549, baseFont: 17\.5, padding: \[34, )\d+(, 46, )\d+(\], wordsPerPage: 270 \},)'
+          replacement = rf'\g<1>{os.environ["SIDE"]}\g<2>{os.environ["SIDE"]}\g<3>'
+          text, count = re.subn(pattern, replacement, text, count=1)
+          if count != 1:
+              raise SystemExit("Paperwhite profile not found exactly once")
+          preview.write_text(text, encoding="utf-8")
           sample = Path("samples/clockwork-garden/book.yaml")
-          text = sample.read_text(encoding="utf-8")
-          if "language: en" not in text:
+          sample_text = sample.read_text(encoding="utf-8")
+          if "language: en" not in sample_text:
               raise SystemExit("Sample language marker missing")
-          sample.write_text(text.replace("language: en", "language: pl", 1), encoding="utf-8")
+          sample.write_text(sample_text.replace("language: en", "language: pl", 1), encoding="utf-8")
           PY
       - name: Trim harness to Polish composition only
         shell: bash
@@ -94,19 +97,19 @@ jobs:
         shell: bash
         run: |
           set +e
-          node --import tsx scripts/v107-visual-qa.ts > build/hyphen-hang-calibration.log 2>&1
+          node --import tsx scripts/v107-visual-qa.ts > build/wide-calibration.log 2>&1
           status=$?
           echo "QA exit: $status"
           if [ -f build/qa-v107/typesetting-polish.json ]; then
-            node -e 'const r=require("./build/qa-v107/typesetting-polish.json"); console.log(JSON.stringify({hang:process.env.HANG,measurePx:r.measurePx,emergencyLines:r.emergencyLines,oneWordFinalLines:r.oneWordFinalLines,hyphenRate:r.hyphenRate,maxHyphenStreak:r.maxHyphenStreak,maxSemanticGapEm:r.maxSemanticGapEm,maxWordSpacingEm:r.maxWordSpacingEm,maxStrictWordSpacingEm:r.maxStrictWordSpacingEm,maxRelaxedWordSpacingEm:r.maxRelaxedWordSpacingEm,relaxedLines:r.relaxedLines,maxAdjacentSpacingDeltaEm:r.maxAdjacentSpacingDeltaEm,maxGlyphScaleDelta:r.maxGlyphScaleDelta,maxAdjacentGlyphScaleDelta:r.maxAdjacentGlyphScaleDelta,maxRightErrorPx:r.maxRightErrorPx,maxRightProtrusionPx:r.maxRightProtrusionPx,maxTrackingEm:r.maxTrackingEm},null,2));'
+            node -e 'const r=require("./build/qa-v107/typesetting-polish.json"); console.log(JSON.stringify({side:process.env.SIDE,measurePx:r.measurePx,emergencyLines:r.emergencyLines,oneWordFinalLines:r.oneWordFinalLines,hyphenRate:r.hyphenRate,maxHyphenStreak:r.maxHyphenStreak,maxSemanticGapEm:r.maxSemanticGapEm,maxWordSpacingEm:r.maxWordSpacingEm,maxStrictWordSpacingEm:r.maxStrictWordSpacingEm,maxRelaxedWordSpacingEm:r.maxRelaxedWordSpacingEm,relaxedLines:r.relaxedLines,maxAdjacentSpacingDeltaEm:r.maxAdjacentSpacingDeltaEm,maxGlyphScaleDelta:r.maxGlyphScaleDelta,maxAdjacentGlyphScaleDelta:r.maxAdjacentGlyphScaleDelta,maxRightErrorPx:r.maxRightErrorPx,maxRightProtrusionPx:r.maxRightProtrusionPx,maxTrackingEm:r.maxTrackingEm},null,2));'
           fi
           exit 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Hyphen-hang-${{ matrix.hang }}
+          name: Paperwhite-wide-side-${{ matrix.side }}
           path: |
             build/qa-v107/typesetting-polish.json
             build/qa-v107/reader-polish.png
-            build/hyphen-hang-calibration.log
+            build/wide-calibration.log
           if-no-files-found: warn
