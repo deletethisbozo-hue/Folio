@@ -1,1 +1,11 @@
-body{font-family:Garamond,"Adobe Garamond Pro",Georgia,serif;line-height:1.62;color:#4c4439;background:#fffaf0}p{text-indent:1.1em}section.chapter>h1{text-align:center;margin:1.8em 0 2.5em;font-size:1.55em;font-weight:400;font-style:italic;color:#665846}.chapter-subtitle{margin:-2.8em 0 2.3em}.chapter-subtitle p{font-size:.92em;color:#8c765b}.scene-break{color:#aa9b87;letter-spacing:.45em}.tp-subtitle{font-size:1.05em;color:#8c765b}.tp-author{letter-spacing:.08em}section.titlepage>h1{font-weight:400;font-size:2.05em}section.copyright{font-size:.76em;color:#716657}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-weight:400;font-style:italic;color:#665846}@media print{section.chapter>h1{margin-top:1.9in}}
+/* Ivory — luxury minimalism: high contrast, silence and generous air. */
+body{font-family:Cambria,Georgia,serif;line-height:1.66;color:#3f3a34;background:#fffdf8}
+p{text-indent:1.05em}
+section.chapter>h1{text-align:center;margin:3.1em 0 3.05em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.15em;font-weight:400;line-height:1.05;letter-spacing:.045em;color:#554b41}
+section.chapter>h1::before{content:"CHAPTER";display:block;margin-bottom:1.25em;font-family:Avenir,Arial,sans-serif;font-size:.3em;font-weight:600;letter-spacing:.38em;color:#b3a793}
+section.chapter>h1::after{content:"";display:block;width:2.4em;height:1px;margin:1em auto -.25em;background:#d4c9b8}
+.chapter-subtitle{margin:-2.45em 0 2.7em}.chapter-subtitle p{font-family:Didot,"Bodoni MT",Georgia,serif;font-style:italic;font-size:.96em;color:#8c7f6c}
+.scene-break{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:.9em;letter-spacing:.65em;color:#b7aa98}
+section.titlepage{padding-top:5em}section.titlepage>h1{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.65em;font-weight:400;letter-spacing:.05em;color:#51483f}.tp-subtitle{font-family:Didot,"Bodoni MT",Georgia,serif;font-style:italic;color:#8c7f6c}.tp-author{margin-top:3.5em;font-family:Avenir,Arial,sans-serif;font-size:.88em;letter-spacing:.2em;text-transform:uppercase;color:#766c61}
+section.copyright{font-size:.74em;color:#8b8278}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",Georgia,serif;font-weight:400;letter-spacing:.05em}
+@media print{section.chapter>h1{margin-top:2.1in}}
