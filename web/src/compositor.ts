@@ -280,7 +280,7 @@ function fitLine(
   if (gaps <= 0) return null;
 
   const maxWordSpacing = emergency
-    ? Math.min(spaceWidth * 0.46, fontSize * 0.113)
+    ? Math.min(spaceWidth * 0.50, fontSize * 0.120)
     : Math.min(spaceWidth * 0.50, fontSize * 0.10);
   const normalizedLanguage = language.toLowerCase();
   const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
