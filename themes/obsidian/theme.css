@@ -1,1 +1,13 @@
-body{font-family:Baskerville,Georgia,serif;line-height:1.51;color:#18181c;background:#f1f0ed}main.book{counter-reset:shard}section.chapter{counter-increment:shard}section.chapter>h1{text-align:center;margin:1em 0 2.15em;padding:.62em .3em .72em;border-top:1px solid #17171b;border-bottom:4px double #17171b;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.85em;font-weight:400;letter-spacing:.06em}section.chapter>h1::before{content:"SHARD " counter(shard,upper-roman);display:block;margin-bottom:.75em;font:600 .38em Arial,sans-serif;letter-spacing:.34em}.chapter-subtitle{margin:-2.35em 0 2em}.chapter-subtitle p{font-style:normal;letter-spacing:.12em;text-transform:uppercase;font-size:.78em}.dropcap{font-family:Didot,"Bodoni MT",serif;color:#111115}.scene-break{color:#17171b;font-size:1.12em}.tp-author{font-variant:small-caps;letter-spacing:.18em}section.titlepage>h1{font-family:Didot,"Bodoni MT",serif;border-bottom:4px double #17171b;padding-bottom:.4em}section.frontmatter>h1,section.backmatter>h1{text-align:center;border-bottom:1px solid #17171b;padding-bottom:.35em}@media print{section.chapter>h1{margin-top:1.45in}}
+/* Obsidian — stark black slab opener for dark epic fantasy. */
+body{font-family:Baskerville,Georgia,serif;line-height:1.52;color:#18181c;background:#f0efed}
+main.book{counter-reset:shard}
+section.chapter{counter-increment:shard}
+section.chapter>h1{text-align:center;margin:.65em 0 2.4em;padding:1em .7em .9em;background:#17171b;color:#f4f0e8;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.95em;font-weight:500;letter-spacing:.075em;text-transform:uppercase}
+section.chapter>h1::before{content:"SHARD  ·  " counter(shard,upper-roman);display:block;margin-bottom:.9em;font-family:Avenir,Arial,sans-serif;font-size:.32em;font-weight:700;letter-spacing:.36em;color:#9fa0a5}
+section.chapter>h1::after{content:"◆";display:block;margin:.8em 0 -.15em;font-size:.34em;color:#d5d0c5}
+.chapter-subtitle{margin:-2.05em 0 2.05em}.chapter-subtitle p{font-style:normal;font-family:Avenir,Arial,sans-serif;font-size:.8em;letter-spacing:.16em;text-transform:uppercase;color:#5e5f64}
+.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.45em;color:#151519}
+.scene-break{font-size:1.1em;letter-spacing:.36em;color:#202025}
+section.titlepage>h1{font-family:Didot,"Bodoni MT",Georgia,serif;background:#17171b;color:#f4f0e8;padding:.7em .5em;font-size:2.35em;letter-spacing:.09em;text-transform:uppercase}.tp-subtitle{font-style:normal;font-family:Avenir,Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#55565c}.tp-author{font-variant:small-caps;letter-spacing:.17em}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",Georgia,serif;border-top:4px solid #17171b;border-bottom:1px solid #17171b;padding:.45em 0;letter-spacing:.06em;text-transform:uppercase}
+@media print{section.chapter>h1{margin-top:1.4in}}
