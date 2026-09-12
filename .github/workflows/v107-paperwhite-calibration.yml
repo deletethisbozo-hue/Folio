@@ -46,33 +46,36 @@ jobs:
           text = path.read_text(encoding="utf-8")
 
           needle = '    if (Math.abs(residualPx) > 1.7) continue;\n'
-          insert = needle + '''    // Gate the actual semantic inter-word gap before a candidate enters
-              // the paragraph graph. QA measures the rendered gap, not merely the
-              // extra CSS word-spacing, so leave rasterisation headroom here.
-              const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);
-              if (semanticGapEm > 0.355) continue;
-'''
+          insert = needle + (
+              '    // Gate the actual semantic inter-word gap before a candidate enters\n'
+              '    // the paragraph graph. QA measures the rendered gap, not merely the\n'
+              '    // extra CSS word-spacing, so leave rasterisation headroom here.\n'
+              '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
+              '    if (semanticGapEm > 0.355) continue;\n'
+          )
           if text.count(needle) != 1:
               raise SystemExit(f"fitLine insertion point count={text.count(needle)}")
           text = text.replace(needle, insert, 1)
 
           needle = '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
-          insert = needle + '''        // A single semantic word stranded on the final line of a prose
-              // paragraph is a hard composition defect, not a cost preference.
-              if (last && start > 0 && semanticWordsOnLine === 1) continue;
-'''
+          insert = needle + (
+              '        // A single semantic word stranded on the final line of a prose\n'
+              '        // paragraph is a hard composition defect, not a cost preference.\n'
+              '        if (last && start > 0 && semanticWordsOnLine === 1) continue;\n'
+          )
           if text.count(needle) != 1:
               raise SystemExit(f"final-line insertion point count={text.count(needle)}")
           text = text.replace(needle, insert, 1)
 
           needle = '        for (const lineFit of fitOptions) {\n'
-          insert = needle + '''          if (lineFit && previous.justified) {
-                const adjacentSpacingDeltaEm = Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize);
-                // Keep neighbouring justified lines from visibly pulsing between
-                // compressed and expanded spacing. Reserve a little QA headroom.
-                if (adjacentSpacingDeltaEm > 0.155) continue;
-              }
-'''
+          insert = needle + (
+              '          if (lineFit && previous.justified) {\n'
+              '            const adjacentSpacingDeltaEm = Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize);\n'
+              '            // Keep neighbouring justified lines from visibly pulsing between\n'
+              '            // compressed and expanded spacing. Reserve a little QA headroom.\n'
+              '            if (adjacentSpacingDeltaEm > 0.155) continue;\n'
+              '          }\n'
+          )
           if text.count(needle) != 1:
               raise SystemExit(f"adjacent-spacing insertion point count={text.count(needle)}")
           text = text.replace(needle, insert, 1)
