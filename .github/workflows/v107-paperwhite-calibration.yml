@@ -68,7 +68,7 @@ jobs:
           path.write_text(text, encoding="utf-8")
           print("Applied semantic-gap and one-word-tail gates")
           PY
-      - name: Patch Paperwhite geometry in runner working tree only
+      - name: Patch Paperwhite geometry and sample language in runner only
         shell: bash
         env:
           SIDE: ${{ matrix.side }}
@@ -76,15 +76,22 @@ jobs:
           python3 - <<'PY'
           import os, re
           from pathlib import Path
-          path = Path("web/src/preview-runtime.ts")
-          text = path.read_text(encoding="utf-8")
+
+          preview = Path("web/src/preview-runtime.ts")
+          text = preview.read_text(encoding="utf-8")
           pattern = r'("kindle-paperwhite": \{ width: 412, height: 549, baseFont: )\d+(?:\.\d+)?(, padding: \[34, )\d+(, 46, )\d+(\], wordsPerPage: 270 \},)'
           replacement = rf'\g<1>{os.environ["BASE_FONT"]}\g<2>{os.environ["SIDE"]}\g<3>{os.environ["SIDE"]}\g<4>'
           text, count = re.subn(pattern, replacement, text, count=1)
           if count != 1:
               raise SystemExit("Paperwhite profile not found exactly once")
-          path.write_text(text, encoding="utf-8")
-          print(f"Paperwhite: font {os.environ['BASE_FONT']}, side inset {os.environ['SIDE']}")
+          preview.write_text(text, encoding="utf-8")
+
+          sample = Path("samples/clockwork-garden/book.yaml")
+          sample_text = sample.read_text(encoding="utf-8")
+          if "language: en" not in sample_text:
+              raise SystemExit("Sample language marker missing")
+          sample.write_text(sample_text.replace("language: en", "language: pl", 1), encoding="utf-8")
+          print(f"Paperwhite: font {os.environ['BASE_FONT']}, side inset {os.environ['SIDE']}, sample language pl")
           PY
       - name: Trim visual harness to Polish composition only
         shell: bash
@@ -93,6 +100,7 @@ jobs:
           from pathlib import Path
           path = Path("scripts/v107-visual-qa.ts")
           text = path.read_text(encoding="utf-8")
+          text, count = text.replace('  await setLanguage("pl");\n', '', 1), 1
           marker = '  await setDropcap(true);\n'
           finally_marker = '} finally {\n'
           if marker not in text or finally_marker not in text:
@@ -100,7 +108,7 @@ jobs:
           prefix = text.split(marker, 1)[0]
           suffix = finally_marker + text.split(finally_marker, 1)[1]
           path.write_text(prefix + '  console.log(JSON.stringify({ dimensions, polishReport }, null, 2));\n' + suffix, encoding="utf-8")
-          print("Trimmed harness after Polish report")
+          print("Trimmed harness after Polish report and bypassed Book Details")
           PY
       - run: npm run typecheck
       - run: npm run build
