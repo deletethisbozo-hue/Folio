@@ -48,4 +48,4 @@ jobs:
           path: build/qa-v107/*
           if-no-files-found: warn
 
-# qualification trigger: all-theme matrix
+# qualification trigger: all-theme matrix diagnostics
