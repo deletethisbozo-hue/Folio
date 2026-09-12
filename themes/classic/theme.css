@@ -15,10 +15,14 @@ main.book { counter-reset: illuminated; }
 section.chapter {
   counter-increment: illuminated;
   position: relative;
-  padding: 1.15em 1.05em 2em;
-  border: 1px solid #7d2a22;
+  padding: 1.2em 1.08em 2.05em;
+  border: 1px solid #6f211c;
   background:
-    linear-gradient(90deg, rgba(25, 57, 88, .05), transparent 10%, transparent 90%, rgba(25, 57, 88, .05)),
+    radial-gradient(circle at 15px 15px, #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
+    radial-gradient(circle at calc(100% - 15px) 15px, #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
+    radial-gradient(circle at 15px calc(100% - 15px), #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
+    radial-gradient(circle at calc(100% - 15px) calc(100% - 15px), #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
+    linear-gradient(90deg, rgba(25, 57, 88, .045), transparent 11%, transparent 89%, rgba(25, 57, 88, .045)),
     #f4e4ba;
   box-shadow:
     inset 0 0 0 3px #d0aa55,
@@ -32,72 +36,75 @@ section.chapter::after {
   position: absolute;
   z-index: 1;
   font-family: Cinzel, Garamond, serif;
-  color: #8c2b23;
   background: #f4e4ba;
-  padding: 0 .35em;
   line-height: 1;
 }
 section.chapter::before {
-  content: "✦  ❦  ✦";
+  content: "❦  ✦  ❦";
   top: .42em;
   left: 50%;
   transform: translateX(-50%);
-  font-size: .68em;
-  letter-spacing: .28em;
+  padding: 0 .45em;
+  font-size: .72em;
+  letter-spacing: .26em;
+  color: #8c2b23;
 }
 section.chapter::after {
   content: "FOL. " counter(illuminated, decimal-leading-zero);
-  top: .52em;
-  right: 1.4em;
-  font-size: .48em;
+  top: .5em;
+  right: 1.35em;
+  padding: 0 .28em;
+  font-size: .47em;
   letter-spacing: .14em;
-  color: #6f4f2d;
+  color: #6c4d2b;
 }
 
 section.chapter > h1,
 h1.chapter {
   position: relative;
   text-align: center;
-  margin: 1.55em .6em 2.5em;
-  padding: 1.2em .75em 1em;
-  border: 4px solid transparent;
-  outline: 1px solid #6f1e19;
+  margin: 1.45em .72em 2.25em;
+  padding: 1.18em .72em .95em;
+  border: 2px solid #7b241e;
+  outline: 1px solid #c79d45;
   outline-offset: 4px;
   background:
-    linear-gradient(#f6e9c6, #f6e9c6) padding-box,
-    linear-gradient(90deg, #84261f 0 18%, #caa24b 18% 38%, #214b70 38% 62%, #caa24b 62% 82%, #84261f 82% 100%) border-box;
-  box-shadow: 0 0 0 1px #b18334, inset 0 0 0 1px rgba(123, 33, 28, .25);
+    radial-gradient(circle at 13px 13px, #d2aa50 0 2px, #214b70 2.5px 5px, transparent 5.5px),
+    radial-gradient(circle at calc(100% - 13px) 13px, #d2aa50 0 2px, #214b70 2.5px 5px, transparent 5.5px),
+    linear-gradient(#f7e9c5, #f3dfad);
+  box-shadow: 0 0 0 4px #1e4668, 0 0 0 6px #cba14d, 0 0 0 7px #7b241e;
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 2.32em;
-  font-weight: 520;
+  font-size: 2.38em;
+  font-weight: 560;
   line-height: 1.01;
-  letter-spacing: .005em;
+  letter-spacing: 0;
   color: #21140f;
+  text-shadow: .012em .012em 0 rgba(121, 75, 31, .22);
 }
 
 section.chapter > h1::before {
   content: "✠  LIBER " counter(illuminated, upper-roman) "  ✠";
   display: block;
-  margin-bottom: .95em;
+  margin-bottom: .9em;
   font-family: Cinzel, Garamond, Georgia, serif;
   font-size: .31em;
   font-weight: 700;
-  letter-spacing: .26em;
+  letter-spacing: .27em;
   color: #7f241d;
 }
 
 section.chapter > h1::after {
   content: "❧  ✦  ❧";
   display: block;
-  margin: .72em auto -.22em;
+  margin: .67em auto -.2em;
   font-family: Garamond, serif;
-  font-size: .46em;
+  font-size: .47em;
   letter-spacing: .22em;
-  color: #a17b2d;
+  color: #9f7629;
 }
 
 .chapter-subtitle {
-  margin: -2.05em 1em 2em;
+  margin: -1.8em 1em 1.9em;
 }
 .chapter-subtitle p {
   font-style: normal;
@@ -107,57 +114,58 @@ section.chapter > h1::after {
   color: #74261f;
 }
 
-/* Painted-initial effect, built entirely from CSS + the bundled Gothic face. */
 .dropcap {
-  min-width: .93em;
+  min-width: .94em;
   margin: .01em .16em 0 0;
-  padding: .11em .12em .13em;
-  border: 3px solid #9a3025;
-  outline: 2px solid #c9a046;
+  padding: .11em .12em .14em;
+  border: 3px solid #922c23;
+  outline: 2px solid #cba44d;
   outline-offset: 2px;
-  background: #183d62;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(225, 190, 91, .42), transparent 27%),
+    #183d62;
   box-shadow:
-    inset 0 0 0 2px #d4b05a,
+    inset 0 0 0 2px #d8b45a,
     inset 0 0 0 4px rgba(115, 29, 24, .55),
-    .05em .06em 0 rgba(75, 49, 24, .22);
-  color: #e0bd61;
+    .055em .065em 0 rgba(75, 49, 24, .22);
+  color: #e3c064;
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 3.85em;
-  font-weight: 760;
-  line-height: .79;
+  font-size: 4.05em;
+  font-weight: 780;
+  line-height: .77;
   text-align: center;
   text-shadow: .025em .025em 0 #6d211c;
 }
 
 section.chapter > p:first-of-type {
   margin-top: 0;
-  padding: .6em .65em .52em;
+  padding: .62em .7em .55em;
   border-top: 1px solid #b18a3d;
   border-bottom: 1px solid #b18a3d;
-  background: linear-gradient(90deg, rgba(126, 36, 29, .055), transparent 19%, transparent 81%, rgba(32, 73, 108, .05));
+  background: linear-gradient(90deg, rgba(126, 36, 29, .065), transparent 20%, transparent 80%, rgba(32, 73, 108, .055));
 }
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
   color: #7c271f;
   font-variant: small-caps;
-  letter-spacing: .035em;
+  letter-spacing: .04em;
 }
 
 .scene-break {
-  margin: 1.7em auto;
-  width: 72%;
-  padding: .28em 0 .22em;
+  margin: 1.75em auto;
+  width: 74%;
+  padding: .3em 0 .24em;
   border-top: 1px solid #b88e3e;
   border-bottom: 1px solid #b88e3e;
   color: #8c2b23;
-  font-size: 1.08em;
+  font-size: 1.1em;
   letter-spacing: .3em;
 }
 .scene-break::before,
 .scene-break::after {
   content: "✦";
-  padding: 0 .55em;
+  padding: 0 .58em;
   color: #214b70;
 }
 
@@ -192,5 +200,5 @@ section.backmatter > h1 {
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1.15in; }
+  section.chapter > h1 { margin-top: 1.1in; }
 }
