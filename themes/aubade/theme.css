@@ -1,1 +1,13 @@
-body{font-family:Palatino,"Palatino Linotype",Georgia,serif;line-height:1.58;color:#483829;background:#fffaf1}main.book{counter-reset:dawn}section.chapter{counter-increment:dawn}section.chapter>h1{text-align:center;margin:1.5em 0 2.2em;font-family:Baskerville,Georgia,serif;font-size:1.78em;font-weight:400;font-style:italic}section.chapter>h1::before{content:"DAWN " counter(dawn);display:block;margin-bottom:.75em;font:600 .42em Arial,sans-serif;letter-spacing:.26em;color:#c47c36}.chapter-subtitle{margin:-2.5em 0 2em}.chapter-subtitle p{color:#a2632e}.dropcap{color:#c47c36}.scene-break{color:#d09253;font-size:1.25em}.tp-subtitle{color:#b16d31}.tp-author{font-variant:small-caps;letter-spacing:.12em}section.titlepage>h1{font-family:Baskerville,Georgia,serif;font-style:italic;font-size:2.2em}section.copyright{font-size:.78em;color:#765f4b}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Baskerville,Georgia,serif;font-style:italic}@media print{section.chapter>h1{margin-top:1.75in}}
+/* Aubade — Art Nouveau dawn: warm curves, sun motif, lighter rhythm. */
+body{font-family:Garamond,Georgia,serif;line-height:1.6;color:#47362d;background:#fff7ea}
+main.book{counter-reset:dawn}
+section.chapter{counter-increment:dawn}
+section.chapter>h1{text-align:center;margin:1.45em 0 2.6em;padding:.4em 0 .75em;font-family:"Bodoni MT",Didot,Georgia,serif;font-size:1.95em;font-weight:500;font-style:italic;letter-spacing:.025em;color:#7b4a2b}
+section.chapter>h1::before{content:"☼";display:block;margin-bottom:.55em;font-family:Georgia,serif;font-size:.72em;font-style:normal;color:#d5963f}
+section.chapter>h1::after{content:"DAWN  ·  " counter(dawn,upper-roman);display:block;width:72%;margin:.9em auto 0;padding-top:.7em;border-top:1px solid #dfb77b;font-family:Avenir,Arial,sans-serif;font-size:.31em;font-style:normal;font-weight:600;letter-spacing:.28em;color:#bc7a32}
+.chapter-subtitle{margin:-2.25em 0 2.25em}.chapter-subtitle p{font-family:Garamond,Georgia,serif;font-size:.98em;font-style:italic;color:#9b6a45}
+.dropcap{font-family:"Bodoni MT",Didot,Georgia,serif;color:#c1772e;font-size:3.2em}
+.scene-break{font-size:1.15em;letter-spacing:.34em;color:#cf9958}
+section.titlepage>h1{font-family:"Bodoni MT",Didot,Georgia,serif;font-size:2.45em;font-style:italic;font-weight:500;color:#7b4a2b}.tp-subtitle{font-family:Garamond,Georgia,serif;font-size:1.1em;color:#a66f42}.tp-author{font-variant:small-caps;letter-spacing:.15em;color:#765545}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Bodoni MT",Didot,Georgia,serif;font-style:italic;color:#8b5535}
+@media print{section.chapter>h1{margin-top:1.8in}}
