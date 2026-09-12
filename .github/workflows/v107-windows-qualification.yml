@@ -1,4 +1,4 @@
-name: Folio 1.0.7 Windows hyphenation probe
+name: Folio 1.0.7 Windows font-size probe
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: folio-v107-windows-hyphenation-probe
+  group: folio-v107-windows-font-size-probe
   cancel-in-progress: true
 
 jobs:
@@ -42,37 +42,33 @@ jobs:
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
       - name: Install pinned Chromium runtime
         run: npx puppeteer browsers install chrome-headless-shell
-      - name: Probe Polish hyphenation limits on Windows
+      - name: Probe Paperwhite base font on Windows
         shell: pwsh
         run: |
-          $path = "web/src/hyphenation.ts"
+          $path = "web/src/preview-runtime.ts"
           $original = Get-Content $path -Raw
-          $needle = 'pl: { minimumWord: 4, left: 2, right: 2 },'
-          if (-not $original.Contains($needle)) { throw "Polish hyphenation probe target missing" }
-          $variants = @(
-            @{ Name = "l3-r2-m4"; Line = 'pl: { minimumWord: 4, left: 3, right: 2 },' },
-            @{ Name = "l2-r3-m4"; Line = 'pl: { minimumWord: 4, left: 2, right: 3 },' },
-            @{ Name = "l3-r3-m4"; Line = 'pl: { minimumWord: 4, left: 3, right: 3 },' },
-            @{ Name = "l3-r2-m5"; Line = 'pl: { minimumWord: 5, left: 3, right: 2 },' }
-          )
-          foreach ($variant in $variants) {
-            Write-Host "===== PROBE $($variant.Name) ====="
-            $content = $original.Replace($needle, $variant.Line)
+          $needle = '"kindle-paperwhite": { width: 412, height: 549, baseFont: 17.5, padding: [34, 28, 46, 28], wordsPerPage: 270 }'
+          if (-not $original.Contains($needle)) { throw "Paperwhite font-size probe target missing" }
+          foreach ($font in @(17.4, 17.3, 17.2, 17.1)) {
+            $label = $font.ToString([Globalization.CultureInfo]::InvariantCulture)
+            Write-Host "===== PROBE baseFont=$label ====="
+            $replacement = '"kindle-paperwhite": { width: 412, height: 549, baseFont: ' + $label + ', padding: [34, 28, 46, 28], wordsPerPage: 270 }'
+            $content = $original.Replace($needle, $replacement)
             [IO.File]::WriteAllText((Resolve-Path $path), $content, [Text.UTF8Encoding]::new($false))
             npm run build:web | Out-Host
-            if ($LASTEXITCODE -ne 0) { throw "build:web failed for $($variant.Name)" }
-            $log = "build\hyphenation-probe-$($variant.Name).log"
+            if ($LASTEXITCODE -ne 0) { throw "build:web failed for baseFont=$label" }
+            $log = "build\font-probe-$($label.Replace('.','_')).log"
             node --import tsx scripts/v107-visual-qa.ts *> $log
             $code = $LASTEXITCODE
-            $match = Select-String -Path $log -Pattern 'failed typographic QA|hyphenRate|oneWordFinalLines|TimeoutError|Error:' | Select-Object -Last 4
+            $match = Select-String -Path $log -Pattern 'failed typographic QA|hyphenRate|oneWordFinalLines|maxWordSpacingEm|TimeoutError|Error:' | Select-Object -Last 5
             if ($match) { $match | ForEach-Object { Write-Host $_.Line } }
-            if ($code -eq 0) { Write-Host "PROBE_RESULT $($variant.Name) PASS" } else { Write-Host "PROBE_RESULT $($variant.Name) FAIL" }
+            if ($code -eq 0) { Write-Host "PROBE_RESULT baseFont=$label PASS" } else { Write-Host "PROBE_RESULT baseFont=$label FAIL" }
           }
           [IO.File]::WriteAllText((Resolve-Path $path), $original, [Text.UTF8Encoding]::new($false))
           exit 0
       - name: Upload probe logs
         uses: actions/upload-artifact@v4
         with:
-          name: v107-windows-hyphenation-probe
-          path: build/hyphenation-probe-*.log
+          name: v107-windows-font-size-probe
+          path: build/font-probe-*.log
           if-no-files-found: error
