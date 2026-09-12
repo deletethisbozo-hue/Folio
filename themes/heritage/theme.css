@@ -1,1 +1,13 @@
-body{font-family:Baskerville,"Baskerville Old Face",Georgia,serif;line-height:1.5;color:#2f241d;background:#faf5e8}main.book{counter-reset:heritage}section.chapter{counter-increment:heritage}section.chapter>h1{text-align:center;margin:1.2em 0 2.3em;font-size:1.62em;font-weight:400;letter-spacing:.08em;font-variant:small-caps}section.chapter>h1::before{content:"CHAPTER " counter(heritage,upper-roman);display:block;margin-bottom:.75em;font-size:.48em;letter-spacing:.24em;color:#785237}.chapter-subtitle{margin:-2.6em 0 2em}.chapter-subtitle p{font-size:.95em}.dropcap{color:#6f4930}.scene-break{font-size:1.2em;color:#8c6746}.tp-author{font-variant:small-caps;letter-spacing:.14em}section.titlepage>h1{font-size:2.15em;border-bottom:1px solid #b49a7b;padding-bottom:.45em}section.copyright{font-size:.8em}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-variant:small-caps;letter-spacing:.12em}@media print{section.chapter>h1{margin-top:1.7in}}
+/* Heritage — engraved Victorian bookplate, not another quiet serif preset. */
+body{font-family:Baskerville,"Baskerville Old Face",Georgia,serif;line-height:1.5;color:#2a211c;background:#f7f0df}
+main.book{counter-reset:heritage}
+section.chapter{counter-increment:heritage}
+section.chapter>h1{text-align:center;margin:.7em 0 2.45em;padding:.8em .6em .75em;border-top:4px double #4e3728;border-bottom:1px solid #7b5b43;font-family:"Trajan Pro",Georgia,serif;font-size:1.75em;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#3c2b20}
+section.chapter>h1::before{content:"VOLUME · " counter(heritage,upper-roman);display:block;margin-bottom:.9em;font-family:Baskerville,Georgia,serif;font-size:.37em;font-weight:700;letter-spacing:.24em;color:#80563a}
+section.chapter>h1::after{content:"◆";display:block;margin:.72em 0 -.15em;font-size:.34em;color:#9a6a42}
+.chapter-subtitle{margin:-2.15em 0 2em}.chapter-subtitle p{font-style:normal;font-variant:small-caps;letter-spacing:.13em;color:#6d4b37}
+.dropcap{font-family:"Bodoni MT",Didot,Georgia,serif;font-size:3.25em;color:#6b3d2b}
+.scene-break{font-size:1.05em;letter-spacing:.38em;color:#7b5b43}
+section.titlepage>h1{font-family:"Trajan Pro",Georgia,serif;font-size:2.2em;letter-spacing:.1em;text-transform:uppercase;border-top:4px double #4e3728;border-bottom:1px solid #7b5b43;padding:.65em 0}.tp-author{font-variant:small-caps;letter-spacing:.15em}.tp-subtitle{font-style:normal;letter-spacing:.05em;color:#72533e}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Trajan Pro",Georgia,serif;letter-spacing:.11em;text-transform:uppercase}
+@media print{section.chapter>h1{margin-top:1.55in}}
