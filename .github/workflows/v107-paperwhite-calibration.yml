@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 semantic-gap calibration
+name: Temporary v1.0.7 blocked-fit diagnostic
 
 on:
   push:
@@ -11,20 +11,14 @@ permissions:
   contents: read
 
 jobs:
-  calibrate:
-    name: gap-${{ matrix.gap }}
+  diagnose:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        gap: ["0.360", "0.365", "0.369"]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
       BASE_FONT: "16.75"
       SIDE: "25"
-      GAP: ${{ matrix.gap }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,26 +34,100 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply semantic-gap candidate gate
+      - name: Instrument exact blocked line fit
         shell: bash
         run: |
           python3 - <<'PY'
-          import os
           from pathlib import Path
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
+
           needle = '    if (Math.abs(residualPx) > 1.7) continue;\n\n    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'
-          gap = os.environ["GAP"]
           replacement = (
               '    if (Math.abs(residualPx) > 1.7) continue;\n'
               '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
-              f'    if (semanticGapEm > {gap}) continue;\n\n'
+              '    if (semanticGapEm > 0.369) continue;\n\n'
               '    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'
           )
           if text.count(needle) != 1:
-              raise SystemExit(f"semantic-gap marker count={text.count(needle)}")
-          path.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
-          print(f"semantic-gap candidate gate={gap}em; release QA remains 0.37em")
+              raise SystemExit(f"semantic gate marker count={text.count(needle)}")
+          text = text.replace(needle, replacement, 1)
+
+          anchor = '\nconst FITNESS_COUNT = 4;\n'
+          if text.count(anchor) != 1:
+              raise SystemExit("fitLine anchor missing")
+          probe = r'''
+function probeLineFit(
+  adjustment: number,
+  gaps: number,
+  trackingOps: number,
+  spaceWidth: number,
+  fontSize: number,
+  naturalWidth: number,
+  previousGlyphScale: number,
+  emergency: boolean,
+): Record<string, unknown> {
+  const maxWordSpacing = emergency ? fontSize * 0.120 : fontSize * 0.10;
+  const minWordSpacing = -(fontSize * (emergency ? 0.120 : 0.099));
+  const maxTracking = fontSize * 0.003;
+  const minTracking = -fontSize * (emergency ? 0.003 : 0.0025);
+  const available = naturalWidth + adjustment;
+  const rows: Array<Record<string, unknown>> = [];
+  for (let step = -20; step <= 20; step++) {
+    const glyphScale = 1 + step * 0.0005;
+    if (Math.abs(glyphScale - previousGlyphScale) > 0.012) {
+      rows.push({ step, glyphScale, reject: "scale-jump" });
+      continue;
+    }
+    const scaledAdjustment = available / glyphScale - naturalWidth;
+    let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
+    const remaining = scaledAdjustment - wordSpacing * gaps;
+    let tracking = trackingOps > 0 ? remaining / trackingOps : 0;
+    if (tracking > maxTracking || tracking < minTracking) {
+      tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+      wordSpacing = (scaledAdjustment - tracking * trackingOps) / gaps;
+    }
+    wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
+    tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
+    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);
+    const reject = Math.abs(residualPx) > 1.7 ? "residual" : semanticGapEm > 0.369 ? "semantic-gap" : "accepted";
+    rows.push({ step, glyphScale, scaledAdjustment, wordSpacing, tracking, residualPx, semanticGapEm, reject });
+  }
+  return {
+    emergency,
+    adjustment,
+    gaps,
+    trackingOps,
+    spaceWidth,
+    fontSize,
+    naturalWidth,
+    available,
+    previousGlyphScale,
+    maxWordSpacing,
+    minWordSpacing,
+    maxTracking,
+    minTracking,
+    rows,
+  };
+}
+'''
+          text = text.replace(anchor, probe + anchor, 1)
+
+          nofit = text.index('reason: "no-fit"')
+          field = '            previousGlyphScale: previous.glyphScale, previousHyphenStreak, previousHyphenCount,\n'
+          field_pos = text.index(field, nofit)
+          insert = field + (
+              '            fitProbe: start === 53 && end === 62\n'
+              '              ? {\n'
+              '                  strict: probeLineFit(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false),\n'
+              '                  relaxed: probeLineFit(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true),\n'
+              '                }\n'
+              '              : undefined,\n'
+          )
+          text = text[:field_pos] + text[field_pos:].replace(field, insert, 1)
+          path.write_text(text, encoding="utf-8")
+          print("Instrumented start=53/end=62 with all 41 scale outcomes")
           PY
       - name: Patch controlled Paperwhite geometry and Polish sample language
         shell: bash
@@ -100,51 +168,19 @@ jobs:
           PY
       - run: npm run typecheck
       - run: npm run build
-      - name: Run Polish reference corpus
+      - name: Run diagnostic corpus
         shell: bash
         run: |
           set +e
-          node --import tsx scripts/v107-visual-qa.ts > "build/gap-${{ matrix.gap }}.log" 2>&1
-          status=$?
-          echo "QA exit: $status"
-          tail -n 45 "build/gap-${{ matrix.gap }}.log"
+          node --import tsx scripts/v107-visual-qa.ts > build/blocked-fit.log 2>&1
+          echo "QA exit: $?"
+          tail -n 80 build/blocked-fit.log
           exit 0
-      - name: Print compact Polish metrics
-        if: always()
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const fs = require('fs');
-          const p = 'build/qa-v107/typesetting-polish.json';
-          if (!fs.existsSync(p)) {
-            console.log(JSON.stringify({gap:process.env.GAP, missing:true}));
-            process.exit(0);
-          }
-          const q = JSON.parse(fs.readFileSync(p, 'utf8'));
-          console.log(JSON.stringify({
-            gap:process.env.GAP,
-            measurePx:q.measurePx,
-            emergencyLines:q.emergencyLines,
-            oneWordFinalLines:q.oneWordFinalLines,
-            relaxedLines:q.relaxedLines,
-            hyphenRate:q.hyphenRate,
-            maxHyphenStreak:q.maxHyphenStreak,
-            maxRightErrorPx:q.maxRightErrorPx,
-            maxWordSpacingEm:q.maxWordSpacingEm,
-            maxTrackingEm:q.maxTrackingEm,
-            maxGlyphScaleDelta:q.maxGlyphScaleDelta,
-            maxAdjacentGlyphScaleDelta:q.maxAdjacentGlyphScaleDelta,
-            maxSemanticGapEm:q.maxSemanticGapEm,
-            maxAdjacentSpacingDeltaEm:q.maxAdjacentSpacingDeltaEm,
-            emergencyText:(q.emergencyDetails||[]).map(x=>x.text)
-          }));
-          NODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-gap-${{ matrix.gap }}
+          name: Paperwhite-blocked-fit-diagnostic
           path: |
             build/qa-v107/typesetting-polish.json
-            build/qa-v107/reader-polish.png
-            build/gap-${{ matrix.gap }}.log
+            build/blocked-fit.log
           if-no-files-found: warn
