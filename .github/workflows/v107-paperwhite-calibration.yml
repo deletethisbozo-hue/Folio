@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 exhaustive fit frontier
+name: Temporary v1.0.7 tail-aware breakpoint test
 
 on:
   push:
@@ -12,9 +12,9 @@ permissions:
 
 jobs:
   calibrate:
-    name: exhaustive-frontier-side-25
+    name: tail-aware-side-25
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -35,7 +35,7 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Enumerate every legal glyph-scale fit in runner only
+      - name: Apply quality gates and proactive tail pruning in runner only
         shell: bash
         run: |
           python3 - <<'PY'
@@ -43,116 +43,45 @@ jobs:
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
 
-          start = text.index("function fitLine(")
-          end = text.index("\nconst FITNESS_COUNT = 4;", start)
-          fn = "\n".join([
-            "function fitLineCandidates(",
-            "  adjustment: number,",
-            "  gaps: number,",
-            "  trackingOps: number,",
-            "  spaceWidth: number,",
-            "  fontSize: number,",
-            "  naturalWidth: number,",
-            "  previousGlyphScale = 1,",
-            "  emergency = false,",
-            "  finalCompression = false,",
-            "  language = \"en\",",
-            "): LineFit[] {",
-            "  if (gaps <= 0) return [];",
-            "",
-            "  const maxWordSpacing = emergency ? fontSize * 0.120 : fontSize * 0.10;",
-            "  const normalizedLanguage = language.toLowerCase();",
-            "  const relaxedCompressionEm = 0.120;",
-            "  const strictCompressionEm = normalizedLanguage.startsWith(\"pl\") ? 0.099 : 0.06;",
-            "  const minWordSpacing = emergency || finalCompression",
-            "    ? -(fontSize * relaxedCompressionEm)",
-            "    : -(fontSize * strictCompressionEm);",
-            "  const maxTracking = fontSize * 0.003;",
-            "  const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);",
-            "  const maxGlyphScaleDelta = 0.01;",
-            "  const available = naturalWidth + adjustment;",
-            "  const candidates: LineFit[] = [];",
-            "",
-            "  for (let step = -20; step <= 20; step++) {",
-            "    const glyphScale = 1 + step * 0.0005;",
-            "    if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;",
-            "    if (Math.abs(glyphScale - previousGlyphScale) > 0.012) continue;",
-            "    const scaledAdjustment = available / glyphScale - naturalWidth;",
-            "    let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));",
-            "    let remaining = scaledAdjustment - wordSpacing * gaps;",
-            "    let tracking = trackingOps > 0 ? remaining / trackingOps : 0;",
-            "",
-            "    if (tracking > maxTracking || tracking < minTracking) {",
-            "      tracking = Math.max(minTracking, Math.min(maxTracking, tracking));",
-            "      wordSpacing = (scaledAdjustment - tracking * trackingOps) / gaps;",
-            "    }",
-            "    wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));",
-            "    tracking = Math.max(minTracking, Math.min(maxTracking, tracking));",
-            "    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;",
-            "    if (Math.abs(residualPx) > 1.7) continue;",
-            "    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);",
-            "    if (semanticGapEm > 0.355) continue;",
-            "",
-            "    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);",
-            "    const trackingRatio = tracking / Math.max(1, fontSize);",
-            "    const scaleRatio = Math.abs(glyphScale - 1) / 0.01;",
-            "    const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;",
-            "    const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)",
-            "      + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)",
-            "      + 42 * Math.pow(scaleRatio, 3)",
-            "      + 90 * Math.pow(scaleJumpRatio, 2)",
-            "      + 80 * Math.pow(Math.abs(residualPx) / 1.7, 2);",
-            "    const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;",
-            "    candidates.push({ wordSpacing, tracking, glyphScale, badness, fitness });",
-            "  }",
-            "  return candidates;",
-            "}",
-            "",
-          ])
-          text = text[:start] + fn + text[end:]
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label} count={count}")
+              text = text.replace(old, new, 1)
 
-          needle = '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
-          if text.count(needle) != 1:
-              raise SystemExit(f"tail marker count={text.count(needle)}")
-          text = text.replace(needle, needle + '        if (last && start > 0 && semanticWordsOnLine === 1) continue;\n', 1)
+          replace_once(
+              '    if (Math.abs(residualPx) > 1.7) continue;\n\n    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
+              '    if (Math.abs(residualPx) > 1.7) continue;\n'
+              '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
+              '    if (semanticGapEm > 0.355) continue;\n\n'
+              '    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
+              "semantic gap gate",
+          )
 
-          block_start = text.index("        const finalCompressionFit = last")
-          block_end = text.index("        if (!last && !fitOptions.length && !rescueNatural) {", block_start)
-          replacement = "\n".join([
-            "        const finalCompressionCandidates = last",
-            "          && semanticWordsOnLine >= 2",
-            "          && adjustment < -0.75",
-            "          ? fitLineCandidates(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language)",
-            "          : [];",
-            "        const strictCandidates = !last",
-            "          ? fitLineCandidates(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)",
-            "          : finalCompressionCandidates;",
-            "        const relaxedCandidates = emergency && !last && strictCandidates.length === 0",
-            "          ? fitLineCandidates(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)",
-            "          : [];",
-            "        const candidateFits = strictCandidates.length ? strictCandidates : relaxedCandidates;",
-            "        if (!canBreak) continue;",
-            "        if (natural > available + 0.75 && candidateFits.length === 0 && (end > start || last)) {",
-            "          if (canBreak && rejectedBreaks.length < 160) rejectedBreaks.push({",
-            "            reason: \"overfull-break\", start, end, line, hyphenBreak, natural, available, adjustment, gaps, characters,",
-            "            startText: (words[start].node.textContent ?? \"\").replace(/\\u00ad/g, \"\"),",
-            "            endText: (words[end].node.textContent ?? \"\").replace(/\\u00ad/g, \"\"),",
-            "            nextText: (words[end + 1]?.node.textContent ?? \"\").replace(/\\u00ad/g, \"\"),",
-            "            previousGlyphScale: previous.glyphScale, previousHyphenStreak, previousHyphenCount,",
-            "          });",
-            "          break;",
-            "        }",
-            "        const dropcapRescue = false;",
-            "        const emergencyRescue = allowNaturalRescue && !last && candidateFits.length === 0 && natural <= available + 0.75;",
-            "        const rescueNatural = emergencyRescue;",
-            "        const fitOptions: Array<LineFit | null> = [...candidateFits];",
-            "        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);",
-            "        const hasStrictFit = strictCandidates.length > 0;",
-            "",
-          ])
-          text = text[:block_start] + replacement + text[block_end:]
+          replace_once(
+              '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n',
+              '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
+              '        if (last && start > 0 && semanticWordsOnLine === 1) continue;\n',
+              "final one-word gate",
+          )
+
+          replace_once(
+              '        if (!canBreak) continue;\n',
+              '        if (!canBreak) continue;\n'
+              '        // Do not take a locally attractive breakpoint that leaves exactly\n'
+              '        // one semantic word for the rest of the paragraph. That path can\n'
+              '        // never satisfy the final-line widow rule, so prune it before it\n'
+              '        // consumes the preceding word that must travel with the tail.\n'
+              '        const remainingSemanticWords = last ? 0 : 1 + words\n'
+              '          .slice(end + 2)\n'
+              '          .filter((word) => word.spaceBefore).length;\n'
+              '        if (!last && remainingSemanticWords === 1) continue;\n',
+              "tail-aware breakpoint pruning",
+          )
+
           path.write_text(text, encoding="utf-8")
-          print("Enumerating all legal line fits instead of locally pruning scales")
+          print("Applied semantic-gap, final-widow and proactive tail gates")
           PY
       - name: Patch controlled Paperwhite geometry and Polish sample language
         shell: bash
@@ -197,10 +126,10 @@ jobs:
         shell: bash
         run: |
           set +e
-          node --import tsx scripts/v107-visual-qa.ts > build/exhaustive-frontier.log 2>&1
+          node --import tsx scripts/v107-visual-qa.ts > build/tail-aware.log 2>&1
           status=$?
           echo "QA exit: $status"
-          tail -n 50 build/exhaustive-frontier.log
+          tail -n 50 build/tail-aware.log
           exit 0
       - name: Print compact Polish metrics
         if: always()
@@ -223,6 +152,8 @@ jobs:
             maxHyphenStreak:q.maxHyphenStreak,
             maxRightErrorPx:q.maxRightErrorPx,
             maxWordSpacingEm:q.maxWordSpacingEm,
+            maxStrictWordSpacingEm:q.maxStrictWordSpacingEm,
+            maxRelaxedWordSpacingEm:q.maxRelaxedWordSpacingEm,
             maxTrackingEm:q.maxTrackingEm,
             maxGlyphScaleDelta:q.maxGlyphScaleDelta,
             maxAdjacentGlyphScaleDelta:q.maxAdjacentGlyphScaleDelta,
@@ -234,9 +165,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-exhaustive-frontier-25
+          name: Paperwhite-tail-aware-25
           path: |
             build/qa-v107/typesetting-polish.json
             build/qa-v107/reader-polish.png
-            build/exhaustive-frontier.log
+            build/tail-aware.log
           if-no-files-found: warn
