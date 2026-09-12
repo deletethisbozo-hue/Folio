@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 Paperwhite constrained measure search
+name: Temporary v1.0.7 Paperwhite fit frontier
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
 
 jobs:
   calibrate:
-    name: side-${{ matrix.side }}
+    name: frontier-side-${{ matrix.side }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        side: [19, 21, 23, 25, 27]
+        side: [23, 25]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -38,7 +38,7 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply quality constraints in runner working tree only
+      - name: Apply candidate-frontier compositor in runner only
         shell: bash
         run: |
           python3 - <<'PY'
@@ -46,27 +46,174 @@ jobs:
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
 
-          needle = '    if (Math.abs(residualPx) > 1.7) continue;\n'
-          insert = needle + (
-              '    // QA measures the actual rendered semantic gap. Reject a line\n'
-              '    // before it enters the paragraph graph if it is already too loose.\n'
-              '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
-              '    if (semanticGapEm > 0.355) continue;\n'
-          )
-          if text.count(needle) != 1:
-              raise SystemExit(f"semantic-gap insertion count={text.count(needle)}")
-          text = text.replace(needle, insert, 1)
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label} count={count}")
+              text = text.replace(old, new, 1)
 
-          needle = '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
-          insert = needle + (
-              '        // Do not strand a single semantic word on the final line.\n'
-              '        if (last && start > 0 && semanticWordsOnLine === 1) continue;\n'
+          replace_once(
+              '  selection: "badness" | "continuity" = "badness",\n',
+              '  selection: "badness" | "continuity" | "min-scale" | "max-scale" | "neutral-spacing" = "badness",\n',
+              "fitLine selection union",
           )
-          if text.count(needle) != 1:
-              raise SystemExit(f"tail insertion count={text.count(needle)}")
-          text = text.replace(needle, insert, 1)
+
+          replace_once(
+              '    if (Math.abs(residualPx) > 1.7) continue;\n\n    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
+              '    if (Math.abs(residualPx) > 1.7) continue;\n'
+              '    // Release QA measures the rendered inter-word gap, not only CSS\n'
+              '    // word-spacing. Keep a little rasterisation headroom here.\n'
+              '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
+              '    if (semanticGapEm > 0.355) continue;\n\n'
+              '    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
+              "semantic gap gate",
+          )
+
+          replace_once(
+              '    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : candidate.badness;',
+              '    const rank = selection === "continuity"\n'
+              '      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n'
+              '      : selection === "min-scale"\n'
+              '        ? glyphScale * 1_000_000_000 + candidate.badness\n'
+              '        : selection === "max-scale"\n'
+              '          ? -glyphScale * 1_000_000_000 + candidate.badness\n'
+              '          : selection === "neutral-spacing"\n'
+              '            ? Math.abs(wordSpacing / Math.max(1, fontSize)) * 100_000_000 + candidate.badness\n'
+              '            : candidate.badness;',
+              "frontier ranking modes",
+          )
+
+          replace_once(
+              '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n',
+              '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
+              '        // A one-word final line is not an acceptable prose solution.\n'
+              '        if (last && start > 0 && semanticWordsOnLine === 1) continue;\n',
+              "one-word final gate",
+          )
+
+          old = '''        const finalCompressionFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language)
+          : null;
+        const finalCompressionContinuityFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "continuity")
+          : null;
+        const strictFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)
+          : finalCompressionFit;
+        const strictContinuityFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")
+          : finalCompressionContinuityFit;
+        const fit = strictFit ?? (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)
+          : null);
+        const continuityFit = strictContinuityFit ?? (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")
+          : null);'''
+          new = '''        const finalCompressionFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language)
+          : null;
+        const finalCompressionContinuityFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "continuity")
+          : null;
+        const finalCompressionMinScaleFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "min-scale")
+          : null;
+        const finalCompressionMaxScaleFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "max-scale")
+          : null;
+        const finalCompressionNeutralFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "neutral-spacing")
+          : null;
+        const strictFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)
+          : finalCompressionFit;
+        const strictContinuityFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")
+          : finalCompressionContinuityFit;
+        const strictMinScaleFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "min-scale")
+          : finalCompressionMinScaleFit;
+        const strictMaxScaleFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "max-scale")
+          : finalCompressionMaxScaleFit;
+        const strictNeutralFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "neutral-spacing")
+          : finalCompressionNeutralFit;
+        const anyStrictFit = Boolean(strictFit || strictContinuityFit || strictMinScaleFit || strictMaxScaleFit || strictNeutralFit);
+        const fit = anyStrictFit ? strictFit : (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)
+          : null);
+        const continuityFit = anyStrictFit ? strictContinuityFit : (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")
+          : null);
+        const minScaleFit = anyStrictFit ? strictMinScaleFit : (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "min-scale")
+          : null);
+        const maxScaleFit = anyStrictFit ? strictMaxScaleFit : (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "max-scale")
+          : null);
+        const neutralFit = anyStrictFit ? strictNeutralFit : (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "neutral-spacing")
+          : null);'''
+          replace_once(old, new, "candidate frontier construction")
+
+          replace_once(
+              '        if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) {',
+              '        if (natural > available + 0.75 && !fit && !continuityFit && !minScaleFit && !maxScaleFit && !neutralFit && (end > start || last)) {',
+              "overfull candidate gate",
+          )
+          replace_once(
+              '        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && natural <= available + 0.75;',
+              '        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && !minScaleFit && !maxScaleFit && !neutralFit && natural <= available + 0.75;',
+              "natural rescue gate",
+          )
+
+          old = '''        const fitOptions: Array<LineFit | null> = [];
+        if (fit) fitOptions.push(fit);
+        if (continuityFit && !fitOptions.some((candidate) =>
+          candidate
+          && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001
+          && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001
+          && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001
+        )) fitOptions.push(continuityFit);
+        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
+        const hasStrictFit = Boolean(strictFit || strictContinuityFit);'''
+          new = '''        const fitOptions: Array<LineFit | null> = [];
+        const addFit = (candidate: LineFit | null): void => {
+          if (!candidate) return;
+          if (!fitOptions.some((existing) =>
+            existing
+            && Math.abs(existing.glyphScale - candidate.glyphScale) < 0.000001
+            && Math.abs(existing.wordSpacing - candidate.wordSpacing) < 0.000001
+            && Math.abs(existing.tracking - candidate.tracking) < 0.000001
+          )) fitOptions.push(candidate);
+        };
+        addFit(fit);
+        addFit(continuityFit);
+        addFit(minScaleFit);
+        addFit(maxScaleFit);
+        addFit(neutralFit);
+        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
+        const hasStrictFit = anyStrictFit;'''
+          replace_once(old, new, "frontier fit options")
+
           path.write_text(text, encoding="utf-8")
-          print("Applied semantic-gap and one-word-tail gates")
+          print("Applied 5-objective fit frontier with semantic-gap and final-tail gates")
           PY
       - name: Patch Paperwhite geometry and sample language in runner only
         shell: bash
@@ -76,7 +223,6 @@ jobs:
           python3 - <<'PY'
           import os, re
           from pathlib import Path
-
           preview = Path("web/src/preview-runtime.ts")
           text = preview.read_text(encoding="utf-8")
           pattern = r'("kindle-paperwhite": \{ width: 412, height: 549, baseFont: )\d+(?:\.\d+)?(, padding: \[34, )\d+(, 46, )\d+(\], wordsPerPage: 270 \},)'
@@ -85,13 +231,12 @@ jobs:
           if count != 1:
               raise SystemExit("Paperwhite profile not found exactly once")
           preview.write_text(text, encoding="utf-8")
-
           sample = Path("samples/clockwork-garden/book.yaml")
           sample_text = sample.read_text(encoding="utf-8")
           if "language: en" not in sample_text:
               raise SystemExit("Sample language marker missing")
           sample.write_text(sample_text.replace("language: en", "language: pl", 1), encoding="utf-8")
-          print(f"Paperwhite: font {os.environ['BASE_FONT']}, side inset {os.environ['SIDE']}, sample language pl")
+          print(f"Paperwhite frontier: font {os.environ['BASE_FONT']}, side {os.environ['SIDE']}")
           PY
       - name: Trim visual harness to Polish composition only
         shell: bash
@@ -100,7 +245,9 @@ jobs:
           from pathlib import Path
           path = Path("scripts/v107-visual-qa.ts")
           text = path.read_text(encoding="utf-8")
-          text, count = text.replace('  await setLanguage("pl");\n', '', 1), 1
+          if '  await setLanguage("pl");\n' not in text:
+              raise SystemExit("setLanguage marker missing")
+          text = text.replace('  await setLanguage("pl");\n', '', 1)
           marker = '  await setDropcap(true);\n'
           finally_marker = '} finally {\n'
           if marker not in text or finally_marker not in text:
@@ -108,18 +255,17 @@ jobs:
           prefix = text.split(marker, 1)[0]
           suffix = finally_marker + text.split(finally_marker, 1)[1]
           path.write_text(prefix + '  console.log(JSON.stringify({ dimensions, polishReport }, null, 2));\n' + suffix, encoding="utf-8")
-          print("Trimmed harness after Polish report and bypassed Book Details")
           PY
       - run: npm run typecheck
       - run: npm run build
-      - name: Run Polish reference corpus and retain failing metrics
+      - name: Run Polish reference corpus
         shell: bash
         run: |
           set +e
-          node --import tsx scripts/v107-visual-qa.ts > "build/calibration-side-${{ matrix.side }}.log" 2>&1
+          node --import tsx scripts/v107-visual-qa.ts > "build/frontier-${{ matrix.side }}.log" 2>&1
           status=$?
           echo "QA exit: $status"
-          tail -n 40 "build/calibration-side-${{ matrix.side }}.log"
+          tail -n 35 "build/frontier-${{ matrix.side }}.log"
           exit 0
       - name: Print compact Polish metrics
         if: always()
@@ -146,6 +292,8 @@ jobs:
             maxHyphenStreak: q.maxHyphenStreak,
             maxRightErrorPx: q.maxRightErrorPx,
             maxWordSpacingEm: q.maxWordSpacingEm,
+            maxStrictWordSpacingEm: q.maxStrictWordSpacingEm,
+            maxRelaxedWordSpacingEm: q.maxRelaxedWordSpacingEm,
             maxTrackingEm: q.maxTrackingEm,
             maxGlyphScaleDelta: q.maxGlyphScaleDelta,
             maxAdjacentGlyphScaleDelta: q.maxAdjacentGlyphScaleDelta,
@@ -157,9 +305,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-measure-${{ matrix.side }}
+          name: Paperwhite-fit-frontier-${{ matrix.side }}
           path: |
             build/qa-v107/typesetting-polish.json
             build/qa-v107/reader-polish.png
-            build/calibration-side-${{ matrix.side }}.log
+            build/frontier-${{ matrix.side }}.log
           if-no-files-found: warn
