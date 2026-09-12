@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 Paperwhite calibration
+name: Temporary v1.0.7 Paperwhite font calibration
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
 
 jobs:
   calibrate:
-    name: side-inset-${{ matrix.side }}
+    name: base-font-${{ matrix.font }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        side: [21, 23, 25, 27, 29, 31]
+        font: [16.75, 17.0, 17.25, 17.5]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -37,51 +37,52 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Patch Paperwhite side inset in working tree only
+      - name: Patch Paperwhite calibration in working tree only
         shell: bash
         env:
-          SIDE: ${{ matrix.side }}
+          BASE_FONT: ${{ matrix.font }}
         run: |
           python3 - <<'PY'
           import os, re
           from pathlib import Path
           path = Path("web/src/preview-runtime.ts")
           text = path.read_text(encoding="utf-8")
-          pattern = r'("kindle-paperwhite": \{ width: 412, height: 549, baseFont: 17\.5, padding: \[34, )\d+(, 46, )\d+(\], wordsPerPage: 270 \},)'
-          replacement = rf'\g<1>{os.environ["SIDE"]}\g<2>{os.environ["SIDE"]}\g<3>'
+          pattern = r'("kindle-paperwhite": \{ width: 412, height: 549, baseFont: )\d+(?:\.\d+)?(, padding: \[34, )\d+(, 46, )\d+(\], wordsPerPage: 270 \},)'
+          replacement = rf'\g<1>{os.environ["BASE_FONT"]}\g<2>23\g<3>23\g<4>'
           text, count = re.subn(pattern, replacement, text, count=1)
           if count != 1:
               raise SystemExit("Paperwhite profile not found exactly once")
           path.write_text(text, encoding="utf-8")
-          print(f"Paperwhite side inset: {os.environ['SIDE']}")
+          print(f"Paperwhite: font {os.environ['BASE_FONT']}, side inset 23")
           PY
       - run: npm run typecheck
       - run: npm run build
       - name: Run reference corpus and retain failing metrics
-        id: qa
         shell: bash
         run: |
           set +e
-          node --import tsx scripts/v107-visual-qa.ts > "build/calibration-${{ matrix.side }}.log" 2>&1
+          node --import tsx scripts/v107-visual-qa.ts > "build/calibration-${{ matrix.font }}.log" 2>&1
           status=$?
-          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-          cat "build/calibration-${{ matrix.side }}.log"
+          echo "QA exit: $status"
+          cat "build/calibration-${{ matrix.font }}.log"
           exit 0
       - name: Print compact Polish metrics
         if: always()
         shell: bash
+        env:
+          BASE_FONT: ${{ matrix.font }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
-          const side = process.env.SIDE;
+          const font = process.env.BASE_FONT;
           const path = 'build/qa-v107/typesetting-polish.json';
           if (!fs.existsSync(path)) {
-            console.log(JSON.stringify({side, missing: true}));
+            console.log(JSON.stringify({font, missing: true}));
             process.exit(0);
           }
           const q = JSON.parse(fs.readFileSync(path, 'utf8'));
           console.log(JSON.stringify({
-            side,
+            font,
             measurePx: q.measurePx,
             emergencyLines: q.emergencyLines,
             relaxedLines: q.relaxedLines,
@@ -98,13 +99,11 @@ jobs:
             emergencyText: (q.emergencyDetails || []).map(x => x.text),
           }));
           NODE
-        env:
-          SIDE: ${{ matrix.side }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-calibration-${{ matrix.side }}
+          name: Paperwhite-font-calibration-${{ matrix.font }}
           path: |
             build/qa-v107/**
-            build/calibration-${{ matrix.side }}.log
+            build/calibration-${{ matrix.font }}.log
           if-no-files-found: warn
