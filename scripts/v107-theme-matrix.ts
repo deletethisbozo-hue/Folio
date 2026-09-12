@@ -121,6 +121,12 @@ try {
   const setTheme = async (theme: string) => {
     await page.click('[data-command="design"]');
     await page.waitForSelector('.style-library[aria-label="Book style library"]');
+    await page.evaluate(() => {
+      const button = [...document.querySelectorAll(".style-category-list button")].find((node) => node.textContent === "Book Style");
+      if (!button) throw new Error("Book Style category is missing");
+      (button as HTMLButtonElement).click();
+    });
+    await page.waitForSelector(`[data-theme="${theme}"]`);
     await page.click(`[data-theme="${theme}"]`);
     await page.waitForFunction((value) => document.querySelector(`[data-theme="${value}"]`)?.classList.contains("selected"), {}, theme);
     await page.click(".style-library-header button");
