@@ -1,1 +1,13 @@
-body{font-family:Baskerville,Georgia,serif;line-height:1.54;color:#344047;background:#f1f4f3}main.book{counter-reset:return}section.chapter{counter-increment:return}section.chapter>h1{text-align:center;margin:1.25em 0 2.4em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.72em;font-weight:400;letter-spacing:.14em;color:#465861}section.chapter>h1::before{content:"RETURN " counter(return,upper-roman);display:block;margin:0 0 .9em -5em;font:500 .4em Arial,sans-serif;letter-spacing:.32em;color:#78878d}section.chapter>h1::after{content:"";display:block;width:1px;height:2.2em;margin:.65em auto -1.45em;background:#93a0a4}.chapter-subtitle{margin:-2.55em 0 2.25em}.chapter-subtitle p{font-style:italic;color:#66777e}.dropcap{font-family:Didot,"Bodoni MT",serif;color:#52616b}.scene-break{color:#78878d;font-size:1.16em}.tp-author{font-variant:small-caps;letter-spacing:.17em;color:#52616b}section.titlepage>h1{font-family:Didot,"Bodoni MT",serif;letter-spacing:.08em;color:#465861}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",serif;letter-spacing:.1em;color:#52616b}@media print{section.chapter>h1{margin-top:1.55in}}
+/* Revenant — spectral gothic: pale monumental marker, narrow title, cold ink. */
+body{font-family:Baskerville,Georgia,serif;line-height:1.56;color:#354149;background:#f1f5f4}
+main.book{counter-reset:return}
+section.chapter{counter-increment:return}
+section.chapter>h1{text-align:center;margin:1.1em 0 2.75em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.82em;font-weight:400;line-height:1.05;letter-spacing:.16em;text-transform:uppercase;color:#45555e}
+section.chapter>h1::before{content:counter(return,upper-roman);display:block;margin:0 0 -.15em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.2em;font-weight:400;line-height:.8;letter-spacing:.01em;color:#d9e0e2}
+section.chapter>h1::after{content:"RETURN";display:block;width:7em;margin:1.05em auto 0;padding-top:.7em;border-top:1px solid #aeb9bd;font-family:Avenir,Arial,sans-serif;font-size:.28em;font-weight:600;letter-spacing:.42em;color:#7b8a90}
+.chapter-subtitle{margin:-2.45em 0 2.35em}.chapter-subtitle p{font-family:Baskerville,Georgia,serif;font-style:italic;color:#718087}
+.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.4em;color:#809097}
+.scene-break{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1em;letter-spacing:.5em;color:#98a6ab}
+section.titlepage>h1{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.4em;font-weight:400;letter-spacing:.14em;text-transform:uppercase;color:#45555e}.tp-subtitle{font-style:italic;color:#718087}.tp-author{font-family:Avenir,Arial,sans-serif;font-size:.9em;letter-spacing:.2em;text-transform:uppercase;color:#66767d}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",Georgia,serif;letter-spacing:.12em;text-transform:uppercase;color:#52636b}
+@media print{section.chapter>h1{margin-top:1.65in}}
