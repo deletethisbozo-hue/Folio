@@ -1,1 +1,13 @@
-body{font-family:Garamond,"Book Antiqua",Georgia,serif;line-height:1.55;color:#332b36;background:#f7f3f6}main.book{counter-reset:hex}section.chapter{counter-increment:hex}section.chapter>h1{text-align:right;margin:1.1em 0 2.25em;padding:.35em .7em .45em 0;border-right:3px solid #745683;font-family:Baskerville,Georgia,serif;font-size:1.82em;font-weight:400;font-style:italic;color:#4d3658}section.chapter>h1::before{content:"HEX " counter(hex,upper-roman) "  ✦";display:block;margin-bottom:.7em;font:600 .39em Arial,sans-serif;letter-spacing:.28em;color:#7a5d86}.chapter-subtitle{text-align:right;margin:-2.4em 0 2em;padding-right:1.25em}.chapter-subtitle p{text-align:right;text-align-last:right;color:#745683}.dropcap{font-family:Baskerville,Georgia,serif;color:#60446f}.scene-break{color:#745683;font-size:1.15em}.tp-author{font-variant:small-caps;letter-spacing:.15em;color:#60446f}section.titlepage>h1{font-family:Baskerville,Georgia,serif;font-style:italic;color:#4d3658}section.frontmatter>h1,section.backmatter>h1{text-align:right;font-style:italic;color:#60446f;border-right:3px solid #745683;padding-right:.5em}@media print{section.chapter>h1{margin-top:1.4in}}
+/* Witchlight — ethereal occult fantasy with star geometry and whispered contrast. */
+body{font-family:Garamond,"Book Antiqua",Georgia,serif;line-height:1.57;color:#322b37;background:#f7f1f7}
+main.book{counter-reset:hex}
+section.chapter{counter-increment:hex}
+section.chapter>h1{text-align:center;margin:1.45em 0 2.55em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.9em;font-weight:400;font-style:italic;line-height:1.08;letter-spacing:.035em;color:#5a3d66}
+section.chapter>h1::before{content:"✦  ·  ✧  ·  ✦";display:block;margin-bottom:.75em;font-family:Georgia,serif;font-size:.58em;font-style:normal;letter-spacing:.45em;color:#a68bb2}
+section.chapter>h1::after{content:"HEX  ·  " counter(hex,upper-roman);display:block;width:7.5em;margin:.9em auto 0;padding-top:.65em;border-top:1px solid #b49dbd;font-family:Avenir,Arial,sans-serif;font-size:.3em;font-style:normal;font-weight:600;letter-spacing:.34em;color:#7f628c}
+.chapter-subtitle{margin:-2.2em 0 2.2em}.chapter-subtitle p{font-family:Garamond,Georgia,serif;font-style:italic;color:#80658c}
+.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.45em;color:#684a75}
+.scene-break{font-size:1.05em;letter-spacing:.5em;color:#8e73a0}
+section.titlepage>h1{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.45em;font-style:italic;font-weight:400;color:#5a3d66}.tp-subtitle{font-style:italic;color:#80658c}.tp-author{font-family:Avenir,Arial,sans-serif;font-size:.86em;letter-spacing:.2em;text-transform:uppercase;color:#70557b}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",Georgia,serif;font-style:italic;color:#654671}
+@media print{section.chapter>h1{margin-top:1.6in}}
