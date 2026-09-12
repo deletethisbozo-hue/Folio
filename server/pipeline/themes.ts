@@ -4,8 +4,8 @@ export interface ThemeConfig {
   name: ThemeName;
   label: string;
   description: string;
-  sceneOrnament: string; // glyph(s) used for "* * *" scene breaks
-  dropcap: boolean; // large initial letter on the first paragraph of a chapter
+  sceneOrnament: string;
+  dropcap: boolean;
   chapterLabel: string;
   previewFont: string;
   previewHeadingFont: string;
@@ -15,40 +15,21 @@ export interface ThemeConfig {
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
   classic: {
-    name: "classic",
-    label: "Classic",
-    description: "Traditional serif body with understated centered chapter titles.",
-    sceneOrnament: "* * *",
-    dropcap: false,
-    chapterLabel: "Chapter One",
-    previewFont: "Georgia, serif",
-    previewHeadingFont: "Georgia, serif",
-    previewAccent: "#33312e",
-    previewPaper: "#fbfaf6",
+    name: "classic", label: "Illuminated",
+    description: "Lavish illuminated-codex fantasy: rubrication, painted-style initial and Gothic ceremonial openings.",
+    sceneOrnament: "❦ ✦ ❦", dropcap: true, chapterLabel: "LIBER I",
+    previewFont: "Garamond, serif", previewHeadingFont: "UnifrakturCook, serif",
+    previewAccent: "#7d251f", previewPaper: "#f4e7c2",
   },
   modern: {
-    name: "modern",
-    label: "Modern",
-    description: "Clean sans-serif headings, generous spacing, minimalist scene breaks.",
-    sceneOrnament: "•   •   •",
-    dropcap: false,
-    chapterLabel: "CHAPTER 01",
-    previewFont: "Arial, sans-serif",
-    previewHeadingFont: "Arial, sans-serif",
-    previewAccent: "#20262c",
-    previewPaper: "#ffffff",
+    name: "modern", label: "Modern", description: "Clean sans-serif headings, generous spacing, minimalist scene breaks.",
+    sceneOrnament: "•   •   •", dropcap: false, chapterLabel: "CHAPTER 01", previewFont: "Arial, sans-serif",
+    previewHeadingFont: "Arial, sans-serif", previewAccent: "#20262c", previewPaper: "#ffffff",
   },
   decorative: {
-    name: "decorative",
-    label: "Decorative",
-    description: "Serif body with drop caps and a floral ornament between scenes.",
-    sceneOrnament: "❧",
-    dropcap: true,
-    chapterLabel: "Chapter One",
-    previewFont: "Baskerville, Georgia, serif",
-    previewHeadingFont: "Baskerville, Georgia, serif",
-    previewAccent: "#9a6a32",
-    previewPaper: "#fffdf7",
+    name: "decorative", label: "Decorative", description: "Serif body with drop caps and a floral ornament between scenes.",
+    sceneOrnament: "❧", dropcap: true, chapterLabel: "Chapter One", previewFont: "Baskerville, Georgia, serif",
+    previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#9a6a32", previewPaper: "#fffdf7",
   },
   literary: {
     name: "literary", label: "Literary", description: "Quiet old-style typography with a restrained offset opening.",
@@ -86,9 +67,11 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
     previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#39445f", previewPaper: "#f5f5f3",
   },
   cloister: {
-    name: "cloister", label: "Cloister", description: "Medieval restraint with rubric accents and manuscript proportions.",
-    sceneOrnament: "✠", dropcap: true, chapterLabel: "CAPUT I", previewFont: "Garamond, Georgia, serif",
-    previewHeadingFont: "Georgia, serif", previewAccent: "#7b2724", previewPaper: "#fbf3df",
+    name: "cloister", label: "Chronicle",
+    description: "Severe monastic chronicle: red ruling, rubricated capitals and austere annal-like chapter openings.",
+    sceneOrnament: "✠", dropcap: true, chapterLabel: "CAPITVLVM I",
+    previewFont: "Libre Caslon Text, serif", previewHeadingFont: "Cinzel, serif",
+    previewAccent: "#8e362c", previewPaper: "#eee1bf",
   },
   blackletter: {
     name: "blackletter", label: "Blackletter", description: "Gothic display openings paired with a highly readable serif body.",
