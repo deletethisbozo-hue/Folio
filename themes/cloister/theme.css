@@ -1,1 +1,149 @@
-body{font-family:Garamond,"Palatino Linotype",Georgia,serif;line-height:1.5;color:#30251d;background:#fbf3df}main.book{counter-reset:caput}section.chapter{counter-increment:caput}section.chapter>h1{text-align:center;margin:1em 0 2.1em;font-size:1.66em;font-weight:400;letter-spacing:.045em}section.chapter>h1::before{content:"CAPUT " counter(caput,upper-roman);display:block;margin-bottom:.7em;font-size:.48em;letter-spacing:.2em;color:#8e302b}section.chapter>h1::after{content:"✠";display:block;margin-top:.65em;font-size:.55em;color:#8e302b}.chapter-subtitle{margin:-2em 0 1.7em}.dropcap{color:#7b2724;font-weight:600}.scene-break{color:#8e302b}.tp-subtitle{color:#7b2724}.tp-author{font-variant:small-caps;letter-spacing:.12em}section.titlepage>h1{font-variant:small-caps;letter-spacing:.06em}section.copyright{font-size:.78em}section.frontmatter>h1,section.backmatter>h1{text-align:center;color:#7b2724;font-variant:small-caps}@media print{section.chapter>h1{margin-top:1.55in}}
+/* ============================================================
+   Chronicle — austere monastic / royal annal manuscript.
+   Red ruling, narrow measure, sober capitals, restrained rubrication.
+   ============================================================ */
+
+body {
+  font-family: "Libre Caslon Text", Garamond, Georgia, serif;
+  line-height: 1.52;
+  color: #2a211b;
+  background: #eee1bf;
+}
+
+main.book { counter-reset: chronicle; }
+section.chapter {
+  counter-increment: chronicle;
+  position: relative;
+  padding-left: 1.15em;
+  padding-right: 1.15em;
+  border-left: 1px solid #a34f40;
+  border-right: 1px solid #a34f40;
+}
+
+section.chapter > h1,
+h1.chapter {
+  text-align: center;
+  margin: 0.55em 0 2.45em;
+  padding: 0.8em 0 0.95em;
+  border-top: 1px solid #a34f40;
+  border-bottom: 1px solid #a34f40;
+  font-family: Cinzel, "Times New Roman", serif;
+  font-size: 1.72em;
+  font-weight: 500;
+  line-height: 1.14;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5e251f;
+}
+
+section.chapter > h1::before {
+  content: "✠  CAPITVLVM " counter(chronicle, upper-roman) "  ✠";
+  display: block;
+  margin-bottom: 0.85em;
+  font-family: Cinzel, "Times New Roman", serif;
+  font-size: 0.38em;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  color: #3a2c25;
+}
+
+section.chapter > h1::after {
+  content: "ANNO DOMINI";
+  display: block;
+  margin-top: 0.85em;
+  font-family: "Libre Caslon Text", Garamond, serif;
+  font-size: 0.38em;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  color: #8a493d;
+}
+
+.chapter-subtitle {
+  margin: -2em 0 1.9em;
+}
+.chapter-subtitle p {
+  font-style: italic;
+  font-size: 0.96em;
+  color: #6f4c41;
+}
+
+/* Simple rubricated initial, closer to a scribe's painted capital than a display block. */
+.dropcap {
+  margin-top: -0.02em;
+  padding-right: 0.12em;
+  font-family: "Libre Caslon Text", Garamond, Georgia, serif;
+  font-size: 3.25em;
+  font-weight: 700;
+  line-height: 0.92;
+  color: #8e362c;
+}
+
+section.chapter > h1 + p::first-line,
+.chapter-subtitle + p::first-line {
+  color: #7f332a;
+  font-variant: small-caps;
+  letter-spacing: 0.018em;
+}
+
+.scene-break {
+  position: relative;
+  margin: 1.7em 0;
+  color: #8b3a30;
+  font-size: 0.95em;
+  letter-spacing: 0.12em;
+}
+.scene-break::before,
+.scene-break::after {
+  content: "────────";
+  padding: 0 0.65em;
+  color: #b16a5d;
+  letter-spacing: -0.08em;
+}
+
+section.titlepage > h1 {
+  font-family: Cinzel, "Times New Roman", serif;
+  font-size: 2.05em;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #5f281f;
+}
+.tp-subtitle {
+  font-style: italic;
+  color: #7d4d42;
+}
+.tp-author {
+  font-variant: small-caps;
+  letter-spacing: 0.12em;
+}
+
+section.frontmatter > h1,
+section.backmatter > h1 {
+  text-align: center;
+  font-family: Cinzel, "Times New Roman", serif;
+  font-size: 1.18em;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #6b2e25;
+  border-top: 1px solid #b66a5d;
+  border-bottom: 1px solid #b66a5d;
+  padding: 0.55em 0;
+}
+
+@media screen {
+  main.book section.chapter::before {
+    content: "FOL." counter(chronicle, decimal-leading-zero);
+    position: absolute;
+    top: -1.7em;
+    right: 0.1em;
+    font-family: "Libre Caslon Text", Garamond, serif;
+    font-size: 0.67em;
+    font-variant: small-caps;
+    letter-spacing: 0.11em;
+    color: #8b5b4e;
+  }
+}
+
+@media print {
+  section.chapter > h1 { margin-top: 1.55in; }
+}
