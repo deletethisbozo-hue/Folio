@@ -1,0 +1,32 @@
+name: Temporary v1.0.7 theme font integration patch
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-font-integration-patch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+      - name: Apply theme-font integration
+        run: python3 scripts/patch-v107-theme-font-integration.py
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json .gitignore web/src/main.tsx server/api.ts server/pipeline/theme-fonts.ts
+          if git diff --cached --quiet; then
+            echo "No patch needed"
+            exit 0
+          fi
+          git commit -m "Integrate deterministic built-in theme fonts"
+          git push origin HEAD:fix/v1.0.7
