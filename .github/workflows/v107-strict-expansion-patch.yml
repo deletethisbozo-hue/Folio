@@ -1,0 +1,30 @@
+name: Temporary v1.0.7 strict expansion patch
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-strict-expansion-patch.yml"
+      - "scripts/patch-v107-strict-expansion.py"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply strict expansion compositor fix
+        run: python3 scripts/patch-v107-strict-expansion.py
+      - name: Commit corrected preview and export compositors
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/src/compositor.ts server/pipeline/compositor.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "Use full strict positive spacing envelope"
+          git push origin HEAD:fix/v1.0.7
