@@ -90,7 +90,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = emergency
         ? fontSize * 0.120
-        : Math.min(spaceWidth * 0.50, fontSize * 0.10);
+        : fontSize * 0.10;
       const normalizedLanguage = (document.documentElement.lang || "en").toLowerCase();
       const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
       // Match the live preview cross-platform Polish density rescue. It stays

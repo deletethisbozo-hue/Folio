@@ -281,7 +281,7 @@ function fitLine(
 
   const maxWordSpacing = emergency
     ? fontSize * 0.120
-    : Math.min(spaceWidth * 0.50, fontSize * 0.10);
+    : fontSize * 0.10;
   const normalizedLanguage = language.toLowerCase();
   const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
   // Windows and Linux rasterize the same serif faces a little differently.
