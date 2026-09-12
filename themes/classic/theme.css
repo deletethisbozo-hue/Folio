@@ -1,14 +1,14 @@
 /* ============================================================
-   Black Psalter — dark-gothic codex, designed as a real book interior.
-   Bone paper, cathedral-black chapter opener, oxblood rubrication,
-   old-gold tracery. Ornament is vector CSS/SVG, never bitmap scenery.
+   Black Psalter — Kelmscott / late-medieval dark fantasy interior.
+   Ivory stock, saturated black, oxblood rubrication, dense thorn-vine
+   architecture. No faux parchment, no dark-mode panel, no emoji ornament.
    ============================================================ */
 
 body {
-  font-family: Garamond, "EB Garamond", Georgia, serif;
-  line-height: 1.54;
-  color: #191512;
-  background: #efe7d7;
+  font-family: "EB Garamond", Garamond, Georgia, serif;
+  line-height: 1.46;
+  color: #11100f;
+  background: #f4efe3;
 }
 
 main.book { counter-reset: black-psalter; }
@@ -16,115 +16,118 @@ main.book { counter-reset: black-psalter; }
 section.chapter {
   counter-increment: black-psalter;
   position: relative;
-  padding: 0 1.05em 2.15em;
-  border-left: 1px solid #2a2520;
-  border-right: 1px solid #2a2520;
-  background: #f4eddf;
-  box-shadow: inset 0 0 0 4px #f4eddf, inset 0 0 0 5px #b8aa93;
+  padding: 1.55em 1.35em 2.2em;
+  background: #f8f3e8;
 }
 
-/* Cathedral opener: the darkness is concentrated here instead of turning
-   the whole reading page into a novelty dark-mode sheet. */
+/* One architectural gesture, not a pile of decorative widgets: a dense
+   thorn-vine frame around the opening block, inspired by private-press and
+   incunable page architecture. */
+section.chapter::before {
+  content: "";
+  position: absolute;
+  top: .45em;
+  left: .34em;
+  right: .34em;
+  height: 12.7em;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 360'%3E%3Cg fill='none' stroke='%23110f0e' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='18' y='18' width='764' height='324'/%3E%3Crect x='35' y='35' width='730' height='290' stroke-width='3'/%3E%3Cpath d='M56 306C110 282 92 225 142 208c42-14 74 17 76 58 2 38-24 63-66 59-39-4-57-34-48-69 14-56 92-54 129-94 31-33 27-77-5-103M744 306c-54-24-36-81-86-98-42-14-74 17-76 58-2 38 24 63 66 59 39-4 57-34 48-69-14-56-92-54-129-94-31-33-27-77 5-103'/%3E%3Cpath d='M78 67c58-28 110-23 154 22 43 44 89 45 168-2 79 47 125 46 168 2 44-45 96-50 154-22M84 99c51-18 92-7 126 25M716 99c-51-18-92-7-126 25'/%3E%3Cpath d='M131 63l-18 24 26 7-8-31zm538 0l18 24-26 7 8-31zM184 174l-25 10 19 18 6-28zm432 0l25 10-19 18-6-28zM113 254l-24 14 24 14v-28zm574 0l24 14-24 14v-28z' fill='%23110f0e'/%3E%3C/g%3E%3Cg fill='%2373131a'%3E%3Ccircle cx='400' cy='86' r='10'/%3E%3Ccircle cx='145' cy='208' r='8'/%3E%3Ccircle cx='655' cy='208' r='8'/%3E%3C/g%3E%3C/svg%3E");
+}
+
 section.chapter > h1,
 h1.chapter {
   position: relative;
-  overflow: hidden;
-  margin: 0 -1.05em 2.15em;
-  min-height: 7.2em;
-  padding: 2.5em 1.25em 1.15em;
+  z-index: 1;
+  max-width: 78%;
+  margin: 1.7em auto 2.55em;
+  padding: 1.75em .6em 1.5em;
   text-align: center;
-  background:
-    linear-gradient(rgba(9, 9, 10, .96), rgba(17, 15, 15, .985));
-  border-bottom: 5px double #7d1720;
-  color: #eee5d4;
-  font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 2.34em;
-  font-weight: 600;
-  line-height: 1.02;
-  letter-spacing: .006em;
-  text-shadow: 0 .04em .05em rgba(0,0,0,.72);
-}
-
-/* Gothic window / tracery. This is a vector ornament and prints cleanly. */
-section.chapter > h1::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: .62em;
-  width: 7.6em;
-  height: 1.28em;
-  transform: translateX(-50%);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  opacity: .98;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 120'%3E%3Cg fill='none' stroke='%23b99a56' stroke-width='8'%3E%3Cpath d='M30 96C95 94 132 65 155 30c23 35 60 64 125 66 40 1 73-10 100-31 27 21 60 32 100 31 65-2 102-31 125-66 23 35 60 64 125 66'/%3E%3Cpath d='M93 89c29-28 50-52 62-74 12 22 33 46 62 74M543 89c29-28 50-52 62-74 12 22 33 46 62 74'/%3E%3Ccircle cx='380' cy='64' r='30'/%3E%3Cpath d='M380 34l18 30-18 30-18-30z'/%3E%3C/g%3E%3Cg fill='%237d1720'%3E%3Ccircle cx='155' cy='31' r='8'/%3E%3Ccircle cx='605' cy='31' r='8'/%3E%3Ccircle cx='380' cy='64' r='7'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-section.chapter > h1::after {
-  content: "LIBER " counter(black-psalter, upper-roman) "  ·  PSALMVS NOCTIS";
-  display: block;
-  margin-top: 1.08em;
-  color: #b7924c;
-  font-family: Cinzel, Garamond, serif;
-  font-size: .29em;
+  color: #11100f;
+  background: transparent;
+  font-family: "Grenze Gotisch", "EB Garamond", serif;
+  font-size: 2.48em;
   font-weight: 650;
-  letter-spacing: .25em;
+  line-height: .98;
+  letter-spacing: -.012em;
+}
+
+section.chapter > h1::before {
+  content: "LIBER " counter(black-psalter, upper-roman);
+  display: block;
+  margin-bottom: 1.25em;
+  color: #78151c;
+  font-family: Cinzel, "EB Garamond", serif;
+  font-size: .28em;
+  font-weight: 700;
+  letter-spacing: .28em;
   text-transform: uppercase;
 }
 
+section.chapter > h1::after {
+  content: "PSALMVS NOCTIS";
+  display: block;
+  width: 72%;
+  margin: 1.3em auto 0;
+  padding-top: .72em;
+  border-top: 1px solid #171411;
+  color: #5b4a3c;
+  font-family: Cinzel, "EB Garamond", serif;
+  font-size: .22em;
+  font-weight: 600;
+  letter-spacing: .24em;
+}
+
 .chapter-subtitle {
-  margin: -1.45em .6em 1.55em;
-  padding-bottom: .52em;
-  border-bottom: 1px solid #9c1f27;
+  max-width: 83%;
+  margin: -1.7em auto 1.65em;
 }
 .chapter-subtitle p {
   margin: 0;
+  text-align: center;
+  font-size: .88em;
   font-style: italic;
-  color: #66594b;
+  color: #5e5248;
 }
 
-/* Engraved initial rather than a colored videogame tile. */
 .dropcap {
-  min-width: .9em;
-  margin: .02em .16em 0 0;
-  padding: .02em .07em .08em;
-  border: 2px solid #191716;
-  outline: 1px solid #8a1c24;
-  outline-offset: 2px;
-  background: #eee5d4;
-  color: #181516;
-  font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 4.18em;
+  float: left;
+  margin: -.03em .12em 0 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #11100f;
+  font-family: "Grenze Gotisch", "EB Garamond", serif;
+  font-size: 5.1em;
   font-weight: 760;
-  line-height: .8;
-  text-align: center;
-  box-shadow: inset 0 0 0 2px #b89a59;
+  line-height: .72;
+  text-shadow: none;
 }
 
 section.chapter > p:first-of-type {
   margin-top: .2em;
-  padding-top: .72em;
-  border-top: 3px double #201d1a;
+  padding-top: .8em;
+  border-top: 4px double #151311;
 }
-
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
-  color: #741b22;
+  color: #78151c;
   font-variant: small-caps;
-  letter-spacing: .032em;
+  letter-spacing: .025em;
 }
-
 section.chapter > p:not(:first-of-type):not(.scene-break) {
-  text-indent: 1.12em;
+  text-indent: 1em;
 }
 
 .scene-break {
   position: relative;
-  width: 72%;
-  height: 1.25em;
-  margin: 1.8em auto;
+  width: 62%;
+  height: 1em;
+  margin: 1.7em auto;
   color: transparent;
 }
 .scene-break::before {
@@ -134,37 +137,36 @@ section.chapter > p:not(:first-of-type):not(.scene-break) {
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 70'%3E%3Cg fill='none' stroke='%231c1917' stroke-width='5'%3E%3Cpath d='M15 35h165M340 35h165'/%3E%3Cpath d='M180 35c34 0 45-24 80-24s46 24 80 24c-34 0-45 24-80 24s-46-24-80-24z'/%3E%3C/g%3E%3Ccircle cx='260' cy='35' r='8' fill='%237a1821'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 70'%3E%3Cg fill='none' stroke='%23110f0e' stroke-width='6' stroke-linecap='round'%3E%3Cpath d='M18 35h132c36 0 44-22 74-22 20 0 28 11 36 22 8-11 16-22 36-22 30 0 38 22 74 22h132'/%3E%3Cpath d='M219 13c-10 14-9 28 4 43M301 13c10 14 9 28-4 43'/%3E%3C/g%3E%3Ccircle cx='260' cy='35' r='7' fill='%2378151c'/%3E%3C/svg%3E");
 }
 
 section.titlepage > h1 {
-  font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  color: #181516;
-  font-size: 2.45em;
+  font-family: "Grenze Gotisch", "EB Garamond", serif;
+  font-size: 2.5em;
+  color: #11100f;
 }
 .tp-subtitle {
+  color: #78151c;
   font-variant: small-caps;
-  letter-spacing: .12em;
-  color: #791c24;
+  letter-spacing: .08em;
 }
 .tp-author {
-  font-family: Cinzel, Garamond, serif;
-  letter-spacing: .12em;
-  color: #3a332d;
+  font-family: Cinzel, "EB Garamond", serif;
+  letter-spacing: .1em;
 }
 
 section.frontmatter > h1,
 section.backmatter > h1 {
   text-align: center;
-  font-family: Cinzel, Garamond, serif;
+  font-family: Cinzel, "EB Garamond", serif;
   text-transform: uppercase;
-  letter-spacing: .11em;
-  color: #201c1a;
-  border-top: 3px double #1e1b19;
-  border-bottom: 1px solid #8b1d24;
-  padding: .62em 0;
+  letter-spacing: .12em;
+  color: #151311;
+  border-top: 4px double #151311;
+  border-bottom: 1px solid #78151c;
+  padding: .58em 0;
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1.1in; }
+  section.chapter > h1 { margin-top: 1in; }
 }
