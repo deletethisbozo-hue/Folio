@@ -1,6 +1,6 @@
 /* ============================================================
-   Mortuary Chronicle — austere incunable / plague chronicle interior.
-   Wide readable measure, dense black text, oxblood rubrication, tiny
+   Mortuary Chronicle — austere plague chronicle / manuscript interior.
+   Ragged-right reading text, dense black ink, oxblood rubrication, tiny
    marginal register. Historical severity without decorative cosplay.
    ============================================================ */
 
@@ -107,6 +107,13 @@ section.chapter > h1::after {
   line-height: .74;
 }
 
+/* Intentional manuscript color: this theme is ragged-right by design. */
+section.chapter > p:not(.scene-break) {
+  text-align: left;
+  text-justify: auto;
+  word-spacing: normal;
+  letter-spacing: normal;
+}
 section.chapter > p:first-of-type { margin-top: .15em; }
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
@@ -121,9 +128,9 @@ section.chapter > p:not(:first-of-type):not(.scene-break) {
 
 .scene-break {
   position: relative;
-  width: 100%;
+  width: 84%;
   height: .62em;
-  margin: 1.35em auto 1.5em;
+  margin: 1.35em 0 1.5em;
   color: transparent;
   border-top: 1px solid #171411;
 }
