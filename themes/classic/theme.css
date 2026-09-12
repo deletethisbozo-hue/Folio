@@ -1,130 +1,181 @@
 /* ============================================================
    Illuminated — lavish medieval codex for fantasy / historical fiction.
-   Hyper-medieval in the chapter opener, restrained enough for long reading.
+   A real HTML/CSS book theme: no bitmap parchment, no painted scenery.
    ============================================================ */
 
 body {
   font-family: Garamond, "EB Garamond", Georgia, serif;
-  line-height: 1.56;
-  color: #211813;
-  background: #f4e7c2;
+  line-height: 1.55;
+  color: #201510;
+  background: #f1ddb0;
 }
 
 main.book { counter-reset: illuminated; }
+
 section.chapter {
   counter-increment: illuminated;
   position: relative;
-  padding-left: 0.9em;
-  padding-right: 0.9em;
-  border-left: 1px solid #b78f4b;
-  border-right: 1px solid #b78f4b;
+  padding: 1.15em 1.05em 2em;
+  border: 1px solid #7d2a22;
+  background:
+    linear-gradient(90deg, rgba(25, 57, 88, .05), transparent 10%, transparent 90%, rgba(25, 57, 88, .05)),
+    #f4e4ba;
+  box-shadow:
+    inset 0 0 0 3px #d0aa55,
+    inset 0 0 0 5px #234765,
+    inset 0 0 0 7px #c9993f,
+    inset 0 0 0 8px #7d2a22;
+}
+
+section.chapter::before,
+section.chapter::after {
+  position: absolute;
+  z-index: 1;
+  font-family: Cinzel, Garamond, serif;
+  color: #8c2b23;
+  background: #f4e4ba;
+  padding: 0 .35em;
+  line-height: 1;
+}
+section.chapter::before {
+  content: "✦  ❦  ✦";
+  top: .42em;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: .68em;
+  letter-spacing: .28em;
+}
+section.chapter::after {
+  content: "FOL. " counter(illuminated, decimal-leading-zero);
+  top: .52em;
+  right: 1.4em;
+  font-size: .48em;
+  letter-spacing: .14em;
+  color: #6f4f2d;
 }
 
 section.chapter > h1,
 h1.chapter {
   position: relative;
   text-align: center;
-  margin: 0.65em 0 2.8em;
-  padding: 1.35em 1em 1.15em;
-  border: 1px solid #b8934f;
-  outline: 3px double #7b211c;
-  outline-offset: 6px;
+  margin: 1.55em .6em 2.5em;
+  padding: 1.2em .75em 1em;
+  border: 4px solid transparent;
+  outline: 1px solid #6f1e19;
+  outline-offset: 4px;
+  background:
+    linear-gradient(#f6e9c6, #f6e9c6) padding-box,
+    linear-gradient(90deg, #84261f 0 18%, #caa24b 18% 38%, #214b70 38% 62%, #caa24b 62% 82%, #84261f 82% 100%) border-box;
+  box-shadow: 0 0 0 1px #b18334, inset 0 0 0 1px rgba(123, 33, 28, .25);
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 2.15em;
-  font-weight: 500;
-  line-height: 1.02;
-  letter-spacing: 0.01em;
-  color: #241713;
-  background: #f8edcf;
+  font-size: 2.32em;
+  font-weight: 520;
+  line-height: 1.01;
+  letter-spacing: .005em;
+  color: #21140f;
 }
 
 section.chapter > h1::before {
   content: "✠  LIBER " counter(illuminated, upper-roman) "  ✠";
   display: block;
-  margin-bottom: 1.05em;
+  margin-bottom: .95em;
   font-family: Cinzel, Garamond, Georgia, serif;
-  font-size: 0.32em;
+  font-size: .31em;
   font-weight: 700;
-  letter-spacing: 0.27em;
-  color: #81251f;
+  letter-spacing: .26em;
+  color: #7f241d;
 }
 
 section.chapter > h1::after {
-  content: "❦  ✦  ❦";
+  content: "❧  ✦  ❧";
   display: block;
-  margin: 0.8em auto -0.28em;
+  margin: .72em auto -.22em;
   font-family: Garamond, serif;
-  font-size: 0.43em;
-  letter-spacing: 0.24em;
-  color: #9f7730;
+  font-size: .46em;
+  letter-spacing: .22em;
+  color: #a17b2d;
 }
 
 .chapter-subtitle {
-  margin: -2.35em 0 2.15em;
+  margin: -2.05em 1em 2em;
 }
 .chapter-subtitle p {
   font-style: normal;
   font-variant: small-caps;
   text-transform: lowercase;
-  letter-spacing: 0.14em;
-  color: #6f2a22;
+  letter-spacing: .15em;
+  color: #74261f;
 }
 
-/* Illuminated initial: deliberately block-like, closer to a painted initial
-   than a normal floated capital, but still pure text/CSS for EPUB safety. */
+/* Painted-initial effect, built entirely from CSS + the bundled Gothic face. */
 .dropcap {
-  min-width: 0.92em;
-  margin: -0.02em 0.13em 0 0;
-  padding: 0.04em 0.1em 0.08em;
-  border: 2px solid #8b2a22;
-  outline: 1px solid #b9913d;
+  min-width: .93em;
+  margin: .01em .16em 0 0;
+  padding: .11em .12em .13em;
+  border: 3px solid #9a3025;
+  outline: 2px solid #c9a046;
   outline-offset: 2px;
-  background: #193b5f;
-  color: #d9b455;
+  background: #183d62;
+  box-shadow:
+    inset 0 0 0 2px #d4b05a,
+    inset 0 0 0 4px rgba(115, 29, 24, .55),
+    .05em .06em 0 rgba(75, 49, 24, .22);
+  color: #e0bd61;
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 3.15em;
-  font-weight: 700;
-  line-height: 0.9;
+  font-size: 3.85em;
+  font-weight: 760;
+  line-height: .79;
   text-align: center;
-  text-shadow: 0.02em 0.02em 0 #6d1d19;
+  text-shadow: .025em .025em 0 #6d211c;
 }
 
-/* Rubricated opening line, a real manuscript cue that survives without art. */
+section.chapter > p:first-of-type {
+  margin-top: 0;
+  padding: .6em .65em .52em;
+  border-top: 1px solid #b18a3d;
+  border-bottom: 1px solid #b18a3d;
+  background: linear-gradient(90deg, rgba(126, 36, 29, .055), transparent 19%, transparent 81%, rgba(32, 73, 108, .05));
+}
 section.chapter > h1 + p::first-line,
-.chapter-subtitle + p::first-line {
-  color: #7d251f;
+.chapter-subtitle + p::first-line,
+section.chapter > p:first-of-type::first-line {
+  color: #7c271f;
   font-variant: small-caps;
-  letter-spacing: 0.025em;
+  letter-spacing: .035em;
 }
 
 .scene-break {
-  margin: 1.65em 0;
-  color: #9c752f;
-  font-size: 1.18em;
-  letter-spacing: 0.26em;
+  margin: 1.7em auto;
+  width: 72%;
+  padding: .28em 0 .22em;
+  border-top: 1px solid #b88e3e;
+  border-bottom: 1px solid #b88e3e;
+  color: #8c2b23;
+  font-size: 1.08em;
+  letter-spacing: .3em;
 }
 .scene-break::before,
 .scene-break::after {
-  content: "·";
-  padding: 0 0.55em;
-  color: #7d251f;
+  content: "✦";
+  padding: 0 .55em;
+  color: #214b70;
 }
 
 section.titlepage > h1 {
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 2.45em;
-  color: #251713;
+  font-size: 2.5em;
+  color: #24140f;
 }
 .tp-subtitle {
   font-style: normal;
   font-variant: small-caps;
   text-transform: lowercase;
-  letter-spacing: 0.15em;
+  letter-spacing: .15em;
   color: #7d251f;
 }
 .tp-author {
   font-variant: small-caps;
-  letter-spacing: 0.13em;
+  letter-spacing: .13em;
   color: #58402f;
 }
 
@@ -133,18 +184,13 @@ section.backmatter > h1 {
   text-align: center;
   font-family: Cinzel, Garamond, Georgia, serif;
   font-variant: small-caps;
-  letter-spacing: 0.08em;
+  letter-spacing: .09em;
   color: #6e211c;
-  border-bottom: 1px solid #b28a48;
-  padding-bottom: 0.5em;
-}
-
-@media screen {
-  main.book section.chapter {
-    box-shadow: inset 0.22em 0 0 rgba(125, 37, 31, 0.06), inset -0.22em 0 0 rgba(125, 37, 31, 0.06);
-  }
+  border-top: 3px double #b28a48;
+  border-bottom: 3px double #b28a48;
+  padding: .6em 0;
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1.35in; }
+  section.chapter > h1 { margin-top: 1.15in; }
 }
