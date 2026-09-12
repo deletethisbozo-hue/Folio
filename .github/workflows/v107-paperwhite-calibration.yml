@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 Paperwhite font calibration
+name: Temporary v1.0.7 Paperwhite solver calibration
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
 
 jobs:
   calibrate:
-    name: base-font-${{ matrix.font }}
+    name: solver-font-${{ matrix.font }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        font: [17.0]
+        font: [16.5, 16.625, 16.75, 16.875, 17.0]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -37,6 +37,59 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
+      - name: Patch solver constraints in working tree only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("web/src/compositor.ts")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
+              if (Math.abs(residualPx) > 1.7) continue;
+
+              const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'''
+          new = '''    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
+              if (Math.abs(residualPx) > 1.7) continue;
+              // Gate the actual semantic inter-word gap before a candidate enters
+              // the paragraph graph. QA measures the rendered gap, not merely the
+              // extra CSS word-spacing, so leave rasterisation headroom here.
+              const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);
+              if (semanticGapEm > 0.355) continue;
+
+              const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'''
+          if old not in text:
+              raise SystemExit("fitLine insertion point not found")
+          text = text.replace(old, new, 1)
+
+          old = '''        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;
+              const finalCompressionFit = last'''
+          new = '''        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;
+              // A single semantic word stranded on the final line of a prose
+              // paragraph is a hard composition defect, not a cost preference.
+              if (last && start > 0 && semanticWordsOnLine === 1) continue;
+              const finalCompressionFit = last'''
+          if old not in text:
+              raise SystemExit("final-line insertion point not found")
+          text = text.replace(old, new, 1)
+
+          old = '''        for (const lineFit of fitOptions) {
+              const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);'''
+          new = '''        for (const lineFit of fitOptions) {
+              if (lineFit && previous.justified) {
+                const adjacentSpacingDeltaEm = Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize);
+                // Keep neighbouring justified lines from visibly pulsing between
+                // compressed and expanded spacing. Reserve a little QA headroom.
+                if (adjacentSpacingDeltaEm > 0.155) continue;
+              }
+              const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);'''
+          if old not in text:
+              raise SystemExit("adjacent-spacing insertion point not found")
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          print("Applied semantic-gap, one-word-tail, and adjacent-spacing graph gates")
+          PY
       - name: Patch Paperwhite calibration in working tree only
         shell: bash
         env:
@@ -85,6 +138,7 @@ jobs:
             font,
             measurePx: q.measurePx,
             emergencyLines: q.emergencyLines,
+            oneWordFinalLines: q.oneWordFinalLines,
             relaxedLines: q.relaxedLines,
             hyphenRate: q.hyphenRate,
             maxHyphenStreak: q.maxHyphenStreak,
@@ -102,7 +156,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-font-calibration-${{ matrix.font }}
+          name: Paperwhite-solver-calibration-${{ matrix.font }}
           path: |
             build/qa-v107/**
             build/calibration-${{ matrix.font }}.log
