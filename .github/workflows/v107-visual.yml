@@ -15,7 +15,7 @@ concurrency:
 jobs:
   visual:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -37,7 +37,10 @@ jobs:
       - run: npx puppeteer browsers install chrome-headless-shell
       - run: npm run typecheck
       - run: npm run build
-      - run: node --import tsx scripts/v107-visual-qa.ts
+      - name: Qualify reference visual corpus
+        run: node --import tsx scripts/v107-visual-qa.ts
+      - name: Qualify all 30 book themes
+        run: node --import tsx scripts/v107-theme-matrix.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -45,4 +48,4 @@ jobs:
           path: build/qa-v107/*
           if-no-files-found: warn
 
-# qualification trigger: protected-space composition repair
+# qualification trigger: all-theme matrix
