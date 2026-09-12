@@ -1,4 +1,4 @@
-name: Folio 1.0.7 Windows font-size probe
+name: Folio 1.0.7 Windows serif probe
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: folio-v107-windows-font-size-probe
+  group: folio-v107-windows-serif-probe
   cancel-in-progress: true
 
 jobs:
@@ -42,33 +42,36 @@ jobs:
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
       - name: Install pinned Chromium runtime
         run: npx puppeteer browsers install chrome-headless-shell
-      - name: Probe Paperwhite base font on Windows
+      - name: Probe deterministic decorative serif on Windows
         shell: pwsh
         run: |
-          $path = "web/src/preview-runtime.ts"
+          $path = "themes/decorative/theme.css"
           $original = Get-Content $path -Raw
-          $needle = '"kindle-paperwhite": { width: 412, height: 549, baseFont: 17.5, padding: [34, 28, 46, 28], wordsPerPage: 270 }'
-          if (-not $original.Contains($needle)) { throw "Paperwhite font-size probe target missing" }
-          foreach ($font in @(17.4, 17.3, 17.2, 17.1)) {
-            $label = $font.ToString([Globalization.CultureInfo]::InvariantCulture)
-            Write-Host "===== PROBE baseFont=$label ====="
-            $replacement = '"kindle-paperwhite": { width: 412, height: 549, baseFont: ' + $label + ', padding: [34, 28, 46, 28], wordsPerPage: 270 }'
-            $content = $original.Replace($needle, $replacement)
+          $needle = 'font-family: "Hoefler Text", Baskerville, "Palatino Linotype", Palatino,' + "`n" + '    Georgia, serif;'
+          if (-not $original.Contains($needle)) { throw "Decorative body font stack target missing" }
+          $variants = @(
+            @{ Name = "palatino"; Css = 'font-family: "Palatino Linotype", Palatino, serif;' },
+            @{ Name = "georgia"; Css = 'font-family: Georgia, serif;' },
+            @{ Name = "times"; Css = 'font-family: "Times New Roman", Times, serif;' }
+          )
+          foreach ($variant in $variants) {
+            Write-Host "===== PROBE serif=$($variant.Name) ====="
+            $content = $original.Replace($needle, $variant.Css)
             [IO.File]::WriteAllText((Resolve-Path $path), $content, [Text.UTF8Encoding]::new($false))
             npm run build:web | Out-Host
-            if ($LASTEXITCODE -ne 0) { throw "build:web failed for baseFont=$label" }
-            $log = "build\font-probe-$($label.Replace('.','_')).log"
+            if ($LASTEXITCODE -ne 0) { throw "build:web failed for serif=$($variant.Name)" }
+            $log = "build\serif-probe-$($variant.Name).log"
             node --import tsx scripts/v107-visual-qa.ts *> $log
             $code = $LASTEXITCODE
-            $match = Select-String -Path $log -Pattern 'failed typographic QA|hyphenRate|oneWordFinalLines|maxWordSpacingEm|TimeoutError|Error:' | Select-Object -Last 5
+            $match = Select-String -Path $log -Pattern 'failed typographic QA|hyphenRate|oneWordFinalLines|emergencyLines|TimeoutError|Error:' | Select-Object -Last 5
             if ($match) { $match | ForEach-Object { Write-Host $_.Line } }
-            if ($code -eq 0) { Write-Host "PROBE_RESULT baseFont=$label PASS" } else { Write-Host "PROBE_RESULT baseFont=$label FAIL" }
+            if ($code -eq 0) { Write-Host "PROBE_RESULT serif=$($variant.Name) PASS" } else { Write-Host "PROBE_RESULT serif=$($variant.Name) FAIL" }
           }
           [IO.File]::WriteAllText((Resolve-Path $path), $original, [Text.UTF8Encoding]::new($false))
           exit 0
       - name: Upload probe logs
         uses: actions/upload-artifact@v4
         with:
-          name: v107-windows-font-size-probe
-          path: build/font-probe-*.log
+          name: v107-windows-serif-probe
+          path: build/serif-probe-*.log
           if-no-files-found: error
