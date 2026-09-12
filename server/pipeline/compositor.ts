@@ -96,7 +96,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // Match the live preview cross-platform Polish density rescue. It stays
       // below the 0.101em strict-spacing qualification ceiling and only wins when
       // its badness is cheaper than another discretionary hyphen.
-      const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;
+      const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;
       const minWordSpacing = emergency || finalCompression
         ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
         : -(fontSize * strictCompressionEm);

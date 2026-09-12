@@ -290,7 +290,7 @@ function fitLine(
   // of exceeding the 0.45 section hyphen-density ceiling. The optimiser still
   // pays badness for every compressed gap, so this is an available rescue path,
   // not the new preferred spacing.
-  const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;
+  const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;
   const minWordSpacing = emergency || finalCompression
     ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
     : -(fontSize * strictCompressionEm);
