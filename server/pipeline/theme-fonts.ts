@@ -177,6 +177,10 @@ export async function buildThemeRuntimeCss(
   };
 }
 
+export function normalizeThemeFontStack(stack: string): string {
+  return normalizeThemeFontFamilies(stack).css;
+}
+
 export function builtinThemeFontFamilies(): string[] {
   return Object.values(FONTS).map((font) => font.family);
 }

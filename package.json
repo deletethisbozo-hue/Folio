@@ -20,7 +20,11 @@
     "dist:win": "npm run build && electron-builder --win nsis portable --x64",
     "blues": "tsx server/cli-blues.ts",
     "test": "node --import tsx tests/run-all.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fonts": "node scripts/fetch-theme-fonts.mjs",
+    "predev": "npm run fonts",
+    "prebuild:web": "npm run fonts",
+    "prebuild:server": "npm run fonts"
   },
   "dependencies": {
     "express": "^4.21.2",

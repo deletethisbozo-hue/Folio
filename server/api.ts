@@ -46,6 +46,8 @@ import { renderBlues } from "./pipeline/render-blues.ts";
 import { currentRound, ensureRoundStarted, finishExport, prepareExport } from "./exporter.ts";
 import { roundWarning } from "./versioning.ts";
 import type { ArtifactType } from "./destinations.ts";
+import { THEME_FONTS_DIR } from "./pipeline/paths.ts";
+import { normalizeThemeFontStack } from "./pipeline/theme-fonts.ts";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -134,12 +136,29 @@ function applyPreviewDraft(book: { sections: Array<{ id: string; markdown: strin
 }
 
 export function registerApi(app: Express): void {
+  app.get("/theme-fonts/:file", (req, res) =>
+    wrap(res, async () => {
+      const name = String(req.params.file ?? "");
+      if (!/^[a-z0-9][a-z0-9.-]*\.ttf$/i.test(name)) {
+        res.status(404).end();
+        return;
+      }
+      const file = path.join(THEME_FONTS_DIR, name);
+      res.setHeader("Content-Type", "font/ttf");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      res.send(await fs.readFile(file));
+    }),
+  );
   app.get("/api/health", (_req, res) =>
     wrap(res, async () => {
       res.json({ ok: true, name: APP_NAME, version: APP_VERSION, pandoc: await checkPandoc() });
     }),
   );
-  app.get("/api/themes", (_req, res) => res.json(themeList()));
+  app.get("/api/themes", (_req, res) => res.json(themeList().map((theme) => ({
+    ...theme,
+    previewFont: normalizeThemeFontStack(theme.previewFont),
+    previewHeadingFont: normalizeThemeFontStack(theme.previewHeadingFont),
+  }))));
   app.get("/api/presets", (_req, res) => res.json(Object.values(PRESETS)));
   app.get("/api/matter-types", (_req, res) => res.json(MATTER_TYPES));
   app.get("/api/trims", (_req, res) => res.json(TRIMS));

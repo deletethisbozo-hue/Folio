@@ -5,6 +5,7 @@ import { installPreviewRuntime } from "./preview-runtime";
 import "./index.css";
 import "./preview-calibration.css";
 import "./editorial-studio.css";
+import "./theme-fonts.css";
 
 installPreviewRuntime();
 
