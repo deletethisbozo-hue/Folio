@@ -1,13 +1,14 @@
 /* ============================================================
-   Mortuary Chronicle — severe gothic chronicle / plague annal.
-   Bone paper, soot-black rules, oxblood rubrication, woodcut tracery.
+   Mortuary Chronicle — late-medieval incunable / plague chronicle.
+   Dense black text, oxblood rubrication, narrow measure, marginal notes.
+   Deliberately austere: no faux parchment, no decorative panels.
    ============================================================ */
 
 body {
   font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  line-height: 1.5;
-  color: #211c18;
-  background: #e9dfcb;
+  line-height: 1.43;
+  color: #151311;
+  background: #f0e9dc;
 }
 
 main.book { counter-reset: mortuary; }
@@ -15,179 +16,159 @@ main.book { counter-reset: mortuary; }
 section.chapter {
   counter-increment: mortuary;
   position: relative;
-  margin-left: 2.55em;
-  margin-right: .45em;
-  padding: 1.35em 1.2em 2em;
-  border: 1px solid #1e1b19;
-  background:
-    linear-gradient(to right, transparent 0 17px, rgba(122,27,34,.12) 17px 18px, transparent 18px),
-    repeating-linear-gradient(to bottom, transparent 0, transparent 1.46em, rgba(36,28,24,.035) 1.49em),
-    #f0e7d5;
-  box-shadow: inset 0 0 0 4px #f0e7d5, inset 0 0 0 5px #7b6e5e;
+  margin: 0 .75em 0 2.55em;
+  padding: 1.25em 1.1em 2.1em;
+  background: #f7f1e6;
+  border-left: 5px double #171411;
 }
 
+/* Marginal register, intentionally quiet and typographic rather than boxed. */
 section.chapter::before {
   content: "MEMENTO\A MORI\A\A ANNO\A M·CC·LXVI\A\A LIBER\A MORTVORVM";
   white-space: pre-line;
   position: absolute;
-  left: -3.58em;
-  top: 5.25em;
-  width: 2.65em;
-  padding: .5em .15em;
-  border-top: 3px double #1b1917;
-  border-bottom: 1px solid #7a1b22;
-  font-family: Cinzel, "Times New Roman", serif;
-  font-size: .55em;
-  line-height: 1.17;
+  left: -4.15em;
+  top: 7.6em;
+  width: 3.25em;
+  font-family: Cinzel, "Libre Caslon Text", serif;
+  font-size: .52em;
+  line-height: 1.22;
+  letter-spacing: .07em;
   text-align: center;
-  letter-spacing: .06em;
-  color: #26201c;
+  color: #6d171d;
 }
 
 section.chapter::after {
   content: "FOL. " counter(mortuary, decimal-leading-zero);
   position: absolute;
-  top: .48em;
-  right: .82em;
-  font-family: Cinzel, "Times New Roman", serif;
-  font-size: .51em;
+  top: .35em;
+  right: .25em;
+  font-family: Cinzel, "Libre Caslon Text", serif;
+  font-size: .49em;
   letter-spacing: .14em;
-  color: #6c5b4c;
+  color: #72665a;
 }
 
 section.chapter > h1,
 h1.chapter {
   position: relative;
-  overflow: hidden;
-  text-align: center;
-  margin: .92em -.25em 2.1em;
-  padding: 2.5em .7em 1.05em;
-  border: 1px solid #1f1c1a;
-  border-bottom: 4px double #1f1c1a;
-  background: #ddd1bc;
-  font-family: Cinzel, "Times New Roman", serif;
-  font-size: 1.78em;
-  font-weight: 600;
-  line-height: 1.08;
-  letter-spacing: .095em;
-  text-transform: uppercase;
-  color: #1b1816;
+  margin: 1.05em 0 1.8em;
+  padding: .15em 0 .7em;
+  text-align: left;
+  border-bottom: 5px double #171411;
+  color: #141210;
+  font-family: "Grenze Gotisch", "Libre Caslon Text", serif;
+  font-size: 2.28em;
+  font-weight: 640;
+  line-height: .97;
+  letter-spacing: -.01em;
 }
 
-/* Woodcut-inspired pointed-arch tracery. */
 section.chapter > h1::before {
-  content: "";
-  position: absolute;
-  top: .42em;
-  left: 50%;
-  width: 9.2em;
-  height: 1.55em;
-  transform: translateX(-50%);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 920 150'%3E%3Cg fill='none' stroke='%231d1a18' stroke-width='9'%3E%3Cpath d='M30 124h860M92 124V83c0-35 28-63 63-63s63 28 63 63v41M252 124V72c0-42 34-76 76-76s76 34 76 76v52M516 124V72c0-42 34-76 76-76s76 34 76 76v52M702 124V83c0-35 28-63 63-63s63 28 63 63v41'/%3E%3Cpath d='M328 0l38 72-38 52-38-52zM592 0l38 72-38 52-38-52z'/%3E%3C/g%3E%3Cg fill='%23751920'%3E%3Ccircle cx='155' cy='82' r='10'/%3E%3Ccircle cx='765' cy='82' r='10'/%3E%3Ccircle cx='460' cy='124' r='10'/%3E%3C/g%3E%3C/svg%3E");
+  content: "CAPITVLVM " counter(mortuary, upper-roman) "  ·  DE MORTE ET MEMORIA";
+  display: block;
+  margin-bottom: .85em;
+  color: #78161d;
+  font-family: Cinzel, "Libre Caslon Text", serif;
+  font-size: .26em;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
 }
 
 section.chapter > h1::after {
-  content: "CAPITVLVM " counter(mortuary, upper-roman) "  ·  DE MORTE ET MEMORIA";
+  content: "";
   display: block;
-  margin-top: .9em;
-  font-family: "Libre Caslon Text", Garamond, serif;
-  font-size: .34em;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: .11em;
-  color: #741b22;
+  width: 38%;
+  height: .2em;
+  margin-top: .6em;
+  background: #78161d;
 }
 
 .chapter-subtitle {
-  margin: -1.55em 0 1.55em;
-  padding-bottom: .45em;
-  border-bottom: 1px solid #817465;
+  margin: -1em 0 1.35em;
 }
 .chapter-subtitle p {
   margin: 0;
+  font-size: .9em;
   font-style: italic;
-  color: #5c5148;
+  color: #5c5047;
 }
 
 .dropcap {
-  margin: .02em .15em 0 0;
-  padding: .015em .06em .035em;
-  border: 2px solid #1b1917;
-  border-bottom-width: 4px;
-  background: #ded1ba;
-  color: #761a21;
-  font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  font-size: 4.05em;
-  font-weight: 760;
-  line-height: .78;
-  box-shadow: inset 0 0 0 2px #f0e7d5;
+  float: left;
+  margin: -.02em .12em 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #78161d;
+  font-family: "Grenze Gotisch", "Libre Caslon Text", serif;
+  font-size: 4.8em;
+  font-weight: 700;
+  line-height: .74;
 }
 
 section.chapter > p:first-of-type {
-  padding-top: .62em;
-  border-top: 1px solid #1f1c1a;
+  margin-top: .15em;
 }
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
-  color: #721a21;
+  color: #78161d;
   font-variant: small-caps;
-  letter-spacing: .025em;
+  letter-spacing: .018em;
 }
-
 section.chapter > p:not(:first-of-type):not(.scene-break) {
-  text-indent: 1.15em;
+  text-indent: .9em;
 }
 
+/* Incunable-style rubric marks are intentionally spare. */
 .scene-break {
   position: relative;
-  width: 70%;
-  height: 1.32em;
-  margin: 1.72em auto;
+  width: 100%;
+  height: .8em;
+  margin: 1.45em auto 1.6em;
   color: transparent;
+  border-top: 1px solid #171411;
 }
 .scene-break::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 78'%3E%3Cg fill='none' stroke='%231c1917' stroke-width='6'%3E%3Cpath d='M10 39h160M350 39h160'/%3E%3Cpath d='M170 39c27-30 54-30 82 0 28 30 55 30 98 0-43 0-70-30-98-30-28 0-55 30-82 30z'/%3E%3C/g%3E%3Cpath d='M260 16l14 23-14 23-14-23z' fill='%23751a21'/%3E%3C/svg%3E");
+  left: 0;
+  top: -.18em;
+  width: 2.2em;
+  height: .35em;
+  background: #78161d;
 }
 
 section.titlepage > h1 {
-  font-family: Cinzel, "Times New Roman", serif;
-  font-size: 2.05em;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: #1d1917;
+  font-family: "Grenze Gotisch", "Libre Caslon Text", serif;
+  font-size: 2.35em;
+  line-height: 1;
+  color: #141210;
 }
 .tp-subtitle {
+  color: #78161d;
   font-style: italic;
-  color: #741b22;
 }
 .tp-author {
+  font-family: Cinzel, "Libre Caslon Text", serif;
   font-variant: small-caps;
-  letter-spacing: .12em;
+  letter-spacing: .1em;
 }
 
 section.frontmatter > h1,
 section.backmatter > h1 {
-  text-align: center;
-  font-family: Cinzel, "Times New Roman", serif;
-  font-size: 1.14em;
-  letter-spacing: .13em;
+  text-align: left;
+  font-family: Cinzel, "Libre Caslon Text", serif;
+  font-size: 1.08em;
+  letter-spacing: .11em;
   text-transform: uppercase;
-  color: #1e1b19;
-  border-top: 4px double #1e1b19;
-  border-bottom: 1px solid #781c23;
-  padding: .58em 0;
+  color: #171411;
+  border-bottom: 4px double #171411;
+  padding: 0 0 .45em;
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1.2in; }
+  section.chapter > h1 { margin-top: 1.1in; }
 }
