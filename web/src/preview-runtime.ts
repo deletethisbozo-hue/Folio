@@ -11,10 +11,9 @@ type ReflowProfile = {
 const PROFILES: Record<string, ReflowProfile> = {
   // Logical viewports at Folio's named Standard reading preset. The shell stays
   // the same size; text and margins scale into that reduced visualisation.
-  // Paperwhite Standard uses a restrained reader-safe side inset. The slightly
-  // reader-safe measure is evaluated against the completed professional compositor,
-  // keeping device geometry independent from temporary solver workarounds.
-  "kindle-paperwhite": { width: 412, height: 549, baseFont: 17.5, padding: [34, 28, 46, 28], wordsPerPage: 270 },
+  // Paperwhite Standard uses a reader-safe side inset that keeps prose inside
+  // the professional spacing envelope without shrinking the device shell.
+  "kindle-paperwhite": { width: 412, height: 549, baseFont: 17.5, padding: [34, 31, 46, 31], wordsPerPage: 270 },
   "kindle-oasis": { width: 421, height: 560, baseFont: 18, padding: [32, 34, 46, 28], wordsPerPage: 290 },
   ipad: { width: 820, height: 1180, baseFont: 19, padding: [62, 68, 82, 68], wordsPerPage: 455 },
   iphone: { width: 390, height: 844, baseFont: 18, padding: [38, 25, 58, 25], wordsPerPage: 245 },
