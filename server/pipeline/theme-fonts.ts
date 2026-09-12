@@ -8,116 +8,67 @@ type FontFace = { file: string; weight: string; style: "normal" | "italic" };
 type FontSpec = { family: string; faces: FontFace[] };
 
 const FONTS = {
-  sourceSerif: {
-    family: "Folio Source Serif 4",
-    faces: [
-      { file: "source-serif-4.ttf", weight: "200 900", style: "normal" },
-      { file: "source-serif-4-italic.ttf", weight: "200 900", style: "italic" },
-    ],
-  },
-  sourceSans: {
-    family: "Folio Source Sans 3",
-    faces: [
-      { file: "source-sans-3.ttf", weight: "200 900", style: "normal" },
-      { file: "source-sans-3-italic.ttf", weight: "200 900", style: "italic" },
-    ],
-  },
-  garamond: {
-    family: "Folio EB Garamond",
-    faces: [
-      { file: "eb-garamond.ttf", weight: "400 800", style: "normal" },
-      { file: "eb-garamond-italic.ttf", weight: "400 800", style: "italic" },
-    ],
-  },
-  caslon: {
-    family: "Folio Libre Caslon Text",
-    faces: [
-      { file: "libre-caslon-text.ttf", weight: "400 700", style: "normal" },
-      { file: "libre-caslon-text-italic.ttf", weight: "400 700", style: "italic" },
-    ],
-  },
-  baskerville: {
-    family: "Folio Libre Baskerville",
-    faces: [
-      { file: "libre-baskerville.ttf", weight: "400 700", style: "normal" },
-      { file: "libre-baskerville-italic.ttf", weight: "400 700", style: "italic" },
-    ],
-  },
-  newsreader: {
-    family: "Folio Newsreader",
-    faces: [
-      { file: "newsreader.ttf", weight: "200 800", style: "normal" },
-      { file: "newsreader-italic.ttf", weight: "200 800", style: "italic" },
-    ],
-  },
-  vollkorn: {
-    family: "Folio Vollkorn",
-    faces: [
-      { file: "vollkorn.ttf", weight: "400 900", style: "normal" },
-      { file: "vollkorn-italic.ttf", weight: "400 900", style: "italic" },
-    ],
-  },
-  condensed: {
-    family: "Folio Barlow Condensed",
-    faces: [
-      { file: "barlow-condensed-regular.ttf", weight: "400", style: "normal" },
-      { file: "barlow-condensed-bold.ttf", weight: "700", style: "normal" },
-      { file: "barlow-condensed-black.ttf", weight: "900", style: "normal" },
-    ],
-  },
-  bodoni: {
-    family: "Folio Bodoni Moda",
-    faces: [
-      { file: "bodoni-moda.ttf", weight: "400 900", style: "normal" },
-      { file: "bodoni-moda-italic.ttf", weight: "400 900", style: "italic" },
-    ],
-  },
-  cinzel: {
-    family: "Folio Cinzel",
-    faces: [{ file: "cinzel.ttf", weight: "400 900", style: "normal" }],
-  },
-  gothic: {
-    family: "Folio Grenze Gotisch",
-    faces: [{ file: "grenze-gotisch.ttf", weight: "100 900", style: "normal" }],
-  },
-  slab: {
-    family: "Folio Roboto Slab",
-    faces: [{ file: "roboto-slab.ttf", weight: "100 900", style: "normal" }],
-  },
+  sourceSerif: { family: "Folio Source Serif 4", faces: [
+    { file: "source-serif-4.ttf", weight: "200 900", style: "normal" },
+    { file: "source-serif-4-italic.ttf", weight: "200 900", style: "italic" },
+  ] },
+  sourceSans: { family: "Folio Source Sans 3", faces: [
+    { file: "source-sans-3.ttf", weight: "200 900", style: "normal" },
+    { file: "source-sans-3-italic.ttf", weight: "200 900", style: "italic" },
+  ] },
+  garamond: { family: "Folio EB Garamond", faces: [
+    { file: "eb-garamond.ttf", weight: "400 800", style: "normal" },
+    { file: "eb-garamond-italic.ttf", weight: "400 800", style: "italic" },
+  ] },
+  caslon: { family: "Folio Libre Caslon Text", faces: [
+    { file: "libre-caslon-text.ttf", weight: "400 700", style: "normal" },
+    { file: "libre-caslon-text-italic.ttf", weight: "400 700", style: "italic" },
+  ] },
+  baskerville: { family: "Folio Libre Baskerville", faces: [
+    { file: "libre-baskerville.ttf", weight: "400 700", style: "normal" },
+    { file: "libre-baskerville-italic.ttf", weight: "400 700", style: "italic" },
+  ] },
+  newsreader: { family: "Folio Newsreader", faces: [
+    { file: "newsreader.ttf", weight: "200 800", style: "normal" },
+    { file: "newsreader-italic.ttf", weight: "200 800", style: "italic" },
+  ] },
+  vollkorn: { family: "Folio Vollkorn", faces: [
+    { file: "vollkorn.ttf", weight: "400 900", style: "normal" },
+    { file: "vollkorn-italic.ttf", weight: "400 900", style: "italic" },
+  ] },
+  condensed: { family: "Folio Barlow Condensed", faces: [
+    { file: "barlow-condensed-regular.ttf", weight: "400", style: "normal" },
+    { file: "barlow-condensed-bold.ttf", weight: "700", style: "normal" },
+    { file: "barlow-condensed-black.ttf", weight: "900", style: "normal" },
+  ] },
+  bodoni: { family: "Folio Bodoni Moda", faces: [
+    { file: "bodoni-moda.ttf", weight: "400 900", style: "normal" },
+    { file: "bodoni-moda-italic.ttf", weight: "400 900", style: "italic" },
+  ] },
+  cinzel: { family: "Folio Cinzel", faces: [
+    { file: "cinzel.ttf", weight: "400 900", style: "normal" },
+  ] },
+  gothic: { family: "Folio Grenze Gotisch", faces: [
+    { file: "grenze-gotisch.ttf", weight: "100 900", style: "normal" },
+  ] },
+  slab: { family: "Folio Roboto Slab", faces: [
+    { file: "roboto-slab.ttf", weight: "100 900", style: "normal" },
+  ] },
 } satisfies Record<string, FontSpec>;
 
 type FontKey = keyof typeof FONTS;
 
-// Theme CSS predates the bundled-font system and deliberately uses familiar
-// desktop family names. Normalize those names at render time so every platform
-// receives the same actual typeface without forcing thirty theme files to carry
-// duplicated @font-face boilerplate.
 const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
-  ["Old English Text MT", "gothic"],
-  ["Palatino Linotype", "vollkorn"],
-  ["Helvetica Neue", "sourceSans"],
-  ["Libre Baskerville", "baskerville"],
-  ["Times New Roman", "sourceSerif"],
-  ["Barlow Condensed", "condensed"],
-  ["Arial Narrow", "condensed"],
-  ["Arial Black", "sourceSans"],
-  ["Bodoni MT", "bodoni"],
-  ["Trajan Pro", "cinzel"],
-  ["Book Antiqua", "vollkorn"],
-  ["Hoefler Text", "baskerville"],
-  ["UnifrakturCook", "gothic"],
-  ["Copperplate", "cinzel"],
-  ["Baskerville", "baskerville"],
-  ["Garamond", "garamond"],
-  ["Palatino", "vollkorn"],
-  ["Cambria", "newsreader"],
-  ["Charter", "caslon"],
-  ["Rockwell", "slab"],
-  ["Georgia", "sourceSerif"],
-  ["Avenir", "sourceSans"],
-  ["Didot", "bodoni"],
-  ["Arial", "sourceSans"],
-  ["Segoe UI", "sourceSans"],
+  ["Old English Text MT", "gothic"], ["Palatino Linotype", "vollkorn"],
+  ["Helvetica Neue", "sourceSans"], ["Libre Baskerville", "baskerville"],
+  ["Times New Roman", "sourceSerif"], ["Barlow Condensed", "condensed"],
+  ["Arial Narrow", "condensed"], ["Arial Black", "sourceSans"],
+  ["Bodoni MT", "bodoni"], ["Trajan Pro", "cinzel"], ["Book Antiqua", "vollkorn"],
+  ["Hoefler Text", "baskerville"], ["UnifrakturCook", "gothic"], ["Copperplate", "cinzel"],
+  ["Baskerville", "baskerville"], ["Garamond", "garamond"], ["Palatino", "vollkorn"],
+  ["Cambria", "newsreader"], ["Charter", "caslon"], ["Rockwell", "slab"],
+  ["Georgia", "sourceSerif"], ["Avenir", "sourceSans"], ["Didot", "bodoni"],
+  ["Arial", "sourceSans"], ["Segoe UI", "sourceSans"],
 ];
 
 function escapeRegExp(value: string): string {
@@ -164,14 +115,17 @@ async function fontFaceCss(spec: FontSpec, target: FontTarget): Promise<string> 
 export async function buildThemeRuntimeCss(
   theme: ThemeName,
   target: FontTarget,
-): Promise<{ css: string; fontFiles: string[]; families: string[] }> {
+): Promise<{ css: string; themeCss: string; fontCss: string; fontFiles: string[]; families: string[] }> {
   const source = await fs.readFile(themeCss(theme), "utf8");
   const normalized = normalizeThemeFontFamilies(source);
   const keys = [...normalized.used];
   const faces = await Promise.all(keys.map((key) => fontFaceCss(FONTS[key], target)));
+  const fontCss = faces.join("\n");
   const fontFiles = [...new Set(keys.flatMap((key) => FONTS[key].faces.map((face) => path.join(THEME_FONTS_DIR, face.file))))];
   return {
-    css: `${faces.join("\n")}\n${normalized.css}`,
+    css: `${fontCss}\n${normalized.css}`,
+    themeCss: normalized.css,
+    fontCss,
     fontFiles,
     families: keys.map((key) => FONTS[key].family),
   };
