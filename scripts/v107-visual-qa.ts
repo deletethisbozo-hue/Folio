@@ -148,8 +148,15 @@ try {
   };
 
   const setLanguage = async (language: string) => {
-    await page.click('[data-command="book"]');
-    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]');
+    await page.waitForSelector('[data-command="book"]');
+    let bookDetailsOpened = false;
+    for (let attempt = 0; attempt < 3 && !bookDetailsOpened; attempt++) {
+      await page.$eval('[data-command="book"]', (node) => (node as HTMLButtonElement).click());
+      const dialog = await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { visible: true, timeout: 3_000 }).catch(() => null);
+      bookDetailsOpened = Boolean(dialog);
+      if (!bookDetailsOpened) await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (!bookDetailsOpened) throw new Error("Book Details dialog did not open after 3 programmatic attempts");
     await page.evaluate((value) => {
       const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
       const input = row?.querySelector("input") as HTMLInputElement | null;
