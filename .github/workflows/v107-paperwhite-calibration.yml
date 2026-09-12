@@ -43,6 +43,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
 
@@ -62,8 +63,6 @@ jobs:
           replace_once(
               '    if (Math.abs(residualPx) > 1.7) continue;\n\n    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
               '    if (Math.abs(residualPx) > 1.7) continue;\n'
-              '    // Release QA measures the rendered inter-word gap, not only CSS\n'
-              '    // word-spacing. Keep a little rasterisation headroom here.\n'
               '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
               '    if (semanticGapEm > 0.355) continue;\n\n'
               '    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
@@ -87,133 +86,102 @@ jobs:
           replace_once(
               '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n',
               '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
-              '        // A one-word final line is not an acceptable prose solution.\n'
               '        if (last && start > 0 && semanticWordsOnLine === 1) continue;\n',
               "one-word final gate",
           )
 
-          old = '''        const finalCompressionFit = last
-          && semanticWordsOnLine >= 2
-          && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language)
-          : null;
-        const finalCompressionContinuityFit = last
-          && semanticWordsOnLine >= 2
-          && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "continuity")
-          : null;
-        const strictFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)
-          : finalCompressionFit;
-        const strictContinuityFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")
-          : finalCompressionContinuityFit;
-        const fit = strictFit ?? (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)
-          : null);
-        const continuityFit = strictContinuityFit ?? (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")
-          : null);'''
-          new = '''        const finalCompressionFit = last
-          && semanticWordsOnLine >= 2
-          && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language)
-          : null;
-        const finalCompressionContinuityFit = last
-          && semanticWordsOnLine >= 2
-          && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "continuity")
-          : null;
-        const finalCompressionMinScaleFit = last
-          && semanticWordsOnLine >= 2
-          && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "min-scale")
-          : null;
-        const finalCompressionMaxScaleFit = last
-          && semanticWordsOnLine >= 2
-          && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "max-scale")
-          : null;
-        const finalCompressionNeutralFit = last
-          && semanticWordsOnLine >= 2
-          && adjustment < -0.75
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "neutral-spacing")
-          : null;
-        const strictFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)
-          : finalCompressionFit;
-        const strictContinuityFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")
-          : finalCompressionContinuityFit;
-        const strictMinScaleFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "min-scale")
-          : finalCompressionMinScaleFit;
-        const strictMaxScaleFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "max-scale")
-          : finalCompressionMaxScaleFit;
-        const strictNeutralFit = !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "neutral-spacing")
-          : finalCompressionNeutralFit;
-        const anyStrictFit = Boolean(strictFit || strictContinuityFit || strictMinScaleFit || strictMaxScaleFit || strictNeutralFit);
-        const fit = anyStrictFit ? strictFit : (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)
-          : null);
-        const continuityFit = anyStrictFit ? strictContinuityFit : (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")
-          : null);
-        const minScaleFit = anyStrictFit ? strictMinScaleFit : (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "min-scale")
-          : null);
-        const maxScaleFit = anyStrictFit ? strictMaxScaleFit : (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "max-scale")
-          : null);
-        const neutralFit = anyStrictFit ? strictNeutralFit : (emergency && !last
-          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "neutral-spacing")
-          : null);'''
-          replace_once(old, new, "candidate frontier construction")
+          strict_marker = (
+              '        const strictContinuityFit = !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")\n'
+              '          : finalCompressionContinuityFit;\n'
+          )
+          strict_extra = strict_marker + (
+              '        const strictMinScaleFit = !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "min-scale")\n'
+              '          : null;\n'
+              '        const strictMaxScaleFit = !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "max-scale")\n'
+              '          : null;\n'
+              '        const strictNeutralFit = !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "neutral-spacing")\n'
+              '          : null;\n'
+              '        const anyStrictFit = Boolean(strictFit || strictContinuityFit || strictMinScaleFit || strictMaxScaleFit || strictNeutralFit);\n'
+          )
+          replace_once(strict_marker, strict_extra, "strict frontier insertion")
+
+          replace_once(
+              '        const fit = strictFit ?? (emergency && !last\n',
+              '        const fit = strictFit ?? (!anyStrictFit && emergency && !last\n',
+              "strict badness fallback",
+          )
+          replace_once(
+              '        const continuityFit = strictContinuityFit ?? (emergency && !last\n',
+              '        const continuityFit = strictContinuityFit ?? (!anyStrictFit && emergency && !last\n',
+              "strict continuity fallback",
+          )
+
+          continuity_block = (
+              '        const continuityFit = strictContinuityFit ?? (!anyStrictFit && emergency && !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")\n'
+              '          : null);\n'
+          )
+          frontier_block = continuity_block + (
+              '        const minScaleFit = strictMinScaleFit ?? (!anyStrictFit && emergency && !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "min-scale")\n'
+              '          : null);\n'
+              '        const maxScaleFit = strictMaxScaleFit ?? (!anyStrictFit && emergency && !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "max-scale")\n'
+              '          : null);\n'
+              '        const neutralFit = strictNeutralFit ?? (!anyStrictFit && emergency && !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "neutral-spacing")\n'
+              '          : null);\n'
+          )
+          replace_once(continuity_block, frontier_block, "relaxed frontier insertion")
 
           replace_once(
               '        if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) {',
               '        if (natural > available + 0.75 && !fit && !continuityFit && !minScaleFit && !maxScaleFit && !neutralFit && (end > start || last)) {',
-              "overfull candidate gate",
+              "overfull gate",
           )
           replace_once(
               '        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && natural <= available + 0.75;',
               '        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && !minScaleFit && !maxScaleFit && !neutralFit && natural <= available + 0.75;',
-              "natural rescue gate",
+              "rescue gate",
           )
 
-          old = '''        const fitOptions: Array<LineFit | null> = [];
-        if (fit) fitOptions.push(fit);
-        if (continuityFit && !fitOptions.some((candidate) =>
-          candidate
-          && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001
-          && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001
-          && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001
-        )) fitOptions.push(continuityFit);
-        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
-        const hasStrictFit = Boolean(strictFit || strictContinuityFit);'''
-          new = '''        const fitOptions: Array<LineFit | null> = [];
-        const addFit = (candidate: LineFit | null): void => {
-          if (!candidate) return;
-          if (!fitOptions.some((existing) =>
-            existing
-            && Math.abs(existing.glyphScale - candidate.glyphScale) < 0.000001
-            && Math.abs(existing.wordSpacing - candidate.wordSpacing) < 0.000001
-            && Math.abs(existing.tracking - candidate.tracking) < 0.000001
-          )) fitOptions.push(candidate);
-        };
-        addFit(fit);
-        addFit(continuityFit);
-        addFit(minScaleFit);
-        addFit(maxScaleFit);
-        addFit(neutralFit);
-        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
-        const hasStrictFit = anyStrictFit;'''
-          replace_once(old, new, "frontier fit options")
+          old_options = (
+              '        const fitOptions: Array<LineFit | null> = [];\n'
+              '        if (fit) fitOptions.push(fit);\n'
+              '        if (continuityFit && !fitOptions.some((candidate) =>\n'
+              '          candidate\n'
+              '          && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001\n'
+              '          && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001\n'
+              '          && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001\n'
+              '        )) fitOptions.push(continuityFit);\n'
+              '        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);\n'
+              '        const hasStrictFit = Boolean(strictFit || strictContinuityFit);\n'
+          )
+          new_options = (
+              '        const fitOptions: Array<LineFit | null> = [];\n'
+              '        const addFit = (candidate: LineFit | null): void => {\n'
+              '          if (!candidate) return;\n'
+              '          if (!fitOptions.some((existing) => existing\n'
+              '            && Math.abs(existing.glyphScale - candidate.glyphScale) < 0.000001\n'
+              '            && Math.abs(existing.wordSpacing - candidate.wordSpacing) < 0.000001\n'
+              '            && Math.abs(existing.tracking - candidate.tracking) < 0.000001)) fitOptions.push(candidate);\n'
+              '        };\n'
+              '        addFit(fit);\n'
+              '        addFit(continuityFit);\n'
+              '        addFit(minScaleFit);\n'
+              '        addFit(maxScaleFit);\n'
+              '        addFit(neutralFit);\n'
+              '        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);\n'
+              '        const hasStrictFit = anyStrictFit;\n'
+          )
+          replace_once(old_options, new_options, "fit frontier options")
 
           path.write_text(text, encoding="utf-8")
-          print("Applied 5-objective fit frontier with semantic-gap and final-tail gates")
+          print("Applied frontier compositor patch")
           PY
       - name: Patch Paperwhite geometry and sample language in runner only
         shell: bash
@@ -231,12 +199,12 @@ jobs:
           if count != 1:
               raise SystemExit("Paperwhite profile not found exactly once")
           preview.write_text(text, encoding="utf-8")
+
           sample = Path("samples/clockwork-garden/book.yaml")
           sample_text = sample.read_text(encoding="utf-8")
           if "language: en" not in sample_text:
               raise SystemExit("Sample language marker missing")
           sample.write_text(sample_text.replace("language: en", "language: pl", 1), encoding="utf-8")
-          print(f"Paperwhite frontier: font {os.environ['BASE_FONT']}, side {os.environ['SIDE']}")
           PY
       - name: Trim visual harness to Polish composition only
         shell: bash
