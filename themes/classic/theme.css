@@ -1,204 +1,194 @@
 /* ============================================================
-   Illuminated — lavish medieval codex for fantasy / historical fiction.
-   A real HTML/CSS book theme: no bitmap parchment, no painted scenery.
+   Black Psalter — dark Gothic illuminated manuscript.
+   Designed as a real book theme: CSS, live type, no bitmap scenery.
    ============================================================ */
 
 body {
   font-family: Garamond, "EB Garamond", Georgia, serif;
-  line-height: 1.55;
-  color: #201510;
-  background: #f1ddb0;
+  line-height: 1.56;
+  color: #e7ddc4;
+  background: #11100f;
 }
 
-main.book { counter-reset: illuminated; }
+main.book { counter-reset: psalter; }
 
 section.chapter {
-  counter-increment: illuminated;
+  counter-increment: psalter;
   position: relative;
-  padding: 1.2em 1.08em 2.05em;
-  border: 1px solid #6f211c;
+  padding: 1.45em 1.16em 2.25em;
+  border: 1px solid #7b652f;
   background:
-    radial-gradient(circle at 15px 15px, #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
-    radial-gradient(circle at calc(100% - 15px) 15px, #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
-    radial-gradient(circle at 15px calc(100% - 15px), #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
-    radial-gradient(circle at calc(100% - 15px) calc(100% - 15px), #d8b45d 0 2px, #84261f 2.5px 5px, #214b70 5.5px 8px, transparent 8.5px),
-    linear-gradient(90deg, rgba(25, 57, 88, .045), transparent 11%, transparent 89%, rgba(25, 57, 88, .045)),
-    #f4e4ba;
+    radial-gradient(circle at 14px 14px, #b5903f 0 2px, #5f1719 2.5px 5px, #181615 5.5px 8px, transparent 8.5px),
+    radial-gradient(circle at calc(100% - 14px) 14px, #b5903f 0 2px, #5f1719 2.5px 5px, #181615 5.5px 8px, transparent 8.5px),
+    radial-gradient(circle at 14px calc(100% - 14px), #b5903f 0 2px, #5f1719 2.5px 5px, #181615 5.5px 8px, transparent 8.5px),
+    radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), #b5903f 0 2px, #5f1719 2.5px 5px, #181615 5.5px 8px, transparent 8.5px),
+    linear-gradient(90deg, rgba(123,101,47,.08), transparent 11%, transparent 89%, rgba(123,101,47,.08)),
+    linear-gradient(#161412, #0f0e0d);
   box-shadow:
-    inset 0 0 0 3px #d0aa55,
-    inset 0 0 0 5px #234765,
-    inset 0 0 0 7px #c9993f,
-    inset 0 0 0 8px #7d2a22;
+    inset 0 0 0 2px #3b0d10,
+    inset 0 0 0 4px #b18c3b,
+    inset 0 0 0 6px #171514,
+    inset 0 0 0 7px #5f1719;
 }
 
 section.chapter::before,
 section.chapter::after {
   position: absolute;
   z-index: 1;
-  font-family: Cinzel, Garamond, serif;
-  background: #f4e4ba;
   line-height: 1;
 }
 section.chapter::before {
-  content: "❦  ✦  ❦";
+  content: "☩  MEMENTO MORI  ☩";
   top: .42em;
   left: 50%;
   transform: translateX(-50%);
-  padding: 0 .45em;
-  font-size: .72em;
-  letter-spacing: .26em;
-  color: #8c2b23;
+  padding: 0 .55em;
+  background: #11100f;
+  font-family: Cinzel, Garamond, serif;
+  font-size: .62em;
+  letter-spacing: .23em;
+  color: #9a7a31;
 }
 section.chapter::after {
-  content: "FOL. " counter(illuminated, decimal-leading-zero);
+  content: "FOL. " counter(psalter, decimal-leading-zero);
   top: .5em;
   right: 1.35em;
-  padding: 0 .28em;
+  padding: 0 .3em;
+  background: #11100f;
+  font-family: Cinzel, Garamond, serif;
   font-size: .47em;
-  letter-spacing: .14em;
-  color: #6c4d2b;
+  letter-spacing: .15em;
+  color: #806d46;
 }
 
 section.chapter > h1,
 h1.chapter {
   position: relative;
   text-align: center;
-  margin: 1.45em .72em 2.25em;
-  padding: 1.18em .72em .95em;
-  border: 2px solid #7b241e;
-  outline: 1px solid #c79d45;
+  margin: 1.62em .66em 2.35em;
+  padding: 1.28em .74em 1.08em;
+  border: 2px solid #6b1a1d;
+  outline: 1px solid #a98839;
   outline-offset: 4px;
   background:
-    radial-gradient(circle at 13px 13px, #d2aa50 0 2px, #214b70 2.5px 5px, transparent 5.5px),
-    radial-gradient(circle at calc(100% - 13px) 13px, #d2aa50 0 2px, #214b70 2.5px 5px, transparent 5.5px),
-    linear-gradient(#f7e9c5, #f3dfad);
-  box-shadow: 0 0 0 4px #1e4668, 0 0 0 6px #cba14d, 0 0 0 7px #7b241e;
+    radial-gradient(circle at 12px 12px, #a27e2f 0 2px, #67171a 2.5px 5px, transparent 5.5px),
+    radial-gradient(circle at calc(100% - 12px) 12px, #a27e2f 0 2px, #67171a 2.5px 5px, transparent 5.5px),
+    linear-gradient(#1b1917, #0d0c0b);
+  box-shadow: 0 0 0 4px #080808, 0 0 0 6px #96762d, 0 0 0 7px #4f1114;
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 2.38em;
-  font-weight: 560;
-  line-height: 1.01;
-  letter-spacing: 0;
-  color: #21140f;
-  text-shadow: .012em .012em 0 rgba(121, 75, 31, .22);
+  font-size: 2.55em;
+  font-weight: 620;
+  line-height: .98;
+  letter-spacing: .005em;
+  color: #e6dcc4;
+  text-shadow: 0 1px 0 #000, .018em .018em 0 #5b1618;
 }
 
 section.chapter > h1::before {
-  content: "✠  LIBER " counter(illuminated, upper-roman) "  ✠";
+  content: "✠  PSALTERIVM " counter(psalter, upper-roman) "  ✠";
   display: block;
-  margin-bottom: .9em;
+  margin-bottom: .95em;
   font-family: Cinzel, Garamond, Georgia, serif;
-  font-size: .31em;
+  font-size: .29em;
   font-weight: 700;
-  letter-spacing: .27em;
-  color: #7f241d;
+  letter-spacing: .29em;
+  color: #8f2a2e;
 }
 
 section.chapter > h1::after {
-  content: "❧  ✦  ❧";
+  content: "❦  ☩  ❦";
   display: block;
-  margin: .67em auto -.2em;
+  margin: .74em auto -.15em;
   font-family: Garamond, serif;
-  font-size: .47em;
-  letter-spacing: .22em;
-  color: #9f7629;
+  font-size: .48em;
+  letter-spacing: .23em;
+  color: #b18d3a;
 }
 
-.chapter-subtitle {
-  margin: -1.8em 1em 1.9em;
-}
+.chapter-subtitle { margin: -1.9em 1em 1.95em; }
 .chapter-subtitle p {
   font-style: normal;
   font-variant: small-caps;
   text-transform: lowercase;
-  letter-spacing: .15em;
-  color: #74261f;
+  letter-spacing: .16em;
+  color: #a67f75;
 }
 
 .dropcap {
-  min-width: .94em;
-  margin: .01em .16em 0 0;
-  padding: .11em .12em .14em;
-  border: 3px solid #922c23;
-  outline: 2px solid #cba44d;
+  min-width: .97em;
+  margin: .01em .17em 0 0;
+  padding: .12em .12em .15em;
+  border: 3px solid #7c2024;
+  outline: 2px solid #9c7b31;
   outline-offset: 2px;
   background:
-    radial-gradient(circle at 50% 18%, rgba(225, 190, 91, .42), transparent 27%),
-    #183d62;
-  box-shadow:
-    inset 0 0 0 2px #d8b45a,
-    inset 0 0 0 4px rgba(115, 29, 24, .55),
-    .055em .065em 0 rgba(75, 49, 24, .22);
-  color: #e3c064;
+    radial-gradient(circle at 50% 18%, rgba(187,150,61,.24), transparent 29%),
+    linear-gradient(#080808, #171312);
+  box-shadow: inset 0 0 0 2px #b08c38, inset 0 0 0 4px rgba(91,18,22,.72), .06em .075em 0 rgba(0,0,0,.52);
+  color: #c7a34d;
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 4.05em;
-  font-weight: 780;
-  line-height: .77;
+  font-size: 4.25em;
+  font-weight: 800;
+  line-height: .75;
   text-align: center;
-  text-shadow: .025em .025em 0 #6d211c;
+  text-shadow: .025em .025em 0 #4f1114;
 }
 
 section.chapter > p:first-of-type {
   margin-top: 0;
-  padding: .62em .7em .55em;
-  border-top: 1px solid #b18a3d;
-  border-bottom: 1px solid #b18a3d;
-  background: linear-gradient(90deg, rgba(126, 36, 29, .065), transparent 20%, transparent 80%, rgba(32, 73, 108, .055));
+  padding: .72em .74em .62em;
+  border-top: 1px solid #6c5525;
+  border-bottom: 1px solid #6c5525;
+  background: linear-gradient(90deg, rgba(98,22,25,.18), rgba(255,255,255,.015) 24%, rgba(255,255,255,.015) 76%, rgba(98,22,25,.16));
 }
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
-  color: #7c271f;
+  color: #b54b4d;
   font-variant: small-caps;
-  letter-spacing: .04em;
+  letter-spacing: .045em;
 }
 
+section.chapter p:not(.scene-break) { color: #e5dcc7; }
+section.chapter p:not(:first-of-type):not(.scene-break) { text-indent: 1.05em; }
+
 .scene-break {
-  margin: 1.75em auto;
-  width: 74%;
-  padding: .3em 0 .24em;
-  border-top: 1px solid #b88e3e;
-  border-bottom: 1px solid #b88e3e;
-  color: #8c2b23;
-  font-size: 1.1em;
-  letter-spacing: .3em;
+  margin: 1.85em auto;
+  width: 76%;
+  padding: .36em 0 .3em;
+  border-top: 1px solid #6d5728;
+  border-bottom: 1px solid #6d5728;
+  color: #922b2f;
+  font-size: 1.08em;
+  letter-spacing: .28em;
 }
 .scene-break::before,
 .scene-break::after {
-  content: "✦";
-  padding: 0 .58em;
-  color: #214b70;
+  content: "☩";
+  padding: 0 .6em;
+  color: #b18d3a;
 }
 
 section.titlepage > h1 {
   font-family: "Old English Text MT", UnifrakturCook, Georgia, serif;
-  font-size: 2.5em;
-  color: #24140f;
+  font-size: 2.55em;
+  color: #ded3bb;
 }
-.tp-subtitle {
-  font-style: normal;
-  font-variant: small-caps;
-  text-transform: lowercase;
-  letter-spacing: .15em;
-  color: #7d251f;
-}
-.tp-author {
-  font-variant: small-caps;
-  letter-spacing: .13em;
-  color: #58402f;
-}
+.tp-subtitle { color: #a74d50; font-variant: small-caps; letter-spacing: .15em; }
+.tp-author { color: #a78c5a; font-variant: small-caps; letter-spacing: .13em; }
 
 section.frontmatter > h1,
 section.backmatter > h1 {
   text-align: center;
   font-family: Cinzel, Garamond, Georgia, serif;
   font-variant: small-caps;
-  letter-spacing: .09em;
-  color: #6e211c;
-  border-top: 3px double #b28a48;
-  border-bottom: 3px double #b28a48;
-  padding: .6em 0;
+  letter-spacing: .1em;
+  color: #b48e3d;
+  border-top: 3px double #612025;
+  border-bottom: 3px double #612025;
+  padding: .62em 0;
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1.1in; }
+  section.chapter > h1 { margin-top: 1.08in; }
 }
