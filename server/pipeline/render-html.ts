@@ -10,8 +10,11 @@ import path from "node:path";
 /**
  * Render the book's interior to a single self-contained HTML string.
  * Used for the live preview (shown in an iframe) and as the source for the PDF.
- * Live preview fonts come from Folio's local font endpoint so they are cached;
- * print HTML inlines the same files because Puppeteer renders from setContent().
+ *
+ * Theme @font-face rules are injected after Pandoc has finished processing
+ * --embed-resources. Otherwise Pandoc interprets /theme-fonts/foo.ttf as a local
+ * filesystem path and tries to read it itself. Browser preview then resolves the
+ * cached local endpoint normally, while print gets the same faces as data URIs.
  */
 export async function renderHtml(book: Book, target: Target = "html"): Promise<string> {
   const ws = await makeWorkspace(book, target);
@@ -19,7 +22,7 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
     const md = assembleMarkdown(book, target);
     const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, target === "print" ? "print" : "html");
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
-    await fs.writeFile(runtimeThemePath, runtimeTheme.css, "utf8");
+    await fs.writeFile(runtimeThemePath, runtimeTheme.themeCss, "utf8");
     const css = [path.join(THEMES_DIR, "base.css"), runtimeThemePath];
     if (target === "print" && (await fileExists(printCss(book.meta.theme)))) {
       css.push(printCss(book.meta.theme));
@@ -41,7 +44,13 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
       `--metadata=lang:${book.meta.language}`,
       ...css.map((c) => `--css=${c}`),
     ];
-    return await runPandoc(args, md);
+    const rendered = await runPandoc(args, md);
+    if (!runtimeTheme.fontCss.trim()) return rendered;
+    const fontStyle = `<style id="folio-theme-fonts">${runtimeTheme.fontCss}</style>`;
+    const headClose = rendered.lastIndexOf("</head>");
+    return headClose >= 0
+      ? rendered.slice(0, headClose) + fontStyle + rendered.slice(headClose)
+      : fontStyle + rendered;
   } finally {
     await cleanup(ws);
   }
