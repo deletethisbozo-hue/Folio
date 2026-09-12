@@ -38,6 +38,8 @@ jobs:
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
       - name: Install pinned Chromium runtime
         run: npx puppeteer browsers install chrome-headless-shell
+      - name: Harden final-line widow rule
+        run: python scripts/probe-hard-final-widow.py
       - name: Probe bundled EB Garamond
         shell: pwsh
         run: |
