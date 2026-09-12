@@ -6,6 +6,7 @@ English a/an/the are structurally bound to the following word while preserving d
 Local editable live preview uses draftRef as the authoritative draft. Every server preview records the exact draft snapshot it represents, so a late response cannot masquerade as current HTML or erase newer typing.
 Pending iframe srcDoc loads carry the represented-draft snapshot too; once loaded, Folio patches any newer append-only tail from the current editor model before composition.
 Huge-manuscript fast typing finds the last direct prose paragraph by walking backward from the tail instead of allocating/scanning all 5,200 paragraphs for every keystroke.
+Huge-manuscript append-only typing updates the displayed word count incrementally from the appended tail instead of rescanning and allocating the full 100,000-word manuscript on every keystroke; the 8-second responsiveness gate remains unchanged.
 Switching between Kindle, tablet and phone profiles no longer triggers a server manuscript rebuild; only transitions into or out of Print may regenerate preview HTML. Reader device/profile changes otherwise use the dedicated geometry-only refresh path.
 An authoritative server preview that replaces iframe body markup now explicitly re-arms lazy professional composition even when it represents the same Markdown snapshot, so a late valid response cannot leave fresh DOM uncomposed.
 The cumulative UI qualification reacquires the semantic Polish paragraph after any authoritative DOM replacement instead of mistaking loss of a test-only data attribute for lost manuscript content.
