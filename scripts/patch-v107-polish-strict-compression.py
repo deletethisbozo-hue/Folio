@@ -16,10 +16,5 @@ for compositor in ("web/src/compositor.ts", "server/pipeline/compositor.ts"):
         'const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;',
         'const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;',
     )
-    replace_exact(
-        compositor,
-        "// enough bounded compression headroom to choose a clean word boundary instead\n// of exceeding the 0.45 section hyphen-density ceiling. The optimiser still\n// pays badness for every compressed gap, so this is an available rescue path,\n// not the new preferred spacing.",
-        "// enough bounded compression headroom to choose a clean word boundary instead\n// of exceeding the 0.45 section hyphen-density ceiling. Polish strict spacing\n// may reach 0.099em on narrow reader measures, still below the 0.101em release\n// gate; the optimiser pays badness for every compressed gap, so this remains\n// an available rescue path rather than the preferred spacing.",
-    )
 
 print("Raised Polish strict compression ceiling to 0.099em in preview and export compositors.")
