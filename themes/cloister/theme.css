@@ -1,110 +1,160 @@
 /* ============================================================
    Chronicle — austere monastic / royal annal manuscript.
-   Red ruling, narrow measure, sober capitals, restrained rubrication.
+   Red ruling, marginalia, narrow measure and sober rubrication.
    ============================================================ */
 
 body {
   font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  line-height: 1.52;
-  color: #2a211b;
-  background: #eee1bf;
+  line-height: 1.5;
+  color: #2b211a;
+  background: #ead9ae;
 }
 
 main.book { counter-reset: chronicle; }
+
 section.chapter {
   counter-increment: chronicle;
   position: relative;
-  padding-left: 1.15em;
-  padding-right: 1.15em;
-  border-left: 1px solid #a34f40;
-  border-right: 1px solid #a34f40;
+  margin-left: 2.1em;
+  margin-right: .4em;
+  padding: 1.2em 1.2em 1.9em;
+  border-left: 1px solid #9e4d40;
+  border-right: 1px solid #9e4d40;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.47em, rgba(140, 61, 49, .035) 1.49em),
+    #eee1bc;
+}
+
+section.chapter::before {
+  content: "A.D.\A M·CC·LXVI\A\A DE ADVENTV\A REGIS";
+  white-space: pre-line;
+  position: absolute;
+  left: -3.05em;
+  top: 5.4em;
+  width: 2.35em;
+  font-family: "Libre Caslon Text", Garamond, serif;
+  font-size: .56em;
+  font-style: italic;
+  line-height: 1.2;
+  text-align: center;
+  color: #8b4d42;
+}
+
+section.chapter::after {
+  content: "FOL. " counter(chronicle, decimal-leading-zero);
+  position: absolute;
+  top: .38em;
+  right: .7em;
+  font-family: Cinzel, "Times New Roman", serif;
+  font-size: .55em;
+  letter-spacing: .14em;
+  color: #8d4f42;
 }
 
 section.chapter > h1,
 h1.chapter {
   text-align: center;
-  margin: 0.55em 0 2.45em;
-  padding: 0.8em 0 0.95em;
-  border-top: 1px solid #a34f40;
-  border-bottom: 1px solid #a34f40;
+  margin: 1.15em 0 2.25em;
+  padding: .9em .6em .95em;
+  border-top: 1px solid #9f4a3e;
+  border-bottom: 1px solid #9f4a3e;
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: 1.72em;
+  font-size: 1.76em;
   font-weight: 500;
-  line-height: 1.14;
-  letter-spacing: 0.1em;
+  line-height: 1.15;
+  letter-spacing: .11em;
   text-transform: uppercase;
-  color: #5e251f;
+  color: #5b241d;
 }
 
 section.chapter > h1::before {
   content: "✠  CAPITVLVM " counter(chronicle, upper-roman) "  ✠";
   display: block;
-  margin-bottom: 0.85em;
+  margin-bottom: .9em;
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: 0.38em;
-  font-weight: 600;
-  letter-spacing: 0.24em;
-  color: #3a2c25;
+  font-size: .37em;
+  font-weight: 650;
+  letter-spacing: .26em;
+  color: #362922;
 }
 
 section.chapter > h1::after {
-  content: "ANNO DOMINI";
+  content: "HIC INCIPIT · ANNO DOMINI";
   display: block;
-  margin-top: 0.85em;
+  margin-top: .92em;
   font-family: "Libre Caslon Text", Garamond, serif;
-  font-size: 0.38em;
+  font-size: .36em;
   font-style: italic;
   font-weight: 400;
-  letter-spacing: 0.14em;
-  color: #8a493d;
+  letter-spacing: .14em;
+  color: #8c463a;
 }
 
 .chapter-subtitle {
-  margin: -2em 0 1.9em;
+  margin: -1.85em 0 1.75em;
 }
 .chapter-subtitle p {
   font-style: italic;
-  font-size: 0.96em;
-  color: #6f4c41;
+  font-size: .95em;
+  color: #6d493f;
 }
 
-/* Simple rubricated initial, closer to a scribe's painted capital than a display block. */
 .dropcap {
-  margin-top: -0.02em;
-  padding-right: 0.12em;
+  margin: .02em .15em 0 0;
+  padding: .015em .04em .03em 0;
+  border-right: 1px solid rgba(143, 53, 43, .35);
   font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  font-size: 3.25em;
+  font-size: 4.15em;
   font-weight: 700;
-  line-height: 0.92;
-  color: #8e362c;
+  line-height: .78;
+  color: #913b30;
+}
+
+section.chapter > p:first-of-type {
+  position: relative;
+  padding-top: .25em;
+}
+section.chapter > p:first-of-type::after {
+  content: "☞  Nota bene";
+  position: absolute;
+  right: -4.9em;
+  top: 1.2em;
+  width: 3.7em;
+  font-family: "Libre Caslon Text", Garamond, serif;
+  font-size: .58em;
+  font-style: italic;
+  line-height: 1.12;
+  text-align: left;
+  color: #8a4a3e;
 }
 
 section.chapter > h1 + p::first-line,
-.chapter-subtitle + p::first-line {
-  color: #7f332a;
+.chapter-subtitle + p::first-line,
+section.chapter > p:first-of-type::first-line {
+  color: #81362c;
   font-variant: small-caps;
-  letter-spacing: 0.018em;
+  letter-spacing: .02em;
 }
 
 .scene-break {
-  position: relative;
-  margin: 1.7em 0;
-  color: #8b3a30;
-  font-size: 0.95em;
-  letter-spacing: 0.12em;
+  margin: 1.8em auto;
+  width: 74%;
+  color: #8b3c31;
+  font-size: .9em;
+  letter-spacing: .14em;
 }
 .scene-break::before,
 .scene-break::after {
-  content: "────────";
-  padding: 0 0.65em;
-  color: #b16a5d;
-  letter-spacing: -0.08em;
+  content: "──────";
+  padding: 0 .65em;
+  color: #ad695c;
+  letter-spacing: -.08em;
 }
 
 section.titlepage > h1 {
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: 2.05em;
-  letter-spacing: 0.11em;
+  font-size: 2.08em;
+  letter-spacing: .12em;
   text-transform: uppercase;
   color: #5f281f;
 }
@@ -114,7 +164,7 @@ section.titlepage > h1 {
 }
 .tp-author {
   font-variant: small-caps;
-  letter-spacing: 0.12em;
+  letter-spacing: .12em;
 }
 
 section.frontmatter > h1,
@@ -122,28 +172,15 @@ section.backmatter > h1 {
   text-align: center;
   font-family: Cinzel, "Times New Roman", serif;
   font-size: 1.18em;
-  letter-spacing: 0.13em;
+  letter-spacing: .13em;
   text-transform: uppercase;
   color: #6b2e25;
   border-top: 1px solid #b66a5d;
   border-bottom: 1px solid #b66a5d;
-  padding: 0.55em 0;
-}
-
-@media screen {
-  main.book section.chapter::before {
-    content: "FOL." counter(chronicle, decimal-leading-zero);
-    position: absolute;
-    top: -1.7em;
-    right: 0.1em;
-    font-family: "Libre Caslon Text", Garamond, serif;
-    font-size: 0.67em;
-    font-variant: small-caps;
-    letter-spacing: 0.11em;
-    color: #8b5b4e;
-  }
+  padding: .55em 0;
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1.55in; }
+  section.chapter > h1 { margin-top: 1.35in; }
+  section.chapter > p:first-of-type::after { display: none; }
 }
