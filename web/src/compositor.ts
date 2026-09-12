@@ -280,7 +280,7 @@ function fitLine(
   if (gaps <= 0) return null;
 
   const maxWordSpacing = emergency
-    ? Math.min(spaceWidth * 0.55, fontSize * 0.120)
+    ? fontSize * 0.120
     : Math.min(spaceWidth * 0.50, fontSize * 0.10);
   const normalizedLanguage = language.toLowerCase();
   const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
@@ -293,7 +293,7 @@ function fitLine(
   const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;
   const minWordSpacing = emergency || finalCompression
     ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
-    : -Math.min(spaceWidth * 0.40, fontSize * strictCompressionEm);
+    : -(fontSize * strictCompressionEm);
   const maxTracking = fontSize * 0.003;
   const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
   const maxGlyphScaleDelta = 0.01;
