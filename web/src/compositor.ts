@@ -283,7 +283,7 @@ function fitLine(
     ? fontSize * 0.120
     : fontSize * 0.10;
   const normalizedLanguage = language.toLowerCase();
-  const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
+  const relaxedCompressionEm = 0.120;
   // Windows and Linux rasterize the same serif faces a little differently.
   // Keep the normal line fitter inside the release gate, but give Polish prose
   // enough bounded compression headroom to choose a clean word boundary instead
@@ -292,7 +292,7 @@ function fitLine(
   // not the new preferred spacing.
   const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;
   const minWordSpacing = emergency || finalCompression
-    ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
+    ? -(fontSize * relaxedCompressionEm)
     : -(fontSize * strictCompressionEm);
   const maxTracking = fontSize * 0.003;
   const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);

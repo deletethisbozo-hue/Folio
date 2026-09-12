@@ -92,13 +92,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         ? fontSize * 0.120
         : fontSize * 0.10;
       const normalizedLanguage = (document.documentElement.lang || "en").toLowerCase();
-      const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
+      const relaxedCompressionEm = 0.120;
       // Match the live preview cross-platform Polish density rescue. It stays
       // below the 0.101em strict-spacing qualification ceiling and only wins when
       // its badness is cheaper than another discretionary hyphen.
       const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;
       const minWordSpacing = emergency || finalCompression
-        ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
+        ? -(fontSize * relaxedCompressionEm)
         : -(fontSize * strictCompressionEm);
       const maxTracking = fontSize * 0.003;
       const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
