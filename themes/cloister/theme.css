@@ -15,38 +15,38 @@ main.book { counter-reset: chronicle; }
 section.chapter {
   counter-increment: chronicle;
   position: relative;
-  margin-left: 2.1em;
-  margin-right: .4em;
-  padding: 1.2em 1.2em 1.9em;
+  margin-left: 2.55em;
+  margin-right: .45em;
+  padding: 1.2em 1.18em 1.95em;
   border-left: 1px solid #9e4d40;
   border-right: 1px solid #9e4d40;
   background:
-    repeating-linear-gradient(to bottom, transparent 0, transparent 1.47em, rgba(140, 61, 49, .035) 1.49em),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.47em, rgba(140, 61, 49, .028) 1.49em),
     #eee1bc;
 }
 
 section.chapter::before {
-  content: "A.D.\A M·CC·LXVI\A\A DE ADVENTV\A REGIS";
+  content: "A.D.\A M·CC·LXVI\A\A DE\A ADVENTV\A REGIS\A\A ✠";
   white-space: pre-line;
   position: absolute;
-  left: -3.05em;
-  top: 5.4em;
-  width: 2.35em;
+  left: -3.5em;
+  top: 4.9em;
+  width: 2.55em;
   font-family: "Libre Caslon Text", Garamond, serif;
-  font-size: .56em;
+  font-size: .59em;
   font-style: italic;
-  line-height: 1.2;
+  line-height: 1.18;
   text-align: center;
-  color: #8b4d42;
+  color: #87493d;
 }
 
 section.chapter::after {
   content: "FOL. " counter(chronicle, decimal-leading-zero);
   position: absolute;
   top: .38em;
-  right: .7em;
+  right: .68em;
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: .55em;
+  font-size: .54em;
   letter-spacing: .14em;
   color: #8d4f42;
 }
@@ -54,15 +54,15 @@ section.chapter::after {
 section.chapter > h1,
 h1.chapter {
   text-align: center;
-  margin: 1.15em 0 2.25em;
-  padding: .9em .6em .95em;
+  margin: 1.12em 0 2.15em;
+  padding: .88em .55em .92em;
   border-top: 1px solid #9f4a3e;
   border-bottom: 1px solid #9f4a3e;
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: 1.76em;
+  font-size: 1.72em;
   font-weight: 500;
-  line-height: 1.15;
-  letter-spacing: .11em;
+  line-height: 1.14;
+  letter-spacing: .1em;
   text-transform: uppercase;
   color: #5b241d;
 }
@@ -70,28 +70,28 @@ h1.chapter {
 section.chapter > h1::before {
   content: "✠  CAPITVLVM " counter(chronicle, upper-roman) "  ✠";
   display: block;
-  margin-bottom: .9em;
+  margin-bottom: .88em;
   font-family: Cinzel, "Times New Roman", serif;
   font-size: .37em;
   font-weight: 650;
-  letter-spacing: .26em;
+  letter-spacing: .25em;
   color: #362922;
 }
 
 section.chapter > h1::after {
   content: "HIC INCIPIT · ANNO DOMINI";
   display: block;
-  margin-top: .92em;
+  margin-top: .9em;
   font-family: "Libre Caslon Text", Garamond, serif;
   font-size: .36em;
   font-style: italic;
   font-weight: 400;
-  letter-spacing: .14em;
+  letter-spacing: .13em;
   color: #8c463a;
 }
 
 .chapter-subtitle {
-  margin: -1.85em 0 1.75em;
+  margin: -1.78em 0 1.7em;
 }
 .chapter-subtitle p {
   font-style: italic;
@@ -100,34 +100,19 @@ section.chapter > h1::after {
 }
 
 .dropcap {
-  margin: .02em .15em 0 0;
-  padding: .015em .04em .03em 0;
+  margin: .02em .14em 0 0;
+  padding: .015em .055em .035em 0;
   border-right: 1px solid rgba(143, 53, 43, .35);
   font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  font-size: 4.15em;
+  font-size: 4.1em;
   font-weight: 700;
   line-height: .78;
   color: #913b30;
 }
 
 section.chapter > p:first-of-type {
-  position: relative;
-  padding-top: .25em;
+  padding-top: .2em;
 }
-section.chapter > p:first-of-type::after {
-  content: "☞  Nota bene";
-  position: absolute;
-  right: -4.9em;
-  top: 1.2em;
-  width: 3.7em;
-  font-family: "Libre Caslon Text", Garamond, serif;
-  font-size: .58em;
-  font-style: italic;
-  line-height: 1.12;
-  text-align: left;
-  color: #8a4a3e;
-}
-
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
@@ -136,9 +121,13 @@ section.chapter > p:first-of-type::first-line {
   letter-spacing: .02em;
 }
 
+section.chapter > p:not(:first-of-type):not(.scene-break) {
+  text-indent: 1.15em;
+}
+
 .scene-break {
-  margin: 1.8em auto;
-  width: 74%;
+  margin: 1.75em auto;
+  width: 72%;
   color: #8b3c31;
   font-size: .9em;
   letter-spacing: .14em;
@@ -182,5 +171,4 @@ section.backmatter > h1 {
 
 @media print {
   section.chapter > h1 { margin-top: 1.35in; }
-  section.chapter > p:first-of-type::after { display: none; }
 }
