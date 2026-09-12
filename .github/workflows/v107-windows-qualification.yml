@@ -11,6 +11,7 @@ on:
       - "server/**"
       - "tests/**"
       - "scripts/v107-visual-qa.ts"
+      - "scripts/v107-theme-matrix.ts"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:
@@ -25,7 +26,7 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-2025
-    timeout-minutes: 75
+    timeout-minutes: 90
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
@@ -90,6 +91,9 @@ jobs:
 
       - name: Capture v1.0.7 visual and typesetting QA on Windows
         run: node --import tsx scripts/v107-visual-qa.ts
+
+      - name: Qualify all 30 book themes on Windows
+        run: node --import tsx scripts/v107-theme-matrix.ts
 
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
