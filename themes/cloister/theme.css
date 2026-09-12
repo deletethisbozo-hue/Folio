@@ -1,14 +1,14 @@
 /* ============================================================
-   Mortuary Chronicle — late-medieval incunable / plague chronicle.
-   Dense black text, oxblood rubrication, narrow measure, marginal notes.
-   Deliberately austere: no faux parchment, no decorative panels.
+   Mortuary Chronicle — austere incunable / plague chronicle interior.
+   Wide readable measure, dense black text, oxblood rubrication, tiny
+   marginal register. Historical severity without decorative cosplay.
    ============================================================ */
 
 body {
   font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  line-height: 1.43;
+  line-height: 1.42;
   color: #151311;
-  background: #f0e9dc;
+  background: #eee7da;
 }
 
 main.book { counter-reset: mortuary; }
@@ -16,118 +16,115 @@ main.book { counter-reset: mortuary; }
 section.chapter {
   counter-increment: mortuary;
   position: relative;
-  margin: 0 .75em 0 2.55em;
-  padding: 1.25em 1.1em 2.1em;
-  background: #f7f1e6;
-  border-left: 5px double #171411;
+  margin: 0 .2em;
+  padding: 1.4em 1.35em 2.05em 1.6em;
+  background: #f7f1e5;
+  border-left: 4px double #171411;
 }
 
-/* Marginal register, intentionally quiet and typographic rather than boxed. */
+/* A small register in the outer margin. It should read as printer's matter,
+   not steal a quarter of the text column. */
 section.chapter::before {
-  content: "MEMENTO\A MORI\A\A ANNO\A M·CC·LXVI\A\A LIBER\A MORTVORVM";
-  white-space: pre-line;
+  content: "MEMENTO MORI · M·CC·LXVI";
   position: absolute;
-  left: -4.15em;
-  top: 7.6em;
-  width: 3.25em;
+  left: -1.15em;
+  top: 6.2em;
+  transform: rotate(-90deg);
+  transform-origin: left top;
+  white-space: nowrap;
   font-family: Cinzel, "Libre Caslon Text", serif;
-  font-size: .52em;
-  line-height: 1.22;
-  letter-spacing: .07em;
-  text-align: center;
-  color: #6d171d;
+  font-size: .46em;
+  letter-spacing: .11em;
+  color: #78161d;
 }
 
 section.chapter::after {
   content: "FOL. " counter(mortuary, decimal-leading-zero);
   position: absolute;
-  top: .35em;
-  right: .25em;
+  top: .42em;
+  right: .35em;
   font-family: Cinzel, "Libre Caslon Text", serif;
-  font-size: .49em;
+  font-size: .47em;
   letter-spacing: .14em;
-  color: #72665a;
+  color: #7b6d60;
 }
 
 section.chapter > h1,
 h1.chapter {
   position: relative;
-  margin: 1.05em 0 1.8em;
-  padding: .15em 0 .7em;
+  margin: .35em 0 .95em;
+  padding: .25em 0 .65em;
   text-align: left;
   border-bottom: 5px double #171411;
   color: #141210;
   font-family: "Grenze Gotisch", "Libre Caslon Text", serif;
-  font-size: 2.28em;
+  font-size: 2.18em;
   font-weight: 640;
-  line-height: .97;
-  letter-spacing: -.01em;
+  line-height: .98;
+  letter-spacing: -.012em;
 }
 
 section.chapter > h1::before {
   content: "CAPITVLVM " counter(mortuary, upper-roman) "  ·  DE MORTE ET MEMORIA";
   display: block;
-  margin-bottom: .85em;
+  margin-bottom: .7em;
   color: #78161d;
   font-family: Cinzel, "Libre Caslon Text", serif;
-  font-size: .26em;
+  font-size: .25em;
   font-weight: 700;
-  letter-spacing: .18em;
+  letter-spacing: .16em;
   text-transform: uppercase;
 }
 
 section.chapter > h1::after {
   content: "";
   display: block;
-  width: 38%;
-  height: .2em;
-  margin-top: .6em;
+  width: 3.1em;
+  height: .11em;
+  margin-top: .55em;
   background: #78161d;
 }
 
 .chapter-subtitle {
-  margin: -1em 0 1.35em;
+  margin: -.15em 0 .9em;
 }
 .chapter-subtitle p {
   margin: 0;
   font-size: .9em;
   font-style: italic;
-  color: #5c5047;
+  color: #5b5047;
 }
 
 .dropcap {
   float: left;
-  margin: -.02em .12em 0 0;
+  margin: -.02em .1em 0 0;
   padding: 0;
   border: 0;
   background: transparent;
   color: #78161d;
-  font-family: "Grenze Gotisch", "Libre Caslon Text", serif;
-  font-size: 4.8em;
+  font-family: "EB Garamond Initials", "Libre Caslon Text", serif;
+  font-size: 4.55em;
   font-weight: 700;
   line-height: .74;
 }
 
-section.chapter > p:first-of-type {
-  margin-top: .15em;
-}
+section.chapter > p:first-of-type { margin-top: .15em; }
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
   color: #78161d;
   font-variant: small-caps;
-  letter-spacing: .018em;
+  letter-spacing: .015em;
 }
 section.chapter > p:not(:first-of-type):not(.scene-break) {
   text-indent: .9em;
 }
 
-/* Incunable-style rubric marks are intentionally spare. */
 .scene-break {
   position: relative;
   width: 100%;
-  height: .8em;
-  margin: 1.45em auto 1.6em;
+  height: .62em;
+  margin: 1.35em auto 1.5em;
   color: transparent;
   border-top: 1px solid #171411;
 }
@@ -135,40 +132,33 @@ section.chapter > p:not(:first-of-type):not(.scene-break) {
   content: "";
   position: absolute;
   left: 0;
-  top: -.18em;
-  width: 2.2em;
-  height: .35em;
+  top: -.16em;
+  width: 2.3em;
+  height: .31em;
   background: #78161d;
 }
 
 section.titlepage > h1 {
   font-family: "Grenze Gotisch", "Libre Caslon Text", serif;
-  font-size: 2.35em;
+  font-size: 2.3em;
   line-height: 1;
   color: #141210;
 }
-.tp-subtitle {
-  color: #78161d;
-  font-style: italic;
-}
-.tp-author {
-  font-family: Cinzel, "Libre Caslon Text", serif;
-  font-variant: small-caps;
-  letter-spacing: .1em;
-}
+.tp-subtitle { color: #78161d; font-style: italic; }
+.tp-author { font-family: Cinzel, "Libre Caslon Text", serif; font-variant: small-caps; letter-spacing: .1em; }
 
 section.frontmatter > h1,
 section.backmatter > h1 {
   text-align: left;
   font-family: Cinzel, "Libre Caslon Text", serif;
-  font-size: 1.08em;
-  letter-spacing: .11em;
+  font-size: 1.06em;
+  letter-spacing: .1em;
   text-transform: uppercase;
   color: #171411;
   border-bottom: 4px double #171411;
-  padding: 0 0 .45em;
+  padding: 0 0 .42em;
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1.1in; }
+  section.chapter > h1 { margin-top: 1.05in; }
 }
