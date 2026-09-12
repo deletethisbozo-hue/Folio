@@ -1,1 +1,13 @@
-body{font-family:Palatino,"Book Antiqua",Georgia,serif;line-height:1.53;color:#2f2630;background:#f4eddc}main.book{counter-reset:folio}section.chapter{counter-increment:folio}section.chapter>h1{text-align:center;margin:1em 0 2.2em;padding:.7em .45em;border:3px double #6d5873;font-family:"Book Antiqua",Palatino,serif;font-size:1.65em;font-weight:400;font-variant:small-caps;letter-spacing:.09em}section.chapter>h1::before{content:"BOOK " counter(folio,upper-roman);display:block;margin-bottom:.7em;font-size:.42em;letter-spacing:.3em;color:#60446f}section.chapter>h1::after{content:"✦";display:block;margin-top:.6em;font-size:.52em;color:#60446f}.chapter-subtitle{margin:-2.45em 0 2em}.chapter-subtitle p{font-style:italic;color:#60446f}.dropcap{font-family:"Book Antiqua",Palatino,serif;color:#4b315d;font-weight:600}.scene-break{color:#60446f;letter-spacing:.16em}.tp-author{font-variant:small-caps;letter-spacing:.13em;color:#4b315d}section.titlepage>h1{font-variant:small-caps;letter-spacing:.08em}section.frontmatter>h1,section.backmatter>h1{text-align:center;border:3px double #6d5873;padding:.35em;font-variant:small-caps}@media print{section.chapter>h1{margin-top:1.4in}}
+/* Grimoire — overt arcane manuscript with sigils, gothic display and ritual framing. */
+body{font-family:Palatino,"Book Antiqua",Georgia,serif;line-height:1.55;color:#302535;background:#f3ead6}
+main.book{counter-reset:folio}
+section.chapter{counter-increment:folio}
+section.chapter>h1{text-align:center;margin:.8em 0 2.45em;padding:1em .75em .95em;border:4px double #5b4264;box-shadow:inset 0 0 0 1px #b9a7bf;font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2em;font-weight:500;line-height:1.05;color:#3f2a49}
+section.chapter>h1::before{content:"✦  BOOK " counter(folio,upper-roman) "  ✦";display:block;margin-bottom:.95em;font-family:Garamond,Georgia,serif;font-size:.32em;font-weight:700;letter-spacing:.24em;color:#745783}
+section.chapter>h1::after{content:"☙  ❦  ❧";display:block;margin:.7em 0 -.12em;font-family:Garamond,Georgia,serif;font-size:.42em;letter-spacing:.3em;color:#765986}
+.chapter-subtitle{margin:-2.15em 0 2.1em}.chapter-subtitle p{font-family:Garamond,Georgia,serif;font-style:italic;color:#6c5278}
+.dropcap{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:3.35em;color:#4b315d}
+.scene-break{font-family:Garamond,Georgia,serif;font-size:1.05em;letter-spacing:.25em;color:#674a75}
+section.titlepage>h1{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2.45em;color:#3f2a49;border:4px double #5b4264;padding:.7em}.tp-subtitle{font-style:italic;color:#765986}.tp-author{font-variant:small-caps;letter-spacing:.14em;color:#4b315d}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;border:3px double #6d5873;padding:.4em;color:#493154}
+@media print{section.chapter>h1{margin-top:1.35in}}
