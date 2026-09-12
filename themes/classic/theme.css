@@ -1,70 +1,16 @@
 /* ============================================================
-   Classic — traditional serif, small-caps centered chapter titles.
+   Illuminated — medieval-fantasy manuscript with rubric accents.
    ============================================================ */
-
-body {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
-    Georgia, "Times New Roman", serif;
-}
-main.book { counter-reset: classic-chapter; }
-section.chapter { counter-increment: classic-chapter; }
-
-section.chapter > h1,
-h1.chapter {
-  text-align: center;
-  font-variant: small-caps;
-  letter-spacing: 0.08em;
-  font-size: 1.6em;
-  margin: 0 0 1.8em;
-}
-section.chapter > h1::before {
-  content: "CHAPTER " counter(classic-chapter, upper-roman);
-  display: block;
-  margin-bottom: 0.85em;
-  font: 400 0.46em/1 Arial, sans-serif;
-  letter-spacing: 0.24em;
-  color: #77736c;
-}
-
-section.backmatter > h1,
-h1.backmatter {
-  text-align: center;
-  font-variant: small-caps;
-  letter-spacing: 0.06em;
-  font-size: 1.3em;
-  margin: 0 0 1.2em;
-}
-
-/* Subtitle echoes the chapter-title voice: centered, letterspaced small caps
-   (roman, not the base italic). lowercase forces even small caps instead of
-   mixed-height "ransom note" caps. */
-.tp-subtitle {
-  font-style: normal;
-  font-variant: small-caps;
-  text-transform: lowercase;
-  letter-spacing: 0.14em;
-  font-size: 1.05em;
-  margin-top: 0.8em;
-}
-
-.tp-author {
-  font-variant: small-caps;
-  letter-spacing: 0.1em;
-}
-
-/* Classic uses the body serif in body ink for its drop cap — the .dropcap float
-   in base.css is exactly right, so there is intentionally no override here. */
-
-/* Chapter subtitle: italic roman under the small-caps title (keeps base italic).
-   -2.25em collapses against the title's 2.88em bottom margin → ~0.63em gap. */
-.chapter-subtitle {
-  margin: -2.25em 0 2.25em;
-}
-.chapter-subtitle p {
-  font-size: 1.1em;
-}
-
-.scene-break {
-  letter-spacing: 0.6em;
-  color: #333;
-}
+body{font-family:Garamond,"EB Garamond",Georgia,serif;line-height:1.56;color:#241b16;background:#f7edcf}
+main.book{counter-reset:illuminated}
+section.chapter{counter-increment:illuminated}
+section.chapter>h1,h1.chapter{text-align:center;margin:.45em 0 2.65em;padding:1.2em .85em 1.05em;border:1px solid #9e8046;outline:3px double #6e201b;outline-offset:5px;font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2.05em;font-weight:500;line-height:1.02;letter-spacing:.015em;color:#251914}
+section.chapter>h1::before{content:"✠  LIBER " counter(illuminated,upper-roman) "  ✠";display:block;margin-bottom:1.05em;font-family:Garamond,Georgia,serif;font-size:.34em;font-weight:700;letter-spacing:.24em;color:#7b211c}
+section.chapter>h1::after{content:"❦";display:block;margin:.65em 0 -.35em;font-family:Garamond,serif;font-size:.52em;color:#a27d32}
+.chapter-subtitle{margin:-2.35em 0 2.15em}.chapter-subtitle p{font-style:normal;font-variant:small-caps;letter-spacing:.11em;color:#6f2b22}
+.dropcap{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:3.35em;color:#8a211c;padding-right:.12em;text-shadow:.025em .025em 0 #b5954d}
+.scene-break{font-size:1.25em;letter-spacing:.24em;color:#8a6b2d}
+section.titlepage>h1{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2.35em;color:#261912}
+.tp-subtitle{font-style:normal;font-variant:small-caps;letter-spacing:.14em;color:#7b211c}.tp-author{font-variant:small-caps;letter-spacing:.12em;color:#5c4634}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;color:#3a241b}
+@media print{section.chapter>h1{margin-top:1.45in}}
