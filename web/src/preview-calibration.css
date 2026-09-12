@@ -4,7 +4,7 @@
    Paperwhite uses a slightly narrower calibrated reading area: this keeps the
    preview inside the professional spacing envelope instead of forcing emergency
    line breaks at an artificial viewport width. */
-.reader-device.device-kindle-paperwhite { width:min(95%,474px,calc((100dvh - 170px) * .750)); aspect-ratio:.750; }
+.reader-device.device-kindle-paperwhite { width:min(93.5%,474px,calc((100dvh - 170px) * .750)); aspect-ratio:.750; }
 .reader-device.device-kindle-oasis { width:min(96%,510px,calc((100dvh - 170px) * .752)); aspect-ratio:.752; }
 .reader-device.device-ipad { width:min(96%,520px,calc((100dvh - 170px) * .750)); aspect-ratio:.750; }
 .reader-device.device-iphone { width:min(82%,335px,calc((100dvh - 170px) * .462)); aspect-ratio:.462; }
