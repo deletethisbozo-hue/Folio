@@ -1,14 +1,14 @@
 /* ============================================================
-   Black Psalter — Kelmscott / late-medieval dark fantasy interior.
-   Ivory stock, saturated black, oxblood rubrication, dense thorn-vine
-   architecture. No faux parchment, no dark-mode panel, no emoji ornament.
+   Black Psalter — dense Kelmscott / late-medieval dark-fantasy interior.
+   Full-page black thorn architecture, rubricated title, white-on-black
+   initial, saturated ink. The page is theatrical but remains a book page.
    ============================================================ */
 
 body {
   font-family: "EB Garamond", Garamond, Georgia, serif;
-  line-height: 1.46;
+  line-height: 1.4;
   color: #11100f;
-  background: #f4efe3;
+  background: #eee7d9;
 }
 
 main.book { counter-reset: black-psalter; }
@@ -16,118 +16,122 @@ main.book { counter-reset: black-psalter; }
 section.chapter {
   counter-increment: black-psalter;
   position: relative;
-  padding: 1.55em 1.35em 2.2em;
-  background: #f8f3e8;
+  padding: 2.15em 1.8em 2.2em;
+  background: #f8f2e6;
+  border: 2px solid #11100f;
+  box-shadow: inset 0 0 0 4px #f8f2e6, inset 0 0 0 5px #11100f;
 }
 
-/* One architectural gesture, not a pile of decorative widgets: a dense
-   thorn-vine frame around the opening block, inspired by private-press and
-   incunable page architecture. */
+/* Dense thorn-vine border as part of the page architecture, not a floating
+   illustration above the title. */
 section.chapter::before {
   content: "";
   position: absolute;
-  top: .45em;
-  left: .34em;
-  right: .34em;
-  height: 12.7em;
+  z-index: 0;
+  inset: .34em;
   pointer-events: none;
-  background-repeat: no-repeat;
-  background-position: center top;
-  background-size: 100% 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 360'%3E%3Cg fill='none' stroke='%23110f0e' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='18' y='18' width='764' height='324'/%3E%3Crect x='35' y='35' width='730' height='290' stroke-width='3'/%3E%3Cpath d='M56 306C110 282 92 225 142 208c42-14 74 17 76 58 2 38-24 63-66 59-39-4-57-34-48-69 14-56 92-54 129-94 31-33 27-77-5-103M744 306c-54-24-36-81-86-98-42-14-74 17-76 58-2 38 24 63 66 59 39-4 57-34 48-69-14-56-92-54-129-94-31-33-27-77 5-103'/%3E%3Cpath d='M78 67c58-28 110-23 154 22 43 44 89 45 168-2 79 47 125 46 168 2 44-45 96-50 154-22M84 99c51-18 92-7 126 25M716 99c-51-18-92-7-126 25'/%3E%3Cpath d='M131 63l-18 24 26 7-8-31zm538 0l18 24-26 7 8-31zM184 174l-25 10 19 18 6-28zm432 0l25 10-19 18-6-28zM113 254l-24 14 24 14v-28zm574 0l24 14-24 14v-28z' fill='%23110f0e'/%3E%3C/g%3E%3Cg fill='%2373131a'%3E%3Ccircle cx='400' cy='86' r='10'/%3E%3Ccircle cx='145' cy='208' r='8'/%3E%3Ccircle cx='655' cy='208' r='8'/%3E%3C/g%3E%3C/svg%3E");
+  border: 18px solid transparent;
+  border-image-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='none'/%3E%3Cg fill='none' stroke='%23110f0e' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 108C18 78 18 48 12 12M108 108c-6-30-6-60 0-96M12 12c30 6 60 6 96 0M12 108c30-6 60-6 96 0'/%3E%3Cpath d='M16 93c14-11 18-22 10-34M16 66c18-8 23-20 15-36M104 93c-14-11-18-22-10-34M104 66c-18-8-23-20-15-36M27 16c11 14 22 18 34 10M54 16c8 18 20 23 36 15M27 104c11-14 22-18 34-10M54 104c8-18 20-23 36-15'/%3E%3C/g%3E%3Cg fill='%23110f0e'%3E%3Cpath d='M17 83l13-7-7 15zM17 48l15-5-10 14zM103 83l-13-7 7 15zM103 48l-15-5 10 14zM37 17l7 13-15-7zM72 17l5 15-14-10zM37 103l7-13-15 7zM72 103l5-15-14 10z'/%3E%3C/g%3E%3Cg fill='%2374141b'%3E%3Ccircle cx='17' cy='17' r='5'/%3E%3Ccircle cx='103' cy='17' r='5'/%3E%3Ccircle cx='17' cy='103' r='5'/%3E%3Ccircle cx='103' cy='103' r='5'/%3E%3C/g%3E%3C/svg%3E");
+  border-image-slice: 34;
+  border-image-repeat: round;
+  opacity: .98;
 }
 
 section.chapter > h1,
 h1.chapter {
   position: relative;
   z-index: 1;
-  max-width: 78%;
-  margin: 1.7em auto 2.55em;
-  padding: 1.75em .6em 1.5em;
+  max-width: 84%;
+  margin: .25em auto .85em;
+  padding: .2em 0 .72em;
   text-align: center;
+  border-bottom: 4px double #11100f;
   color: #11100f;
-  background: transparent;
   font-family: "Grenze Gotisch", "EB Garamond", serif;
-  font-size: 2.48em;
-  font-weight: 650;
-  line-height: .98;
-  letter-spacing: -.012em;
+  font-size: 2.42em;
+  font-weight: 680;
+  line-height: .96;
+  letter-spacing: -.018em;
 }
 
 section.chapter > h1::before {
   content: "LIBER " counter(black-psalter, upper-roman);
   display: block;
-  margin-bottom: 1.25em;
+  margin-bottom: .72em;
   color: #78151c;
   font-family: Cinzel, "EB Garamond", serif;
-  font-size: .28em;
+  font-size: .26em;
   font-weight: 700;
-  letter-spacing: .28em;
+  letter-spacing: .3em;
   text-transform: uppercase;
 }
 
 section.chapter > h1::after {
   content: "PSALMVS NOCTIS";
   display: block;
-  width: 72%;
-  margin: 1.3em auto 0;
-  padding-top: .72em;
-  border-top: 1px solid #171411;
-  color: #5b4a3c;
+  margin-top: .8em;
+  color: #6b5c4e;
   font-family: Cinzel, "EB Garamond", serif;
-  font-size: .22em;
+  font-size: .21em;
   font-weight: 600;
-  letter-spacing: .24em;
+  letter-spacing: .25em;
 }
 
 .chapter-subtitle {
-  max-width: 83%;
-  margin: -1.7em auto 1.65em;
+  position: relative;
+  z-index: 1;
+  max-width: 82%;
+  margin: -.25em auto .85em;
 }
 .chapter-subtitle p {
   margin: 0;
   text-align: center;
-  font-size: .88em;
+  font-size: .87em;
   font-style: italic;
-  color: #5e5248;
+  color: #5d5045;
 }
 
 .dropcap {
   float: left;
-  margin: -.03em .12em 0 0;
-  padding: 0;
+  min-width: .78em;
+  margin: .02em .14em 0 0;
+  padding: .08em .09em .12em;
   border: 0;
-  outline: 0;
-  background: transparent;
-  color: #11100f;
-  font-family: "Grenze Gotisch", "EB Garamond", serif;
-  font-size: 5.1em;
-  font-weight: 760;
+  outline: 1px solid #74141b;
+  outline-offset: 3px;
+  background: #11100f;
+  color: #f8f2e6;
+  font-family: "EB Garamond Initials", "Grenze Gotisch", "EB Garamond", serif;
+  font-size: 4.15em;
+  font-weight: 700;
   line-height: .72;
-  text-shadow: none;
+  text-align: center;
 }
 
+section.chapter > p {
+  position: relative;
+  z-index: 1;
+}
 section.chapter > p:first-of-type {
   margin-top: .2em;
-  padding-top: .8em;
-  border-top: 4px double #151311;
 }
 section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
   color: #78151c;
   font-variant: small-caps;
-  letter-spacing: .025em;
+  letter-spacing: .02em;
 }
 section.chapter > p:not(:first-of-type):not(.scene-break) {
-  text-indent: 1em;
+  text-indent: .95em;
 }
 
 .scene-break {
   position: relative;
-  width: 62%;
-  height: 1em;
-  margin: 1.7em auto;
+  z-index: 1;
+  width: 46%;
+  height: .8em;
+  margin: 1.45em auto 1.55em;
   color: transparent;
 }
 .scene-break::before {
@@ -137,23 +141,16 @@ section.chapter > p:not(:first-of-type):not(.scene-break) {
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 70'%3E%3Cg fill='none' stroke='%23110f0e' stroke-width='6' stroke-linecap='round'%3E%3Cpath d='M18 35h132c36 0 44-22 74-22 20 0 28 11 36 22 8-11 16-22 36-22 30 0 38 22 74 22h132'/%3E%3Cpath d='M219 13c-10 14-9 28 4 43M301 13c10 14 9 28-4 43'/%3E%3C/g%3E%3Ccircle cx='260' cy='35' r='7' fill='%2378151c'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 420 60'%3E%3Cg fill='none' stroke='%23110f0e' stroke-width='6' stroke-linecap='round'%3E%3Cpath d='M10 30h115c28 0 37-18 62-18 13 0 20 6 23 18 3-12 10-18 23-18 25 0 34 18 62 18h115'/%3E%3C/g%3E%3Cpath d='M210 18l9 12-9 12-9-12z' fill='%2378151c'/%3E%3C/svg%3E");
 }
 
 section.titlepage > h1 {
   font-family: "Grenze Gotisch", "EB Garamond", serif;
-  font-size: 2.5em;
+  font-size: 2.45em;
   color: #11100f;
 }
-.tp-subtitle {
-  color: #78151c;
-  font-variant: small-caps;
-  letter-spacing: .08em;
-}
-.tp-author {
-  font-family: Cinzel, "EB Garamond", serif;
-  letter-spacing: .1em;
-}
+.tp-subtitle { color: #78151c; font-variant: small-caps; letter-spacing: .08em; }
+.tp-author { font-family: Cinzel, "EB Garamond", serif; letter-spacing: .1em; }
 
 section.frontmatter > h1,
 section.backmatter > h1 {
@@ -168,5 +165,5 @@ section.backmatter > h1 {
 }
 
 @media print {
-  section.chapter > h1 { margin-top: 1in; }
+  section.chapter > h1 { margin-top: .85in; }
 }
