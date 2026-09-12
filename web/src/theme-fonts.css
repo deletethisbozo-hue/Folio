@@ -1,0 +1,24 @@
+/* Folio's style library uses the same bundled typefaces as the rendered book.
+   Files are served by the local Folio server and populated by fetch-theme-fonts.mjs. */
+@font-face{font-family:"Folio Source Serif 4";src:url("/theme-fonts/source-serif-4.ttf") format("truetype");font-weight:200 900;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Source Serif 4";src:url("/theme-fonts/source-serif-4-italic.ttf") format("truetype");font-weight:200 900;font-style:italic;font-display:block}
+@font-face{font-family:"Folio Source Sans 3";src:url("/theme-fonts/source-sans-3.ttf") format("truetype");font-weight:200 900;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Source Sans 3";src:url("/theme-fonts/source-sans-3-italic.ttf") format("truetype");font-weight:200 900;font-style:italic;font-display:block}
+@font-face{font-family:"Folio EB Garamond";src:url("/theme-fonts/eb-garamond.ttf") format("truetype");font-weight:400 800;font-style:normal;font-display:block}
+@font-face{font-family:"Folio EB Garamond";src:url("/theme-fonts/eb-garamond-italic.ttf") format("truetype");font-weight:400 800;font-style:italic;font-display:block}
+@font-face{font-family:"Folio Libre Caslon Text";src:url("/theme-fonts/libre-caslon-text.ttf") format("truetype");font-weight:400 700;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Libre Caslon Text";src:url("/theme-fonts/libre-caslon-text-italic.ttf") format("truetype");font-weight:400 700;font-style:italic;font-display:block}
+@font-face{font-family:"Folio Libre Baskerville";src:url("/theme-fonts/libre-baskerville.ttf") format("truetype");font-weight:400 700;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Libre Baskerville";src:url("/theme-fonts/libre-baskerville-italic.ttf") format("truetype");font-weight:400 700;font-style:italic;font-display:block}
+@font-face{font-family:"Folio Newsreader";src:url("/theme-fonts/newsreader.ttf") format("truetype");font-weight:200 800;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Newsreader";src:url("/theme-fonts/newsreader-italic.ttf") format("truetype");font-weight:200 800;font-style:italic;font-display:block}
+@font-face{font-family:"Folio Vollkorn";src:url("/theme-fonts/vollkorn.ttf") format("truetype");font-weight:400 900;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Vollkorn";src:url("/theme-fonts/vollkorn-italic.ttf") format("truetype");font-weight:400 900;font-style:italic;font-display:block}
+@font-face{font-family:"Folio Barlow Condensed";src:url("/theme-fonts/barlow-condensed-regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Barlow Condensed";src:url("/theme-fonts/barlow-condensed-bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Barlow Condensed";src:url("/theme-fonts/barlow-condensed-black.ttf") format("truetype");font-weight:900;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Bodoni Moda";src:url("/theme-fonts/bodoni-moda.ttf") format("truetype");font-weight:400 900;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Bodoni Moda";src:url("/theme-fonts/bodoni-moda-italic.ttf") format("truetype");font-weight:400 900;font-style:italic;font-display:block}
+@font-face{font-family:"Folio Cinzel";src:url("/theme-fonts/cinzel.ttf") format("truetype");font-weight:400 900;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Grenze Gotisch";src:url("/theme-fonts/grenze-gotisch.ttf") format("truetype");font-weight:100 900;font-style:normal;font-display:block}
+@font-face{font-family:"Folio Roboto Slab";src:url("/theme-fonts/roboto-slab.ttf") format("truetype");font-weight:100 900;font-style:normal;font-display:block}
