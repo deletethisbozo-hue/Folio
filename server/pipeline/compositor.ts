@@ -89,7 +89,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // strict composition. Tracking and glyph expansion stay at strict limits;
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = emergency
-        ? Math.min(spaceWidth * 0.50, fontSize * 0.120)
+        ? Math.min(spaceWidth * 0.55, fontSize * 0.120)
         : Math.min(spaceWidth * 0.50, fontSize * 0.10);
       const normalizedLanguage = (document.documentElement.lang || "en").toLowerCase();
       const relaxedCompressionEm = normalizedLanguage.startsWith("en") ? 0.07 : 0.0595;
@@ -99,7 +99,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.085 : 0.06;
       const minWordSpacing = emergency || finalCompression
         ? -Math.min(spaceWidth * 0.28, fontSize * relaxedCompressionEm)
-        : -Math.min(spaceWidth * 0.34, fontSize * strictCompressionEm);
+        : -Math.min(spaceWidth * 0.40, fontSize * strictCompressionEm);
       const maxTracking = fontSize * 0.003;
       const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
       const maxGlyphScaleDelta = 0.01;
