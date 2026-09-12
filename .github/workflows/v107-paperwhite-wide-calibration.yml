@@ -43,6 +43,7 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
+          import os
           from pathlib import Path
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
