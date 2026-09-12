@@ -157,6 +157,7 @@ export default function App() {
   const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);
+  const draftWordCountCacheRef = useRef<{ text: string; count: number }>({ text: "", count: 0 });
   // Tracks the exact Markdown already represented by the live iframe section.
   // Large append-only typing can then patch the tail paragraph instead of
   // reparsing and replacing thousands of unchanged paragraphs.
@@ -251,7 +252,30 @@ export default function App() {
   const backMatter = useMemo(() => project?.sections.filter((s) => s.kind === "backmatter") ?? [], [project]);
   const selectedSection = project?.sections.find((s) => s.id === selectedId) ?? null;
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
-  const totalWords = useMemo(() => project ? Math.max(wordCount(draft), Math.round(project.bodyChars / 5.1)) : 0, [project, draft]);
+  const draftWords = useMemo(() => {
+    const cached = draftWordCountCacheRef.current;
+    if (draft === cached.text) return cached.count;
+
+    const appendLength = draft.length - cached.text.length;
+    let count: number;
+    if (cached.text.length > 0 && appendLength >= 0 && appendLength <= 2048 && draft.startsWith(cached.text)) {
+      // Huge-manuscript fast typing is append-only. Count only whitespace ->
+      // non-whitespace transitions in the appended tail instead of allocating a
+      // 100k-entry regex result array for every single keystroke.
+      count = cached.count;
+      let previousNonWhitespace = /\S/.test(cached.text.slice(-1));
+      for (let index = cached.text.length; index < draft.length; index++) {
+        const currentNonWhitespace = !/\s/.test(draft[index]);
+        if (currentNonWhitespace && !previousNonWhitespace) count++;
+        previousNonWhitespace = currentNonWhitespace;
+      }
+    } else {
+      count = wordCount(draft);
+    }
+    draftWordCountCacheRef.current = { text: draft, count };
+    return count;
+  }, [draft]);
+  const totalWords = useMemo(() => project ? Math.max(draftWords, Math.round(project.bodyChars / 5.1)) : 0, [project, draftWords]);
 
   useEffect(() => {
     if (!project || !selectedId) return;
