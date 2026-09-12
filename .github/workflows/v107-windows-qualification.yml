@@ -1,4 +1,4 @@
-name: Folio 1.0.7 Windows serif probe
+name: Folio 1.0.7 Windows book-serif probe
 
 on:
   push:
@@ -11,13 +11,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: folio-v107-windows-serif-probe
+  group: folio-v107-windows-book-serif-probe
   cancel-in-progress: true
 
 jobs:
   probe:
     runs-on: windows-2025
-    timeout-minutes: 35
+    timeout-minutes: 40
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
@@ -42,7 +42,7 @@ jobs:
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
       - name: Install pinned Chromium runtime
         run: npx puppeteer browsers install chrome-headless-shell
-      - name: Probe deterministic decorative serif on Windows
+      - name: Probe book serifs on Windows
         shell: pwsh
         run: |
           $path = "themes/decorative/theme.css"
@@ -50,9 +50,10 @@ jobs:
           $needle = 'font-family: "Hoefler Text", Baskerville, "Palatino Linotype", Palatino,' + "`n" + '    Georgia, serif;'
           if (-not $original.Contains($needle)) { throw "Decorative body font stack target missing" }
           $variants = @(
-            @{ Name = "palatino"; Css = 'font-family: "Palatino Linotype", Palatino, serif;' },
-            @{ Name = "georgia"; Css = 'font-family: Georgia, serif;' },
-            @{ Name = "times"; Css = 'font-family: "Times New Roman", Times, serif;' }
+            @{ Name = "constantia"; Css = 'font-family: Constantia, "Times New Roman", serif;' },
+            @{ Name = "cambria"; Css = 'font-family: Cambria, "Times New Roman", serif;' },
+            @{ Name = "sitka"; Css = 'font-family: "Sitka Text", "Times New Roman", serif;' },
+            @{ Name = "times-control"; Css = 'font-family: "Times New Roman", Times, serif;' }
           )
           foreach ($variant in $variants) {
             Write-Host "===== PROBE serif=$($variant.Name) ====="
@@ -60,7 +61,7 @@ jobs:
             [IO.File]::WriteAllText((Resolve-Path $path), $content, [Text.UTF8Encoding]::new($false))
             npm run build:web | Out-Host
             if ($LASTEXITCODE -ne 0) { throw "build:web failed for serif=$($variant.Name)" }
-            $log = "build\serif-probe-$($variant.Name).log"
+            $log = "build\book-serif-probe-$($variant.Name).log"
             node --import tsx scripts/v107-visual-qa.ts *> $log
             $code = $LASTEXITCODE
             $match = Select-String -Path $log -Pattern 'failed typographic QA|hyphenRate|oneWordFinalLines|emergencyLines|TimeoutError|Error:' | Select-Object -Last 5
@@ -72,6 +73,6 @@ jobs:
       - name: Upload probe logs
         uses: actions/upload-artifact@v4
         with:
-          name: v107-windows-serif-probe
-          path: build/serif-probe-*.log
+          name: v107-windows-book-serif-probe
+          path: build/book-serif-probe-*.log
           if-no-files-found: error
