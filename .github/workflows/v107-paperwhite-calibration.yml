@@ -45,47 +45,37 @@ jobs:
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
 
-          old = '''    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
-              if (Math.abs(residualPx) > 1.7) continue;
-
-              const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'''
-          new = '''    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
-              if (Math.abs(residualPx) > 1.7) continue;
-              // Gate the actual semantic inter-word gap before a candidate enters
+          needle = '    if (Math.abs(residualPx) > 1.7) continue;\n'
+          insert = needle + '''    // Gate the actual semantic inter-word gap before a candidate enters
               // the paragraph graph. QA measures the rendered gap, not merely the
               // extra CSS word-spacing, so leave rasterisation headroom here.
               const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);
               if (semanticGapEm > 0.355) continue;
+'''
+          if text.count(needle) != 1:
+              raise SystemExit(f"fitLine insertion point count={text.count(needle)}")
+          text = text.replace(needle, insert, 1)
 
-              const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'''
-          if old not in text:
-              raise SystemExit("fitLine insertion point not found")
-          text = text.replace(old, new, 1)
-
-          old = '''        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;
-              const finalCompressionFit = last'''
-          new = '''        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;
-              // A single semantic word stranded on the final line of a prose
+          needle = '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
+          insert = needle + '''        // A single semantic word stranded on the final line of a prose
               // paragraph is a hard composition defect, not a cost preference.
               if (last && start > 0 && semanticWordsOnLine === 1) continue;
-              const finalCompressionFit = last'''
-          if old not in text:
-              raise SystemExit("final-line insertion point not found")
-          text = text.replace(old, new, 1)
+'''
+          if text.count(needle) != 1:
+              raise SystemExit(f"final-line insertion point count={text.count(needle)}")
+          text = text.replace(needle, insert, 1)
 
-          old = '''        for (const lineFit of fitOptions) {
-              const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);'''
-          new = '''        for (const lineFit of fitOptions) {
-              if (lineFit && previous.justified) {
+          needle = '        for (const lineFit of fitOptions) {\n'
+          insert = needle + '''          if (lineFit && previous.justified) {
                 const adjacentSpacingDeltaEm = Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize);
                 // Keep neighbouring justified lines from visibly pulsing between
                 // compressed and expanded spacing. Reserve a little QA headroom.
                 if (adjacentSpacingDeltaEm > 0.155) continue;
               }
-              const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);'''
-          if old not in text:
-              raise SystemExit("adjacent-spacing insertion point not found")
-          text = text.replace(old, new, 1)
+'''
+          if text.count(needle) != 1:
+              raise SystemExit(f"adjacent-spacing insertion point count={text.count(needle)}")
+          text = text.replace(needle, insert, 1)
 
           path.write_text(text, encoding="utf-8")
           print("Applied semantic-gap, one-word-tail, and adjacent-spacing graph gates")
