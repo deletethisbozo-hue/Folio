@@ -166,12 +166,18 @@ try {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }, language);
-    await page.evaluate(() => {
-      const button = [...document.querySelectorAll(".folio-dialog footer button")].find((node) => node.textContent === "Save");
-      (button as HTMLButtonElement | undefined)?.click();
-    });
-    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true });
+    // Language is controlled directly by the parent App meta state. For visual
+    // qualification we only need that in-memory state, not a project write.
+    // Waiting for Save made the harness depend on unrelated autosave/I/O and
+    // intermittently left the modal open for the full Puppeteer timeout.
     await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);
+    await page.evaluate(() => {
+      const dialog = document.querySelector('.folio-dialog[aria-label="Book Details"]');
+      const button = [...(dialog?.querySelectorAll("footer button") ?? [])].find((node) => node.textContent === "Cancel");
+      if (!button) throw new Error("Book Details Cancel button is missing");
+      (button as HTMLButtonElement).click();
+    });
+    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true, timeout: 5_000 });
     await new Promise((resolve) => setTimeout(resolve, 800));
     await page.waitForSelector('.rich-editor[contenteditable="true"]');
     await page.waitForFunction(() => Boolean((document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown));
