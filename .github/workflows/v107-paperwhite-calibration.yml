@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 one-word-final control
+name: Temporary v1.0.7 semantic-gap calibration
 
 on:
   push:
@@ -12,14 +12,19 @@ permissions:
 
 jobs:
   calibrate:
-    name: one-word-final-control-side-25
+    name: gap-${{ matrix.gap }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        gap: ["0.360", "0.365", "0.369"]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
       BASE_FONT: "16.75"
       SIDE: "25"
+      GAP: ${{ matrix.gap }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,23 +40,26 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply semantic-gap gate only
+      - name: Apply semantic-gap candidate gate
         shell: bash
         run: |
           python3 - <<'PY'
+          import os
           from pathlib import Path
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
           needle = '    if (Math.abs(residualPx) > 1.7) continue;\n\n    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'
+          gap = os.environ["GAP"]
           replacement = (
               '    if (Math.abs(residualPx) > 1.7) continue;\n'
               '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
-              '    if (semanticGapEm > 0.355) continue;\n\n'
+              f'    if (semanticGapEm > {gap}) continue;\n\n'
               '    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);'
           )
           if text.count(needle) != 1:
               raise SystemExit(f"semantic-gap marker count={text.count(needle)}")
           path.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
+          print(f"semantic-gap candidate gate={gap}em; release QA remains 0.37em")
           PY
       - name: Patch controlled Paperwhite geometry and Polish sample language
         shell: bash
@@ -96,10 +104,10 @@ jobs:
         shell: bash
         run: |
           set +e
-          node --import tsx scripts/v107-visual-qa.ts > build/one-word-control.log 2>&1
+          node --import tsx scripts/v107-visual-qa.ts > "build/gap-${{ matrix.gap }}.log" 2>&1
           status=$?
           echo "QA exit: $status"
-          tail -n 50 build/one-word-control.log
+          tail -n 45 "build/gap-${{ matrix.gap }}.log"
           exit 0
       - name: Print compact Polish metrics
         if: always()
@@ -109,11 +117,12 @@ jobs:
           const fs = require('fs');
           const p = 'build/qa-v107/typesetting-polish.json';
           if (!fs.existsSync(p)) {
-            console.log(JSON.stringify({missing:true}));
+            console.log(JSON.stringify({gap:process.env.GAP, missing:true}));
             process.exit(0);
           }
           const q = JSON.parse(fs.readFileSync(p, 'utf8'));
           console.log(JSON.stringify({
+            gap:process.env.GAP,
             measurePx:q.measurePx,
             emergencyLines:q.emergencyLines,
             oneWordFinalLines:q.oneWordFinalLines,
@@ -133,9 +142,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-one-word-control-25
+          name: Paperwhite-gap-${{ matrix.gap }}
           path: |
             build/qa-v107/typesetting-polish.json
             build/qa-v107/reader-polish.png
-            build/one-word-control.log
+            build/gap-${{ matrix.gap }}.log
           if-no-files-found: warn
