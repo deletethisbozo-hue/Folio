@@ -20,6 +20,7 @@ export function resolveAppResource(...segments: string[]): string {
 }
 
 export const THEMES_DIR = resolveAppResource("themes");
+export const THEME_FONTS_DIR = path.join(THEMES_DIR, "fonts");
 export const FILTERS_DIR = resolveAppResource("server", "filters");
 export const OUTPUT_DIR = path.join(ROOT, "output");
 export const VENDOR_DIR = path.join(ROOT, "vendor");
