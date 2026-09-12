@@ -173,13 +173,19 @@ try {
       let maxAdjacentSpacingDeltaEm = 0;
       let emergencyLines = 0;
       let oneWordFinalLines = 0;
-      let compositionFailures = 0;
+      const compositionFailureDetails: Array<{ paragraphIndex: number; failure: unknown }> = [];
+      const emergencyDetails: Array<{ paragraphIndex: number; lineIndex: number; text: string; previousText: string | null; nextText: string | null; wordSpacingEm: number; trackingEm: number; glyphScale: number; strictFailure: unknown }> = [];
       let strandedEnglishArticleLine = "";
-      let previousSpacing: number | null = null;
-      let previousGlyphScale: number | null = null;
 
       for (const paragraph of paragraphs) {
-        if (paragraph.dataset.folioStrictFailure) compositionFailures++;
+        const paragraphIndex = paragraphs.indexOf(paragraph);
+        const rawFailure = paragraph.dataset.folioStrictFailure;
+        let parsedFailure: unknown = null;
+        if (rawFailure) {
+          parsedFailure = rawFailure;
+          try { parsedFailure = JSON.parse(rawFailure); } catch { /* keep raw diagnostic */ }
+          compositionFailureDetails.push({ paragraphIndex, failure: parsedFailure });
+        }
         const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
         const finalLine = lines.at(-1);
         if (finalLine && lines.length > 1) {
@@ -188,6 +194,10 @@ try {
           if (semanticWords === 1) oneWordFinalLines++;
         }
         let streak = 0;
+        // Continuity is meaningful only within one paragraph. The compositor
+        // intentionally resets microtype continuity after the natural final line.
+        let previousSpacing: number | null = null;
+        let previousGlyphScale: number | null = null;
         for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
           const line = lines[lineIndex];
           const style = getComputedStyle(line);
@@ -229,7 +239,20 @@ try {
             streak++;
             maxHyphenStreak = Math.max(maxHyphenStreak, streak);
           } else streak = 0;
-          if (line.dataset.folioEmergency === "true") emergencyLines++;
+          if (line.dataset.folioEmergency === "true") {
+            emergencyLines++;
+            emergencyDetails.push({
+              paragraphIndex,
+              lineIndex,
+              text,
+              previousText: lines[lineIndex - 1]?.textContent?.replace(/\u00ad/g, "").trim() ?? null,
+              nextText: lines[lineIndex + 1]?.textContent?.replace(/\u00ad/g, "").trim() ?? null,
+              wordSpacingEm: spacing,
+              trackingEm: tracking,
+              glyphScale,
+              strictFailure: parsedFailure,
+            });
+          }
           if (englishScenario && lineIndex < lines.length - 1 && /(?:^|\s)(?:a|an|the)$/i.test(text)) strandedEnglishArticleLine ||= text;
         }
       }
@@ -264,7 +287,9 @@ try {
         maxAdjacentSpacingDeltaEm,
         emergencyLines,
         oneWordFinalLines,
-        compositionFailures,
+        compositionFailures: compositionFailureDetails.length,
+        compositionFailureDetails,
+        emergencyDetails,
         ornamentalBreaksOffCenter,
         strandedEnglishArticleLine,
         dropcapCount: section?.querySelectorAll(":scope > p.folio-composed-dropcap").length ?? 0,
