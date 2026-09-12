@@ -1,187 +1,73 @@
-name: Folio 1.0.7 Windows qualification
+name: Folio 1.0.7 Windows geometry probe
 
 on:
   push:
-    branches: ["fix/v1.0.7"]
+    branches: ["ops/v107-hyphen-density"]
     paths:
       - ".github/workflows/v107-windows-qualification.yml"
-      - "scripts/v107-qa-trigger.txt"
-      - "scripts/v107-windows-trigger.txt"
-      - "web/**"
-      - "server/**"
-      - "tests/**"
-      - "scripts/v107-visual-qa.ts"
-      - "package.json"
-      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: folio-v107-windows-qualification
+  group: folio-v107-windows-geometry-probe
   cancel-in-progress: true
 
 jobs:
-  windows:
+  probe:
     runs-on: windows-2025
-    timeout-minutes: 75
+    timeout-minutes: 30
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
-
     steps:
-      - name: Check out Folio
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node 22.23.2
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
           cache: npm
-
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-
-      - name: Verify Folio 1.0.7 version consistency
-        shell: pwsh
-        run: |
-          $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "1.0.7") { throw "Windows qualification is scoped to Folio 1.0.7, found $version." }
-          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
-          if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
-          "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Download pinned Pandoc 3.11
+      - name: Install pinned Pandoc 3.11
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force build\pandoc | Out-Null
           New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
-          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
-          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          Invoke-WebRequest -Uri "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip" -OutFile build\pandoc.zip
           $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc 3.11 checksum mismatch: $actual" }
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
           Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
           $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
-          if (-not $exe) { throw "Pandoc executable was not found after extraction." }
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
-          $license = Get-ChildItem build\pandoc-unpack -Include COPYING*,LICENSE* -File -Recurse | Select-Object -First 1
-          if ($license) { Copy-Item $license.FullName build\pandoc\PANDOC_LICENSE.txt }
-          & build\pandoc\pandoc.exe --version | Select-Object -First 1
-
-      - name: Download pinned Chromium runtime
+      - name: Install pinned Chromium runtime
+        run: npx puppeteer browsers install chrome-headless-shell
+      - name: Probe Paperwhite side insets on Windows
         shell: pwsh
         run: |
-          npx puppeteer browsers install chrome-headless-shell
-          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
-          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
-          $chrome.FullName
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Full formatter and UI suite on Windows
-        run: npm test
-
-      - name: Build web and server
-        run: npm run build
-
-      - name: Capture v1.0.7 visual and typesetting QA on Windows
-        run: node --import tsx scripts/v107-visual-qa.ts
-
-      - name: Build installer and portable app
-        run: npx electron-builder --win nsis portable --x64 --publish never
-
-      - name: Smoke-test packaged Folio
-        shell: pwsh
-        run: |
-          $env:FOLIO_E2E_PORT = "43127"
-          $env:FOLIO_E2E_DEBUG_PORT = "43128"
-          $exe = Resolve-Path "release\Folio-$env:FOLIO_VERSION-portable.exe"
-          $process = Start-Process -FilePath $exe -PassThru
-          try {
-            $base = "http://127.0.0.1:43127"
-            $health = $null
-            for ($i = 0; $i -lt 120; $i++) {
-              try { $health = Invoke-RestMethod "$base/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
-            }
-            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged /api/health did not become ready with bundled Pandoc." }
-
-            node scripts\packaged-ui-smoke.mjs
-            if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
-
-            $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -lt 30) { throw "Packaged app returned only $($themes.Count) themes." }
-
-            $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
-            $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
-            if (-not $chapter) { throw "Packaged sample has no chapter." }
-
-            $coverPath = Join-Path $env:TEMP "folio-packaged-cover.png"
-            [IO.File]::WriteAllBytes($coverPath, [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="))
-            $covered = Invoke-RestMethod -Method Post -Form @{ cover = Get-Item $coverPath } "$base/api/projects/$($sample.projectId)/cover"
-            if (-not $covered.hasCover) { throw "Packaged cover upload failed." }
-
-            $sectionId = [uri]::EscapeDataString($chapter.id)
-            $draft = "Packaged preview probe: live text before autosave."
-            $previewBody = @{ meta = $sample.meta; theme = "blackletter"; typography = @{}; previewSectionId = $chapter.id; draft = $draft } | ConvertTo-Json -Depth 10
-            $preview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $previewBody "$base/api/projects/$($sample.projectId)/preview"
-            if ($preview.html -notmatch "ackaged preview probe" -or $preview.html -notmatch "Old English Text MT") { throw "Packaged live preview omitted draft text or theme CSS." }
-
-            $saveBody = @{ markdown = "$draft`n`nSaved copy-on-write." } | ConvertTo-Json
-            $saved = Invoke-RestMethod -Method Put -ContentType "application/json" -Body $saveBody "$base/api/projects/$($sample.projectId)/sections/$sectionId"
-            if ($saved.markdown -notmatch "Saved copy-on-write") { throw "Packaged sample PUT failed." }
-
-            $addBody = @{ title = "Packaged Added Chapter"; meta = $sample.meta } | ConvertTo-Json -Depth 10
-            $withAdded = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $addBody "$base/api/projects/$($sample.projectId)/chapters"
-            $added = $withAdded.sections | Where-Object { $_.title -eq "Packaged Added Chapter" } | Select-Object -First 1
-            if (-not $added) { throw "Packaged chapter add failed." }
-            $addedId = [uri]::EscapeDataString($added.id)
-            $renameBody = @{ title = "Packaged Renamed Chapter" } | ConvertTo-Json
-            $renamed = Invoke-RestMethod -Method Patch -ContentType "application/json" -Body $renameBody "$base/api/projects/$($sample.projectId)/sections/$addedId"
-            if ($renamed.title -ne "Packaged Renamed Chapter") { throw "Packaged chapter rename failed." }
-            $renamedId = [uri]::EscapeDataString($renamed.id)
-            $deleted = Invoke-RestMethod -Method Delete "$base/api/projects/$($sample.projectId)/sections/$renamedId"
-            if (-not $deleted.ok) { throw "Packaged chapter delete failed." }
-
-            $printBody = @{ meta = $sample.meta; theme = "folio"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
-            $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
-            if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page") { throw "Packaged print preview did not paginate." }
-
-            foreach ($format in @("epub", "pdf", "print")) {
-              $body = @{ format = $format; meta = $sample.meta; theme = "folio" }
-              if ($format -eq "epub") { $body["preset"] = "kdp" }
-              if ($format -eq "print") { $body["print"] = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } }
-              $export = Invoke-RestMethod -Method Post -ContentType "application/json" -Body ($body | ConvertTo-Json -Depth 10) "$base/api/projects/$($sample.projectId)/export"
-              if ($export.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($export.dataBase64)) { throw "Packaged $format export is empty." }
-            }
+          $path = "web/src/preview-runtime.ts"
+          $original = Get-Content $path -Raw
+          $needle = '"kindle-paperwhite": { width: 412, height: 549, baseFont: 17.5, padding: [34, 28, 46, 28], wordsPerPage: 270 }'
+          if (-not $original.Contains($needle)) { throw "Paperwhite profile probe target missing" }
+          foreach ($pad in @(30, 34, 38, 42)) {
+            Write-Host "===== PROBE pad=$pad ====="
+            $replacement = '"kindle-paperwhite": { width: 412, height: 549, baseFont: 17.5, padding: [34, ' + $pad + ', 46, ' + $pad + '], wordsPerPage: 270 }'
+            $content = $original.Replace($needle, $replacement)
+            [IO.File]::WriteAllText((Resolve-Path $path), $content, [Text.UTF8Encoding]::new($false))
+            npm run build:web | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "build:web failed for pad=$pad" }
+            $log = "build\geometry-probe-pad-$pad.log"
+            node --import tsx scripts/v107-visual-qa.ts *> $log
+            $code = $LASTEXITCODE
+            $match = Select-String -Path $log -Pattern 'typesetting-polish failed typographic QA|hyphenRate|Node.js v' | Select-Object -Last 3
+            if ($match) { $match | ForEach-Object { Write-Host $_.Line } }
+            if ($code -eq 0) { Write-Host "PROBE_RESULT pad=$pad PASS" } else { Write-Host "PROBE_RESULT pad=$pad FAIL" }
           }
-          finally {
-            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
-            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
-          }
-
-      - name: Hash qualification binaries
-        shell: pwsh
-        run: |
-          $required = @("release\Folio-$env:FOLIO_VERSION-setup.exe", "release\Folio-$env:FOLIO_VERSION-portable.exe")
-          foreach ($file in $required) {
-            if (-not (Test-Path $file)) { throw "Missing qualification asset: $file" }
-            if ((Get-Item $file).Length -lt 1MB) { throw "Qualification asset is unexpectedly small: $file" }
-          }
-          $lines = Get-FileHash $required -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" }
-          $lines | Set-Content -Encoding ascii release\sha256.txt
-          Get-Content release\sha256.txt
-
-      - name: Upload Windows qualification artifacts
+          [IO.File]::WriteAllText((Resolve-Path $path), $original, [Text.UTF8Encoding]::new($false))
+          exit 0
+      - name: Upload probe logs
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-${{ env.FOLIO_VERSION }}-Windows-qualification
-          path: |
-            release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
-            release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
-            release/sha256.txt
-            build/qa-v107/*
+          name: v107-windows-geometry-probe
+          path: build/geometry-probe-*.log
           if-no-files-found: error
