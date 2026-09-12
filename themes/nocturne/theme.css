@@ -1,1 +1,13 @@
-body{font-family:Baskerville,Georgia,serif;line-height:1.52;color:#222735;background:#f5f5f3}main.book{counter-reset:night}section.chapter{counter-increment:night}section.chapter>h1{text-align:center;margin:1.1em 0 2.1em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.8em;font-weight:400;letter-spacing:.04em}section.chapter>h1::before{content:"NIGHT " counter(night,upper-roman);display:block;margin-bottom:.8em;font:500 .42em Arial,sans-serif;letter-spacing:.28em;color:#65708a}.chapter-subtitle{margin:-2.35em 0 2em}.chapter-subtitle p{color:#536078}.dropcap{font-family:Didot,"Bodoni MT",serif;color:#39445f}.scene-break{color:#65708a;font-size:1.25em}.tp-author{letter-spacing:.16em;text-transform:uppercase;font-size:.85em}section.titlepage>h1{font-family:Didot,"Bodoni MT",serif;font-size:2.3em}section.copyright{color:#555c6c}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",serif}@media print{section.chapter>h1{margin-top:1.65in}}
+/* Nocturne — moonlit high contrast, ceremonial and unmistakably nocturnal. */
+body{font-family:Baskerville,Georgia,serif;line-height:1.54;color:#202534;background:#f3f4f7}
+main.book{counter-reset:night}
+section.chapter{counter-increment:night}
+section.chapter>h1{text-align:center;margin:1.35em 0 2.65em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.9em;font-weight:400;letter-spacing:.06em;color:#2d3650}
+section.chapter>h1::before{content:"☾";display:block;margin-bottom:.2em;font-family:Georgia,serif;font-size:2.25em;line-height:.7;color:#c6cad5}
+section.chapter>h1::after{content:"NIGHT  ·  " counter(night,upper-roman);display:block;width:8em;margin:1em auto 0;padding-top:.7em;border-top:1px solid #7f8aa3;font-family:Avenir,Arial,sans-serif;font-size:.3em;font-weight:600;letter-spacing:.32em;color:#65718a}
+.chapter-subtitle{margin:-2.25em 0 2.25em}.chapter-subtitle p{font-family:Didot,"Bodoni MT",Georgia,serif;font-style:italic;color:#5d6880}
+.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.4em;color:#39445f}
+.scene-break{font-size:1.2em;letter-spacing:.48em;color:#6f7990}
+section.titlepage>h1{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.55em;font-weight:400;letter-spacing:.06em;color:#2d3650}.tp-subtitle{font-style:italic;color:#65718a}.tp-author{font-family:Avenir,Arial,sans-serif;font-size:.86em;letter-spacing:.2em;text-transform:uppercase;color:#556078}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",Georgia,serif;color:#34405b}
+@media print{section.chapter>h1{margin-top:1.7in}}
