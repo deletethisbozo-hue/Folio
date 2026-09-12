@@ -15,11 +15,11 @@ export interface ThemeConfig {
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
   classic: {
-    name: "classic", label: "Illuminated",
-    description: "Lavish illuminated-codex fantasy: rubrication, painted-style initial and Gothic ceremonial openings.",
-    sceneOrnament: "❦ ✦ ❦", dropcap: true, chapterLabel: "LIBER I",
+    name: "classic", label: "Black Psalter",
+    description: "Editorial dark-gothic codex: bone paper, cathedral-black opener, oxblood rubrication and engraved tracery.",
+    sceneOrnament: "◆", dropcap: true, chapterLabel: "LIBER I",
     previewFont: "Garamond, serif", previewHeadingFont: "UnifrakturCook, serif",
-    previewAccent: "#7d251f", previewPaper: "#f4e7c2",
+    previewAccent: "#741b22", previewPaper: "#f4eddf",
   },
   modern: {
     name: "modern", label: "Modern", description: "Clean sans-serif headings, generous spacing, minimalist scene breaks.",
@@ -67,11 +67,11 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
     previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#39445f", previewPaper: "#f5f5f3",
   },
   cloister: {
-    name: "cloister", label: "Chronicle",
-    description: "Severe monastic chronicle: red ruling, rubricated capitals and austere annal-like chapter openings.",
-    sceneOrnament: "✠", dropcap: true, chapterLabel: "CAPITVLVM I",
+    name: "cloister", label: "Mortuary Chronicle",
+    description: "Funerary gothic annal: bone paper, soot-black woodcut rules, oxblood rubrication and grave archival hierarchy.",
+    sceneOrnament: "◆", dropcap: true, chapterLabel: "CAPITVLVM I",
     previewFont: "Libre Caslon Text, serif", previewHeadingFont: "Cinzel, serif",
-    previewAccent: "#8e362c", previewPaper: "#eee1bf",
+    previewAccent: "#721a21", previewPaper: "#f0e7d5",
   },
   blackletter: {
     name: "blackletter", label: "Blackletter", description: "Gothic display openings paired with a highly readable serif body.",
