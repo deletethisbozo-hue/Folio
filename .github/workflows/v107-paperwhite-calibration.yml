@@ -18,24 +18,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - base_font: "15.75"
-            side: "31"
-          - base_font: "16.00"
-            side: "31"
-          - base_font: "16.25"
-            side: "31"
-          - base_font: "15.75"
+          - base_font: "17.00"
             side: "35"
-          - base_font: "16.00"
+          - base_font: "17.25"
             side: "35"
-          - base_font: "16.25"
+          - base_font: "17.50"
             side: "35"
-          - base_font: "15.75"
-            side: "39"
-          - base_font: "16.00"
-            side: "39"
-          - base_font: "16.25"
-            side: "39"
+          - base_font: "17.00"
+            side: "37"
+          - base_font: "17.25"
+            side: "37"
+          - base_font: "17.50"
+            side: "37"
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
