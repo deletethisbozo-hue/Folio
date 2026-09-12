@@ -19,21 +19,17 @@ jobs:
       matrix:
         include:
           - base_font: "17.25"
-            side: "39"
+            side: "36"
           - base_font: "17.25"
-            side: "40"
+            side: "37"
           - base_font: "17.25"
-            side: "41"
-          - base_font: "17.25"
-            side: "42"
+            side: "38"
           - base_font: "17.50"
-            side: "39"
+            side: "36"
           - base_font: "17.50"
-            side: "40"
+            side: "37"
           - base_font: "17.50"
-            side: "41"
-          - base_font: "17.50"
-            side: "42"
+            side: "38"
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
