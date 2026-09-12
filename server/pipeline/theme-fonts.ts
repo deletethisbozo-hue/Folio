@@ -59,9 +59,21 @@ const FONTS = {
 type FontKey = keyof typeof FONTS;
 
 const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
+  ["Folio Source Serif 4", "sourceSerif"], ["Folio Source Sans 3", "sourceSans"],
+  ["Folio EB Garamond", "garamond"], ["Folio Libre Caslon Text", "caslon"],
+  ["Folio Libre Baskerville", "baskerville"], ["Folio Newsreader", "newsreader"],
+  ["Folio Vollkorn", "vollkorn"], ["Folio Barlow Condensed", "condensed"],
+  ["Folio Bodoni Moda", "bodoni"], ["Folio Cinzel", "cinzel"],
+  ["Folio Grenze Gotisch", "gothic"], ["Folio Roboto Slab", "slab"],
+
+  ["Libre Caslon Text", "caslon"], ["Libre Baskerville", "baskerville"],
+  ["EB Garamond", "garamond"], ["Newsreader", "newsreader"], ["Vollkorn", "vollkorn"],
+  ["Barlow Condensed", "condensed"], ["Bodoni Moda", "bodoni"], ["Cinzel", "cinzel"],
+  ["Grenze Gotisch", "gothic"], ["Roboto Slab", "slab"], ["Source Serif 4", "sourceSerif"],
+  ["Source Sans 3", "sourceSans"],
+
   ["Old English Text MT", "gothic"], ["Palatino Linotype", "vollkorn"],
-  ["Helvetica Neue", "sourceSans"], ["Libre Baskerville", "baskerville"],
-  ["Times New Roman", "sourceSerif"], ["Barlow Condensed", "condensed"],
+  ["Helvetica Neue", "sourceSans"], ["Times New Roman", "sourceSerif"],
   ["Arial Narrow", "condensed"], ["Arial Black", "sourceSans"],
   ["Bodoni MT", "bodoni"], ["Trajan Pro", "cinzel"], ["Book Antiqua", "vollkorn"],
   ["Hoefler Text", "baskerville"], ["UnifrakturCook", "gothic"], ["Copperplate", "cinzel"],
@@ -75,18 +87,34 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/*
+ * Normalize in two phases. The previous implementation replaced family names
+ * directly and then kept scanning, so a short alias such as `Garamond` could
+ * accidentally match inside the already-normalized `Folio EB Garamond` name.
+ * Placeholders make font resolution deterministic and non-cascading.
+ */
 export function normalizeThemeFontFamilies(css: string): { css: string; used: Set<FontKey> } {
   let normalized = css;
   const used = new Set<FontKey>();
-  for (const [legacy, key] of LEGACY_TO_BUILTIN) {
-    const spec = FONTS[key];
+  const placeholders = new Map<string, FontKey>();
+
+  LEGACY_TO_BUILTIN.forEach(([legacy, key], index) => {
     const escaped = escapeRegExp(legacy);
     const quoted = new RegExp(`(["'])${escaped}\\1`, "g");
     const bare = new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, "g");
+    const token = `__FOLIO_THEME_FONT_${index}__`;
     const before = normalized;
-    normalized = normalized.replace(quoted, `"${spec.family}"`).replace(bare, `"${spec.family}"`);
-    if (normalized !== before) used.add(key);
+    normalized = normalized.replace(quoted, token).replace(bare, token);
+    if (normalized !== before) {
+      used.add(key);
+      placeholders.set(token, key);
+    }
+  });
+
+  for (const [token, key] of placeholders) {
+    normalized = normalized.replaceAll(token, JSON.stringify(FONTS[key].family));
   }
+
   return { css: normalized, used };
 }
 
