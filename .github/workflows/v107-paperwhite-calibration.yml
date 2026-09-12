@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 Paperwhite solver calibration
+name: Temporary v1.0.7 Paperwhite spacing-aware calibration
 
 on:
   push:
@@ -12,13 +12,13 @@ permissions:
 
 jobs:
   calibrate:
-    name: solver-font-${{ matrix.font }}
+    name: spacing-state-${{ matrix.font }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        font: [16.5, 16.625, 16.75, 16.875, 17.0]
+        font: [16.75, 16.875, 17.0]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -37,7 +37,7 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Patch solver constraints in working tree only
+      - name: Patch spacing-aware compositor in working tree only
         shell: bash
         run: |
           python3 - <<'PY'
@@ -45,43 +45,215 @@ jobs:
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
 
-          needle = '    if (Math.abs(residualPx) > 1.7) continue;\n'
-          insert = needle + (
-              '    // Gate the actual semantic inter-word gap before a candidate enters\n'
-              '    // the paragraph graph. QA measures the rendered gap, not merely the\n'
-              '    // extra CSS word-spacing, so leave rasterisation headroom here.\n'
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label} count={count}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '  selection: "badness" | "continuity" = "badness",\n): LineFit | null {',
+              '  selection: "badness" | "continuity" | "spacing-continuity" = "badness",\n  previousWordSpacing = 0,\n): LineFit | null {',
+              "fitLine signature",
+          )
+
+          replace_once(
+              '    if (Math.abs(residualPx) > 1.7) continue;\n\n    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
+              '    if (Math.abs(residualPx) > 1.7) continue;\n'
+              '    // QA measures the rendered semantic gap, so reject candidates\n'
+              '    // that are already too loose before they enter the DP graph.\n'
               '    const semanticGapEm = ((spaceWidth + wordSpacing + tracking) * glyphScale) / Math.max(1, fontSize);\n'
-              '    if (semanticGapEm > 0.355) continue;\n'
+              '    if (semanticGapEm > 0.355) continue;\n\n'
+              '    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);',
+              "semantic gap gate",
           )
-          if text.count(needle) != 1:
-              raise SystemExit(f"fitLine insertion point count={text.count(needle)}")
-          text = text.replace(needle, insert, 1)
 
-          needle = '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
-          insert = needle + (
-              '        // A single semantic word stranded on the final line of a prose\n'
-              '        // paragraph is a hard composition defect, not a cost preference.\n'
+          replace_once(
+              '    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : candidate.badness;',
+              '    const rank = selection === "continuity"\n'
+              '      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n'
+              '      : selection === "spacing-continuity"\n'
+              '        ? (Math.abs(candidate.wordSpacing - previousWordSpacing) / Math.max(1, fontSize)) * 1_000_000 + candidate.badness\n'
+              '        : candidate.badness;',
+              "fit ranking",
+          )
+
+          replace_once(
+              'const HYPHEN_BUCKET_COUNT = 9;\n\nfunction hyphenCountBucket(hyphenCount: number): number {',
+              'const HYPHEN_BUCKET_COUNT = 9;\n'
+              'const WORD_SPACING_MIN_EM = -0.12;\n'
+              'const WORD_SPACING_STEP_EM = 0.01;\n'
+              'const WORD_SPACING_BUCKET_COUNT = 25;\n\n'
+              'function wordSpacingBucket(wordSpacingEm: number): number {\n'
+              '  return Math.max(0, Math.min(\n'
+              '    WORD_SPACING_BUCKET_COUNT - 1,\n'
+              '    Math.round((wordSpacingEm - WORD_SPACING_MIN_EM) / WORD_SPACING_STEP_EM),\n'
+              '  ));\n'
+              '}\n\n'
+              'function hyphenCountBucket(hyphenCount: number): number {',
+              "spacing bucket constants",
+          )
+
+          old_state = (
+              'function encodeState(\n'
+              '  line: number,\n'
+              '  hyphenStreak: number,\n'
+              '  fitness: number,\n'
+              '  glyphScale: number,\n'
+              '  hyphenCount: number,\n'
+              '): number {\n'
+              '  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;\n'
+              '  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);\n'
+              '  return packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);\n'
+              '}\n\n'
+              'function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number } {\n'
+              '  const hyphenBucket = key % HYPHEN_BUCKET_COUNT;\n'
+              '  const packed = Math.floor(key / HYPHEN_BUCKET_COUNT);\n'
+              '  const glyphBucket = packed % GLYPH_SCALE_COUNT;\n'
+              '  const base = Math.floor(packed / GLYPH_SCALE_COUNT);\n'
+              '  return {\n'
+              '    line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),\n'
+              '    hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,\n'
+              '    fitness: base % FITNESS_COUNT,\n'
+              '    glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,\n'
+              '    hyphenBucket,\n'
+              '  };\n'
+              '}\n'
+          )
+          new_state = (
+              'function encodeState(\n'
+              '  line: number,\n'
+              '  hyphenStreak: number,\n'
+              '  fitness: number,\n'
+              '  glyphScale: number,\n'
+              '  hyphenCount: number,\n'
+              '  wordSpacingEm: number,\n'
+              '): number {\n'
+              '  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;\n'
+              '  const packedGlyph = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);\n'
+              '  const packedSpacing = packedGlyph * WORD_SPACING_BUCKET_COUNT + wordSpacingBucket(wordSpacingEm);\n'
+              '  return packedSpacing * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);\n'
+              '}\n\n'
+              'function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number; wordSpacingEm: number } {\n'
+              '  const hyphenBucket = key % HYPHEN_BUCKET_COUNT;\n'
+              '  const packedSpacing = Math.floor(key / HYPHEN_BUCKET_COUNT);\n'
+              '  const spacingBucket = packedSpacing % WORD_SPACING_BUCKET_COUNT;\n'
+              '  const packedGlyph = Math.floor(packedSpacing / WORD_SPACING_BUCKET_COUNT);\n'
+              '  const glyphBucket = packedGlyph % GLYPH_SCALE_COUNT;\n'
+              '  const base = Math.floor(packedGlyph / GLYPH_SCALE_COUNT);\n'
+              '  return {\n'
+              '    line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),\n'
+              '    hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,\n'
+              '    fitness: base % FITNESS_COUNT,\n'
+              '    glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,\n'
+              '    hyphenBucket,\n'
+              '    wordSpacingEm: WORD_SPACING_MIN_EM + spacingBucket * WORD_SPACING_STEP_EM,\n'
+              '  };\n'
+              '}\n'
+          )
+          replace_once(old_state, new_state, "spacing-aware state encoding")
+
+          replace_once(
+              '  states[0].set(encodeState(0, 0, initialFitness, 1, 0), {',
+              '  states[0].set(encodeState(0, 0, initialFitness, 1, 0, 0), {',
+              "initial state",
+          )
+
+          replace_once(
+              '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n        const finalCompressionFit = last',
+              '        const hyphenWidow = last && semanticWordsOnLine === 1 && previous.hyphenated;\n'
+              '        // Do not permit a single semantic word to be stranded on the final line.\n'
               '        if (last && start > 0 && semanticWordsOnLine === 1) continue;\n'
+              '        const finalCompressionFit = last',
+              "one-word final gate",
           )
-          if text.count(needle) != 1:
-              raise SystemExit(f"final-line insertion point count={text.count(needle)}")
-          text = text.replace(needle, insert, 1)
 
-          needle = '        for (const lineFit of fitOptions) {\n'
-          insert = needle + (
-              '          if (lineFit && previous.justified) {\n'
-              '            const adjacentSpacingDeltaEm = Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize);\n'
-              '            // Keep neighbouring justified lines from visibly pulsing between\n'
-              '            // compressed and expanded spacing. Reserve a little QA headroom.\n'
-              '            if (adjacentSpacingDeltaEm > 0.155) continue;\n'
-              '          }\n'
+          replace_once(
+              '        const strictFit = !last\n          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)\n          : finalCompressionFit;\n        const strictContinuityFit = !last\n          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")\n          : finalCompressionContinuityFit;\n        const fit = strictFit ?? (emergency && !last\n          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)\n          : null);\n        const continuityFit = strictContinuityFit ?? (emergency && !last\n          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")\n          : null);',
+              '        const finalCompressionSpacingFit = last\n'
+              '          && semanticWordsOnLine >= 2\n'
+              '          && adjustment < -0.75\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "spacing-continuity", previous.wordSpacing)\n'
+              '          : null;\n'
+              '        const strictFit = !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)\n'
+              '          : finalCompressionFit;\n'
+              '        const strictContinuityFit = !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")\n'
+              '          : finalCompressionContinuityFit;\n'
+              '        const strictSpacingFit = !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "spacing-continuity", previous.wordSpacing)\n'
+              '          : finalCompressionSpacingFit;\n'
+              '        const fit = strictFit ?? (emergency && !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)\n'
+              '          : null);\n'
+              '        const continuityFit = strictContinuityFit ?? (emergency && !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")\n'
+              '          : null);\n'
+              '        const spacingFit = strictSpacingFit ?? (emergency && !last\n'
+              '          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "spacing-continuity", previous.wordSpacing)\n'
+              '          : null);',
+              "spacing continuity fit",
           )
-          if text.count(needle) != 1:
-              raise SystemExit(f"adjacent-spacing insertion point count={text.count(needle)}")
-          text = text.replace(needle, insert, 1)
+
+          replace_once(
+              '        if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) {',
+              '        if (natural > available + 0.75 && !fit && !continuityFit && !spacingFit && (end > start || last)) {',
+              "overfull gate",
+          )
+          replace_once(
+              '        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && natural <= available + 0.75;',
+              '        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && !spacingFit && natural <= available + 0.75;',
+              "rescue gate",
+          )
+
+          replace_once(
+              '        if (continuityFit && !fitOptions.some((candidate) =>\n          candidate\n          && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001\n          && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001\n          && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001\n        )) fitOptions.push(continuityFit);\n        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);\n        const hasStrictFit = Boolean(strictFit || strictContinuityFit);',
+              '        if (continuityFit && !fitOptions.some((candidate) =>\n'
+              '          candidate\n'
+              '          && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001\n'
+              '          && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001\n'
+              '          && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001\n'
+              '        )) fitOptions.push(continuityFit);\n'
+              '        if (spacingFit && !fitOptions.some((candidate) =>\n'
+              '          candidate\n'
+              '          && Math.abs(candidate.glyphScale - spacingFit.glyphScale) < 0.000001\n'
+              '          && Math.abs(candidate.wordSpacing - spacingFit.wordSpacing) < 0.000001\n'
+              '          && Math.abs(candidate.tracking - spacingFit.tracking) < 0.000001\n'
+              '        )) fitOptions.push(spacingFit);\n'
+              '        if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);\n'
+              '        const hasStrictFit = Boolean(strictFit || strictContinuityFit || strictSpacingFit);',
+              "spacing fit options",
+          )
+
+          replace_once(
+              '        const currentGaps = gapPositions(words, start, end + 1, offset, spaceWidth, lineFit);\n        const rivers = riverCost(currentGaps, previous, spaceWidth);\n        const cost = previous.cost\n          + (lineFit?.badness ?? 0)',
+              '        const currentGaps = gapPositions(words, start, end + 1, offset, spaceWidth, lineFit);\n'
+              '        const rivers = riverCost(currentGaps, previous, spaceWidth);\n'
+              '        const adjacentSpacingDeltaEm = lineFit && previous.justified\n'
+              '          ? Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize)\n'
+              '          : 0;\n'
+              '        const spacingContinuityPenalty = adjacentSpacingDeltaEm <= 0.10\n'
+              '          ? 20 * Math.pow(adjacentSpacingDeltaEm / 0.10, 2)\n'
+              '          : 1200 * Math.pow((adjacentSpacingDeltaEm - 0.10) / 0.06, 2);\n'
+              '        const cost = previous.cost\n'
+              '          + (lineFit?.badness ?? 0)\n'
+              '          + spacingContinuityPenalty',
+              "spacing continuity cost",
+          )
+
+          replace_once(
+              '        const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);',
+              '        const nextKey = encodeState(\n'
+              '          nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount,\n'
+              '          (lineFit?.wordSpacing ?? 0) / Math.max(1, fontSize),\n'
+              '        );',
+              "next state key",
+          )
 
           path.write_text(text, encoding="utf-8")
-          print("Applied semantic-gap, one-word-tail, and adjacent-spacing graph gates")
+          print("Applied spacing-aware DP state, semantic-gap gate, tail gate, and spacing-continuity candidate")
           PY
       - name: Patch Paperwhite calibration in working tree only
         shell: bash
@@ -121,12 +293,12 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const font = process.env.BASE_FONT;
-          const path = 'build/qa-v107/typesetting-polish.json';
-          if (!fs.existsSync(path)) {
+          const p = 'build/qa-v107/typesetting-polish.json';
+          if (!fs.existsSync(p)) {
             console.log(JSON.stringify({font, missing: true}));
             process.exit(0);
           }
-          const q = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const q = JSON.parse(fs.readFileSync(p, 'utf8'));
           console.log(JSON.stringify({
             font,
             measurePx: q.measurePx,
@@ -135,6 +307,7 @@ jobs:
             relaxedLines: q.relaxedLines,
             hyphenRate: q.hyphenRate,
             maxHyphenStreak: q.maxHyphenStreak,
+            maxRightErrorPx: q.maxRightErrorPx,
             maxWordSpacingEm: q.maxWordSpacingEm,
             maxStrictWordSpacingEm: q.maxStrictWordSpacingEm,
             maxRelaxedWordSpacingEm: q.maxRelaxedWordSpacingEm,
@@ -149,7 +322,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-solver-calibration-${{ matrix.font }}
+          name: Paperwhite-spacing-state-${{ matrix.font }}
           path: |
             build/qa-v107/**
             build/calibration-${{ matrix.font }}.log
