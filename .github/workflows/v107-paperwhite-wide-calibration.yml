@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        side: ["8", "10", "12", "14", "16", "18", "20"]
+        side: ["14.25", "14.5", "14.75", "15", "15.25", "15.5", "15.75", "16.25", "16.5", "16.75", "17", "17.25", "17.5", "17.75"]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
