@@ -1,4 +1,4 @@
-name: Temporary v1.0.7 Paperwhite narrow-measure calibration
+name: Temporary v1.0.7 Paperwhite expansion calibration
 
 on:
   push:
@@ -19,22 +19,35 @@ jobs:
       matrix:
         include:
           - base_font: "17.25"
-            side: "45"
+            side: "35"
+            max_expansion: "0.080"
           - base_font: "17.25"
-            side: "47"
+            side: "35"
+            max_expansion: "0.085"
           - base_font: "17.25"
-            side: "49"
-          - base_font: "17.50"
-            side: "45"
-          - base_font: "17.50"
-            side: "47"
-          - base_font: "17.50"
-            side: "49"
+            side: "35"
+            max_expansion: "0.090"
+          - base_font: "17.25"
+            side: "35"
+            max_expansion: "0.095"
+          - base_font: "17.00"
+            side: "31"
+            max_expansion: "0.080"
+          - base_font: "17.00"
+            side: "31"
+            max_expansion: "0.085"
+          - base_font: "17.00"
+            side: "31"
+            max_expansion: "0.090"
+          - base_font: "17.00"
+            side: "31"
+            max_expansion: "0.095"
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
       BASE_FONT: ${{ matrix.base_font }}
       SIDE: ${{ matrix.side }}
+      MAX_EXPANSION: ${{ matrix.max_expansion }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,15 +63,16 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply bounded professional spacing envelope
+      - name: Apply calibrated spacing envelope
         shell: bash
         run: |
           python3 - <<'PY'
+          import os
           from pathlib import Path
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
           old = "  const maxWordSpacing = emergency\n    ? fontSize * 0.120\n    : fontSize * 0.10;\n"
-          new = "  const maxWordSpacing = fontSize * 0.075;\n"
+          new = f'  const maxWordSpacing = fontSize * {os.environ["MAX_EXPANSION"]};\n'
           if text.count(old) != 1:
               raise SystemExit(f"maxWordSpacing marker count={text.count(old)}")
           text = text.replace(old, new, 1)
@@ -119,13 +133,13 @@ jobs:
           status=$?
           echo "QA exit: $status"
           if [ -f build/qa-v107/typesetting-polish.json ]; then
-            node -e 'const r=require("./build/qa-v107/typesetting-polish.json"); console.log(JSON.stringify({baseFont:process.env.BASE_FONT,side:process.env.SIDE,measurePx:r.measurePx,emergencyLines:r.emergencyLines,oneWordFinalLines:r.oneWordFinalLines,hyphenRate:r.hyphenRate,maxSemanticGapEm:r.maxSemanticGapEm,maxWordSpacingEm:r.maxWordSpacingEm,maxStrictWordSpacingEm:r.maxStrictWordSpacingEm,maxRelaxedWordSpacingEm:r.maxRelaxedWordSpacingEm,relaxedLines:r.relaxedLines,maxAdjacentSpacingDeltaEm:r.maxAdjacentSpacingDeltaEm,maxGlyphScaleDelta:r.maxGlyphScaleDelta,maxAdjacentGlyphScaleDelta:r.maxAdjacentGlyphScaleDelta,maxRightErrorPx:r.maxRightErrorPx,maxTrackingEm:r.maxTrackingEm},null,2));'
+            node -e 'const r=require("./build/qa-v107/typesetting-polish.json"); console.log(JSON.stringify({baseFont:process.env.BASE_FONT,side:process.env.SIDE,maxExpansion:process.env.MAX_EXPANSION,measurePx:r.measurePx,emergencyLines:r.emergencyLines,oneWordFinalLines:r.oneWordFinalLines,hyphenRate:r.hyphenRate,maxSemanticGapEm:r.maxSemanticGapEm,maxWordSpacingEm:r.maxWordSpacingEm,maxStrictWordSpacingEm:r.maxStrictWordSpacingEm,maxRelaxedWordSpacingEm:r.maxRelaxedWordSpacingEm,relaxedLines:r.relaxedLines,maxAdjacentSpacingDeltaEm:r.maxAdjacentSpacingDeltaEm,maxGlyphScaleDelta:r.maxGlyphScaleDelta,maxAdjacentGlyphScaleDelta:r.maxAdjacentGlyphScaleDelta,maxRightErrorPx:r.maxRightErrorPx,maxTrackingEm:r.maxTrackingEm},null,2));'
           fi
           exit 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-narrow-${{ matrix.base_font }}-side-${{ matrix.side }}
+          name: Paperwhite-exp-${{ matrix.base_font }}-side-${{ matrix.side }}-max-${{ matrix.max_expansion }}
           path: |
             build/qa-v107/typesetting-polish.json
             build/qa-v107/reader-polish.png
