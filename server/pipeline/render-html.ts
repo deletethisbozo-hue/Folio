@@ -1,21 +1,26 @@
 import type { Book } from "./types.ts";
 import { assembleMarkdown, type Target } from "./build-doc.ts";
-import { themeCssFiles, printCss } from "./paths.ts";
+import { printCss, THEMES_DIR } from "./paths.ts";
 import { BOOK_TEMPLATE, cleanup, commonArgs, makeWorkspace, runPandoc } from "./pandoc.ts";
 import { buildDocCss } from "./doc-css.ts";
+import { buildThemeRuntimeCss } from "./theme-fonts.ts";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
 /**
  * Render the book's interior to a single self-contained HTML string.
  * Used for the live preview (shown in an iframe) and as the source for the PDF.
- * CSS and images are inlined via --embed-resources so the output stands alone.
+ * Live preview fonts come from Folio's local font endpoint so they are cached;
+ * print HTML inlines the same files because Puppeteer renders from setContent().
  */
 export async function renderHtml(book: Book, target: Target = "html"): Promise<string> {
   const ws = await makeWorkspace(book, target);
   try {
     const md = assembleMarkdown(book, target);
-    const css = themeCssFiles(book.meta.theme);
+    const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, target === "print" ? "print" : "html");
+    const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
+    await fs.writeFile(runtimeThemePath, runtimeTheme.css, "utf8");
+    const css = [path.join(THEMES_DIR, "base.css"), runtimeThemePath];
     if (target === "print" && (await fileExists(printCss(book.meta.theme)))) {
       css.push(printCss(book.meta.theme));
     }
