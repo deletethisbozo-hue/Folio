@@ -126,26 +126,36 @@ interface PaginateResult {
 }
 
 export async function paginate(page: Page, maxPages: number | undefined): Promise<PaginateResult> {
-  // Tag every chapter's content BEFORE pagination so the attribute survives onto
-  // each fragment when Paged.js splits a chapter across pages.
-  await page.evaluate(() => {
-    document.querySelectorAll("section.chapter").forEach((sec, i) => {
-      sec.setAttribute("data-ch", String(i + 1));
-      sec.querySelectorAll("*").forEach((el) => el.setAttribute("data-ch", String(i + 1)));
+  const sourceHtml = await page.content();
+  let paged = false;
+  let lastPagedError: unknown = null;
+  for (let attempt = 0; attempt < 3 && !paged; attempt++) {
+    if (attempt > 0) await page.setContent(sourceHtml, { waitUntil: "load" });
+    // Tag every chapter's content BEFORE pagination so the attribute survives onto
+    // each fragment when Paged.js splits a chapter across pages.
+    await page.evaluate(() => {
+      document.querySelectorAll("section.chapter").forEach((sec, i) => {
+        sec.setAttribute("data-ch", String(i + 1));
+        sec.querySelectorAll("*").forEach((el) => el.setAttribute("data-ch", String(i + 1)));
+      });
+      document.querySelectorAll("a").forEach((a) => {
+        a.replaceWith(...Array.from(a.childNodes));
+      });
+      window.PagedConfig = { auto: false };
     });
-    // No hyperlinks of any kind: unwrap anchors, keeping their text.
-    document.querySelectorAll("a").forEach((a) => {
-      a.replaceWith(...Array.from(a.childNodes));
-    });
-  });
-
-  await page.evaluate(() => {
-    window.PagedConfig = { auto: false };
-  });
-  await page.addScriptTag({ path: POLYFILL });
-  await page.evaluate(async () => {
-    await window.PagedPolyfill!.preview();
-  });
+    await page.addScriptTag({ path: POLYFILL });
+    try {
+      await page.evaluate(async () => {
+        await window.PagedPolyfill!.preview();
+      });
+      paged = true;
+    } catch (error) {
+      lastPagedError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("item doesn't belong to list") || attempt === 2) throw error;
+    }
+  }
+  if (!paged) throw lastPagedError instanceof Error ? lastPagedError : new Error(String(lastPagedError));
   await new Promise((r) => setTimeout(r, 200));
 
   // NB: no named functions inside page.evaluate — esbuild (via tsx) rewrites them

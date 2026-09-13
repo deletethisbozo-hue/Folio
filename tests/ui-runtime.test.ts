@@ -212,7 +212,7 @@ try {
   await page.click('.theme-sample[data-theme="blackletter"]');
   await stage("render Blackletter theme", () => page.waitForFunction(() => {
     const h1 = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
-    return Boolean(h1 && getComputedStyle(h1).fontFamily.includes("Old English"));
+    return Boolean(h1 && getComputedStyle(h1).fontFamily.includes("Folio Grenze Gotisch"));
   }));
   const blackletter = await page.evaluate(() => {
     const h1 = document.querySelector("iframe")!.contentDocument!.querySelector("section.chapter > h1")!;

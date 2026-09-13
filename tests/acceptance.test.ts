@@ -126,12 +126,13 @@ const INTENDED = new Set([
 ]);
 const refUni = new Map<string, number>(Object.entries(ref.epubUniversal));
 const newUni = await entries(path.join(outDir, "sample-universal.epub"));
+const addedThemeFonts = [...newUni.keys()].filter((n) => /\.(ttf|otf|woff2?)$/i.test(n) && !refUni.has(n));
 const uniDiffs = [...newUni.entries()].filter(
-  ([n, s]) => !n.endsWith(".opf") && !INTENDED.has(n) && refUni.get(n) !== s,
+  ([n, s]) => !n.endsWith(".opf") && !INTENDED.has(n) && !addedThemeFonts.includes(n) && refUni.get(n) !== s,
 );
 check(
   "epub (universal): only the three intentional typography stylesheets changed",
-  uniDiffs.length === 0 && newUni.size === refUni.size,
+  uniDiffs.length === 0 && newUni.size === refUni.size + addedThemeFonts.length,
   uniDiffs.map(([n]) => n).join(", ") || `${newUni.size} entries, ${INTENDED.size} intentionally changed`,
 );
 check(
@@ -143,8 +144,12 @@ check(
 // same file). The real claim is what the fix guarantees, asserted directly.
 const newKdp = await entries(path.join(outDir, "sample-kdp.epub"));
 check(
-  "epub (kdp) embeds no fonts and is smaller than universal — the preset fix",
-  ![...newKdp.keys()].some((n) => /\.(ttf|otf|woff2?)$/i.test(n)) && kdp.bytes < uni.bytes,
+  "epub (kdp) keeps theme fonts, omits custom fonts, and is smaller than universal",
+  (() => {
+    const kdpFonts = [...newKdp.keys()].filter((n) => /\.(ttf|otf|woff2?)$/i.test(n));
+    const universalFonts = [...newUni.keys()].filter((n) => /\.(ttf|otf|woff2?)$/i.test(n));
+    return kdpFonts.length > 0 && kdpFonts.every((n) => universalFonts.includes(n)) && universalFonts.length > kdpFonts.length && kdp.bytes < uni.bytes;
+  })(),
   `${kdp.bytes} < ${uni.bytes}`,
 );
 

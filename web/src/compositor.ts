@@ -108,7 +108,7 @@ ${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyph
 .folio-composed-line{display:block!important;box-sizing:border-box!important;white-space:nowrap!important;text-indent:0!important;text-align:left!important;text-align-last:left!important}
 .folio-composed-dropcap>.dropcap.folio-composed-cap{float:none!important;position:absolute!important;z-index:1}
 .folio-compositor-safe-fallback{text-align:left!important;text-align-last:left!important}
-.scene-break{display:block!important;text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}`;
+.scene-break{display:block!important;text-align:center!important;text-align-last:center!important;margin-left:auto!important;margin-right:auto!important;word-spacing:normal!important;letter-spacing:normal!important}`;
 }
 
 function tokenize(paragraph: HTMLElement, language: string): Word[] {
@@ -280,8 +280,7 @@ function fitLine(
 ): LineFit | null {
   if (gaps <= 0) return null;
 
-  const maxWordSpacing = fontSize * 0.075;
-  const normalizedLanguage = language.toLowerCase();
+  const maxWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);
   const relaxedCompressionEm = 0.120;
   // Windows and Linux rasterize the same serif faces a little differently.
   // Keep the normal line fitter inside the release gate, but give Polish prose
@@ -289,7 +288,7 @@ function fitLine(
   // of exceeding the 0.45 section hyphen-density ceiling. The optimiser still
   // pays badness for every compressed gap, so this is an available rescue path,
   // not the new preferred spacing.
-  const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;
+  const strictCompressionEm = 0.099;
   const minWordSpacing = emergency || finalCompression
     ? -(fontSize * relaxedCompressionEm)
     : -(fontSize * strictCompressionEm);
@@ -316,7 +315,7 @@ function fitLine(
     wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
     tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
     const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
-    if (Math.abs(residualPx) > 1.705) continue;
+    if (Math.abs(residualPx) > 1.45) continue;
 
     const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
     const trackingRatio = tracking / Math.max(1, fontSize);
@@ -326,7 +325,7 @@ function fitLine(
       + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
       + 42 * Math.pow(scaleRatio, 3)
       + 90 * Math.pow(scaleJumpRatio, 2)
-      + 80 * Math.pow(Math.abs(residualPx) / 1.7, 2);
+      + 100 * Math.pow(Math.abs(residualPx) / 1.45, 2);
     const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
     const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
     const rank = selection === "continuity"
@@ -597,12 +596,12 @@ function chooseBreaks(
 
         for (const lineFit of fitOptions) {
           const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);
-          if (lineFit && !relaxedFit && !previous.relaxed && (previous.justified || previous.finalCompressed)
-            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.1600001) continue;
+          if (lineFit && (previous.justified || previous.finalCompressed)
+            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) continue;
           const fill = Math.min(1, natural / Math.max(1, available));
         const shortLastPenalty = last
           ? semanticWordsOnLine === 1
-            ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
+            ? 24000 + (previous.hyphenated ? 12000 : 0) + 1800 * Math.pow(1 - fill, 2)
             : fill < 0.28 ? 220 * Math.pow((0.28 - fill) / 0.28, 2) : 0
           : 0;
         const cumulativeHyphenPenalty = previousHyphenCount < 2

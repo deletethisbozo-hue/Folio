@@ -192,10 +192,10 @@ for (const preset of ["kdp", "universal"] as const) {
   );
   v.messages.filter((m) => m.severity === "error").forEach((m) => console.log(`      [error] ${m.text}`));
 }
-check("kdp embeds NO font files", out.kdp.fonts.length === 0);
-check("kdp emits NO @font-face rules (no dangling src)", out.kdp.faces === 0);
-check("universal still embeds its font", out.universal.fonts.length === 1);
-check("universal still emits its @font-face", out.universal.faces === 1);
+check("kdp preserves the selected theme fonts", out.kdp.fonts.length > 0, out.kdp.fonts.join(", "));
+check("kdp emits matching theme @font-face rules", out.kdp.faces >= out.kdp.fonts.length, String(out.kdp.faces));
+check("universal adds the custom manuscript font on top of theme fonts", out.universal.fonts.length === out.kdp.fonts.length + 1, `${out.kdp.fonts.length} -> ${out.universal.fonts.length}`);
+check("universal emits the additional custom @font-face", out.universal.faces > out.kdp.faces, `${out.kdp.faces} -> ${out.universal.faces}`);
 check("the two presets now differ", out.kdp.sha !== out.universal.sha);
 check("kdp is smaller than universal", out.kdp.bytes < out.universal.bytes, `${out.kdp.bytes} vs ${out.universal.bytes}`);
 check("EPUB validation completed", out.universal.valid, out.universal.tool);

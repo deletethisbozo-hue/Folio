@@ -117,8 +117,6 @@ section.chapter > h1 + p::first-line,
 .chapter-subtitle + p::first-line,
 section.chapter > p:first-of-type::first-line {
   color: #81362c;
-  font-variant: small-caps;
-  letter-spacing: .02em;
 }
 
 section.chapter > p:not(:first-of-type):not(.scene-break) {

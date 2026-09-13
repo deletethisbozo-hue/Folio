@@ -118,7 +118,7 @@ const preview = await post(`/api/projects/${projectId}/preview`, {
   draft: transient,
 });
 check("preview contains the transient editor draft", preview.status === 200 && preview.body.html.includes("ransient ink appears before"));
-check("preview contains selected theme CSS", preview.body.html.includes("Old English Text MT"));
+check("preview contains selected theme CSS", preview.body.html.includes("Folio Grenze Gotisch"));
 check("preview renders exactly the selected section", (preview.body.html.match(/<section/g) ?? []).length === 1);
 
 const softBreakPreview = await post(`/api/projects/${projectId}/preview`, {
