@@ -20,17 +20,14 @@ jobs:
           fetch-depth: 0
       - name: Apply patch
         run: python3 scripts/apply-v107-stability.py
-      - name: Remove temporary patch files
-        shell: bash
-        run: |
-          rm -f scripts/apply-v107-stability.py
-          rm -f .github/workflows/v107-apply-stability.yml
-          rm -f .github/workflows/v107-qualification-stability-pass.yml
-      - name: Commit patch
+      - name: Remove temporary patch script
+        run: rm -f scripts/apply-v107-stability.py
+      - name: Commit product fixes
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git restore .github/workflows/v107-windows-qualification.yml .github/workflows/windows-release.yml
           git add -A
           git diff --cached --check
           git commit -m "Stabilize v1.0.7 composition and qualification"
