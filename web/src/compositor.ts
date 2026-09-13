@@ -275,13 +275,12 @@ function fitLine(
   emergency = false,
   finalCompression = false,
   language = "en",
-  selection: "badness" | "continuity" = "badness",
+  selection: "badness" | "continuity" | "spacing-continuity" = "badness",
+  targetWordSpacing = 0,
 ): LineFit | null {
   if (gaps <= 0) return null;
 
-  const maxWordSpacing = emergency
-    ? fontSize * 0.120
-    : fontSize * 0.10;
+  const maxWordSpacing = fontSize * 0.075;
   const normalizedLanguage = language.toLowerCase();
   const relaxedCompressionEm = 0.120;
   // Windows and Linux rasterize the same serif faces a little differently.
@@ -317,7 +316,7 @@ function fitLine(
     wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
     tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
     const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
-    if (Math.abs(residualPx) > 1.7) continue;
+    if (Math.abs(residualPx) > 1.705) continue;
 
     const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
     const trackingRatio = tracking / Math.max(1, fontSize);
@@ -332,7 +331,9 @@ function fitLine(
     const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
     const rank = selection === "continuity"
       ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness
-      : candidate.badness;
+      : selection === "spacing-continuity"
+        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness
+        : candidate.badness;
     if (!best || rank < bestRank) {
       best = candidate;
       bestRank = rank;
@@ -530,20 +531,31 @@ function chooseBreaks(
           && adjustment < -0.75
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "continuity")
           : null;
+        const finalCompressionSpacingFit = last
+          && semanticWordsOnLine >= 2
+          && adjustment < -0.75
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, language, "spacing-continuity", previous.wordSpacing)
+          : null;
         const strictFit = !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language)
           : finalCompressionFit;
         const strictContinuityFit = !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "continuity")
           : finalCompressionContinuityFit;
+        const strictSpacingFit = !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, language, "spacing-continuity", previous.wordSpacing)
+          : finalCompressionSpacingFit;
         const fit = strictFit ?? (emergency && !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language)
           : null);
         const continuityFit = strictContinuityFit ?? (emergency && !last
           ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "continuity")
           : null);
+        const spacingFit = strictSpacingFit ?? (emergency && !last
+          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "spacing-continuity", previous.wordSpacing)
+          : null);
         if (!canBreak) continue;
-        if (natural > available + 0.75 && !fit && !continuityFit && (end > start || last)) {
+        if (natural > available + 0.75 && !fit && !continuityFit && !spacingFit && (end > start || last)) {
           if (canBreak && rejectedBreaks.length < 160) rejectedBreaks.push({
             reason: "overfull-break", start, end, line, hyphenBreak, natural, available, adjustment, gaps, characters,
             startText: (words[start].node.textContent ?? "").replace(/\u00ad/g, ""),
@@ -554,7 +566,7 @@ function chooseBreaks(
           break;
         }
         const dropcapRescue = false;
-        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && natural <= available + 0.75;
+        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && !spacingFit && natural <= available + 0.75;
         const rescueNatural = emergencyRescue;
         const fitOptions: Array<LineFit | null> = [];
         if (fit) fitOptions.push(fit);
@@ -564,8 +576,14 @@ function chooseBreaks(
           && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001
           && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001
         )) fitOptions.push(continuityFit);
+        if (spacingFit && !fitOptions.some((candidate) =>
+          candidate
+          && Math.abs(candidate.glyphScale - spacingFit.glyphScale) < 0.000001
+          && Math.abs(candidate.wordSpacing - spacingFit.wordSpacing) < 0.000001
+          && Math.abs(candidate.tracking - spacingFit.tracking) < 0.000001
+        )) fitOptions.push(spacingFit);
         if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
-        const hasStrictFit = Boolean(strictFit || strictContinuityFit);
+        const hasStrictFit = Boolean(strictFit || strictContinuityFit || strictSpacingFit);
         if (!last && !fitOptions.length && !rescueNatural) {
           if (canBreak && rejectedBreaks.length < 160) rejectedBreaks.push({
             reason: "no-fit", start, end, line, hyphenBreak, natural, available, adjustment, gaps, characters,
@@ -579,6 +597,8 @@ function chooseBreaks(
 
         for (const lineFit of fitOptions) {
           const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);
+          if (lineFit && !relaxedFit && !previous.relaxed && (previous.justified || previous.finalCompressed)
+            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.1600001) continue;
           const fill = Math.min(1, natural / Math.max(1, available));
         const shortLastPenalty = last
           ? semanticWordsOnLine === 1

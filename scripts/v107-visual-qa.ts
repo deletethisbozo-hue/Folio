@@ -21,12 +21,12 @@ await new Promise((resolve) => server.once("listening", resolve));
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
 const polish = [
-  "Poczucie bezsensowności było o wiele większym brzemieniem niż brak zasobów. Porażka — nic więcej jak przygnębiająca. Z jego perspektywy życie nie było wyborem, tylko konsekwencją wszystkich przemilczanych decyzji.",
-  "Niektórzy w mieście chcieli jego śmierci za rzeczy, których nigdy nie uczynił. W Polsce i na świecie profesjonalny skład książki powinien zachowywać równy rytm, rozsądne dzielenie wyrazów oraz spokojną szarość typograficzną bez rzek bieli.",
-  "— Czy naprawdę możemy tam wrócić? — zapytała. — Możemy, ale nie powinniśmy udawać, że niczego się nie boimy. Najtrudniejsze odpowiedzi przychodzą przecież dopiero wtedy, gdy kończą się wszystkie łatwe pytania.",
+  "Poczucie bezsensowności było o wiele większym brzemieniem niż brak zasobów. Porażka — nic więcej niż przygnębiający epizod. Z jego perspektywy życie nie było wyborem, lecz konsekwencją wszystkich przemilczanych wcześniej decyzji.",
+  "Niektórzy w mieście chcieli jego śmierci za rzeczy, których nigdy nie uczynił. W Polsce i na świecie profesjonalny skład książki ma zachowywać równy rytm, rozsądne dzielenie wyrazów oraz spokojną szarość typograficzną bez rzek bieli. Ma służyć treści, nie sobie, i wieść wzrok przez tekst bez trudu.",
+  "— Czy naprawdę możemy tam wrócić? — zapytała. — Możemy, jeśli naprawdę musimy, ale nie powinniśmy udawać, że niczego się nie boimy. Najtrudniejsze odpowiedzi przychodzą przecież dopiero wtedy, gdy kończą się wszystkie pozornie łatwe pytania.",
 ];
 const english = [
-  "There are moments in every life that arrive quietly, without warning, and yet change everything. I did not know that morning, as the light moved through the window and across the table, that I was standing at the threshold of a larger story.",
+  "Some mornings begin so quietly that their meaning becomes clear only much later. I did not know, as sunlight crossed the table and warmed the pages before me, that I had reached the opening of a larger story.",
   "Looking back, I can see how the ordinary contained the extraordinary all along—how every small choice, every overlooked detail, was leading me here. Professional typesetting should feel calm, even, and almost invisible to the reader.",
 ];
 
@@ -171,12 +171,7 @@ try {
     // Waiting for Save made the harness depend on unrelated autosave/I/O and
     // intermittently left the modal open for the full Puppeteer timeout.
     await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);
-    await page.evaluate(() => {
-      const dialog = document.querySelector('.folio-dialog[aria-label="Book Details"]');
-      const button = [...(dialog?.querySelectorAll("footer button") ?? [])].find((node) => node.textContent === "Cancel");
-      if (!button) throw new Error("Book Details Cancel button is missing");
-      (button as HTMLButtonElement).click();
-    });
+    await page.click('.folio-dialog[aria-label="Book Details"] header button[aria-label="Close"]');
     await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true, timeout: 5_000 });
     await new Promise((resolve) => setTimeout(resolve, 800));
     await page.waitForSelector('.rich-editor[contenteditable="true"]');
