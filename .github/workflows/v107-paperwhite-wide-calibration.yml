@@ -17,13 +17,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        side: ["12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22"]
-        expansion: ["0.08", "0.09", "0.10"]
+        side: ["14", "15", "16", "17", "18", "19", "20"]
+        compression: ["0.06", "0.07", "0.08", "0.09", "0.099"]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
       SIDE: ${{ matrix.side }}
-      EXPANSION: ${{ matrix.expansion }}
+      COMPRESSION: ${{ matrix.compression }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,7 +50,11 @@ jobs:
           old_spacing = "  const maxWordSpacing = emergency\n    ? fontSize * 0.120\n    : fontSize * 0.10;\n"
           if text.count(old_spacing) != 1:
               raise SystemExit("word spacing marker missing")
-          text = text.replace(old_spacing, f"  const maxWordSpacing = emergency ? fontSize * 0.12 : fontSize * {os.environ['EXPANSION']};\n", 1)
+          text = text.replace(old_spacing, "  const maxWordSpacing = fontSize * 0.075;\n", 1)
+          old_compression = '  const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;'
+          if text.count(old_compression) != 1:
+              raise SystemExit("compression marker missing")
+          text = text.replace(old_compression, f'  const strictCompressionEm = normalizedLanguage.startsWith("pl") ? {os.environ["COMPRESSION"]} : 0.06;', 1)
           old_residual = "    if (Math.abs(residualPx) > 1.7) continue;"
           if text.count(old_residual) != 1:
               raise SystemExit("residual marker missing")
@@ -104,13 +108,13 @@ jobs:
           status=$?
           echo "QA exit: $status"
           if [ -f build/qa-v107/typesetting-polish.json ]; then
-            node -e 'const r=require("./build/qa-v107/typesetting-polish.json"); console.log(JSON.stringify({side:process.env.SIDE,expansion:process.env.EXPANSION,measurePx:r.measurePx,emergencyLines:r.emergencyLines,oneWordFinalLines:r.oneWordFinalLines,hyphenRate:r.hyphenRate,maxHyphenStreak:r.maxHyphenStreak,maxSemanticGapEm:r.maxSemanticGapEm,maxWordSpacingEm:r.maxWordSpacingEm,maxStrictWordSpacingEm:r.maxStrictWordSpacingEm,maxRelaxedWordSpacingEm:r.maxRelaxedWordSpacingEm,relaxedLines:r.relaxedLines,maxAdjacentSpacingDeltaEm:r.maxAdjacentSpacingDeltaEm,maxGlyphScaleDelta:r.maxGlyphScaleDelta,maxAdjacentGlyphScaleDelta:r.maxAdjacentGlyphScaleDelta,maxRightErrorPx:r.maxRightErrorPx,maxRightProtrusionPx:r.maxRightProtrusionPx,maxTrackingEm:r.maxTrackingEm},null,2));'
+            node -e 'const r=require("./build/qa-v107/typesetting-polish.json"); console.log(JSON.stringify({side:process.env.SIDE,compression:process.env.COMPRESSION,measurePx:r.measurePx,emergencyLines:r.emergencyLines,oneWordFinalLines:r.oneWordFinalLines,hyphenRate:r.hyphenRate,maxHyphenStreak:r.maxHyphenStreak,maxSemanticGapEm:r.maxSemanticGapEm,maxWordSpacingEm:r.maxWordSpacingEm,maxStrictWordSpacingEm:r.maxStrictWordSpacingEm,maxRelaxedWordSpacingEm:r.maxRelaxedWordSpacingEm,relaxedLines:r.relaxedLines,maxAdjacentSpacingDeltaEm:r.maxAdjacentSpacingDeltaEm,maxGlyphScaleDelta:r.maxGlyphScaleDelta,maxAdjacentGlyphScaleDelta:r.maxAdjacentGlyphScaleDelta,maxRightErrorPx:r.maxRightErrorPx,maxRightProtrusionPx:r.maxRightProtrusionPx,maxTrackingEm:r.maxTrackingEm},null,2));'
           fi
           exit 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Paperwhite-grid-side-${{ matrix.side }}-exp-${{ matrix.expansion }}
+          name: Paperwhite-compression-side-${{ matrix.side }}-min-${{ matrix.compression }}
           path: |
             build/qa-v107/typesetting-polish.json
             build/qa-v107/reader-polish.png
