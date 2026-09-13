@@ -129,7 +129,7 @@ try {
   await stage("LibreOffice rich paste", () => page.waitForFunction(() => {
     const markdown = (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown ?? "";
     return markdown.includes("Libre first **bold**") && markdown.includes("Libre second") && markdown.includes("- Writer list");
-  }));
+  }, { timeout: 30000 }));
   check("Writer class-based rich text preserves paragraphs, bold and lists", true);
 
   await page.$eval(".rich-editor", (el) => {

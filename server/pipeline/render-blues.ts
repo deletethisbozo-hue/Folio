@@ -136,8 +136,10 @@ export async function paginate(page: Page, maxPages: number | undefined): Promis
     await page.evaluate(() => {
       document.querySelectorAll("section.chapter").forEach((sec, i) => {
         sec.setAttribute("data-ch", String(i + 1));
+        sec.setAttribute("data-break-before", "page");
         sec.querySelectorAll("*").forEach((el) => el.setAttribute("data-ch", String(i + 1)));
       });
+      document.querySelector("section.blues-toc")?.setAttribute("data-break-before", "page");
       document.querySelectorAll("a").forEach((a) => {
         a.replaceWith(...Array.from(a.childNodes));
       });

@@ -82,7 +82,7 @@ export function buildBluesPageCss(title: string, author: string, opts: BluesOpti
 @page :blank { ${clearAll} }
 
 section.blues-cover { page: bluescover; }
-section.blues-toc { page: bluestoc; break-before: page; }
-section.chapter { page: chapter; break-before: page; }
+section.blues-toc { page: bluestoc; }
+section.chapter { page: chapter; }
 `;
 }
