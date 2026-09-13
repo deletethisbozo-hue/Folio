@@ -53,11 +53,13 @@ Normal strict composition keeps positive word-space expansion at +0.075em; the
 wider ±0.121em envelope is reserved for bounded relaxed/final rescue rather than
 being allowed to perturb otherwise healthy line-break choices. Final-compressed
 lines are therefore measured against the rescue envelope, while only genuinely
-relaxed non-final lines count toward the two-line relaxed quota. Compression
-stays inside the existing release gates. Positive expansion is also capped
-against the face's natural space width while reserving worst-case positive
-tracking and the allowed 1% glyph stretch, with extra rasterization headroom
-below the unchanged 0.37em rendered semantic-gap gate.
+relaxed non-final lines count toward the two-line relaxed quota. Both visual
+harnesses derive that final-compressed state directly from the composed line
+class before classifying its microtype metrics. Compression stays inside the
+existing release gates. Positive expansion is also capped against the face's
+natural space width while reserving worst-case positive tracking and the allowed
+1% glyph stretch, with extra rasterization headroom below the unchanged 0.37em
+rendered semantic-gap gate.
 
 Continuity is enforced across both strict and relaxed justified lines. The line
 fitter may accept up to 1.70px residual so it can use the full legal solution
