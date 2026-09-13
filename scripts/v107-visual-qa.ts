@@ -171,8 +171,19 @@ try {
     // Waiting for Save made the harness depend on unrelated autosave/I/O and
     // intermittently left the modal open for the full Puppeteer timeout.
     await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);
-    await page.click('.folio-dialog[aria-label="Book Details"] header button[aria-label="Close"]');
-    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true, timeout: 5_000 });
+    let bookDetailsClosed = false;
+    for (let attempt = 0; attempt < 3 && !bookDetailsClosed; attempt++) {
+      await page.$eval(
+        '.folio-dialog[aria-label="Book Details"] header button[aria-label="Close"]',
+        (node) => (node as HTMLButtonElement).click(),
+      );
+      bookDetailsClosed = await page.waitForSelector(
+        '.folio-dialog[aria-label="Book Details"]',
+        { hidden: true, timeout: 5_000 },
+      ).then(() => true).catch(() => false);
+      if (!bookDetailsClosed) await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
     await new Promise((resolve) => setTimeout(resolve, 800));
     await page.waitForSelector('.rich-editor[contenteditable="true"]');
     await page.waitForFunction(() => Boolean((document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown));
