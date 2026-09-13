@@ -1,0 +1,42 @@
+name: Temporary v1.0.7 visual close-race patch
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-visual-close-race.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+          fetch-depth: 0
+      - name: Treat an already-dismissed Book Details dialog as closed in visual QA
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/v107-visual-qa.ts")
+          text = path.read_text(encoding="utf-8")
+          old = "    let bookDetailsClosed = false;\n    for (let attempt = 0; attempt < 3 && !bookDetailsClosed; attempt++) {\n      await page.$eval(\n        '.folio-dialog[aria-label=\"Book Details\"] header button[aria-label=\"Close\"]',\n        (node) => (node as HTMLButtonElement).click(),\n      );\n      bookDetailsClosed = await page.waitForSelector(\n        '.folio-dialog[aria-label=\"Book Details\"]',\n        { hidden: true, timeout: 5_000 },\n      ).then(() => true).catch(() => false);\n      if (!bookDetailsClosed) await new Promise((resolve) => setTimeout(resolve, 200));\n    }\n"
+          new = "    const bookDetailsSelector = '.folio-dialog[aria-label=\"Book Details\"]';\n    let bookDetailsClosed = !(await page.$(bookDetailsSelector));\n    for (let attempt = 0; attempt < 3 && !bookDetailsClosed; attempt++) {\n      const closeButton = await page.$(`${bookDetailsSelector} header button[aria-label=\"Close\"]`);\n      if (closeButton) await closeButton.click();\n      bookDetailsClosed = await page.waitForSelector(\n        bookDetailsSelector,\n        { hidden: true, timeout: 5_000 },\n      ).then(() => true).catch(async () => !(await page.$(bookDetailsSelector)));\n      if (!bookDetailsClosed) await new Promise((resolve) => setTimeout(resolve, 200));\n    }\n"
+          if text.count(old) != 1:
+              raise SystemExit(f"visual close-race anchor count={text.count(old)}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/v107-visual-close-race.yml
+          git add scripts/v107-visual-qa.ts .github/workflows/v107-visual-close-race.yml
+          git commit -m "Handle already-closed Book Details in v1.0.7 visual QA"
+          git push origin HEAD:fix/v1.0.7
