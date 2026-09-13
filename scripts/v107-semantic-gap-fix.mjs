@@ -1,0 +1,10 @@
+import { readFile, writeFile } from "node:fs/promises";
+const path = "web/src/compositor.ts";
+let text = await readFile(path, "utf8");
+const from = "  const maxWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);";
+const to = "  const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);\n  const semanticGapHeadroom = Math.max(0, fontSize * 0.37 - spaceWidth);\n  const maxWordSpacing = Math.min(configuredWordSpacing, semanticGapHeadroom);";
+const count = text.split(from).length - 1;
+if (count !== 1) throw new Error(`semantic gap anchor expected once, found ${count}`);
+text = text.replace(from, to);
+await writeFile(path, text, "utf8");
+console.log("Applied semantic-gap-aware word-spacing cap");
