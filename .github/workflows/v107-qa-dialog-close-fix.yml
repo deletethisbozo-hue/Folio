@@ -25,23 +25,8 @@ jobs:
           from pathlib import Path
           path = Path("scripts/v107-visual-qa.ts")
           text = path.read_text(encoding="utf-8")
-          old = '''    await page.click('.folio-dialog[aria-label="Book Details"] header button[aria-label="Close"]');
-    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true, timeout: 5_000 });
-'''
-          new = '''    let bookDetailsClosed = false;
-    for (let attempt = 0; attempt < 3 && !bookDetailsClosed; attempt++) {
-      await page.$eval(
-        '.folio-dialog[aria-label="Book Details"] header button[aria-label="Close"]',
-        (node) => (node as HTMLButtonElement).click(),
-      );
-      bookDetailsClosed = await page.waitForSelector(
-        '.folio-dialog[aria-label="Book Details"]',
-        { hidden: true, timeout: 5_000 },
-      ).then(() => true).catch(() => false);
-      if (!bookDetailsClosed) await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
-'''
+          old = "    await page.click('.folio-dialog[aria-label=\"Book Details\"] header button[aria-label=\"Close\"]');\n    await page.waitForSelector('.folio-dialog[aria-label=\"Book Details\"]', { hidden: true, timeout: 5_000 });\n"
+          new = "    let bookDetailsClosed = false;\n    for (let attempt = 0; attempt < 3 && !bookDetailsClosed; attempt++) {\n      await page.$eval(\n        '.folio-dialog[aria-label=\"Book Details\"] header button[aria-label=\"Close\"]',\n        (node) => (node as HTMLButtonElement).click(),\n      );\n      bookDetailsClosed = await page.waitForSelector(\n        '.folio-dialog[aria-label=\"Book Details\"]',\n        { hidden: true, timeout: 5_000 },\n      ).then(() => true).catch(() => false);\n      if (!bookDetailsClosed) await new Promise((resolve) => setTimeout(resolve, 200));\n    }\n    if (!bookDetailsClosed) throw new Error(\"Book Details dialog did not close after 3 programmatic attempts\");\n"
           if text.count(old) != 1:
               raise SystemExit(f"expected close marker once, found {text.count(old)}")
           path.write_text(text.replace(old, new, 1), encoding="utf-8")
