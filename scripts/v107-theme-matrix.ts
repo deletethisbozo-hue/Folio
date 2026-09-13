@@ -76,8 +76,11 @@ try {
 
   const settlePreview = async () => {
     await page.waitForSelector(".preview-loading", { hidden: true });
+    await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.fonts?.status === "loaded");
     await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed .folio-composed-line")));
-    await sleep(300);
+    await page.evaluate(async () => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
   };
 
   const replaceEditor = async (paragraphs: string[]): Promise<string> => {

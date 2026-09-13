@@ -1052,6 +1052,16 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   const view = document.defaultView;
   if (!view || !paragraphs.length) return;
 
+  // Never expose a composition calculated with a fallback face. Theme changes
+  // can replace the body font while the iframe itself is already interactive;
+  // composing before FontFaceSet settles makes line breaks and optical-edge
+  // correction stale as soon as the real face arrives. Wait inside the same
+  // generation, then abort if a newer preview generation superseded us.
+  if (document.fonts?.status === "loading") {
+    try { await document.fonts.ready; } catch { /* keep browser fallback if a face is genuinely unavailable */ }
+    if (compositionGeneration.get(document) !== generation) return;
+  }
+
   // A geometry generation must never expose line boxes calculated for the
   // previous device width. Only paragraphs that have actually been composed
   // carry original HTML, so restoring this small visible subset is cheap even
@@ -1073,9 +1083,4 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   if (first && compositionGeneration.get(document) === generation) composeParagraph(first, language, sectionStatsFor(first, statsBySection));
   installObserver(document, paragraphs, queue, queued, generation, language, statsBySection);
 
-  if (document.fonts?.status === "loading") {
-    void document.fonts.ready.then(() => {
-      if (compositionGeneration.get(document) === generation) void composePreviewDocument(document, true);
-    }).catch(() => undefined);
-  }
 }
