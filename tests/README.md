@@ -51,10 +51,12 @@ Puppeteer command.
 
 The compositor may use the full spacing envelope that the release gate already
 permits: strict lines stay inside ±0.101em and bounded relaxed lines inside
-±0.121em. Continuity is enforced across both strict and relaxed justified lines,
-and line-fit residuals target extra headroom below the 1.75px optical-edge gate.
-Single-word final lines carry a prohibitive cost so a viable multi-word ending
-wins whenever one exists.
+±0.121em. Positive expansion is additionally capped by the line's natural space
+width so the rendered semantic gap itself cannot exceed 0.37em; a face with wide
+natural spaces therefore receives less expansion than a tighter face. Continuity
+is enforced across both strict and relaxed justified lines, and line-fit residuals
+target extra headroom below the 1.75px optical-edge gate. Single-word final lines
+carry a prohibitive cost so a viable multi-word ending wins whenever one exists.
 
 Blues pagination retries only Paged.js's known transient `item doesn't belong to
 list` failure, rebuilding a fresh DOM before each retry. Other pagination errors
