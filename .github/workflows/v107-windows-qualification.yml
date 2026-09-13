@@ -131,7 +131,7 @@ jobs:
             $draft = "Packaged preview probe: live text before autosave."
             $previewBody = @{ meta = $sample.meta; theme = "blackletter"; typography = @{}; previewSectionId = $chapter.id; draft = $draft } | ConvertTo-Json -Depth 10
             $preview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $previewBody "$base/api/projects/$($sample.projectId)/preview"
-            if ($preview.html -notmatch "ackaged preview probe" -or $preview.html -notmatch "Old English Text MT") { throw "Packaged live preview omitted draft text or theme CSS." }
+            if ($preview.html -notmatch "ackaged preview probe" -or $preview.html -notmatch "Folio Grenze Gotisch") { throw "Packaged live preview omitted draft text or theme CSS." }
 
             $saveBody = @{ markdown = "$draft`n`nSaved copy-on-write." } | ConvertTo-Json
             $saved = Invoke-RestMethod -Method Put -ContentType "application/json" -Body $saveBody "$base/api/projects/$($sample.projectId)/sections/$sectionId"
