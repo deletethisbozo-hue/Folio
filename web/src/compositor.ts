@@ -280,7 +280,9 @@ function fitLine(
 ): LineFit | null {
   if (gaps <= 0) return null;
 
-  const maxWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);
+  const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);
+  const semanticGapHeadroom = Math.max(0, fontSize * 0.37 - spaceWidth);
+  const maxWordSpacing = Math.min(configuredWordSpacing, semanticGapHeadroom);
   const relaxedCompressionEm = 0.120;
   // Windows and Linux rasterize the same serif faces a little differently.
   // Keep the normal line fitter inside the release gate, but give Polish prose
