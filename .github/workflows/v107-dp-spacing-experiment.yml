@@ -1,5 +1,6 @@
 name: v1.0.7 DP spacing-state experiment
 
+# Checkout-only experiment: validates the DP state-key hypothesis without committing product code.
 on:
   push:
     branches: [fix/v1.0.7]
