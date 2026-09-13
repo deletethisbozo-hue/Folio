@@ -1,0 +1,2 @@
+Final v1.0.7 qualification trigger after hardened theme-matrix language switching.
+Source matrix fix: b4a4cbc0af9e181678c0f13e1963824b6b6027f9
