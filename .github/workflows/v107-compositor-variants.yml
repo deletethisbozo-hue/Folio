@@ -1,0 +1,118 @@
+name: v1.0.7 compositor variants
+
+on:
+  push:
+    branches: [fix/v1.0.7]
+    paths:
+      - '.github/workflows/v107-compositor-variants.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [widow-priority, fit-headroom, dropcap-optics]
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install pinned Pandoc 3.11
+        shell: bash
+        run: |
+          mkdir -p build/pandoc
+          curl -fsSL "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz" -o build/pandoc-3.11-linux-amd64.tar.gz
+          echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
+          tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
+      - run: npx puppeteer browsers install chrome-headless-shell
+      - name: Apply checkout-only compositor variant
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          variant = os.environ['VARIANT']
+          p = Path('web/src/compositor.ts')
+          s = p.read_text(encoding='utf-8')
+          if variant == 'fit-headroom':
+              if s.count('const relaxedCompressionEm = 0.120;') != 1 or s.count('const strictCompressionEm = 0.099;') != 1:
+                  raise SystemExit('compression anchors changed')
+              s = s.replace('const strictCompressionEm = 0.099;', 'const strictCompressionEm = 0.101;', 1)
+              if s.count('Math.abs(residualPx) > 1.70') != 1:
+                  raise SystemExit('residual gate anchor changed')
+              s = s.replace('Math.abs(residualPx) > 1.70', 'Math.abs(residualPx) > 1.74', 1)
+              if s.count('Math.abs(residualPx) / 1.70') != 1:
+                  raise SystemExit('residual badness anchor changed')
+              s = s.replace('Math.abs(residualPx) / 1.70', 'Math.abs(residualPx) / 1.74', 1)
+          elif variant == 'dropcap-optics':
+              old = 'capIntrusion: Math.min(width * 0.46, capIntrusion),'
+              new = 'capIntrusion: Math.min(width * 0.46, capIntrusion * 0.96),'
+              if s.count(old) != 1:
+                  raise SystemExit('dropcap intrusion anchor changed')
+              s = s.replace(old, new, 1)
+          elif variant == 'widow-priority':
+              old_decl = '  let bestHyphenBudgetPriority = 3;\n'
+              new_decl = '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n'
+              if s.count(old_decl) != 1:
+                  raise SystemExit('widow declaration anchor changed')
+              s = s.replace(old_decl, new_decl, 1)
+              old_rate = '''    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n'''
+              new_rate = '''    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n'''
+              if s.count(old_rate) != 1:
+                  raise SystemExit('widow rate anchor changed')
+              s = s.replace(old_rate, new_rate, 1)
+              old_pick = '''    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n'''
+              new_pick = '''    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n'''
+              if s.count(old_pick) != 1:
+                  raise SystemExit('widow selection anchor changed')
+              s = s.replace(old_pick, new_pick, 1)
+          else:
+              raise SystemExit(f'unknown variant {variant}')
+          p.write_text(s, encoding='utf-8')
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Reference corpus
+        id: reference
+        continue-on-error: true
+        run: node --import tsx scripts/v107-visual-qa.ts
+      - name: 30-theme matrix
+        id: matrix
+        continue-on-error: true
+        run: node --import tsx scripts/v107-theme-matrix.ts
+      - name: Summarize variant
+        if: always()
+        shell: python
+        run: |
+          import json, os
+          from collections import Counter
+          from pathlib import Path
+          p = Path('build/qa-v107/theme-matrix.json')
+          if not p.exists():
+              raise SystemExit('theme-matrix.json missing')
+          d = json.loads(p.read_text(encoding='utf-8'))
+          categories = Counter()
+          for failures in d.get('failuresByTheme', {}).values():
+              for scenario in failures:
+                  for failure in scenario.get('failures', []):
+                      categories[failure.split('=', 1)[0]] += 1
+          print(json.dumps({
+              'variant': os.environ['VARIANT'],
+              'reference': '${{ steps.reference.outcome }}',
+              'matrix': '${{ steps.matrix.outcome }}',
+              'themes': d['themes'],
+              'totalScenarios': d['totalScenarios'],
+              'passed': d['passed'],
+              'failed': d['failed'],
+              'categories': categories,
+          }, indent=2, default=dict))
+          if '${{ steps.reference.outcome }}' != 'success':
+              raise SystemExit('reference corpus failed')
