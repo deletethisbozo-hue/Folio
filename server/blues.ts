@@ -81,8 +81,7 @@ export function buildBluesPageCss(title: string, author: string, opts: BluesOpti
 /* Any blank page Paged.js inserts stays genuinely blank. */
 @page :blank { ${clearAll} }
 
-section.blues-cover { page: bluescover; }
-section.blues-toc { page: bluestoc; }
-section.chapter { page: chapter; }
+/* Blues named-page assignment is applied as data-page in render-blues.ts.
+   The correction PDF is deliberately theme-neutral. */
 `;
 }

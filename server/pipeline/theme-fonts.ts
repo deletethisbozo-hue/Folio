@@ -58,35 +58,6 @@ const FONTS = {
 
 type FontKey = keyof typeof FONTS;
 
-const THEME_PROSE_SCALE: Partial<Record<ThemeName, number>> = {
-  modern: 0.985,
-  decorative: 0.970,
-  editorial: 0.985,
-  scholar: 0.985,
-  folio: 0.985,
-  ivory: 0.995,
-  nocturne: 0.970,
-  cloister: 0.980,
-  atlas: 0.985,
-  stanza: 0.995,
-  ember: 0.985,
-  cinder: 0.995,
-  solstice: 0.985,
-  obsidian: 0.970,
-  cathedral: 0.970,
-  necropolis: 0.995,
-  wyrmwood: 0.980,
-  runestone: 0.985,
-  ironbound: 0.980,
-  revenant: 0.970,
-};
-
-function proseCalibrationCss(theme: ThemeName): string {
-  const scale = THEME_PROSE_SCALE[theme];
-  if (!scale) return "";
-  return `section.chapter>p:not(.scene-break),section.chapter blockquote p,section.chapter li,section.backmatter>p:not(.scene-break),section.backmatter li{font-size:${scale}em}`;
-}
-
 const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
   ["Folio Source Serif 4", "sourceSerif"], ["Folio Source Sans 3", "sourceSans"],
   ["Folio EB Garamond", "garamond"], ["Folio Libre Caslon Text", "caslon"],
@@ -178,12 +149,10 @@ export async function buildThemeRuntimeCss(
   const keys = [...normalized.used];
   const faces = await Promise.all(keys.map((key) => fontFaceCss(FONTS[key], target)));
   const fontCss = faces.join("\n");
-  const calibrationCss = proseCalibrationCss(theme);
-  const calibratedThemeCss = calibrationCss ? `${normalized.css}\n${calibrationCss}` : normalized.css;
   const fontFiles = [...new Set(keys.flatMap((key) => FONTS[key].faces.map((face) => path.join(THEME_FONTS_DIR, face.file))))];
   return {
-    css: `${fontCss}\n${calibratedThemeCss}`,
-    themeCss: calibratedThemeCss,
+    css: `${fontCss}\n${normalized.css}`,
+    themeCss: normalized.css,
     fontCss,
     fontFiles,
     families: keys.map((key) => FONTS[key].family),
