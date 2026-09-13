@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [widow-priority, fit-headroom, dropcap-optics]
+        variant: [widow-expansion-090, widow-expansion-099, widow-optical-inset]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -40,43 +40,63 @@ jobs:
         run: |
           import os
           from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} matches: {count}')
+              return text.replace(old, new, 1)
+
           variant = os.environ['VARIANT']
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
-          if variant == 'fit-headroom':
-              if s.count('const relaxedCompressionEm = 0.120;') != 1 or s.count('const strictCompressionEm = 0.099;') != 1:
-                  raise SystemExit('compression anchors changed')
-              s = s.replace('const strictCompressionEm = 0.099;', 'const strictCompressionEm = 0.101;', 1)
-              if s.count('Math.abs(residualPx) > 1.70') != 1:
-                  raise SystemExit('residual gate anchor changed')
-              s = s.replace('Math.abs(residualPx) > 1.70', 'Math.abs(residualPx) > 1.74', 1)
-              if s.count('Math.abs(residualPx) / 1.70') != 1:
-                  raise SystemExit('residual badness anchor changed')
-              s = s.replace('Math.abs(residualPx) / 1.70', 'Math.abs(residualPx) / 1.74', 1)
-          elif variant == 'dropcap-optics':
-              old = 'capIntrusion: Math.min(width * 0.46, capIntrusion),'
-              new = 'capIntrusion: Math.min(width * 0.46, capIntrusion * 0.96),'
-              if s.count(old) != 1:
-                  raise SystemExit('dropcap intrusion anchor changed')
-              s = s.replace(old, new, 1)
-          elif variant == 'widow-priority':
-              old_decl = '  let bestHyphenBudgetPriority = 3;\n'
-              new_decl = '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n'
-              if s.count(old_decl) != 1:
-                  raise SystemExit('widow declaration anchor changed')
-              s = s.replace(old_decl, new_decl, 1)
-              old_rate = '''    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n'''
-              new_rate = '''    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n'''
-              if s.count(old_rate) != 1:
-                  raise SystemExit('widow rate anchor changed')
-              s = s.replace(old_rate, new_rate, 1)
-              old_pick = '''    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n'''
-              new_pick = '''    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n'''
-              if s.count(old_pick) != 1:
-                  raise SystemExit('widow selection anchor changed')
-              s = s.replace(old_pick, new_pick, 1)
+
+          # Proven safe in the previous experiment: prefer a multi-word final line
+          # whenever such a final state already exists, before comparing hyphen budget/cost.
+          s = replace_once(
+              s,
+              '  let bestHyphenBudgetPriority = 3;\n',
+              '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n',
+              'widow declaration',
+          )
+          s = replace_once(
+              s,
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              'widow rate',
+          )
+          s = replace_once(
+              s,
+              '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              'widow selection',
+          )
+
+          expansion_anchor = 'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);'
+          if variant == 'widow-expansion-090':
+              s = replace_once(
+                  s,
+                  expansion_anchor,
+                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.090);',
+                  '0.090 positive spacing',
+              )
+          elif variant == 'widow-expansion-099':
+              s = replace_once(
+                  s,
+                  expansion_anchor,
+                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
+                  '0.099 positive spacing',
+              )
+          elif variant == 'widow-optical-inset':
+              s = replace_once(
+                  s,
+                  'currentScale * opticalMeasure / rendered',
+                  'currentScale * Math.max(1, opticalMeasure - 0.03) / rendered',
+                  'optical inset',
+              )
           else:
               raise SystemExit(f'unknown variant {variant}')
+
           p.write_text(s, encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
