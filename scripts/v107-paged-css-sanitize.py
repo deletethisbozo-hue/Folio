@@ -16,9 +16,8 @@ replace_once(
 section.blues-toc { page: bluestoc; }
 section.chapter { page: chapter; }
 """,
-    """/* Named-page assignment is applied as data-page in render-blues.ts.
-   Keeping it out of the stylesheet avoids Paged.js mutating the css-tree
-   declaration list for properties we already know semantically. */
+    """/* Blues named-page assignment is applied as data-page in render-blues.ts.
+   The correction PDF is deliberately theme-neutral. */
 """,
 )
 
@@ -37,17 +36,23 @@ replace_once(
       window.PagedConfig = { auto: false };
     });""",
     """    await page.evaluate(() => {
-      // Paged.js 0.x removes page/break declarations from css-tree while parsing.
-      // With Folio's combined base + theme + Blues stylesheet this can make two
-      // handlers mutate the same list item and throw \"item doesn't belong to list\".
-      // Blues knows the required pagination semantics already, so strip only these
-      // properties in this render mode and express them as the data attributes the
-      // Paged.js layout engine consumes after parsing. Normal print/EPUB/preview CSS
-      // is untouched.
-      const breakProperty = /\\b(?:break-before|page-break-before|break-after|page-break-after|page)\\s*:\\s*[^;{}]+;?/gi;
+      // A Blues PDF is intentionally a neutral correction surface, not a second
+      // themed edition. Feeding the full book/theme/print stylesheet through
+      // Paged.js 0.4.x also exposes its css-tree mutation bug (\"item doesn't
+      // belong to list\"). Keep only the dedicated Blues stylesheet before the
+      // polyfill parses CSS. Normal preview/EPUB/print rendering is untouched.
       document.querySelectorAll("style").forEach((style) => {
-        style.textContent = (style.textContent ?? "").replace(breakProperty, "");
+        if (style.id !== "book-formatter-blues") style.remove();
       });
+      document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => link.remove());
+
+      // The remaining Blues stylesheet only needs @page geometry and visual
+      // rules. Express named pages and forced/avoided breaks directly through
+      // the data attributes Paged.js consumes after parsing, avoiding its Breaks
+      // handler entirely.
+      const breakProperty = /\\b(?:break-before|page-break-before|break-after|page-break-after|page)\\s*:\\s*[^;{}]+;?/gi;
+      const bluesStyle = document.getElementById("book-formatter-blues");
+      if (bluesStyle) bluesStyle.textContent = (bluesStyle.textContent ?? "").replace(breakProperty, "");
 
       const cover = document.querySelector("section.blues-cover");
       cover?.setAttribute("data-page", "bluescover");
