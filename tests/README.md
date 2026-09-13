@@ -34,6 +34,15 @@ a claim that stopped being true rather than a stack trace.
 | `blues-format` | Page geometry, the gutter, running head and foot, `--pages` |
 | `cli` | `npm run blues` end to end, as a subprocess |
 
+## v1.0.7 visual qualification
+
+The v1.0.7 visual gates deliberately wait for the preview iframe's final
+`FontFaceSet` before measuring line geometry. A theme switch must never qualify
+line breaks composed against a fallback face and then silently reflow after the
+real bundled font arrives. The 30-theme matrix therefore waits for fonts to be
+`loaded`, for professional composition to exist, and for two animation frames
+before collecting typography metrics.
+
 ## Rules that keep these honest
 
 **Never touch the real books.** Every suite works on a disposable copy from
