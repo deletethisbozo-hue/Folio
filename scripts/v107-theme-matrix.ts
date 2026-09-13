@@ -103,8 +103,15 @@ try {
   };
 
   const setLanguage = async (language: string) => {
-    await page.click('[data-command="book"]');
-    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]');
+    await page.waitForSelector('[data-command="book"]');
+    let bookDetailsOpened = false;
+    for (let attempt = 0; attempt < 3 && !bookDetailsOpened; attempt++) {
+      await page.$eval('[data-command="book"]', (node) => (node as HTMLButtonElement).click());
+      const dialog = await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { timeout: 10_000 }).catch(() => null);
+      bookDetailsOpened = Boolean(dialog);
+      if (!bookDetailsOpened) await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (!bookDetailsOpened) throw new Error("Book Details dialog did not open after 3 programmatic attempts");
     await page.evaluate((value) => {
       const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
       const input = row?.querySelector("input") as HTMLInputElement | null;
@@ -113,11 +120,15 @@ try {
       setter.call(input, value);
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
-      const save = [...document.querySelectorAll(".folio-dialog footer button")].find((node) => node.textContent === "Save");
-      (save as HTMLButtonElement | undefined)?.click();
     }, language);
-    await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true });
     await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);
+    let bookDetailsClosed = false;
+    for (let attempt = 0; attempt < 3 && !bookDetailsClosed; attempt++) {
+      await page.$eval('.folio-dialog[aria-label="Book Details"] header button[aria-label="Close"]', (node) => (node as HTMLButtonElement).click());
+      bookDetailsClosed = await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { hidden: true, timeout: 5_000 }).then(() => true).catch(() => false);
+      if (!bookDetailsClosed) await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
     await settlePreview();
   };
 
