@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [widow-expansion-090, widow-expansion-099, widow-optical-inset]
+        variant: [widow-strict-full-099, widow-strict-full-101, widow-strict-full-fine]
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -51,14 +51,8 @@ jobs:
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
 
-          # Proven safe in the previous experiment: prefer a multi-word final line
-          # whenever such a final state already exists, before comparing hyphen budget/cost.
-          s = replace_once(
-              s,
-              '  let bestHyphenBudgetPriority = 3;\n',
-              '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n',
-              'widow declaration',
-          )
+          # Proven safe: final-state widow priority.
+          s = replace_once(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
           s = replace_once(
               s,
               '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
@@ -72,29 +66,27 @@ jobs:
               'widow selection',
           )
 
-          expansion_anchor = 'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);'
-          if variant == 'widow-expansion-090':
-              s = replace_once(
-                  s,
-                  expansion_anchor,
-                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.090);',
-                  '0.090 positive spacing',
-              )
-          elif variant == 'widow-expansion-099':
-              s = replace_once(
-                  s,
-                  expansion_anchor,
-                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
-                  '0.099 positive spacing',
-              )
-          elif variant == 'widow-optical-inset':
-              s = replace_once(
-                  s,
-                  'currentScale * opticalMeasure / rendered',
-                  'currentScale * Math.max(1, opticalMeasure - 0.03) / rendered',
-                  'optical inset',
-              )
-          else:
+          # Use the full envelope already enforced by the unchanged release QA.
+          positive = '0.101' if variant == 'widow-strict-full-101' else '0.099'
+          s = replace_once(
+              s,
+              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
+              f'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : {positive});',
+              'positive strict spacing',
+          )
+          s = replace_once(s, 'const strictCompressionEm = 0.099;', 'const strictCompressionEm = 0.101;', 'negative strict spacing')
+          s = replace_once(
+              s,
+              'const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);',
+              'const minTracking = -fontSize * 0.003;',
+              'strict tracking',
+          )
+          s = replace_once(s, 'if (Math.abs(residualPx) > 1.70) continue;', 'if (Math.abs(residualPx) > 1.74) continue;', 'residual ceiling')
+          s = replace_once(s, '+ 100 * Math.pow(Math.abs(residualPx) / 1.70, 2);', '+ 100 * Math.pow(Math.abs(residualPx) / 1.74, 2);', 'residual badness')
+
+          if variant == 'widow-strict-full-fine':
+              s = replace_once(s, 'for (let step = -20; step <= 20; step++) {\n    const glyphScale = 1 + step * 0.0005;', 'for (let step = -40; step <= 40; step++) {\n    const glyphScale = 1 + step * 0.00025;', 'fine glyph sampling')
+          elif variant not in ('widow-strict-full-099', 'widow-strict-full-101'):
               raise SystemExit(f'unknown variant {variant}')
 
           p.write_text(s, encoding='utf-8')
