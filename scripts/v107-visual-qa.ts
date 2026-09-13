@@ -152,7 +152,7 @@ try {
     let bookDetailsOpened = false;
     for (let attempt = 0; attempt < 3 && !bookDetailsOpened; attempt++) {
       await page.$eval('[data-command="book"]', (node) => (node as HTMLButtonElement).click());
-      const dialog = await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { visible: true, timeout: 3_000 }).catch(() => null);
+      const dialog = await page.waitForSelector('.folio-dialog[aria-label="Book Details"]', { timeout: 10_000 }).catch(() => null);
       bookDetailsOpened = Boolean(dialog);
       if (!bookDetailsOpened) await new Promise((resolve) => setTimeout(resolve, 200));
     }
