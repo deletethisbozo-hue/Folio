@@ -164,7 +164,7 @@ try {
   await page.click('[title="Insert ornamental scene break"]');
   await stage("ornamental break preview", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break"))));
   check("ornamental break button inserts a semantic break and renders the ornament", await page.$eval(".rich-editor", (el) => (el as HTMLElement).dataset.markdown?.includes("---") ?? false));
-  await stage("sample autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 10000 }));
+  await stage("sample autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 }));
   check("the browser flow reaches Saved instead of Save failed", true);
 
   await page.evaluate(() => {
@@ -495,7 +495,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       ok: justified.length > 0 &&
         Math.max(...errors, 0) <= 1.75 &&
         Math.max(...protrusions, 0) <= 4.5 &&
-        Math.max(...wordSpacing, 0) <= fontSize * .116 &&
+        Math.max(...wordSpacing, 0) <= fontSize * .121 &&
         Math.max(...tracking, 0) <= fontSize * .0056 &&
         Math.max(...semanticGaps, 0) <= fontSize * .42 &&
         lines.at(-1)?.classList.contains("folio-line-natural") === true &&

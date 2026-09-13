@@ -282,7 +282,7 @@ function fitLine(
 
   const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);
   // Cap the rendered semantic gap, including positive tracking and the allowed 1% glyph stretch.
-  const semanticGapHeadroom = Math.max(0, fontSize * 0.37 / 1.01 - spaceWidth - fontSize * 0.003);
+  const semanticGapHeadroom = Math.max(0, fontSize * 0.3685 / 1.01 - spaceWidth - fontSize * 0.003);
   const maxWordSpacing = Math.min(configuredWordSpacing, semanticGapHeadroom);
   const relaxedCompressionEm = 0.120;
   // Windows and Linux rasterize the same serif faces a little differently.
@@ -318,7 +318,7 @@ function fitLine(
     wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
     tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
     const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
-    if (Math.abs(residualPx) > 1.45) continue;
+    if (Math.abs(residualPx) > 1.70) continue;
 
     const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
     const trackingRatio = tracking / Math.max(1, fontSize);
@@ -328,7 +328,7 @@ function fitLine(
       + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
       + 42 * Math.pow(scaleRatio, 3)
       + 90 * Math.pow(scaleJumpRatio, 2)
-      + 100 * Math.pow(Math.abs(residualPx) / 1.45, 2);
+      + 100 * Math.pow(Math.abs(residualPx) / 1.70, 2);
     const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
     const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
     const rank = selection === "continuity"

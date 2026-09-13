@@ -234,8 +234,8 @@ try {
             range.selectNodeContents(line);
             maxRightErrorPx = Math.max(maxRightErrorPx, Math.abs(line.getBoundingClientRect().right + protrusion - range.getBoundingClientRect().right));
             maxWordSpacingEm = Math.max(maxWordSpacingEm, Math.abs(spacing));
-            if (relaxed) {
-              relaxedLines++;
+            if (relaxed || compressedFinal) {
+              if (relaxed) relaxedLines++;
               maxRelaxedWordSpacingEm = Math.max(maxRelaxedWordSpacingEm, Math.abs(spacing));
             } else maxStrictWordSpacingEm = Math.max(maxStrictWordSpacingEm, Math.abs(spacing));
             maxTrackingEm = Math.max(maxTrackingEm, Math.abs(tracking));

@@ -270,42 +270,49 @@ export async function renderBlues(book: Book, opts: BluesOptions): Promise<{ buf
     : `${styleTag}\n${baseHtml}`;
 
   const browser = await getBrowser();
-  const page = await browser.newPage();
-  try {
-    await page.setContent(html, { waitUntil: "load" });
-    const r = await paginate(page, opts.maxPages);
+  let lastPagedError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const page = await browser.newPage();
+    try {
+      await page.setContent(html, { waitUntil: "load" });
+      const r = await paginate(page, opts.maxPages);
 
-    const truncated = r.pages < r.totalPages;
-    const lastChapter = truncated && r.lastChapter !== null ? from + r.lastChapter - 1 : from + chapters.length - 1;
+      const truncated = r.pages < r.totalPages;
+      const lastChapter = truncated && r.lastChapter !== null ? from + r.lastChapter - 1 : from + chapters.length - 1;
 
-    // The cover advertises the range, which is only knowable now.
-    await page.evaluate(
-      (shown, total, isTrunc) => {
-        const el = document.querySelector(".blues-range");
-        if (el) el.textContent = isTrunc ? ` · pages 1–${shown} of ~${total}` : "";
-      },
-      r.pages,
-      r.totalPages,
-      truncated,
-    );
-
-    const buffer = Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
-    return {
-      buffer,
-      meta: {
-        pages: r.pages,
-        totalPages: r.totalPages,
-        chapters: truncated && r.lastChapter !== null ? r.lastChapter : chapters.length,
-        totalChapters,
-        firstChapter: from,
-        lastChapter,
-        words,
+      await page.evaluate(
+        (shown, total, isTrunc) => {
+          const el = document.querySelector(".blues-range");
+          if (el) el.textContent = isTrunc ? ` · pages 1–${shown} of ~${total}` : "";
+        },
+        r.pages,
+        r.totalPages,
         truncated,
-      },
-    };
-  } finally {
-    await page.close();
+      );
+
+      const buffer = Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
+      return {
+        buffer,
+        meta: {
+          pages: r.pages,
+          totalPages: r.totalPages,
+          chapters: truncated && r.lastChapter !== null ? r.lastChapter : chapters.length,
+          totalChapters,
+          firstChapter: from,
+          lastChapter,
+          words,
+          truncated,
+        },
+      };
+    } catch (error) {
+      lastPagedError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("item doesn't belong to list") || attempt === 2) throw error;
+    } finally {
+      await page.close();
+    }
   }
+  throw lastPagedError instanceof Error ? lastPagedError : new Error(String(lastPagedError));
 }
 
 export { runningHead };
