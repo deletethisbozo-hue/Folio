@@ -51,18 +51,31 @@ Puppeteer command.
 
 Normal strict composition keeps positive word-space expansion at +0.075em; the
 wider ±0.121em envelope is reserved for bounded relaxed/final rescue rather than
-being allowed to perturb otherwise healthy line-break choices. Compression stays
-inside the existing release gates. Positive expansion is also capped against the
-face's natural space width while reserving worst-case positive tracking and the
-allowed 1% glyph stretch, so the rendered semantic gap itself stays at or below
-0.37em. Continuity is enforced across both strict and relaxed justified lines,
-and line-fit residuals target extra headroom below the 1.75px optical-edge gate.
-Single-word final lines carry a prohibitive cost so a viable multi-word ending
-wins whenever one exists.
+being allowed to perturb otherwise healthy line-break choices. Final-compressed
+lines are therefore measured against the rescue envelope, while only genuinely
+relaxed non-final lines count toward the two-line relaxed quota. Compression
+stays inside the existing release gates. Positive expansion is also capped
+against the face's natural space width while reserving worst-case positive
+tracking and the allowed 1% glyph stretch, with extra rasterization headroom
+below the unchanged 0.37em rendered semantic-gap gate.
+
+Continuity is enforced across both strict and relaxed justified lines. The line
+fitter may accept up to 1.70px residual so it can use the full legal solution
+space without producing unnecessary emergency lines, while qualification still
+requires the unchanged 1.75px optical-edge ceiling. Single-word final lines keep
+a prohibitive cost so a viable multi-word ending wins whenever one exists.
 
 Blues pagination retries only Paged.js's known transient `item doesn't belong to
-list` failure, rebuilding a fresh DOM before each retry. Other pagination errors
-remain fatal and visible to the suite.
+list` failure. In addition to rebuilding the DOM inside pagination, a failed
+render is retried on a completely fresh Chromium page so corrupted Paged.js
+internal state cannot leak into the retry. Other pagination errors remain fatal
+and visible to the suite.
+
+The Windows browser-flow autosave check allows up to 30 seconds for the slower
+hosted runner, but still requires the exact `Saved` state; the timeout change is
+scheduling headroom, not a weaker correctness assertion. Packaged preview smoke
+checks the bundled `Folio Grenze Gotisch` Gothic face used by 1.0.7 rather than a
+machine-dependent Windows system font.
 
 ## Rules that keep these honest
 
