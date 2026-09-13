@@ -1,0 +1,2 @@
+Folio 1.0.7 final qualification sentinel.
+Includes hardened Book Details handling in the 30-theme matrix and font-stable preview composition.
