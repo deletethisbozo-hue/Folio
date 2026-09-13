@@ -1,0 +1,31 @@
+name: Temporary v1.0.7 quality pass
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-quality-pass.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+          fetch-depth: 0
+      - name: Apply v1.0.7 quality pass
+        run: node scripts/v107-quality-pass.mjs
+      - name: Commit product, test, and QA fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm scripts/v107-quality-pass.mjs .github/workflows/v107-quality-pass.yml
+          git add -A
+          git commit -m "Improve v1.0.7 composition and qualification stability"
+          git push origin HEAD:fix/v1.0.7
