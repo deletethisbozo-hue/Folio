@@ -43,6 +43,12 @@ real bundled font arrives. The 30-theme matrix therefore waits for fonts to be
 `loaded`, for professional composition to exist, and for two animation frames
 before collecting typography metrics.
 
+Language switching in both v1.0.7 visual harnesses also treats a Book Details
+dialog that has already been dismissed by the application as successfully
+closed. The QA must synchronize with application state instead of failing merely
+because a Close button disappeared between state propagation and the next
+Puppeteer command.
+
 ## Rules that keep these honest
 
 **Never touch the real books.** Every suite works on a disposable copy from
