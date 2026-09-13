@@ -1,0 +1,30 @@
+name: Temporary v1.0.7 semantic-gap spacing fix
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-semantic-gap-fix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+          fetch-depth: 0
+      - run: node scripts/v107-semantic-gap-fix.mjs
+      - name: Commit spacing fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm scripts/v107-semantic-gap-fix.mjs .github/workflows/v107-semantic-gap-fix.yml
+          git add -A
+          git commit -m "Cap v1.0.7 expansion by semantic gap"
+          git push origin HEAD:fix/v1.0.7
