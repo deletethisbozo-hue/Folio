@@ -14,14 +14,17 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/v1.0.7
           fetch-depth: 0
-      - name: Apply Paged.js parser isolation
+      - name: Roll back unsafe typography experiment
+        run: python3 scripts/v107-revert-unsafe-typography.py
+      - name: Apply theme-neutral Blues isolation
         run: python3 scripts/v107-paged-css-sanitize.py
-      - name: Validate patch shape
+      - name: Validate candidate diff
         run: git diff --check
       - uses: actions/setup-node@v4
         with:
@@ -36,21 +39,25 @@ jobs:
           curl -fsSL "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz" -o build/pandoc-3.11-linux-amd64.tar.gz
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
+      - name: Install pinned Chromium runtime
+        run: npx puppeteer browsers install chrome-headless-shell
       - name: Typecheck
         run: npm run typecheck
-      - name: Build web
-        run: npm run build:web
+      - name: Build web and server
+        run: npm run build
+      - name: Reference visual corpus
+        run: node --import tsx scripts/v107-visual-qa.ts
       - name: Review-folder regression
         run: node --import tsx tests/review-folder.test.ts
       - name: Web-export regression
         run: node --import tsx tests/web-export.test.ts
       - name: UI runtime regression
         run: node --import tsx tests/ui-runtime.test.ts
-      - name: Commit parser isolation after green regressions
+      - name: Commit candidate after green regressions
         run: |
-          rm scripts/v107-paged-css-sanitize.py
+          rm scripts/v107-paged-css-sanitize.py scripts/v107-revert-unsafe-typography.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server/blues.ts server/pipeline/render-blues.ts scripts/v107-paged-css-sanitize.py
-          git commit -m "Isolate Blues pagination from Paged.js CSS parser"
+          git add server/blues.ts server/pipeline/render-blues.ts server/pipeline/theme-fonts.ts web/src/compositor.ts tests/ui-runtime.test.ts scripts/v107-paged-css-sanitize.py scripts/v107-revert-unsafe-typography.py
+          git commit -m "Stabilize v1.0.7 Blues and restore qualified typography"
           git push origin HEAD:fix/v1.0.7
