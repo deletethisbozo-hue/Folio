@@ -1,0 +1,94 @@
+name: Temporary v1.0.7 font-stable composition fix
+
+on:
+  push:
+    branches: ["fix/v1.0.7"]
+    paths:
+      - ".github/workflows/v107-font-stable-compose-fix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+          fetch-depth: 0
+      - name: Compose only after final theme fonts are ready
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          compositor = Path("web/src/compositor.ts")
+          text = compositor.read_text(encoding="utf-8")
+          anchor = '''  const view = document.defaultView;
+  if (!view || !paragraphs.length) return;
+
+  // A geometry generation must never expose line boxes calculated for the
+'''
+          replacement = '''  const view = document.defaultView;
+  if (!view || !paragraphs.length) return;
+
+  // Never expose a composition calculated with a fallback face. Theme changes
+  // can replace the body font while the iframe itself is already interactive;
+  // composing before FontFaceSet settles makes line breaks and optical-edge
+  // correction stale as soon as the real face arrives. Wait inside the same
+  // generation, then abort if a newer preview generation superseded us.
+  if (document.fonts?.status === "loading") {
+    try { await document.fonts.ready; } catch { /* keep browser fallback if a face is genuinely unavailable */ }
+    if (compositionGeneration.get(document) !== generation) return;
+  }
+
+  // A geometry generation must never expose line boxes calculated for the
+'''
+          if text.count(anchor) != 1:
+              raise SystemExit(f"font-wait anchor count={text.count(anchor)}")
+          text = text.replace(anchor, replacement, 1)
+
+          tail = '''
+  if (document.fonts?.status === "loading") {
+    void document.fonts.ready.then(() => {
+      if (compositionGeneration.get(document) === generation) void composePreviewDocument(document, true);
+    }).catch(() => undefined);
+  }
+}'''
+          if text.count(tail) != 1:
+              raise SystemExit(f"old recursive font tail count={text.count(tail)}")
+          text = text.replace(tail, '\n}', 1)
+          compositor.write_text(text, encoding="utf-8")
+
+          matrix = Path("scripts/v107-theme-matrix.ts")
+          text = matrix.read_text(encoding="utf-8")
+          old = '''  const settlePreview = async () => {
+    await page.waitForSelector(".preview-loading", { hidden: true });
+    await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed .folio-composed-line")));
+    await sleep(300);
+  };
+'''
+          new = '''  const settlePreview = async () => {
+    await page.waitForSelector(".preview-loading", { hidden: true });
+    await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.fonts?.status === "loaded");
+    await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed .folio-composed-line")));
+    await page.evaluate(async () => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+  };
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f"matrix settle anchor count={text.count(old)}")
+          matrix.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+      - name: Commit fix and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/v107-font-stable-compose-fix.yml
+          git add web/src/compositor.ts scripts/v107-theme-matrix.ts .github/workflows/v107-font-stable-compose-fix.yml
+          git commit -m "Compose v1.0.7 preview after theme fonts settle"
+          git push origin HEAD:fix/v1.0.7
