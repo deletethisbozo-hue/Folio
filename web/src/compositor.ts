@@ -280,8 +280,9 @@ function fitLine(
 ): LineFit | null {
   if (gaps <= 0) return null;
 
-  const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);
-  const semanticGapHeadroom = Math.max(0, fontSize * 0.37 - spaceWidth);
+  const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);
+  // Cap the rendered semantic gap, including positive tracking and the allowed 1% glyph stretch.
+  const semanticGapHeadroom = Math.max(0, fontSize * 0.37 / 1.01 - spaceWidth - fontSize * 0.003);
   const maxWordSpacing = Math.min(configuredWordSpacing, semanticGapHeadroom);
   const relaxedCompressionEm = 0.120;
   // Windows and Linux rasterize the same serif faces a little differently.
