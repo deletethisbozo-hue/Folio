@@ -1,4 +1,4 @@
-name: v1.0.7 hyphenation probe
+name: v1.0.7 compositor trace
 
 on:
   push:
@@ -10,8 +10,10 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  trace:
     runs-on: ubuntu-24.04
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,36 +21,88 @@ jobs:
           node-version: 22.23.2
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Print Polish hyphenation candidates
-        shell: bash
+      - run: npx puppeteer browsers install chrome-headless-shell
+      - name: Apply minimal 42/90 recipe and focus matrix
+        shell: python
         run: |
-          node --input-type=module <<'NODE'
-          import Hypher from 'hypher';
-          import pl from 'hyphenation.pl';
-          import en from 'hyphenation.en-us';
+          from pathlib import Path
 
-          const polish = new Hypher(pl);
-          const english = new Hypher(en);
-          const words = [
-            'konsekwencją',
-            'bezsensowności',
-            'brzemieniem',
-            'przygnębiająca',
-            'przygnębiający',
-            'przemilczanych',
-            'profesjonalny',
-            'typograficzną',
-            'najtrudniejsze',
-            'odpowiedzi',
-            'zachowywać',
-            'rozsądne',
-            'dzielenie',
-            'wszystkich',
-          ];
-          for (const word of words) {
-            console.log(JSON.stringify({ word, parts: polish.hyphenate(word), soft: polish.hyphenateText(word) }));
-          }
-          for (const word of ['extraordinary','professional','typesetting','overlooked']) {
-            console.log(JSON.stringify({ word, parts: english.hyphenate(word), soft: english.hyphenateText(word) }));
-          }
-          NODE
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} matches: {count}')
+              return text.replace(old, new, 1)
+
+          p = Path('web/src/compositor.ts')
+          s = p.read_text(encoding='utf-8')
+          s = replace_once(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
+          s = replace_once(
+              s,
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              'widow rate',
+          )
+          s = replace_once(
+              s,
+              '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              'widow selection',
+          )
+          s = replace_once(
+              s,
+              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
+              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
+              'positive strict spacing',
+          )
+          p.write_text(s, encoding='utf-8')
+
+          q = Path('scripts/v107-theme-matrix.ts')
+          m = q.read_text(encoding='utf-8')
+          m = replace_once(
+              m,
+              '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);',
+              '  const themes = themeList().filter((theme) => ["modern", "decorative", "editorial", "cloister"].includes(theme.name));\n  if (themes.length !== 4) throw new Error(`Expected exactly 4 trace themes, found ${themes.length}`);',
+              'trace theme filter',
+          )
+          q.write_text(m, encoding='utf-8')
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Focused matrix
+        id: matrix
+        continue-on-error: true
+        run: node --import tsx scripts/v107-theme-matrix.ts
+      - name: Print dead-end traces
+        if: always()
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+          p = Path('build/qa-v107/theme-matrix.json')
+          d = json.loads(p.read_text(encoding='utf-8'))
+          print(json.dumps({'passed': d['passed'], 'failed': d['failed']}, indent=2))
+          for r in d['results']:
+              metrics = r.get('metrics', {})
+              details = metrics.get('compositionFailureDetails', [])
+              if not details and not any(f.startswith('hyphenRate=') for f in r.get('failures', [])):
+                  continue
+              compact = []
+              for item in details[:2]:
+                  f = item.get('failure') if isinstance(item, dict) else item
+                  if isinstance(f, dict):
+                      compact.append({
+                          'paragraphIndex': item.get('paragraphIndex'),
+                          'tokenCount': f.get('tokenCount'),
+                          'furthest': f.get('furthest'),
+                          'boundary': f.get('boundary'),
+                          'reachableStates': f.get('reachableStates'),
+                          'rejectedBreaks': f.get('rejectedBreaks', [])[-20:],
+                      })
+                  else:
+                      compact.append(item)
+              print(json.dumps({
+                  'theme': r['theme'],
+                  'scenario': r['scenario'],
+                  'failures': r['failures'],
+                  'hyphenRate': metrics.get('hyphenRate'),
+                  'compositionFailureDetails': compact,
+              }, ensure_ascii=False, indent=2))
