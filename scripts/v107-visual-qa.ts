@@ -318,6 +318,7 @@ try {
             maxRightErrorPx = Math.max(maxRightErrorPx, Math.abs(line.getBoundingClientRect().right + rightProtrusionPx - range.getBoundingClientRect().right));
             const spacing = Number(line.dataset.folioWordSpacing ?? 0) / fontSize;
             const relaxed = line.dataset.folioRelaxed === "true";
+            const compressedFinal = line.classList.contains("folio-line-final-compressed");
             maxWordSpacingEm = Math.max(maxWordSpacingEm, Math.abs(spacing));
             if (relaxed || compressedFinal) {
               if (relaxed) relaxedLines++;
