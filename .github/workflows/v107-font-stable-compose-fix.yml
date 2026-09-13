@@ -23,62 +23,21 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           compositor = Path("web/src/compositor.ts")
           text = compositor.read_text(encoding="utf-8")
-          anchor = '''  const view = document.defaultView;
-  if (!view || !paragraphs.length) return;
-
-  // A geometry generation must never expose line boxes calculated for the
-'''
-          replacement = '''  const view = document.defaultView;
-  if (!view || !paragraphs.length) return;
-
-  // Never expose a composition calculated with a fallback face. Theme changes
-  // can replace the body font while the iframe itself is already interactive;
-  // composing before FontFaceSet settles makes line breaks and optical-edge
-  // correction stale as soon as the real face arrives. Wait inside the same
-  // generation, then abort if a newer preview generation superseded us.
-  if (document.fonts?.status === "loading") {
-    try { await document.fonts.ready; } catch { /* keep browser fallback if a face is genuinely unavailable */ }
-    if (compositionGeneration.get(document) !== generation) return;
-  }
-
-  // A geometry generation must never expose line boxes calculated for the
-'''
+          anchor = "  const view = document.defaultView;\n  if (!view || !paragraphs.length) return;\n\n  // A geometry generation must never expose line boxes calculated for the\n"
+          replacement = "  const view = document.defaultView;\n  if (!view || !paragraphs.length) return;\n\n  // Never expose a composition calculated with a fallback face. Theme changes\n  // can replace the body font while the iframe itself is already interactive;\n  // composing before FontFaceSet settles makes line breaks and optical-edge\n  // correction stale as soon as the real face arrives. Wait inside the same\n  // generation, then abort if a newer preview generation superseded us.\n  if (document.fonts?.status === \"loading\") {\n    try { await document.fonts.ready; } catch { /* keep browser fallback if a face is genuinely unavailable */ }\n    if (compositionGeneration.get(document) !== generation) return;\n  }\n\n  // A geometry generation must never expose line boxes calculated for the\n"
           if text.count(anchor) != 1:
               raise SystemExit(f"font-wait anchor count={text.count(anchor)}")
           text = text.replace(anchor, replacement, 1)
-
-          tail = '''
-  if (document.fonts?.status === "loading") {
-    void document.fonts.ready.then(() => {
-      if (compositionGeneration.get(document) === generation) void composePreviewDocument(document, true);
-    }).catch(() => undefined);
-  }
-}'''
+          tail = "\n  if (document.fonts?.status === \"loading\") {\n    void document.fonts.ready.then(() => {\n      if (compositionGeneration.get(document) === generation) void composePreviewDocument(document, true);\n    }).catch(() => undefined);\n  }\n}"
           if text.count(tail) != 1:
               raise SystemExit(f"old recursive font tail count={text.count(tail)}")
-          text = text.replace(tail, '\n}', 1)
-          compositor.write_text(text, encoding="utf-8")
-
+          compositor.write_text(text.replace(tail, "\n}", 1), encoding="utf-8")
           matrix = Path("scripts/v107-theme-matrix.ts")
           text = matrix.read_text(encoding="utf-8")
-          old = '''  const settlePreview = async () => {
-    await page.waitForSelector(".preview-loading", { hidden: true });
-    await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed .folio-composed-line")));
-    await sleep(300);
-  };
-'''
-          new = '''  const settlePreview = async () => {
-    await page.waitForSelector(".preview-loading", { hidden: true });
-    await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.fonts?.status === "loaded");
-    await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed .folio-composed-line")));
-    await page.evaluate(async () => {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    });
-  };
-'''
+          old = "  const settlePreview = async () => {\n    await page.waitForSelector(\".preview-loading\", { hidden: true });\n    await page.waitForFunction(() => Boolean(document.querySelector(\"iframe\")?.contentDocument?.querySelector(\"section.chapter > p.folio-composed .folio-composed-line\")));\n    await sleep(300);\n  };\n"
+          new = "  const settlePreview = async () => {\n    await page.waitForSelector(\".preview-loading\", { hidden: true });\n    await page.waitForFunction(() => document.querySelector(\"iframe\")?.contentDocument?.fonts?.status === \"loaded\");\n    await page.waitForFunction(() => Boolean(document.querySelector(\"iframe\")?.contentDocument?.querySelector(\"section.chapter > p.folio-composed .folio-composed-line\")));\n    await page.evaluate(async () => {\n      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));\n    });\n  };\n"
           if text.count(old) != 1:
               raise SystemExit(f"matrix settle anchor count={text.count(old)}")
           matrix.write_text(text.replace(old, new, 1), encoding="utf-8")
