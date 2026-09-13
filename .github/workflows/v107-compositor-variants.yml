@@ -1,4 +1,4 @@
-name: v1.0.7 compositor variants
+name: v1.0.7 hyphenation probe
 
 on:
   push:
@@ -10,16 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  qualify:
+  probe:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [widow-strict-full-099, widow-strict-full-101, widow-strict-full-fine]
-    env:
-      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
-      PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
-      VARIANT: ${{ matrix.variant }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,104 +19,36 @@ jobs:
           node-version: 22.23.2
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Install pinned Pandoc 3.11
+      - name: Print Polish hyphenation candidates
         shell: bash
         run: |
-          mkdir -p build/pandoc
-          curl -fsSL "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz" -o build/pandoc-3.11-linux-amd64.tar.gz
-          echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
-          tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
-      - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only compositor variant
-        shell: python
-        run: |
-          import os
-          from pathlib import Path
+          node --input-type=module <<'NODE'
+          import Hypher from 'hypher';
+          import pl from 'hyphenation.pl';
+          import en from 'hyphenation.en-us';
 
-          def replace_once(text, old, new, label):
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label} matches: {count}')
-              return text.replace(old, new, 1)
-
-          variant = os.environ['VARIANT']
-          p = Path('web/src/compositor.ts')
-          s = p.read_text(encoding='utf-8')
-
-          # Proven safe: final-state widow priority.
-          s = replace_once(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
-          s = replace_once(
-              s,
-              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              'widow rate',
-          )
-          s = replace_once(
-              s,
-              '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              'widow selection',
-          )
-
-          # Use the full envelope already enforced by the unchanged release QA.
-          positive = '0.101' if variant == 'widow-strict-full-101' else '0.099'
-          s = replace_once(
-              s,
-              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
-              f'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : {positive});',
-              'positive strict spacing',
-          )
-          s = replace_once(s, 'const strictCompressionEm = 0.099;', 'const strictCompressionEm = 0.101;', 'negative strict spacing')
-          s = replace_once(
-              s,
-              'const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);',
-              'const minTracking = -fontSize * 0.003;',
-              'strict tracking',
-          )
-          s = replace_once(s, 'if (Math.abs(residualPx) > 1.70) continue;', 'if (Math.abs(residualPx) > 1.74) continue;', 'residual ceiling')
-          s = replace_once(s, '+ 100 * Math.pow(Math.abs(residualPx) / 1.70, 2);', '+ 100 * Math.pow(Math.abs(residualPx) / 1.74, 2);', 'residual badness')
-
-          if variant == 'widow-strict-full-fine':
-              s = replace_once(s, 'for (let step = -20; step <= 20; step++) {\n    const glyphScale = 1 + step * 0.0005;', 'for (let step = -40; step <= 40; step++) {\n    const glyphScale = 1 + step * 0.00025;', 'fine glyph sampling')
-          elif variant not in ('widow-strict-full-099', 'widow-strict-full-101'):
-              raise SystemExit(f'unknown variant {variant}')
-
-          p.write_text(s, encoding='utf-8')
-      - run: npm run typecheck
-      - run: npm run build
-      - name: Reference corpus
-        id: reference
-        continue-on-error: true
-        run: node --import tsx scripts/v107-visual-qa.ts
-      - name: 30-theme matrix
-        id: matrix
-        continue-on-error: true
-        run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Summarize variant
-        if: always()
-        shell: python
-        run: |
-          import json, os
-          from collections import Counter
-          from pathlib import Path
-          p = Path('build/qa-v107/theme-matrix.json')
-          if not p.exists():
-              raise SystemExit('theme-matrix.json missing')
-          d = json.loads(p.read_text(encoding='utf-8'))
-          categories = Counter()
-          for failures in d.get('failuresByTheme', {}).values():
-              for scenario in failures:
-                  for failure in scenario.get('failures', []):
-                      categories[failure.split('=', 1)[0]] += 1
-          print(json.dumps({
-              'variant': os.environ['VARIANT'],
-              'reference': '${{ steps.reference.outcome }}',
-              'matrix': '${{ steps.matrix.outcome }}',
-              'themes': d['themes'],
-              'totalScenarios': d['totalScenarios'],
-              'passed': d['passed'],
-              'failed': d['failed'],
-              'categories': categories,
-          }, indent=2, default=dict))
-          if '${{ steps.reference.outcome }}' != 'success':
-              raise SystemExit('reference corpus failed')
+          const polish = new Hypher(pl);
+          const english = new Hypher(en);
+          const words = [
+            'konsekwencją',
+            'bezsensowności',
+            'brzemieniem',
+            'przygnębiająca',
+            'przygnębiający',
+            'przemilczanych',
+            'profesjonalny',
+            'typograficzną',
+            'najtrudniejsze',
+            'odpowiedzi',
+            'zachowywać',
+            'rozsądne',
+            'dzielenie',
+            'wszystkich',
+          ];
+          for (const word of words) {
+            console.log(JSON.stringify({ word, parts: polish.hyphenate(word), soft: polish.hyphenateText(word) }));
+          }
+          for (const word of ['extraordinary','professional','typesetting','overlooked']) {
+            console.log(JSON.stringify({ word, parts: english.hyphenate(word), soft: english.hyphenateText(word) }));
+          }
+          NODE
