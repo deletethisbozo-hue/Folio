@@ -44,105 +44,119 @@ jobs:
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
           s = one(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
-          s = one(s,
+          s = one(
+              s,
               '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
               '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              'widow rate')
-          s = one(s,
+              'widow rate',
+          )
+          s = one(
+              s,
               '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
               '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              'widow selection')
-          s = one(s,
+              'widow selection',
+          )
+          s = one(
+              s,
               'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
               'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
-              'strict positive spacing')
+              'strict positive spacing',
+          )
 
-          helper = r'''  const cleanSuccessorCache = new Map<string, boolean>();
-  const hasStrictCleanSuccessor = (
-    successorStart: number,
-    successorLine: number,
-    currentGlyphScale: number,
-    currentWordSpacing: number,
-  ): boolean => {
-    if (successorStart >= count) return true;
-    const spacingBucket = Math.round(currentWordSpacing / Math.max(1, fontSize) * 1000);
-    const cacheKey = `${successorStart}:${successorLine}:${glyphScaleBucket(currentGlyphScale)}:${spacingBucket}`;
-    const cached = cleanSuccessorCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-
-    const { available: successorAvailable } = lineGeometry(successorLine, geometry);
-    let probeWordWidth = 0;
-    let probeGaps = 0;
-    let probeCharacters = 0;
-    let result = false;
-
-    for (let probeEnd = successorStart; probeEnd < count; probeEnd++) {
-      probeWordWidth += words[probeEnd].width;
-      probeCharacters += words[probeEnd].characters;
-      if (probeEnd > successorStart && words[probeEnd].spaceBefore) probeGaps++;
-
-      const probeLast = probeEnd === count - 1;
-      const probeNext = probeLast ? null : words[probeEnd + 1];
-      const probeCanBreak = probeLast || probeNext!.canBreakBefore;
-      const probeHyphenBreak = !probeLast && probeNext!.hyphenBefore;
-      if (!probeCanBreak || probeHyphenBreak) continue;
-
-      const probeNatural = probeWordWidth + probeGaps * spaceWidth;
-      if (probeLast) {
-        const semanticWords = 1 + words
-          .slice(successorStart + 1, probeEnd + 1)
-          .filter((word) => word.spaceBefore).length;
-        result = semanticWords >= 2;
-        break;
-      }
-
-      const probeRightProtrusion = probeNatural >= successorAvailable
-        ? words[probeEnd].rightProtrusion
-        : 0;
-      const probeAdjustment = successorAvailable + probeRightProtrusion - probeNatural;
-      const probeTrackingOps = Math.max(0, probeCharacters + probeGaps - 1);
-      const normalFit = fitLine(
-        probeAdjustment, probeGaps, probeTrackingOps, spaceWidth, fontSize, probeNatural,
-        currentGlyphScale, false, false, language,
-      );
-      const spacingFit = fitLine(
-        probeAdjustment, probeGaps, probeTrackingOps, spaceWidth, fontSize, probeNatural,
-        currentGlyphScale, false, false, language, "spacing-continuity", currentWordSpacing,
-      );
-      const continuityFit = fitLine(
-        probeAdjustment, probeGaps, probeTrackingOps, spaceWidth, fontSize, probeNatural,
-        currentGlyphScale, false, false, language, "continuity",
-      );
-      if ([normalFit, spacingFit, continuityFit].some((candidate) => candidate
-        && Math.abs(candidate.wordSpacing - currentWordSpacing) / Math.max(1, fontSize) <= 0.158)) {
-        result = true;
-        break;
-      }
-      if (probeNatural > successorAvailable + Math.max(0.75, words[probeEnd].rightProtrusion)
-        && probeEnd > successorStart) break;
-    }
-
-    cleanSuccessorCache.set(cacheKey, result);
-    return result;
-  };
-
-'''
-          s = one(s,
+          helper_lines = [
+              '  const cleanSuccessorCache = new Map<string, boolean>();',
+              '  const hasStrictCleanSuccessor = (',
+              '    successorStart: number,',
+              '    successorLine: number,',
+              '    currentGlyphScale: number,',
+              '    currentWordSpacing: number,',
+              '  ): boolean => {',
+              '    if (successorStart >= count) return true;',
+              '    const spacingBucket = Math.round(currentWordSpacing / Math.max(1, fontSize) * 1000);',
+              '    const cacheKey = `${successorStart}:${successorLine}:${glyphScaleBucket(currentGlyphScale)}:${spacingBucket}`;',
+              '    const cached = cleanSuccessorCache.get(cacheKey);',
+              '    if (cached !== undefined) return cached;',
+              '',
+              '    const { available: successorAvailable } = lineGeometry(successorLine, geometry);',
+              '    let probeWordWidth = 0;',
+              '    let probeGaps = 0;',
+              '    let probeCharacters = 0;',
+              '    let result = false;',
+              '',
+              '    for (let probeEnd = successorStart; probeEnd < count; probeEnd++) {',
+              '      probeWordWidth += words[probeEnd].width;',
+              '      probeCharacters += words[probeEnd].characters;',
+              '      if (probeEnd > successorStart && words[probeEnd].spaceBefore) probeGaps++;',
+              '',
+              '      const probeLast = probeEnd === count - 1;',
+              '      const probeNext = probeLast ? null : words[probeEnd + 1];',
+              '      const probeCanBreak = probeLast || probeNext!.canBreakBefore;',
+              '      const probeHyphenBreak = !probeLast && probeNext!.hyphenBefore;',
+              '      if (!probeCanBreak || probeHyphenBreak) continue;',
+              '',
+              '      const probeNatural = probeWordWidth + probeGaps * spaceWidth;',
+              '      if (probeLast) {',
+              '        const semanticWords = 1 + words',
+              '          .slice(successorStart + 1, probeEnd + 1)',
+              '          .filter((word) => word.spaceBefore).length;',
+              '        result = semanticWords >= 2;',
+              '        break;',
+              '      }',
+              '',
+              '      const probeRightProtrusion = probeNatural >= successorAvailable',
+              '        ? words[probeEnd].rightProtrusion',
+              '        : 0;',
+              '      const probeAdjustment = successorAvailable + probeRightProtrusion - probeNatural;',
+              '      const probeTrackingOps = Math.max(0, probeCharacters + probeGaps - 1);',
+              '      const normalFit = fitLine(',
+              '        probeAdjustment, probeGaps, probeTrackingOps, spaceWidth, fontSize, probeNatural,',
+              '        currentGlyphScale, false, false, language,',
+              '      );',
+              '      const spacingFit = fitLine(',
+              '        probeAdjustment, probeGaps, probeTrackingOps, spaceWidth, fontSize, probeNatural,',
+              '        currentGlyphScale, false, false, language, "spacing-continuity", currentWordSpacing,',
+              '      );',
+              '      const continuityFit = fitLine(',
+              '        probeAdjustment, probeGaps, probeTrackingOps, spaceWidth, fontSize, probeNatural,',
+              '        currentGlyphScale, false, false, language, "continuity",',
+              '      );',
+              '      if ([normalFit, spacingFit, continuityFit].some((candidate) => candidate',
+              '        && Math.abs(candidate.wordSpacing - currentWordSpacing) / Math.max(1, fontSize) <= 0.158)) {',
+              '        result = true;',
+              '        break;',
+              '      }',
+              '      if (probeNatural > successorAvailable + Math.max(0.75, words[probeEnd].rightProtrusion)',
+              '        && probeEnd > successorStart) break;',
+              '    }',
+              '',
+              '    cleanSuccessorCache.set(cacheKey, result);',
+              '    return result;',
+              '  };',
+              '',
+          ]
+          helper = '\n'.join(helper_lines) + '\n'
+          s = one(
+              s,
               '  for (let start = 0; start < count; start++) {\n',
               helper + '  for (let start = 0; start < count; start++) {\n',
-              'successor helper')
-          s = one(s,
+              'successor helper',
+          )
+          s = one(
+              s,
               '          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) continue;\n          const fill = Math.min(1, natural / Math.max(1, available));\n',
               '          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) continue;\n          const entersSecondHyphen = !allowNaturalRescue\n            && hyphenBreak\n            && previousHyphenStreak === 1\n            && Boolean(lineFit);\n          if (entersSecondHyphen && lineFit\n            && !hasStrictCleanSuccessor(end + 1, line + 1, lineFit.glyphScale, lineFit.wordSpacing)) continue;\n          const fill = Math.min(1, natural / Math.max(1, available));\n',
-              'second hyphen lookahead')
+              'second hyphen lookahead',
+          )
           p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
-          t = one(t,
+          t = one(
+              t,
               '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n',
               '  const probeNames = new Set(["modern", "decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 4) throw new Error(`Expected exactly 4 probe themes, found ${themes.length}`);\n',
-              'probe theme subset')
+              'probe theme subset',
+          )
           q.write_text(t, encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
