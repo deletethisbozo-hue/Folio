@@ -1,0 +1,85 @@
+name: v1.0.7 QA continuity repair
+
+on:
+  push:
+    branches:
+      - fix/v1.0.7
+    paths:
+      - .github/workflows/v107-qa-continuity-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+      - name: Reset QA microtype continuity across natural lines
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          patches = {
+              Path('scripts/v107-theme-matrix.ts'): (
+                  '''            for (let i = 1; i < words.length; i++) {
+              if (words[i].dataset.folioSpaceBefore === "true") {
+                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[i].getBoundingClientRect().left - words[i - 1].getBoundingClientRect().right) / fontSize);
+              }
+            }
+          }
+          const text =''',
+                  '''            for (let i = 1; i < words.length; i++) {
+              if (words[i].dataset.folioSpaceBefore === "true") {
+                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[i].getBoundingClientRect().left - words[i - 1].getBoundingClientRect().right) / fontSize);
+              }
+            }
+          } else {
+            // Natural lines reset compositor continuity. Do not compare a later
+            // microtyped line against a line from before that reset.
+            previousGlyphScale = null;
+            previousSpacing = null;
+          }
+          const text ='''
+              ),
+              Path('scripts/v107-visual-qa.ts'): (
+                  '''            for (let index = 1; index < words.length; index++) {
+              if (words[index].dataset.folioSpaceBefore === "true") {
+                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[index].getBoundingClientRect().left - words[index - 1].getBoundingClientRect().right) / fontSize);
+              }
+            }
+          }
+          if (line.textContent?.endsWith("-")) {''',
+                  '''            for (let index = 1; index < words.length; index++) {
+              if (words[index].dataset.folioSpaceBefore === "true") {
+                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[index].getBoundingClientRect().left - words[index - 1].getBoundingClientRect().right) / fontSize);
+              }
+            }
+          } else {
+            // Natural lines reset compositor continuity. Do not compare a later
+            // microtyped line against a line from before that reset.
+            previousGlyphScale = null;
+            previousSpacing = null;
+          }
+          if (line.textContent?.endsWith("-")) {'''
+              ),
+          }
+
+          for path, (old, new) in patches.items():
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one continuity block, found {count}')
+              path.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+          git diff -- scripts/v107-theme-matrix.ts scripts/v107-visual-qa.ts
+      - name: Commit QA repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/v107-theme-matrix.ts scripts/v107-visual-qa.ts
+          git commit -m "Fix QA continuity across natural lines [skip ci]"
+          git push origin HEAD:fix/v1.0.7
