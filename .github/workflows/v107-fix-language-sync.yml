@@ -20,26 +20,22 @@ jobs:
           ref: fix/v1.0.7
           fetch-depth: 0
 
-      - name: Make language preview synchronization deterministic
-        shell: python
+      - name: Patch language preview synchronization
+        shell: bash
         run: |
+          python3 <<'PY'
           from pathlib import Path
 
           path = Path("scripts/v107-theme-matrix.ts")
           text = path.read_text(encoding="utf-8")
 
-          old = '''    await page.evaluate((value) => {
+          target = '''    await page.evaluate((value) => {
       const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
       const input = row?.querySelector("input") as HTMLInputElement | null;
       if (!input) throw new Error("Language field is missing");
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
-      setter.call(input, value);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    }, language);
-    await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);'''
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;'''
 
-          new = '''    const currentLanguage = await page.evaluate(() => {
+          replacement = '''    const currentLanguage = await page.evaluate(() => {
       const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
       const input = row?.querySelector("input") as HTMLInputElement | null;
       if (!input) throw new Error("Language field is missing");
@@ -50,33 +46,30 @@ jobs:
       const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
       const input = row?.querySelector("input") as HTMLInputElement | null;
       if (!input) throw new Error("Language field is missing");
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
-      setter.call(input, value);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    }, language);
-    await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);'''
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;'''
 
-          old_tail = '''    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
+          tail = '''    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
     await settlePreview();'''
-          new_tail = '''    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
+          tail_replacement = '''    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
     if (previewStarted) await previewStarted;
     await settlePreview();'''
 
-          if old not in text:
-              raise SystemExit("language setter target not found")
-          if old_tail not in text:
-              raise SystemExit("language settle target not found")
+          if text.count(target) != 1:
+              raise SystemExit(f"expected one language setter target, found {text.count(target)}")
+          if text.count(tail) != 1:
+              raise SystemExit(f"expected one language settle target, found {text.count(tail)}")
 
-          text = text.replace(old, new, 1).replace(old_tail, new_tail, 1)
+          text = text.replace(target, replacement, 1).replace(tail, tail_replacement, 1)
           path.write_text(text, encoding="utf-8")
           Path(".github/workflows/v107-fix-language-sync.yml").unlink()
+          PY
 
-      - name: Commit synchronization fix
+      - name: Commit synchronization fix and cleanup
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add scripts/v107-theme-matrix.ts .github/workflows/v107-fix-language-sync.yml
+          git diff --cached --check
           git commit -m "Fix v1.0.7 language preview synchronization"
           git push origin HEAD:fix/v1.0.7
