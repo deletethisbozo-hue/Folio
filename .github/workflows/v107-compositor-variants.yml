@@ -74,7 +74,7 @@ jobs:
           t = h.read_text(encoding='utf-8')
           t = one(t,
               'import english from "hyphenation.en-us";\nimport polish from "hyphenation.pl";\n\nconst engines = { en: new Hypher(english), pl: new Hypher(polish) };\ntype HyphenationLanguage = keyof typeof engines;\n',
-              'import polish from "hyphenation.pl";\nimport hyphenEnglish from "hyphen/en-us/index.js";\n\nconst { hyphenateSync: hyphenateEnglish } = hyphenEnglish;\nconst polishEngine = new Hypher(polish);\ntype HyphenationLanguage = "en" | "pl";\n',
+              'import polish from "hyphenation.pl";\n// @ts-ignore checkout-only experiment: package subpath has no bundled declaration\nimport hyphenEnglish from "hyphen/en-us/index.js";\n\nconst { hyphenateSync: hyphenateEnglish } = hyphenEnglish;\nconst polishEngine = new Hypher(polish);\ntype HyphenationLanguage = "en" | "pl";\n',
               'English engine import')
           t = one(t,
               'function applyDictionary(text: string, engine: Hypher, limits: HyphenationLimits): string { return text.replace(WORD, candidate => candidate.includes("\\u00ad") ? candidate : conservativeHyphenation(engine, candidate, limits.left, limits.right, limits.minimumWord)); }\n',
