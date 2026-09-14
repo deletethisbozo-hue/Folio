@@ -1,4 +1,4 @@
-name: v1.0.7 DP failure frontier diagnostics
+name: v1.0.7 font measure experiment
 
 on:
   push:
@@ -10,12 +10,17 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  measure-factor:
+    strategy:
+      fail-fast: false
+      matrix:
+        factor: ['0.94', '0.96', '0.98']
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
+      MEASURE_FACTOR: ${{ matrix.factor }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,10 +37,13 @@ jobs:
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
 
-      - name: Add checkout-only graph diagnostics
+      - name: Apply checkout-only measure factor
         shell: python
         run: |
+          import os
           from pathlib import Path
+
+          factor = float(os.environ['MEASURE_FACTOR'])
 
           def one(text, old, new, label):
               count = text.count(old)
@@ -45,30 +53,9 @@ jobs:
 
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
-          s = one(
-              s,
-              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n',
-              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n  let spacingJumpRejects = 0;\n  let statePrunes = 0;\n  let stateReplacements = 0;\n',
-              'diagnostic counters',
-          )
-          s = one(
-              s,
-              '''          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) continue;\n''',
-              '''          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) {\n            spacingJumpRejects++;\n            if (rejectedBreaks.length < 240) rejectedBreaks.push({\n              reason: "spacing-jump", start, end, line, hyphenBreak,\n              candidateWordSpacing: lineFit.wordSpacing, previousWordSpacing: previous.wordSpacing,\n              spacingJumpEm: Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize),\n              candidateGlyphScale: lineFit.glyphScale, previousGlyphScale: previous.glyphScale,\n              startText: (words[start].node.textContent ?? "").replace(/\\u00ad/g, ""),\n              endText: (words[end].node.textContent ?? "").replace(/\\u00ad/g, ""),\n              nextText: (words[end + 1]?.node.textContent ?? "").replace(/\\u00ad/g, ""),\n            });\n            continue;\n          }\n''',
-              'spacing jump rejection',
-          )
-          s = one(
-              s,
-              '''        const old = states[end + 1].get(nextKey);\n        if (!old || cost < old.cost) {\n''',
-              '''        const old = states[end + 1].get(nextKey);\n        if (old && cost >= old.cost) {\n          statePrunes++;\n          if (rejectedBreaks.length < 240 && end + 1 >= count - 10) rejectedBreaks.push({\n            reason: "state-pruned", start, end, line, hyphenBreak, nextKey, cost, keptCost: old.cost,\n            wordSpacing: lineFit?.wordSpacing ?? 0, keptWordSpacing: old.wordSpacing,\n            glyphScale: lineFit?.glyphScale ?? 1, keptGlyphScale: old.glyphScale,\n            hyphenCount: nextHyphenCount, keptHyphenCount: old.hyphenCount,\n            startText: (words[start].node.textContent ?? "").replace(/\\u00ad/g, ""),\n            endText: (words[end].node.textContent ?? "").replace(/\\u00ad/g, ""),\n          });\n        } else if (old) stateReplacements++;\n        if (!old || cost < old.cost) {\n''',
-              'state collision diagnostics',
-          )
-          s = one(
-              s,
-              '      rejectedBreaks: rejectedBreaks.slice(-60),\n',
-              '      diagnosticCounts: { spacingJumpRejects, statePrunes, stateReplacements },\n      rejectedBreaks: rejectedBreaks.slice(-120),\n',
-              'failure diagnostic payload',
-          )
+          old = '  const width = Math.max(1, paragraphRect.width - borderLeft - borderRight - paddingLeft - paddingRight);\n'
+          new = f'  const width = Math.max(1, (paragraphRect.width - borderLeft - borderRight - paddingLeft - paddingRight) * {factor});\n'
+          s = one(s, old, new, 'measure width')
           p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
@@ -92,36 +79,42 @@ jobs:
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
 
-      - name: Print strict-failure frontier
+      - name: Summarize factor
         if: always()
         shell: python
         run: |
-          import json
+          import json, os
+          from collections import Counter
           from pathlib import Path
           p = Path('build/qa-v107/theme-matrix.json')
           if not p.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(p.read_text(encoding='utf-8'))
-          failures = []
+          categories = Counter()
           for r in d['results']:
-              details = r.get('metrics', {}).get('compositionFailureDetails', [])
-              if details:
-                  failures.append({
-                      'theme': r['theme'],
-                      'scenario': r['scenario'],
-                      'failures': r['failures'],
-                      'bodyFont': r.get('metrics', {}).get('bodyFont'),
-                      'compositionFailureDetails': details,
-                      'emergencyDetails': r.get('metrics', {}).get('emergencyDetails', []),
-                  })
+              for failure in r.get('failures', []):
+                  categories[failure.split('=')[0]] += 1
           out = {
+              'factor': os.environ['MEASURE_FACTOR'],
               'reference': '${{ steps.reference.outcome }}',
               'matrix': '${{ steps.matrix.outcome }}',
               'passed': d['passed'],
               'failed': d['failed'],
-              'strictFailures': failures,
+              'categories': dict(categories),
+              'results': [
+                  {
+                      'theme': r['theme'],
+                      'scenario': r['scenario'],
+                      'pass': r['pass'],
+                      'failures': r['failures'],
+                      'bodyFont': r.get('metrics', {}).get('bodyFont'),
+                      'measurePx': r.get('metrics', {}).get('measurePx'),
+                  }
+                  for r in d['results']
+              ],
           }
-          Path('build/qa-v107/dp-failure-frontier.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          target = Path(f"build/qa-v107/measure-factor-{os.environ['MEASURE_FACTOR']}.json")
+          target.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(out, indent=2))
           if '${{ steps.reference.outcome }}' != 'success':
               raise SystemExit('reference corpus failed')
@@ -129,6 +122,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v107-dp-failure-frontier
-          path: build/qa-v107/dp-failure-frontier.json
+          name: v107-measure-factor-${{ matrix.factor }}
+          path: build/qa-v107/measure-factor-${{ matrix.factor }}.json
           if-no-files-found: error
