@@ -1,4 +1,4 @@
-name: v1.0.7 compositor full-order trace
+name: v1.0.7 section hyphen budget experiment
 
 on:
   push:
@@ -10,7 +10,11 @@ permissions:
   contents: read
 
 jobs:
-  trace:
+  experiment:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [count-first, rate-first]
     runs-on: ubuntu-24.04
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
@@ -30,104 +34,90 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply minimal 42/90 compositor recipe
+      - name: Apply 42/90 recipe and section-budget tie breaker
         shell: python
+        env:
+          VARIANT: ${{ matrix.variant }}
         run: |
           from pathlib import Path
+          import os
 
-          def replace_once(text, old, new, label):
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label} matches: {count}')
-              return text.replace(old, new, 1)
+          def one(s, old, new, label):
+              n = s.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label} matches: {n}')
+              return s.replace(old, new, 1)
 
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
-          s = replace_once(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
-          s = replace_once(
-              s,
+          s = one(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n  let bestSectionHyphenCount = Number.POSITIVE_INFINITY;\n', 'selection declarations')
+          s = one(s,
               '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
               '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              'widow rate',
-          )
-          s = replace_once(
-              s,
+              'widow rate')
+          variant = os.environ['VARIANT']
+          old_better = '''    const betterSamePriority = hyphenBudgetPriority < 2\n      ? state.cost < bestCost\n      : sectionRate < bestSectionRate - 1e-9\n        || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);\n'''
+          if variant == 'count-first':
+              new_better = '''    const betterSamePriority = hyphenBudgetPriority < 2\n      ? sectionHyphenatedLines < bestSectionHyphenCount\n        || (sectionHyphenatedLines === bestSectionHyphenCount && state.cost < bestCost)\n      : sectionRate < bestSectionRate - 1e-9\n        || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);\n'''
+          else:
+              new_better = '''    const betterSamePriority = hyphenBudgetPriority < 2\n      ? sectionRate < bestSectionRate - 1e-9\n        || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost)\n      : sectionRate < bestSectionRate - 1e-9\n        || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);\n'''
+          s = one(s, old_better, new_better, 'same-priority tie breaker')
+          s = one(s,
               '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              'widow selection',
-          )
-          s = replace_once(
-              s,
+              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestSectionHyphenCount = sectionHyphenatedLines;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              'selection block')
+          s = one(s,
               'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
               'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
-              'positive strict spacing',
-          )
+              'positive strict spacing')
           p.write_text(s, encoding='utf-8')
+
+          q = Path('scripts/v107-theme-matrix.ts')
+          t = q.read_text(encoding='utf-8')
+          t = one(t,
+              '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n',
+              '  const probeNames = new Set(["classic", "editorial", "scholar", "cloister", "wyrmwood"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 5) throw new Error(`Expected exactly 5 probe themes, found ${themes.length}`);\n',
+              'probe theme subset')
+          q.write_text(t, encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
       - name: Reference corpus
         id: reference
         continue-on-error: true
         run: node --import tsx scripts/v107-visual-qa.ts
-      - name: Full 30-theme matrix
+      - name: 15-case targeted matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Print selected failure traces
+      - name: Summarize
         if: always()
         shell: python
+        env:
+          VARIANT: ${{ matrix.variant }}
         run: |
-          import json
+          import json, os
           from pathlib import Path
           p = Path('build/qa-v107/theme-matrix.json')
           if not p.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(p.read_text(encoding='utf-8'))
-          print(json.dumps({'passed': d['passed'], 'failed': d['failed']}, indent=2))
-          wanted = {
-              ('modern', 'en'),
-              ('decorative', 'pl'),
-              ('decorative', 'en'),
-              ('editorial', 'pl-dropcap'),
-              ('editorial', 'en'),
-              ('cloister', 'pl-dropcap'),
-              ('cloister', 'en'),
+          out = {
+              'variant': os.environ['VARIANT'],
+              'reference': '${{ steps.reference.outcome }}',
+              'passed': d['passed'],
+              'failed': d['failed'],
+              'results': [
+                  {'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'], 'failures': r['failures'], 'hyphenRate': r.get('metrics', {}).get('hyphenRate')}
+                  for r in d['results']
+              ],
           }
-          for r in d['results']:
-              key = (r['theme'], r['scenario'])
-              if key not in wanted:
-                  continue
-              metrics = r.get('metrics', {})
-              compact_failures = []
-              for item in metrics.get('compositionFailureDetails', [])[:3]:
-                  failure = item.get('failure') if isinstance(item, dict) else item
-                  if isinstance(failure, dict):
-                      compact_failures.append({
-                          'paragraphIndex': item.get('paragraphIndex'),
-                          'tokenCount': failure.get('tokenCount'),
-                          'furthest': failure.get('furthest'),
-                          'boundary': failure.get('boundary'),
-                          'reachableStateCount': failure.get('reachableStateCount'),
-                          'reachableStates': failure.get('reachableStates'),
-                          'rejectedBreaks': failure.get('rejectedBreaks', [])[-30:],
-                      })
-                  else:
-                      compact_failures.append(item)
-              print(json.dumps({
-                  'theme': r['theme'],
-                  'scenario': r['scenario'],
-                  'pass': r['pass'],
-                  'failures': r['failures'],
-                  'hyphenRate': metrics.get('hyphenRate'),
-                  'emergencyDetails': metrics.get('emergencyDetails', [])[:4],
-                  'compositionFailureDetails': compact_failures,
-              }, ensure_ascii=False, indent=2))
-          if '${{ steps.reference.outcome }}' != 'success':
-              raise SystemExit('reference corpus failed')
-      - name: Upload matrix trace
+          outp = Path(f"build/qa-v107/section-{os.environ['VARIANT']}.json")
+          outp.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(out, indent=2))
+      - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-compositor-trace
-          path: build/qa-v107/theme-matrix.json
+          name: v107-section-${{ matrix.variant }}
+          path: build/qa-v107/section-${{ matrix.variant }}.json
           if-no-files-found: error
