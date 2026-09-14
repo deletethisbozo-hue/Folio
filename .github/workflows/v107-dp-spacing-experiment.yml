@@ -1,4 +1,4 @@
-name: v1.0.7 diverse fit frontier experiment
+name: v1.0.7 DP failure frontier diagnostics
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  diagnose:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -31,7 +31,8 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Preserve a small diverse legal fit frontier
+
+      - name: Add checkout-only graph diagnostics
         shell: python
         run: |
           from pathlib import Path
@@ -46,22 +47,28 @@ jobs:
           s = p.read_text(encoding='utf-8')
           s = one(
               s,
-              '  selection: "badness" | "continuity" | "spacing-continuity" = "badness",\n',
-              '  selection: "badness" | "continuity" | "spacing-continuity" | "tight-spacing" | "loose-spacing" | "compressed-scale" | "expanded-scale" = "badness",\n',
-              'selection union',
+              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n',
+              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n  let spacingJumpRejects = 0;\n  let statePrunes = 0;\n  let stateReplacements = 0;\n',
+              'diagnostic counters',
           )
           s = one(
               s,
-              '''    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : selection === "spacing-continuity"\n        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n        : candidate.badness;\n''',
-              '''    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : selection === "spacing-continuity"\n        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n        : selection === "tight-spacing"\n          ? wordSpacing * 100_000 + candidate.badness\n          : selection === "loose-spacing"\n            ? -wordSpacing * 100_000 + candidate.badness\n            : selection === "compressed-scale"\n              ? glyphScale * 100_000 + candidate.badness\n              : selection === "expanded-scale"\n                ? -glyphScale * 100_000 + candidate.badness\n                : candidate.badness;\n''',
-              'selection ranking',
+              '''          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) continue;\n''',
+              '''          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) {\n            spacingJumpRejects++;\n            if (rejectedBreaks.length < 240) rejectedBreaks.push({\n              reason: "spacing-jump", start, end, line, hyphenBreak,\n              candidateWordSpacing: lineFit.wordSpacing, previousWordSpacing: previous.wordSpacing,\n              spacingJumpEm: Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize),\n              candidateGlyphScale: lineFit.glyphScale, previousGlyphScale: previous.glyphScale,\n              startText: (words[start].node.textContent ?? "").replace(/\\u00ad/g, ""),\n              endText: (words[end].node.textContent ?? "").replace(/\\u00ad/g, ""),\n              nextText: (words[end + 1]?.node.textContent ?? "").replace(/\\u00ad/g, ""),\n            });\n            continue;\n          }\n''',
+              'spacing jump rejection',
           )
-          anchor = '''        const spacingFit = strictSpacingFit ?? (emergency && !last\n          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "spacing-continuity", previous.wordSpacing)\n          : null);\n'''
-          addition = anchor + '''        const frontierFits = !last ? [\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "tight-spacing"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "loose-spacing"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "compressed-scale"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "expanded-scale"),\n        ] : [];\n'''
-          s = one(s, anchor, addition, 'frontier fits')
-          anchor2 = '''        if (spacingFit && !fitOptions.some((candidate) =>\n          candidate\n          && Math.abs(candidate.glyphScale - spacingFit.glyphScale) < 0.000001\n          && Math.abs(candidate.wordSpacing - spacingFit.wordSpacing) < 0.000001\n          && Math.abs(candidate.tracking - spacingFit.tracking) < 0.000001\n        )) fitOptions.push(spacingFit);\n'''
-          addition2 = anchor2 + '''        for (const frontierFit of frontierFits) {\n          if (frontierFit && !fitOptions.some((candidate) =>\n            candidate\n            && Math.abs(candidate.glyphScale - frontierFit.glyphScale) < 0.000001\n            && Math.abs(candidate.wordSpacing - frontierFit.wordSpacing) < 0.000001\n            && Math.abs(candidate.tracking - frontierFit.tracking) < 0.000001\n          )) fitOptions.push(frontierFit);\n        }\n'''
-          s = one(s, anchor2, addition2, 'frontier insertion')
+          s = one(
+              s,
+              '''        const old = states[end + 1].get(nextKey);\n        if (!old || cost < old.cost) {\n''',
+              '''        const old = states[end + 1].get(nextKey);\n        if (old && cost >= old.cost) {\n          statePrunes++;\n          if (rejectedBreaks.length < 240 && end + 1 >= count - 10) rejectedBreaks.push({\n            reason: "state-pruned", start, end, line, hyphenBreak, nextKey, cost, keptCost: old.cost,\n            wordSpacing: lineFit?.wordSpacing ?? 0, keptWordSpacing: old.wordSpacing,\n            glyphScale: lineFit?.glyphScale ?? 1, keptGlyphScale: old.glyphScale,\n            hyphenCount: nextHyphenCount, keptHyphenCount: old.hyphenCount,\n            startText: (words[start].node.textContent ?? "").replace(/\\u00ad/g, ""),\n            endText: (words[end].node.textContent ?? "").replace(/\\u00ad/g, ""),\n          });\n        } else if (old) stateReplacements++;\n        if (!old || cost < old.cost) {\n''',
+              'state collision diagnostics',
+          )
+          s = one(
+              s,
+              '      rejectedBreaks: rejectedBreaks.slice(-60),\n',
+              '      diagnosticCounts: { spacingJumpRejects, statePrunes, stateReplacements },\n      rejectedBreaks: rejectedBreaks.slice(-120),\n',
+              'failure diagnostic payload',
+          )
           p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
@@ -73,17 +80,19 @@ jobs:
               'probe themes',
           )
           q.write_text(t, encoding='utf-8')
+
       - run: npm run typecheck
       - run: npm run build
       - name: Reference corpus
         id: reference
         continue-on-error: true
         run: node --import tsx scripts/v107-visual-qa.ts
-      - name: 15-case representative matrix
+      - name: Representative matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Summarize frontier probe
+
+      - name: Print strict-failure frontier
         if: always()
         shell: python
         run: |
@@ -93,30 +102,33 @@ jobs:
           if not p.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(p.read_text(encoding='utf-8'))
+          failures = []
+          for r in d['results']:
+              details = r.get('metrics', {}).get('compositionFailureDetails', [])
+              if details:
+                  failures.append({
+                      'theme': r['theme'],
+                      'scenario': r['scenario'],
+                      'failures': r['failures'],
+                      'bodyFont': r.get('metrics', {}).get('bodyFont'),
+                      'compositionFailureDetails': details,
+                      'emergencyDetails': r.get('metrics', {}).get('emergencyDetails', []),
+                  })
           out = {
               'reference': '${{ steps.reference.outcome }}',
               'matrix': '${{ steps.matrix.outcome }}',
               'passed': d['passed'],
               'failed': d['failed'],
-              'results': [],
+              'strictFailures': failures,
           }
-          for r in d['results']:
-              m = r.get('metrics', {})
-              out['results'].append({
-                  'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'],
-                  'failures': r['failures'], 'font': m.get('bodyFont'),
-                  'hyphenRate': m.get('hyphenRate'), 'rightError': m.get('maxRightErrorPx'),
-                  'emergency': m.get('emergencyLines'), 'widow': m.get('oneWordFinalLines'),
-                  'compositionFailures': m.get('compositionFailures'),
-                  'dropcapOpening': m.get('dropcapOpening'),
-              })
-          Path('build/qa-v107/diverse-frontier-probe.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          Path('build/qa-v107/dp-failure-frontier.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(out, indent=2))
           if '${{ steps.reference.outcome }}' != 'success':
               raise SystemExit('reference corpus failed')
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v107-diverse-frontier-probe
-          path: build/qa-v107/diverse-frontier-probe.json
+          name: v107-dp-failure-frontier
+          path: build/qa-v107/dp-failure-frontier.json
           if-no-files-found: error
