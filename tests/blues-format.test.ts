@@ -64,7 +64,7 @@ check("6  stops at or under the cap", capped.meta.pages <= CAP, `${capped.meta.p
 check(
   "6  stopped on a chapter boundary, not mid-chapter",
   capped.meta.truncated && capped.meta.lastChapter < fx.facts.chapters,
-  `last chapter ${capped.meta.lastChapter} of ${fx.facts.chapters}`,
+  `last chapter ${capped.meta.lastChapter} of ${capped.meta.totalChapters}`,
 );
 check("   full-book total reported for the cover", capped.meta.totalPages === full.meta.pages);
 
@@ -75,7 +75,10 @@ const bluesBook = buildBluesBook(book, opts).book;
 const baseHtml = await renderHtml(bluesBook, "print");
 const css = await fs.readFile(path.join(THEMES_DIR, "blues-base.css"), "utf8");
 const pageCss = buildBluesPageCss(book.meta.title, book.meta.author, opts);
-const html = baseHtml.replace("</head>", `<style>\n${css}\n${pageCss}\n</style>\n</head>`);
+// Match renderBlues(): paginate deliberately strips every stylesheet except the
+// dedicated Blues sheet before Paged.js parses CSS. Without this id the test
+// deleted the very rules it intended to qualify and produced false regressions.
+const html = baseHtml.replace("</head>", `<style id="book-formatter-blues">\n${css}\n${pageCss}\n</style>\n</head>`);
 
 const browser = await getBrowser();
 const p = await browser.newPage();
