@@ -1,0 +1,2 @@
+Folio 1.0.7 Windows qualification trigger
+Reason: promote qualified Modern 98% prose measure into product CSS and run the final release gate.

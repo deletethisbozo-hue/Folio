@@ -16,6 +16,16 @@ p {
   margin: 0 0 1em;
 }
 
+/* Keep Modern's prose measure slightly inside the chapter box. This is the
+   qualified 1.0.7 setting: it gives the compositor enough room to avoid the
+   poor right-edge fits seen at the full chapter width without narrowing the
+   heading, scene-break, or global book layout. */
+section.chapter > p:not(.scene-break) {
+  width: 98%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 section.chapter > h1,
 h1.chapter {
   text-align: left;
