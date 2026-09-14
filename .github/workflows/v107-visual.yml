@@ -41,6 +41,41 @@ jobs:
         run: node --import tsx scripts/v107-visual-qa.ts
       - name: Qualify all 30 book themes
         run: node --import tsx scripts/v107-theme-matrix.ts
+      - name: Print detailed failed-theme diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = 'build/qa-v107/theme-matrix.json';
+          if (!fs.existsSync(file)) process.exit(0);
+          const report = JSON.parse(fs.readFileSync(file, 'utf8'));
+          for (const result of report.results.filter((entry) => !entry.pass)) {
+            const m = result.metrics || {};
+            console.log(`\n=== ${result.theme} / ${result.scenario} ===`);
+            console.log('failures:', JSON.stringify(result.failures));
+            console.log('font:', m.bodyFont, 'measurePx:', m.measurePx);
+            console.log('hyphens:', m.hyphenatedLines, '/', m.justifiedLines, 'rate=', m.hyphenRate, 'streak=', m.maxHyphenStreak);
+            console.log('fit:', JSON.stringify({
+              maxRightErrorPx: m.maxRightErrorPx,
+              maxWordSpacingEm: m.maxWordSpacingEm,
+              maxStrictWordSpacingEm: m.maxStrictWordSpacingEm,
+              maxRelaxedWordSpacingEm: m.maxRelaxedWordSpacingEm,
+              relaxedLines: m.relaxedLines,
+              maxTrackingEm: m.maxTrackingEm,
+              maxGlyphScaleDelta: m.maxGlyphScaleDelta,
+              maxAdjacentGlyphScaleDelta: m.maxAdjacentGlyphScaleDelta,
+              maxSemanticGapEm: m.maxSemanticGapEm,
+              maxAdjacentSpacingDeltaEm: m.maxAdjacentSpacingDeltaEm,
+              emergencyLines: m.emergencyLines,
+              oneWordFinalLines: m.oneWordFinalLines,
+              compositionFailures: m.compositionFailures,
+            }));
+            if (m.dropcapOpening?.length) console.log('dropcapOpening:', JSON.stringify(m.dropcapOpening));
+            if (m.emergencyDetails?.length) console.log('emergencyDetails:', JSON.stringify(m.emergencyDetails));
+            if (m.compositionFailureDetails?.length) console.log('compositionFailureDetails:', JSON.stringify(m.compositionFailureDetails));
+          }
+          NODE
       - name: Render comparable 30-theme gallery
         run: node --import tsx scripts/v107-theme-gallery.ts
       - uses: actions/upload-artifact@v4
