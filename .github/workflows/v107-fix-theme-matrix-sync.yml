@@ -1,0 +1,84 @@
+name: Patch v1.0.7 theme matrix synchronization
+
+on:
+  push:
+    branches:
+      - fix/v1.0.7
+    paths:
+      - .github/workflows/v107-fix-theme-matrix-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+          fetch-depth: 0
+
+      - name: Make preview synchronization deterministic
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("scripts/v107-theme-matrix.ts")
+          text = path.read_text(encoding="utf-8")
+
+          old_theme = '''    await page.waitForSelector(`[data-theme="${theme}"]`);
+              await page.click(`[data-theme="${theme}"]`);
+              await page.waitForFunction((value) => document.querySelector(`[data-theme="${value}"]`)?.classList.contains("selected"), {}, theme);
+              await page.click(".style-library-header button");
+              await page.waitForSelector('.style-library[aria-label="Book style library"]', { hidden: true });
+              await settlePreview();'''
+          new_theme = '''    await page.waitForSelector(`[data-theme="${theme}"]`);
+              const alreadySelected = await page.$eval(`[data-theme="${theme}"]`, (node) => node.classList.contains("selected"));
+              const previewStarted = alreadySelected ? null : page.waitForSelector(".preview-loading", { visible: true });
+              await page.click(`[data-theme="${theme}"]`);
+              await page.waitForFunction((value) => document.querySelector(`[data-theme="${value}"]`)?.classList.contains("selected"), {}, theme);
+              await page.click(".style-library-header button");
+              await page.waitForSelector('.style-library[aria-label="Book style library"]', { hidden: true });
+              if (previewStarted) await previewStarted;
+              await settlePreview();'''
+
+          old_dropcap = '''    const checked = await page.$eval('.customize-row input[type="checkbox"]', (node) => (node as HTMLInputElement).checked);
+              if (checked !== enabled) await page.click('.customize-row input[type="checkbox"]');
+              await page.click(".style-library-header button");
+              await page.waitForSelector('.style-library[aria-label="Book style library"]', { hidden: true });
+              await settlePreview();'''
+          new_dropcap = '''    const checked = await page.$eval('.customize-row input[type="checkbox"]', (node) => (node as HTMLInputElement).checked);
+              const previewStarted = checked === enabled ? null : page.waitForSelector(".preview-loading", { visible: true });
+              if (checked !== enabled) await page.click('.customize-row input[type="checkbox"]');
+              await page.click(".style-library-header button");
+              await page.waitForSelector('.style-library[aria-label="Book style library"]', { hidden: true });
+              if (previewStarted) await previewStarted;
+              await settlePreview();'''
+
+          if old_theme not in text:
+              raise SystemExit("setTheme synchronization target not found")
+          if old_dropcap not in text:
+              raise SystemExit("setDropcap synchronization target not found")
+
+          text = text.replace(old_theme, new_theme, 1).replace(old_dropcap, new_dropcap, 1)
+          path.write_text(text, encoding="utf-8")
+
+          trigger = Path("scripts/v107-windows-trigger.txt")
+          trigger.write_text(
+              "Folio 1.0.7 Windows qualification trigger\n"
+              "Reason: deterministic preview synchronization in the 90-case release matrix.\n",
+              encoding="utf-8",
+          )
+
+          Path(".github/workflows/v107-fix-theme-matrix-sync.yml").unlink()
+
+      - name: Commit synchronization fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/v107-theme-matrix.ts scripts/v107-windows-trigger.txt .github/workflows/v107-fix-theme-matrix-sync.yml
+          git commit -m "Fix v1.0.7 theme matrix preview synchronization"
+          git push origin HEAD:fix/v1.0.7
