@@ -112,6 +112,13 @@ try {
       if (!bookDetailsOpened) await new Promise((resolve) => setTimeout(resolve, 200));
     }
     if (!bookDetailsOpened) throw new Error("Book Details dialog did not open after 3 programmatic attempts");
+    const currentLanguage = await page.evaluate(() => {
+      const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
+      const input = row?.querySelector("input") as HTMLInputElement | null;
+      if (!input) throw new Error("Language field is missing");
+      return input.value;
+    });
+    const previewStarted = currentLanguage === language ? null : page.waitForSelector(".preview-loading", { visible: true });
     await page.evaluate((value) => {
       const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
       const input = row?.querySelector("input") as HTMLInputElement | null;
@@ -133,6 +140,7 @@ try {
       if (!bookDetailsClosed) await new Promise((resolve) => setTimeout(resolve, 200));
     }
     if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
+    if (previewStarted) await previewStarted;
     await settlePreview();
   };
 
