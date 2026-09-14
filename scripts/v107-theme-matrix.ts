@@ -250,6 +250,11 @@ try {
                 maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[i].getBoundingClientRect().left - words[i - 1].getBoundingClientRect().right) / fontSize);
               }
             }
+          } else {
+            // Natural lines reset compositor continuity. Do not compare a later
+            // microtyped line against a line from before that reset.
+            previousGlyphScale = null;
+            previousSpacing = null;
           }
           const text = (line.textContent ?? "").replace(/\u00ad/g, "").trim();
           if (text.endsWith("-")) {

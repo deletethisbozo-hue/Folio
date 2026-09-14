@@ -339,6 +339,11 @@ try {
                 maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[index].getBoundingClientRect().left - words[index - 1].getBoundingClientRect().right) / fontSize);
               }
             }
+          } else {
+            // Natural lines reset compositor continuity. Do not compare a later
+            // microtyped line against a line from before that reset.
+            previousGlyphScale = null;
+            previousSpacing = null;
           }
           if (line.textContent?.endsWith("-")) {
             hyphenatedLines++;
