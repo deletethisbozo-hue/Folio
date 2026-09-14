@@ -1,4 +1,4 @@
-name: v1.0.7 compositor rejection probe
+name: v1.0.7 English hyphenation experiment
 
 on:
   push:
@@ -10,7 +10,11 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  experiment:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [en-right2, en-right2-relaxed121]
     runs-on: ubuntu-24.04
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
@@ -30,10 +34,13 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply 42/90 recipe and rejection counters
+      - name: Apply 42/90 recipe plus English reachability variant
         shell: python
+        env:
+          VARIANT: ${{ matrix.variant }}
         run: |
           from pathlib import Path
+          import os
 
           def one(s, old, new, label):
               n = s.count(old)
@@ -55,91 +62,71 @@ jobs:
           s = one(s,
               'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
               'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
-              'positive strict spacing')
-          s = one(s,
-              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n',
-              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n  const rejectCounts = { thirdHyphen: 0, spacingContinuity: 0, statePrune: 0, noFit: 0, overfull: 0 };\n',
-              'reject counters')
-          s = one(s,
-              '        if (hyphenStreakOverflow) continue;\n',
-              '''        if (hyphenStreakOverflow) {\n          rejectCounts.thirdHyphen++;\n          if (rejectedBreaks.length < 160) rejectedBreaks.push({\n            reason: "third-hyphen", start, end, line, previousHyphenStreak, previousHyphenCount,\n            endText: (words[end].node.textContent ?? "").replace(/\\u00ad/g, ""),\n            nextText: (words[end + 1]?.node.textContent ?? "").replace(/\\u00ad/g, ""),\n          });\n          continue;\n        }\n''',
-              'third hyphen')
-          s = one(s,
-              '        if (natural > available + 0.75 && !fit && !continuityFit && !spacingFit && (end > start || last)) {\n',
-              '        if (natural > available + 0.75 && !fit && !continuityFit && !spacingFit && (end > start || last)) {\n          if (canBreak) rejectCounts.overfull++;\n',
-              'overfull counter')
-          s = one(s,
-              '        if (!last && !fitOptions.length && !rescueNatural) {\n',
-              '        if (!last && !fitOptions.length && !rescueNatural) {\n          if (canBreak) rejectCounts.noFit++;\n',
-              'no-fit counter')
-          s = one(s,
-              '          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) continue;\n',
-              '''          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) {\n            rejectCounts.spacingContinuity++;\n            if (rejectedBreaks.length < 160) rejectedBreaks.push({\n              reason: "spacing-continuity", start, end, line, hyphenBreak, previousHyphenStreak,\n              previousWordSpacing: previous.wordSpacing, nextWordSpacing: lineFit.wordSpacing, fontSize,\n            });\n            continue;\n          }\n''',
-              'spacing continuity')
-          s = one(s,
-              '        if (!old || cost < old.cost) {\n',
-              '        if (!old || cost < old.cost) {\n',
-              'state branch')
-          s = one(s,
-              '          });\n        }\n        }\n      }\n    }\n  }\n\n  let bestKey = -1;\n',
-              '''          });\n        } else {\n          rejectCounts.statePrune++;\n        }\n        }\n      }\n    }\n  }\n\n  let bestKey = -1;\n''',
-              'state prune')
-          s = one(s,
-              '      rejectedBreaks: rejectedBreaks.slice(-60),\n',
-              '      rejectCounts,\n      rejectedBreaks: rejectedBreaks.slice(-60),\n',
-              'failure counters output')
+              'strict positive spacing')
+          if os.environ['VARIANT'] == 'en-right2-relaxed121':
+              s = one(s,
+                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
+                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.1209 : 0.099);',
+                  'relaxed positive spacing')
           p.write_text(s, encoding='utf-8')
 
-          q = Path('scripts/v107-theme-matrix.ts')
-          t = q.read_text(encoding='utf-8')
+          h = Path('web/src/hyphenation.ts')
+          t = h.read_text(encoding='utf-8')
           t = one(t,
+              '  en: { minimumWord: 5, left: 2, right: 3 },',
+              '  en: { minimumWord: 5, left: 2, right: 2 },',
+              'English right minimum')
+          h.write_text(t, encoding='utf-8')
+
+          q = Path('scripts/v107-theme-matrix.ts')
+          u = q.read_text(encoding='utf-8')
+          u = one(u,
               '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n',
-              '''  const probeNames = new Set(["modern", "decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 4) throw new Error(`Expected exactly 4 probe themes, found ${themes.length}`);\n''',
+              '  const probeNames = new Set(["modern", "decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 4) throw new Error(`Expected exactly 4 probe themes, found ${themes.length}`);\n',
               'probe theme subset')
-          q.write_text(t, encoding='utf-8')
+          q.write_text(u, encoding='utf-8')
+      - name: Show English pattern splits
+        run: |
+          node --import tsx -e "import Hypher from 'hypher'; import english from 'hyphenation.en-us'; const h=new Hypher(english); for (const w of ['stranded','every','professional','excessive','accidental','careful','designer','protects']) console.log(w+' -> '+h.hyphenate(w).join('-'));"
       - run: npm run typecheck
       - run: npm run build
-      - name: 12-case rejection probe
+      - name: Reference corpus
+        id: reference
+        continue-on-error: true
+        run: node --import tsx scripts/v107-visual-qa.ts
+      - name: 12-case targeted matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Extract rejection summary
+      - name: Summarize
         if: always()
         shell: python
+        env:
+          VARIANT: ${{ matrix.variant }}
         run: |
-          import json
+          import json, os
           from pathlib import Path
-          src = Path('build/qa-v107/theme-matrix.json')
-          if not src.exists():
+          p = Path('build/qa-v107/theme-matrix.json')
+          if not p.exists():
               raise SystemExit('theme-matrix.json missing')
-          data = json.loads(src.read_text(encoding='utf-8'))
-          out = {'passed': data['passed'], 'failed': data['failed'], 'failures': []}
-          for result in data['results']:
-              metrics = result.get('metrics', {})
-              details = []
-              for item in metrics.get('compositionFailureDetails', []):
-                  failure = item.get('failure', {}) if isinstance(item, dict) else {}
-                  details.append({
-                      'paragraphIndex': item.get('paragraphIndex') if isinstance(item, dict) else None,
-                      'tokenCount': failure.get('tokenCount') if isinstance(failure, dict) else None,
-                      'furthest': failure.get('furthest') if isinstance(failure, dict) else None,
-                      'rejectCounts': failure.get('rejectCounts') if isinstance(failure, dict) else None,
-                      'boundary': failure.get('boundary') if isinstance(failure, dict) else None,
-                      'rejectedBreaks': failure.get('rejectedBreaks') if isinstance(failure, dict) else None,
-                  })
-              if result['failures'] or details:
-                  out['failures'].append({
-                      'theme': result['theme'],
-                      'scenario': result['scenario'],
-                      'failures': result['failures'],
-                      'compositionFailureDetails': details,
-                  })
-          Path('build/qa-v107/rejection-probe.json').write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps(out, ensure_ascii=False, indent=2))
-      - name: Upload rejection probe
+          d = json.loads(p.read_text(encoding='utf-8'))
+          out = {
+              'variant': os.environ['VARIANT'],
+              'reference': '${{ steps.reference.outcome }}',
+              'passed': d['passed'],
+              'failed': d['failed'],
+              'results': [
+                  {'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'], 'failures': r['failures']}
+                  for r in d['results']
+              ],
+          }
+          outp = Path(f"build/qa-v107/{os.environ['VARIANT']}.json")
+          outp.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(out, indent=2))
+      - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-rejection-probe
-          path: build/qa-v107/rejection-probe.json
+          name: v107-${{ matrix.variant }}
+          path: build/qa-v107/${{ matrix.variant }}.json
           if-no-files-found: error
