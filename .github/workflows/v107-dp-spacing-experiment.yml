@@ -26,7 +26,8 @@ jobs:
           node --input-type=module <<'NODE'
           import Hypher from 'hypher';
           import oldPatterns from 'hyphenation.en-us';
-          import { hyphenateSync as current } from 'hyphen/en-us';
+          import { hyphenateSync as current } from 'hyphen/en-us/index.js';
+          import fs from 'node:fs';
           const old = new Hypher(oldPatterns);
           const words = ['stranded','every','professional','excessive','accidental','careful','designer','protects','ordinary','extraordinary','overlooked','meaning','reader'];
           const result = [];
@@ -36,7 +37,7 @@ jobs:
             result.push({ word, legacy, modern });
           }
           console.log(JSON.stringify(result, null, 2));
-          await import('node:fs').then(fs => fs.writeFileSync('english-pattern-probe.json', JSON.stringify(result, null, 2) + '\n'));
+          fs.writeFileSync('english-pattern-probe.json', JSON.stringify(result, null, 2) + '\n');
           NODE
       - uses: actions/upload-artifact@v4
         with:
