@@ -1,6 +1,5 @@
-name: v1.0.7 DP spacing-state experiment
+name: v1.0.7 compositor rejection probe
 
-# Checkout-only experiment: validates the DP state-key hypothesis without committing product code.
 on:
   push:
     branches: [fix/v1.0.7]
@@ -11,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  experiment:
+  probe:
     runs-on: ubuntu-24.04
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
@@ -31,48 +30,116 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Preserve word spacing in DP state identity
+      - name: Apply 42/90 recipe and rejection counters
         shell: python
         run: |
           from pathlib import Path
+
+          def one(s, old, new, label):
+              n = s.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label} matches: {n}')
+              return s.replace(old, new, 1)
+
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
-          old = '''const HYPHEN_BUCKET_COUNT = 9;\n\nfunction hyphenCountBucket(hyphenCount: number): number {\n  return Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);\n}\n\nfunction encodeState(\n  line: number,\n  hyphenStreak: number,\n  fitness: number,\n  glyphScale: number,\n  hyphenCount: number,\n): number {\n  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;\n  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);\n  return packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);\n}\n\nfunction decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number } {\n  const hyphenBucket = key % HYPHEN_BUCKET_COUNT;\n  const packed = Math.floor(key / HYPHEN_BUCKET_COUNT);\n  const glyphBucket = packed % GLYPH_SCALE_COUNT;\n  const base = Math.floor(packed / GLYPH_SCALE_COUNT);\n  return {\n    line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),\n    hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,\n    fitness: base % FITNESS_COUNT,\n    glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,\n    hyphenBucket,\n  };\n}\n'''
-          new = '''const HYPHEN_BUCKET_COUNT = 9;\nconst WORD_SPACING_MIN_EM = -0.12;\nconst WORD_SPACING_STEP_EM = 0.005;\nconst WORD_SPACING_BUCKET_COUNT = 49;\n\nfunction hyphenCountBucket(hyphenCount: number): number {\n  return Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);\n}\n\nfunction wordSpacingBucket(wordSpacing: number, fontSize: number): number {\n  const em = wordSpacing / Math.max(1, fontSize);\n  return Math.max(0, Math.min(\n    WORD_SPACING_BUCKET_COUNT - 1,\n    Math.round((em - WORD_SPACING_MIN_EM) / WORD_SPACING_STEP_EM),\n  ));\n}\n\nfunction encodeState(\n  line: number,\n  hyphenStreak: number,\n  fitness: number,\n  glyphScale: number,\n  hyphenCount: number,\n  wordSpacing: number,\n  fontSize: number,\n): number {\n  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;\n  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);\n  const withHyphens = packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);\n  return withHyphens * WORD_SPACING_BUCKET_COUNT + wordSpacingBucket(wordSpacing, fontSize);\n}\n\nfunction decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number } {\n  const withHyphens = Math.floor(key / WORD_SPACING_BUCKET_COUNT);\n  const hyphenBucket = withHyphens % HYPHEN_BUCKET_COUNT;\n  const packed = Math.floor(withHyphens / HYPHEN_BUCKET_COUNT);\n  const glyphBucket = packed % GLYPH_SCALE_COUNT;\n  const base = Math.floor(packed / GLYPH_SCALE_COUNT);\n  return {\n    line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),\n    hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,\n    fitness: base % FITNESS_COUNT,\n    glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,\n    hyphenBucket,\n  };\n}\n'''
-          if s.count(old) != 1:
-              raise SystemExit(f'encode/decode block matches: {s.count(old)}')
-          s = s.replace(old, new, 1)
-          old_initial = 'states[0].set(encodeState(0, 0, initialFitness, 1, 0), {'
-          new_initial = 'states[0].set(encodeState(0, 0, initialFitness, 1, 0, 0, fontSize), {'
-          if s.count(old_initial) != 1:
-              raise SystemExit(f'initial key matches: {s.count(old_initial)}')
-          s = s.replace(old_initial, new_initial, 1)
-          old_next = 'const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);'
-          new_next = 'const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount, lineFit?.wordSpacing ?? 0, fontSize);'
-          if s.count(old_next) != 1:
-              raise SystemExit(f'next key matches: {s.count(old_next)}')
-          s = s.replace(old_next, new_next, 1)
+          s = one(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
+          s = one(s,
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              'widow rate')
+          s = one(s,
+              '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              'widow selection')
+          s = one(s,
+              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
+              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
+              'positive strict spacing')
+          s = one(s,
+              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n',
+              '  const rejectedBreaks: Array<Record<string, unknown>> = [];\n  const rejectCounts = { thirdHyphen: 0, spacingContinuity: 0, statePrune: 0, noFit: 0, overfull: 0 };\n',
+              'reject counters')
+          s = one(s,
+              '        if (hyphenStreakOverflow) continue;\n',
+              '''        if (hyphenStreakOverflow) {\n          rejectCounts.thirdHyphen++;\n          if (rejectedBreaks.length < 160) rejectedBreaks.push({\n            reason: "third-hyphen", start, end, line, previousHyphenStreak, previousHyphenCount,\n            endText: (words[end].node.textContent ?? "").replace(/\\u00ad/g, ""),\n            nextText: (words[end + 1]?.node.textContent ?? "").replace(/\\u00ad/g, ""),\n          });\n          continue;\n        }\n''',
+              'third hyphen')
+          s = one(s,
+              '        if (natural > available + 0.75 && !fit && !continuityFit && !spacingFit && (end > start || last)) {\n',
+              '        if (natural > available + 0.75 && !fit && !continuityFit && !spacingFit && (end > start || last)) {\n          if (canBreak) rejectCounts.overfull++;\n',
+              'overfull counter')
+          s = one(s,
+              '        if (!last && !fitOptions.length && !rescueNatural) {\n',
+              '        if (!last && !fitOptions.length && !rescueNatural) {\n          if (canBreak) rejectCounts.noFit++;\n',
+              'no-fit counter')
+          s = one(s,
+              '          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) continue;\n',
+              '''          if (lineFit && (previous.justified || previous.finalCompressed)\n            && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.158) {\n            rejectCounts.spacingContinuity++;\n            if (rejectedBreaks.length < 160) rejectedBreaks.push({\n              reason: "spacing-continuity", start, end, line, hyphenBreak, previousHyphenStreak,\n              previousWordSpacing: previous.wordSpacing, nextWordSpacing: lineFit.wordSpacing, fontSize,\n            });\n            continue;\n          }\n''',
+              'spacing continuity')
+          s = one(s,
+              '        if (!old || cost < old.cost) {\n',
+              '        if (!old || cost < old.cost) {\n',
+              'state branch')
+          s = one(s,
+              '          });\n        }\n        }\n      }\n    }\n  }\n\n  let bestKey = -1;\n',
+              '''          });\n        } else {\n          rejectCounts.statePrune++;\n        }\n        }\n      }\n    }\n  }\n\n  let bestKey = -1;\n''',
+              'state prune')
+          s = one(s,
+              '      rejectedBreaks: rejectedBreaks.slice(-60),\n',
+              '      rejectCounts,\n      rejectedBreaks: rejectedBreaks.slice(-60),\n',
+              'failure counters output')
           p.write_text(s, encoding='utf-8')
+
+          q = Path('scripts/v107-theme-matrix.ts')
+          t = q.read_text(encoding='utf-8')
+          t = one(t,
+              '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n',
+              '''  const probeNames = new Set(["modern", "decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 4) throw new Error(`Expected exactly 4 probe themes, found ${themes.length}`);\n''',
+              'probe theme subset')
+          q.write_text(t, encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Reference corpus
-        id: reference
-        continue-on-error: true
-        run: node --import tsx scripts/v107-visual-qa.ts
-      - name: 30-theme matrix
+      - name: 12-case rejection probe
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Summarize experiment
+      - name: Extract rejection summary
         if: always()
         shell: python
         run: |
           import json
           from pathlib import Path
-          p = Path('build/qa-v107/theme-matrix.json')
-          if not p.exists():
+          src = Path('build/qa-v107/theme-matrix.json')
+          if not src.exists():
               raise SystemExit('theme-matrix.json missing')
-          d = json.loads(p.read_text(encoding='utf-8'))
-          print(json.dumps({k:d[k] for k in ('themes','totalScenarios','passed','failed')}, indent=2))
-          if '${{ steps.reference.outcome }}' != 'success':
-              raise SystemExit('reference corpus failed in experiment')
+          data = json.loads(src.read_text(encoding='utf-8'))
+          out = {'passed': data['passed'], 'failed': data['failed'], 'failures': []}
+          for result in data['results']:
+              metrics = result.get('metrics', {})
+              details = []
+              for item in metrics.get('compositionFailureDetails', []):
+                  failure = item.get('failure', {}) if isinstance(item, dict) else {}
+                  details.append({
+                      'paragraphIndex': item.get('paragraphIndex') if isinstance(item, dict) else None,
+                      'tokenCount': failure.get('tokenCount') if isinstance(failure, dict) else None,
+                      'furthest': failure.get('furthest') if isinstance(failure, dict) else None,
+                      'rejectCounts': failure.get('rejectCounts') if isinstance(failure, dict) else None,
+                      'boundary': failure.get('boundary') if isinstance(failure, dict) else None,
+                      'rejectedBreaks': failure.get('rejectedBreaks') if isinstance(failure, dict) else None,
+                  })
+              if result['failures'] or details:
+                  out['failures'].append({
+                      'theme': result['theme'],
+                      'scenario': result['scenario'],
+                      'failures': result['failures'],
+                      'compositionFailureDetails': details,
+                  })
+          Path('build/qa-v107/rejection-probe.json').write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(out, ensure_ascii=False, indent=2))
+      - name: Upload rejection probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v107-rejection-probe
+          path: build/qa-v107/rejection-probe.json
+          if-no-files-found: error
