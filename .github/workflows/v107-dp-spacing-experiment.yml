@@ -1,4 +1,4 @@
-name: v1.0.7 current English pattern probe
+name: v1.0.7 current English compositor experiment
 
 on:
   push:
@@ -10,8 +10,11 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  experiment:
     runs-on: ubuntu-24.04
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,27 +24,104 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Install current CTAN pattern engine checkout-only
         run: npm install --no-save --no-package-lock hyphen@1.14.1
-      - name: Compare English pattern splits
+      - name: Install pinned Pandoc 3.11
+        shell: bash
         run: |
-          node --input-type=module <<'NODE'
-          import Hypher from 'hypher';
-          import oldPatterns from 'hyphenation.en-us';
-          import currentPackage from 'hyphen/en-us/index.js';
-          import fs from 'node:fs';
-          const { hyphenateSync: current } = currentPackage;
-          const old = new Hypher(oldPatterns);
-          const words = ['stranded','every','professional','excessive','accidental','careful','designer','protects','ordinary','extraordinary','overlooked','meaning','reader'];
-          const result = [];
-          for (const word of words) {
-            const legacy = old.hyphenate(word).join('-');
-            const modern = current(word, { html: false, minWordLength: 5 }).replaceAll('\u00ad', '-');
-            result.push({ word, legacy, modern });
+          mkdir -p build/pandoc
+          curl -fsSL "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz" -o build/pandoc-3.11-linux-amd64.tar.gz
+          echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
+          tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
+      - run: npx puppeteer browsers install chrome-headless-shell
+      - name: Apply 42/90 recipe and current English patterns
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def one(s, old, new, label):
+              n = s.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label} matches: {n}')
+              return s.replace(old, new, 1)
+
+          p = Path('web/src/compositor.ts')
+          s = p.read_text(encoding='utf-8')
+          s = one(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
+          s = one(s,
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
+              'widow rate')
+          s = one(s,
+              '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
+              'widow selection')
+          s = one(s,
+              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
+              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
+              'strict positive spacing')
+          p.write_text(s, encoding='utf-8')
+
+          h = Path('web/src/hyphenation.ts')
+          t = h.read_text(encoding='utf-8')
+          t = one(t,
+              'import english from "hyphenation.en-us";\nimport polish from "hyphenation.pl";\n\nconst engines = { en: new Hypher(english), pl: new Hypher(polish) };\ntype HyphenationLanguage = keyof typeof engines;\n',
+              'import polish from "hyphenation.pl";\n// @ts-ignore checkout-only experiment: CommonJS package has no project declaration\nimport currentEnglishPackage from "hyphen/en-us/index.js";\n\nconst polishEngine = new Hypher(polish);\nconst hyphenateEnglish = (currentEnglishPackage as { hyphenateSync: (word: string, options?: { html?: boolean; minWordLength?: number }) => string }).hyphenateSync;\ntype HyphenationLanguage = "en" | "pl";\n',
+              'English engine import')
+          t = one(t,
+              'function applyDictionary(text: string, engine: Hypher, limits: HyphenationLimits): string { return text.replace(WORD, candidate => candidate.includes("\\u00ad") ? candidate : conservativeHyphenation(engine, candidate, limits.left, limits.right, limits.minimumWord)); }\n',
+              '''function filteredSoftHyphens(word: string, hyphenated: string, limits: HyphenationLimits): string {\n  if (word.length < limits.minimumWord || !hyphenated.includes("\\u00ad")) return word;\n  const pieces = hyphenated.split("\\u00ad");\n  const points: number[] = []; let offset = 0;\n  for (let index = 0; index < pieces.length - 1; index++) { offset += pieces[index].length; if (offset >= limits.left && word.length - offset >= limits.right) points.push(offset); }\n  if (!points.length) return word;\n  let result = "", start = 0; for (const point of points) { result += word.slice(start, point) + "\\u00ad"; start = point; }\n  return result + word.slice(start);\n}\nfunction applyDictionary(text: string, key: HyphenationLanguage, limits: HyphenationLimits): string {\n  return text.replace(WORD, candidate => {\n    if (candidate.includes("\\u00ad")) return candidate;\n    if (key === "pl") return conservativeHyphenation(polishEngine, candidate, limits.left, limits.right, limits.minimumWord);\n    const modern = hyphenateEnglish(candidate, { html: false, minWordLength: limits.minimumWord });\n    return filteredSoftHyphens(candidate, modern, limits);\n  });\n}\n''',
+              'dictionary adapter')
+          t = one(t,
+              '  const document = root.ownerDocument; const key = hyphenationLanguage(language); const engine = engines[key]; const limits = HYPHENATION_LIMITS[key]; const polishText = key === "pl";\n',
+              '  const document = root.ownerDocument; const key = hyphenationLanguage(language); const limits = HYPHENATION_LIMITS[key]; const polishText = key === "pl";\n',
+              'engine selection')
+          t = one(t,
+              ' node.data = applyDictionary(text, engine, limits); }\n',
+              ' node.data = applyDictionary(text, key, limits); }\n',
+              'dictionary call')
+          h.write_text(t, encoding='utf-8')
+
+          q = Path('scripts/v107-theme-matrix.ts')
+          u = q.read_text(encoding='utf-8')
+          u = one(u,
+              '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n',
+              '  const probeNames = new Set(["modern", "decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 4) throw new Error(`Expected exactly 4 probe themes, found ${themes.length}`);\n',
+              'probe theme subset')
+          q.write_text(u, encoding='utf-8')
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Reference corpus
+        id: reference
+        continue-on-error: true
+        run: node --import tsx scripts/v107-visual-qa.ts
+      - name: 12-case targeted matrix
+        id: matrix
+        continue-on-error: true
+        run: node --import tsx scripts/v107-theme-matrix.ts
+      - name: Summarize
+        if: always()
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+          p = Path('build/qa-v107/theme-matrix.json')
+          if not p.exists():
+              raise SystemExit('theme-matrix.json missing')
+          d = json.loads(p.read_text(encoding='utf-8'))
+          out = {
+              'reference': '${{ steps.reference.outcome }}',
+              'passed': d['passed'],
+              'failed': d['failed'],
+              'results': [
+                  {'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'], 'failures': r['failures']}
+                  for r in d['results']
+              ],
           }
-          console.log(JSON.stringify(result, null, 2));
-          fs.writeFileSync('english-pattern-probe.json', JSON.stringify(result, null, 2) + '\n');
-          NODE
-      - uses: actions/upload-artifact@v4
+          Path('build/qa-v107/current-en-compositor.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(out, indent=2))
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: v107-current-english-pattern-probe
-          path: english-pattern-probe.json
+          name: v107-current-en-compositor
+          path: build/qa-v107/current-en-compositor.json
           if-no-files-found: error
