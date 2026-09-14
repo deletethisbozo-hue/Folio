@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           node --input-type=module <<'NODE'
-          import { hyphenateSync as hyphenateEnglish } from 'hyphen/en-us';
+          import { hyphenateSync as hyphenateEnglish } from 'hyphen/en-us/index.js';
           for (const word of ['stranded','every','professional','excessive','accidental','careful','designer','protects']) {
             console.log(word, '=>', hyphenateEnglish(word, { html: false, minWordLength: 5 }).replaceAll('\u00ad', '-'));
           }
@@ -73,7 +73,7 @@ jobs:
           t = h.read_text(encoding='utf-8')
           t = one(t,
               'import english from "hyphenation.en-us";\nimport polish from "hyphenation.pl";\n\nconst engines = { en: new Hypher(english), pl: new Hypher(polish) };\ntype HyphenationLanguage = keyof typeof engines;\n',
-              'import polish from "hyphenation.pl";\nimport { hyphenateSync as hyphenateEnglish } from "hyphen/en-us";\n\nconst polishEngine = new Hypher(polish);\ntype HyphenationLanguage = "en" | "pl";\n',
+              'import polish from "hyphenation.pl";\nimport { hyphenateSync as hyphenateEnglish } from "hyphen/en-us/index.js";\n\nconst polishEngine = new Hypher(polish);\ntype HyphenationLanguage = "en" | "pl";\n',
               'English engine import')
           t = one(t,
               'function applyDictionary(text: string, engine: Hypher, limits: HyphenationLimits): string { return text.replace(WORD, candidate => candidate.includes("\\u00ad") ? candidate : conservativeHyphenation(engine, candidate, limits.left, limits.right, limits.minimumWord)); }\n',
