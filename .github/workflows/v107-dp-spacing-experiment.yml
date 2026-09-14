@@ -1,4 +1,4 @@
-name: v1.0.7 Modern measure experiment
+name: v1.0.7 per-theme measure map
 
 on:
   push:
@@ -10,12 +10,19 @@ permissions:
   contents: read
 
 jobs:
-  modern-measure:
+  measure-map:
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: [classic, decorative, editorial, cloister]
+        padding: ['1.1', '1.6', '1.9']
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 25
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
+      PROBE_THEME: ${{ matrix.theme }}
+      PROBE_PADDING: ${{ matrix.padding }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,38 +39,29 @@ jobs:
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
 
-      - name: Apply checkout-only Modern column measure
+      - name: Apply checkout-only theme measure
         shell: python
         run: |
+          import os
           from pathlib import Path
 
-          p = Path('themes/modern/theme.css')
+          theme = os.environ['PROBE_THEME']
+          padding = os.environ['PROBE_PADDING']
+          p = Path('themes') / theme / 'theme.css'
           s = p.read_text(encoding='utf-8')
-          marker = 'main.book { counter-reset: modern-chapter; }\n'
-          if s.count(marker) != 1:
-              raise SystemExit(f'modern main marker matches: {s.count(marker)}')
-          s = s.replace(
-              marker,
-              'main.book {\n  counter-reset: modern-chapter;\n  padding-left: 1.6em;\n  padding-right: 1.6em;\n}\n',
-              1,
-          )
+          s += f'\n/* checkout-only measure probe */\nmain.book {{ padding-left: {padding}em; padding-right: {padding}em; }}\n'
           p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
           old = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          new = '  const themes = themeList().filter((theme) => theme.name === "modern");\n  if (themes.length !== 1) throw new Error(`Expected Modern probe theme, found ${themes.length}`);\n'
+          new = f'  const themes = themeList().filter((theme) => theme.name === "{theme}");\n  if (themes.length !== 1) throw new Error(`Expected probe theme, found ${{themes.length}}`);\n'
           if t.count(old) != 1:
               raise SystemExit(f'theme subset matches: {t.count(old)}')
           q.write_text(t.replace(old, new, 1), encoding='utf-8')
 
-      - run: npm run typecheck
       - run: npm run build
-      - name: Reference corpus
-        id: reference
-        continue-on-error: true
-        run: node --import tsx scripts/v107-visual-qa.ts
-      - name: Modern 3-case matrix
+      - name: Three-case theme matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
@@ -72,11 +70,12 @@ jobs:
         if: always()
         shell: python
         run: |
-          import json
+          import json, os
           from pathlib import Path
           p = Path('build/qa-v107/theme-matrix.json')
           out = {
-              'reference': '${{ steps.reference.outcome }}',
+              'theme': os.environ['PROBE_THEME'],
+              'paddingEm': float(os.environ['PROBE_PADDING']),
               'matrix': '${{ steps.matrix.outcome }}',
           }
           if p.exists():
@@ -91,26 +90,22 @@ jobs:
                           'failures': r['failures'],
                           'measurePx': r.get('metrics', {}).get('measurePx'),
                           'hyphenRate': r.get('metrics', {}).get('hyphenRate'),
+                          'maxRightErrorPx': r.get('metrics', {}).get('maxRightErrorPx'),
                           'emergencyLines': r.get('metrics', {}).get('emergencyLines'),
                           'oneWordFinalLines': r.get('metrics', {}).get('oneWordFinalLines'),
                           'compositionFailures': r.get('metrics', {}).get('compositionFailures'),
+                          'dropcapOpening': r.get('metrics', {}).get('dropcapOpening'),
                       }
                       for r in d['results']
                   ],
               })
-          Path('build/qa-v107/modern-measure.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          target = Path(f"build/qa-v107/measure-{os.environ['PROBE_THEME']}-{os.environ['PROBE_PADDING']}.json")
+          target.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(out, indent=2))
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v107-modern-measure
-          path: build/qa-v107/modern-measure.json
+          name: measure-${{ matrix.theme }}-${{ matrix.padding }}
+          path: build/qa-v107/measure-${{ matrix.theme }}-${{ matrix.padding }}.json
           if-no-files-found: error
-
-      - name: Require green probe
-        if: always()
-        shell: bash
-        run: |
-          test '${{ steps.reference.outcome }}' = success
-          test '${{ steps.matrix.outcome }}' = success
