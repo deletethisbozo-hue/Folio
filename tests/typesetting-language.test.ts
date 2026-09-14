@@ -4,6 +4,7 @@ import english from "hyphenation.en-us";
 import polish from "hyphenation.pl";
 import { conservativeHyphenation, hyphenationLanguage } from "../web/src/hyphenation.ts";
 import { compositionLanguageForText } from "../web/src/compositor.ts";
+import { normalizeThemeFontFamilies } from "../server/pipeline/theme-fonts.ts";
 
 let passed = 0;
 let failed = 0;
@@ -77,6 +78,27 @@ test("clearly foreign paragraphs use their own supported composition language", 
 test("short, ambiguous and explicitly tagged paragraphs keep deterministic language rules", () => {
   assert.equal(compositionLanguageForText("A brief note.", "pl-PL"), "pl-PL");
   assert.equal(compositionLanguageForText("The clearly English paragraph remains deliberately tagged.", "pl-PL", "fr"), "fr");
+});
+
+test("theme font normalization does not corrupt longer quoted fallback names", () => {
+  const heritage = normalizeThemeFontFamilies('body{font-family:Baskerville,"Baskerville Old Face",Georgia,serif}');
+  assert.equal(
+    heritage.css,
+    'body{font-family:"Folio Libre Baskerville","Baskerville Old Face","Folio Source Serif 4",serif}',
+  );
+  const timber = normalizeThemeFontFamilies('body{font-family:Charter,"Bitstream Charter",Georgia,serif}');
+  assert.equal(
+    timber.css,
+    'body{font-family:"Folio Libre Caslon Text","Bitstream Charter","Folio Source Serif 4",serif}',
+  );
+});
+
+test("theme font normalization leaves quoted content strings untouched", () => {
+  const normalized = normalizeThemeFontFamilies('body{font-family:Garamond,Georgia,serif}.label::after{content:"Garamond, Baskerville and Charter"}');
+  assert.equal(
+    normalized.css,
+    'body{font-family:"Folio EB Garamond","Folio Source Serif 4",serif}.label::after{content:"Garamond, Baskerville and Charter"}',
+  );
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
