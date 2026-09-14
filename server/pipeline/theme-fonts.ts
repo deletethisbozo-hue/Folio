@@ -88,30 +88,53 @@ function escapeRegExp(value: string): string {
 }
 
 /*
- * Normalize in two phases. The previous implementation replaced family names
- * directly and then kept scanning, so a short alias such as `Garamond` could
- * accidentally match inside the already-normalized `Folio EB Garamond` name.
- * Placeholders make font resolution deterministic and non-cascading.
+ * Normalize in three phases. Exact quoted family names are replaced first.
+ * Every other quoted CSS string is then hidden while bare family aliases are
+ * normalized, so `Baskerville` cannot corrupt `"Baskerville Old Face"`,
+ * `Charter` cannot corrupt `"Bitstream Charter"`, and font-looking words in
+ * generated `content:` strings are never touched. Font placeholders also stop
+ * shorter aliases from cascading into already-normalized Folio family names.
  */
 export function normalizeThemeFontFamilies(css: string): { css: string; used: Set<FontKey> } {
   let normalized = css;
   const used = new Set<FontKey>();
-  const placeholders = new Map<string, FontKey>();
+  const fontPlaceholders = new Map<string, FontKey>();
 
   LEGACY_TO_BUILTIN.forEach(([legacy, key], index) => {
     const escaped = escapeRegExp(legacy);
     const quoted = new RegExp(`(["'])${escaped}\\1`, "g");
-    const bare = new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, "g");
     const token = `__FOLIO_THEME_FONT_${index}__`;
     const before = normalized;
-    normalized = normalized.replace(quoted, token).replace(bare, token);
+    normalized = normalized.replace(quoted, token);
     if (normalized !== before) {
       used.add(key);
-      placeholders.set(token, key);
+      fontPlaceholders.set(token, key);
     }
   });
 
-  for (const [token, key] of placeholders) {
+  const stringPlaceholders = new Map<string, string>();
+  normalized = normalized.replace(/(["'])(?:\\.|(?!\1)[^\\\r\n])*\1/g, (value) => {
+    const token = `__FOLIO_CSS_STRING_${stringPlaceholders.size}__`;
+    stringPlaceholders.set(token, value);
+    return token;
+  });
+
+  LEGACY_TO_BUILTIN.forEach(([legacy, key], index) => {
+    const escaped = escapeRegExp(legacy);
+    const bare = new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, "g");
+    const token = `__FOLIO_THEME_FONT_${index}__`;
+    const before = normalized;
+    normalized = normalized.replace(bare, token);
+    if (normalized !== before) {
+      used.add(key);
+      fontPlaceholders.set(token, key);
+    }
+  });
+
+  for (const [token, value] of stringPlaceholders) {
+    normalized = normalized.replaceAll(token, value);
+  }
+  for (const [token, key] of fontPlaceholders) {
     normalized = normalized.replaceAll(token, JSON.stringify(FONTS[key].family));
   }
 
