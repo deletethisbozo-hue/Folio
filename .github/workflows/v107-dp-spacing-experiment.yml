@@ -1,8 +1,8 @@
-name: v1.0.7 diverse fit frontier experiment
+name: v1.0.7 post-render residual experiment
 
 on:
   push:
-    branches: [fix/v1.0.7]
+    branches: [exp/v107-render-correction]
     paths:
       - '.github/workflows/v107-dp-spacing-experiment.yml'
 
@@ -31,59 +31,102 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Preserve a small diverse legal fit frontier
+      - name: Add bounded post-render word-spacing correction
         shell: python
         run: |
           from pathlib import Path
 
-          def one(text, old, new, label):
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label} matches: {count}')
-              return text.replace(old, new, 1)
-
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
-          s = one(
-              s,
-              '  selection: "badness" | "continuity" | "spacing-continuity" = "badness",\n',
-              '  selection: "badness" | "continuity" | "spacing-continuity" | "tight-spacing" | "loose-spacing" | "compressed-scale" | "expanded-scale" = "badness",\n',
-              'selection union',
-          )
-          s = one(
-              s,
-              '''    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : selection === "spacing-continuity"\n        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n        : candidate.badness;\n''',
-              '''    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : selection === "spacing-continuity"\n        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n        : selection === "tight-spacing"\n          ? wordSpacing * 100_000 + candidate.badness\n          : selection === "loose-spacing"\n            ? -wordSpacing * 100_000 + candidate.badness\n            : selection === "compressed-scale"\n              ? glyphScale * 100_000 + candidate.badness\n              : selection === "expanded-scale"\n                ? -glyphScale * 100_000 + candidate.badness\n                : candidate.badness;\n''',
-              'selection ranking',
-          )
-          anchor = '''        const spacingFit = strictSpacingFit ?? (emergency && !last\n          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "spacing-continuity", previous.wordSpacing)\n          : null);\n'''
-          addition = anchor + '''        const frontierFits = !last ? [\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "tight-spacing"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "loose-spacing"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "compressed-scale"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "expanded-scale"),\n        ] : [];\n'''
-          s = one(s, anchor, addition, 'frontier fits')
-          anchor2 = '''        if (spacingFit && !fitOptions.some((candidate) =>\n          candidate\n          && Math.abs(candidate.glyphScale - spacingFit.glyphScale) < 0.000001\n          && Math.abs(candidate.wordSpacing - spacingFit.wordSpacing) < 0.000001\n          && Math.abs(candidate.tracking - spacingFit.tracking) < 0.000001\n        )) fitOptions.push(spacingFit);\n'''
-          addition2 = anchor2 + '''        for (const frontierFit of frontierFits) {\n          if (frontierFit && !fitOptions.some((candidate) =>\n            candidate\n            && Math.abs(candidate.glyphScale - frontierFit.glyphScale) < 0.000001\n            && Math.abs(candidate.wordSpacing - frontierFit.wordSpacing) < 0.000001\n            && Math.abs(candidate.tracking - frontierFit.tracking) < 0.000001\n          )) fitOptions.push(frontierFit);\n        }\n'''
-          s = one(s, anchor2, addition2, 'frontier insertion')
-          p.write_text(s, encoding='utf-8')
+          start = s.index('  const maxAdjacentScaleDelta = 0.012;\n')
+          end = s.index('\n}\n\nfunction sectionStatsFor(', start)
+          replacement = r'''  const maxAdjacentScaleDelta = 0.012;
+  const maxAdjacentSpacingDeltaEm = 0.158;
+  let previousCorrectedScale: number | null = null;
+  let previousCorrectedSpacing: number | null = null;
+  for (const line of lines) {
+    if (!line.classList.contains("folio-line-justified") && !line.classList.contains("folio-line-final-compressed")) {
+      previousCorrectedScale = null;
+      previousCorrectedSpacing = null;
+      continue;
+    }
+    const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
+    if (!content) {
+      previousCorrectedScale = null;
+      previousCorrectedSpacing = null;
+      continue;
+    }
+    const rendered = content.getBoundingClientRect().width;
+    const measure = line.getBoundingClientRect().width;
+    const protrusion = Number(line.dataset.folioRightProtrusion ?? 0);
+    const opticalMeasure = measure + protrusion;
+    const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
+    let correctedSpacing = Number(line.dataset.folioWordSpacing ?? 0);
+    const renderedFontSize = pixels(getComputedStyle(line).fontSize) || fontSize;
+    if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(currentScale)) {
+      previousCorrectedScale = null;
+      previousCorrectedSpacing = null;
+      continue;
+    }
+    let correctedScale = Math.max(0.99, Math.min(1.01, currentScale * opticalMeasure / rendered));
+    if (previousCorrectedScale !== null) {
+      correctedScale = Math.max(
+        previousCorrectedScale - maxAdjacentScaleDelta,
+        Math.min(previousCorrectedScale + maxAdjacentScaleDelta, correctedScale),
+      );
+      correctedScale = Math.max(0.99, Math.min(1.01, correctedScale));
+    }
+    content.style.transform = Math.abs(correctedScale - 1) > 0.00001
+      ? "scaleX(" + correctedScale + ")"
+      : "";
+    line.dataset.folioGlyphScale = String(correctedScale);
+
+    // Rasterization and scale-continuity clamping can leave a small right-edge
+    // residual after the first correction. Absorb only that measured residual
+    // into legal word spacing instead of accepting a visibly ragged edge.
+    const gapCount = content.querySelectorAll<HTMLElement>('.folio-word[data-folio-space-before="true"]').length;
+    if (gapCount > 0) {
+      const rerendered = content.getBoundingClientRect().width;
+      const residual = opticalMeasure - rerendered;
+      if (Math.abs(residual) > 0.05) {
+        const relaxed = line.classList.contains("folio-line-relaxed") || line.classList.contains("folio-line-final-compressed");
+        const minSpacing = -(renderedFontSize * (relaxed ? 0.12 : 0.099));
+        const maxSpacing = renderedFontSize * (relaxed ? 0.12 : 0.075);
+        correctedSpacing += residual / Math.max(0.01, gapCount * correctedScale);
+        correctedSpacing = Math.max(minSpacing, Math.min(maxSpacing, correctedSpacing));
+        if (previousCorrectedSpacing !== null) {
+          const maxJump = renderedFontSize * maxAdjacentSpacingDeltaEm;
+          correctedSpacing = Math.max(previousCorrectedSpacing - maxJump, Math.min(previousCorrectedSpacing + maxJump, correctedSpacing));
+          correctedSpacing = Math.max(minSpacing, Math.min(maxSpacing, correctedSpacing));
+        }
+        line.style.wordSpacing = `${baseWordSpacing + correctedSpacing}px`;
+        line.dataset.folioWordSpacing = String(correctedSpacing);
+      }
+    }
+    previousCorrectedScale = correctedScale;
+    previousCorrectedSpacing = correctedSpacing;
+  }
+'''
+          p.write_text(s[:start] + replacement + s[end:], encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
-          t = one(
-              t,
-              '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n',
-              '  const probeNames = new Set(["classic", "modern", "decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 5) throw new Error(`Expected exactly 5 probe themes, found ${themes.length}`);\n',
-              'probe themes',
-          )
-          q.write_text(t, encoding='utf-8')
+          old = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
+          new = '  const probeNames = new Set(["ivory", "stanza", "cloister", "timber", "decorative"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 5) throw new Error(`Expected exactly 5 probe themes, found ${themes.length}`);\n'
+          if t.count(old) != 1:
+              raise SystemExit(f'probe theme block matches: {t.count(old)}')
+          q.write_text(t.replace(old, new, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
       - name: Reference corpus
         id: reference
         continue-on-error: true
         run: node --import tsx scripts/v107-visual-qa.ts
-      - name: 15-case representative matrix
+      - name: 15-case residual matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Summarize frontier probe
+      - name: Summarize residual probe
         if: always()
         shell: python
         run: |
@@ -105,18 +148,21 @@ jobs:
               out['results'].append({
                   'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'],
                   'failures': r['failures'], 'font': m.get('bodyFont'),
-                  'hyphenRate': m.get('hyphenRate'), 'rightError': m.get('maxRightErrorPx'),
-                  'emergency': m.get('emergencyLines'), 'widow': m.get('oneWordFinalLines'),
+                  'rightError': m.get('maxRightErrorPx'),
+                  'wordSpacing': m.get('maxWordSpacingEm'),
+                  'adjacentSpacing': m.get('maxAdjacentSpacingDeltaEm'),
+                  'glyphScale': m.get('maxGlyphScaleDelta'),
+                  'adjacentScale': m.get('maxAdjacentGlyphScaleDelta'),
+                  'emergency': m.get('emergencyLines'),
                   'compositionFailures': m.get('compositionFailures'),
-                  'dropcapOpening': m.get('dropcapOpening'),
               })
-          Path('build/qa-v107/diverse-frontier-probe.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          Path('build/qa-v107/post-render-residual-probe.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(out, indent=2))
           if '${{ steps.reference.outcome }}' != 'success':
               raise SystemExit('reference corpus failed')
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v107-diverse-frontier-probe
-          path: build/qa-v107/diverse-frontier-probe.json
+          name: v107-post-render-residual-probe
+          path: build/qa-v107/post-render-residual-probe.json
           if-no-files-found: error
