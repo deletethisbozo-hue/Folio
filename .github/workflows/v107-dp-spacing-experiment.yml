@@ -58,7 +58,7 @@ jobs:
               'widow selection',
           )
           count = s.count('1.70')
-          if count != 3:
+          if count != 2:
               raise SystemExit(f'residual constant occurrences: {count}')
           s = s.replace('1.70', '1.50')
           p.write_text(s, encoding='utf-8')
