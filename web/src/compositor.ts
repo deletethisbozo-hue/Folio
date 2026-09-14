@@ -280,7 +280,7 @@ function fitLine(
 ): LineFit | null {
   if (gaps <= 0) return null;
 
-  const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);
+  const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);
   // Cap the rendered semantic gap, including positive tracking and the allowed 1% glyph stretch.
   const semanticGapHeadroom = Math.max(0, fontSize * 0.3685 / 1.01 - spaceWidth - fontSize * 0.003);
   const maxWordSpacing = Math.min(configuredWordSpacing, semanticGapHeadroom);
@@ -717,12 +717,17 @@ function chooseBreaks(
   let bestCost = Number.POSITIVE_INFINITY;
   let bestSectionRate = Number.POSITIVE_INFINITY;
   let bestHyphenBudgetPriority = 3;
+  let bestWidowPriority = 2;
   for (const [key, state] of states[count]) {
     const decoded = decodeState(key);
     const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
     const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
     const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
     const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
+    const finalSemanticWords = state.from < count
+      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length
+      : 0;
+    const widowPriority = finalSemanticWords === 1 ? 1 : 0;
     // 0.45 is the release ceiling, not the composition target. Prefer 0.40
     // when feasible, preserving cross-platform headroom without loosening fit.
     const hyphenBudgetPriority = sectionRate <= 0.40 + 1e-9
@@ -732,8 +737,11 @@ function chooseBreaks(
       ? state.cost < bestCost
       : sectionRate < bestSectionRate - 1e-9
         || (Math.abs(sectionRate - bestSectionRate) <= 1e-9 && state.cost < bestCost);
-    if (hyphenBudgetPriority < bestHyphenBudgetPriority
-      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {
+    if (widowPriority < bestWidowPriority
+      || (widowPriority === bestWidowPriority
+        && (hyphenBudgetPriority < bestHyphenBudgetPriority
+          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {
+      bestWidowPriority = widowPriority;
       bestHyphenBudgetPriority = hyphenBudgetPriority;
       bestCost = state.cost;
       bestSectionRate = sectionRate;
