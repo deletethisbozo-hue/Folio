@@ -1,0 +1,82 @@
+name: Patch v1.0.7 language preview synchronization
+
+on:
+  push:
+    branches:
+      - fix/v1.0.7
+    paths:
+      - .github/workflows/v107-fix-language-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/v1.0.7
+          fetch-depth: 0
+
+      - name: Make language preview synchronization deterministic
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("scripts/v107-theme-matrix.ts")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''    await page.evaluate((value) => {
+      const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
+      const input = row?.querySelector("input") as HTMLInputElement | null;
+      if (!input) throw new Error("Language field is missing");
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }, language);
+    await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);'''
+
+          new = '''    const currentLanguage = await page.evaluate(() => {
+      const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
+      const input = row?.querySelector("input") as HTMLInputElement | null;
+      if (!input) throw new Error("Language field is missing");
+      return input.value;
+    });
+    const previewStarted = currentLanguage === language ? null : page.waitForSelector(".preview-loading", { visible: true });
+    await page.evaluate((value) => {
+      const row = [...document.querySelectorAll(".dialog-field")].find((node) => node.querySelector("span")?.textContent === "Language");
+      const input = row?.querySelector("input") as HTMLInputElement | null;
+      if (!input) throw new Error("Language field is missing");
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }, language);
+    await page.waitForFunction((value) => [...document.querySelectorAll(".folio-statusbar span")].some((node) => node.textContent === value), {}, language);'''
+
+          old_tail = '''    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
+    await settlePreview();'''
+          new_tail = '''    if (!bookDetailsClosed) throw new Error("Book Details dialog did not close after 3 programmatic attempts");
+    if (previewStarted) await previewStarted;
+    await settlePreview();'''
+
+          if old not in text:
+              raise SystemExit("language setter target not found")
+          if old_tail not in text:
+              raise SystemExit("language settle target not found")
+
+          text = text.replace(old, new, 1).replace(old_tail, new_tail, 1)
+          path.write_text(text, encoding="utf-8")
+          Path(".github/workflows/v107-fix-language-sync.yml").unlink()
+
+      - name: Commit synchronization fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/v107-theme-matrix.ts .github/workflows/v107-fix-language-sync.yml
+          git commit -m "Fix v1.0.7 language preview synchronization"
+          git push origin HEAD:fix/v1.0.7
