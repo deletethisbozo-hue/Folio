@@ -1,4 +1,4 @@
-name: v1.0.7 English hyphenation experiment
+name: v1.0.7 current English pattern probe
 
 on:
   push:
@@ -10,15 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  experiment:
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [en-right2, en-right2-relaxed121]
+  probe:
     runs-on: ubuntu-24.04
-    env:
-      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
-      PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,107 +19,27 @@ jobs:
           node-version: 22.23.2
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Install pinned Pandoc 3.11
-        shell: bash
+      - name: Install current CTAN pattern engine checkout-only
+        run: npm install --no-save --no-package-lock hyphen@1.14.1
+      - name: Compare English pattern splits
         run: |
-          mkdir -p build/pandoc
-          curl -fsSL "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz" -o build/pandoc-3.11-linux-amd64.tar.gz
-          echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
-          tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
-      - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply 42/90 recipe plus English reachability variant
-        shell: python
-        env:
-          VARIANT: ${{ matrix.variant }}
-        run: |
-          from pathlib import Path
-          import os
-
-          def one(s, old, new, label):
-              n = s.count(old)
-              if n != 1:
-                  raise SystemExit(f'{label} matches: {n}')
-              return s.replace(old, new, 1)
-
-          p = Path('web/src/compositor.ts')
-          s = p.read_text(encoding='utf-8')
-          s = one(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
-          s = one(s,
-              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              'widow rate')
-          s = one(s,
-              '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              'widow selection')
-          s = one(s,
-              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.075);',
-              'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
-              'strict positive spacing')
-          if os.environ['VARIANT'] == 'en-right2-relaxed121':
-              s = one(s,
-                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);',
-                  'const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.1209 : 0.099);',
-                  'relaxed positive spacing')
-          p.write_text(s, encoding='utf-8')
-
-          h = Path('web/src/hyphenation.ts')
-          t = h.read_text(encoding='utf-8')
-          t = one(t,
-              '  en: { minimumWord: 5, left: 2, right: 3 },',
-              '  en: { minimumWord: 5, left: 2, right: 2 },',
-              'English right minimum')
-          h.write_text(t, encoding='utf-8')
-
-          q = Path('scripts/v107-theme-matrix.ts')
-          u = q.read_text(encoding='utf-8')
-          u = one(u,
-              '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n',
-              '  const probeNames = new Set(["modern", "decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 4) throw new Error(`Expected exactly 4 probe themes, found ${themes.length}`);\n',
-              'probe theme subset')
-          q.write_text(u, encoding='utf-8')
-      - name: Show English pattern splits
-        run: |
-          node --import tsx -e "import Hypher from 'hypher'; import english from 'hyphenation.en-us'; const h=new Hypher(english); for (const w of ['stranded','every','professional','excessive','accidental','careful','designer','protects']) console.log(w+' -> '+h.hyphenate(w).join('-'));"
-      - run: npm run typecheck
-      - run: npm run build
-      - name: Reference corpus
-        id: reference
-        continue-on-error: true
-        run: node --import tsx scripts/v107-visual-qa.ts
-      - name: 12-case targeted matrix
-        id: matrix
-        continue-on-error: true
-        run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Summarize
-        if: always()
-        shell: python
-        env:
-          VARIANT: ${{ matrix.variant }}
-        run: |
-          import json, os
-          from pathlib import Path
-          p = Path('build/qa-v107/theme-matrix.json')
-          if not p.exists():
-              raise SystemExit('theme-matrix.json missing')
-          d = json.loads(p.read_text(encoding='utf-8'))
-          out = {
-              'variant': os.environ['VARIANT'],
-              'reference': '${{ steps.reference.outcome }}',
-              'passed': d['passed'],
-              'failed': d['failed'],
-              'results': [
-                  {'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'], 'failures': r['failures']}
-                  for r in d['results']
-              ],
+          node --input-type=module <<'NODE'
+          import Hypher from 'hypher';
+          import oldPatterns from 'hyphenation.en-us';
+          import { hyphenateSync as current } from 'hyphen/en-us';
+          const old = new Hypher(oldPatterns);
+          const words = ['stranded','every','professional','excessive','accidental','careful','designer','protects','ordinary','extraordinary','overlooked','meaning','reader'];
+          const result = [];
+          for (const word of words) {
+            const legacy = old.hyphenate(word).join('-');
+            const modern = current(word, { html: false, minWordLength: 5 }).replaceAll('\u00ad', '-');
+            result.push({ word, legacy, modern });
           }
-          outp = Path(f"build/qa-v107/{os.environ['VARIANT']}.json")
-          outp.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps(out, indent=2))
-      - name: Upload result
-        if: always()
-        uses: actions/upload-artifact@v4
+          console.log(JSON.stringify(result, null, 2));
+          await import('node:fs').then(fs => fs.writeFileSync('english-pattern-probe.json', JSON.stringify(result, null, 2) + '\n'));
+          NODE
+      - uses: actions/upload-artifact@v4
         with:
-          name: v107-${{ matrix.variant }}
-          path: build/qa-v107/${{ matrix.variant }}.json
+          name: v107-current-english-pattern-probe
+          path: english-pattern-probe.json
           if-no-files-found: error
