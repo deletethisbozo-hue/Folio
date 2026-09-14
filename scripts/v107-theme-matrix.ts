@@ -145,10 +145,13 @@ try {
       (button as HTMLButtonElement).click();
     });
     await page.waitForSelector(`[data-theme="${theme}"]`);
+    const alreadySelected = await page.$eval(`[data-theme="${theme}"]`, (node) => node.classList.contains("selected"));
+    const previewStarted = alreadySelected ? null : page.waitForSelector(".preview-loading", { visible: true });
     await page.click(`[data-theme="${theme}"]`);
     await page.waitForFunction((value) => document.querySelector(`[data-theme="${value}"]`)?.classList.contains("selected"), {}, theme);
     await page.click(".style-library-header button");
     await page.waitForSelector('.style-library[aria-label="Book style library"]', { hidden: true });
+    if (previewStarted) await previewStarted;
     await settlePreview();
   };
 
@@ -161,9 +164,11 @@ try {
     });
     await page.waitForSelector('.customize-row input[type="checkbox"]');
     const checked = await page.$eval('.customize-row input[type="checkbox"]', (node) => (node as HTMLInputElement).checked);
+    const previewStarted = checked === enabled ? null : page.waitForSelector(".preview-loading", { visible: true });
     if (checked !== enabled) await page.click('.customize-row input[type="checkbox"]');
     await page.click(".style-library-header button");
     await page.waitForSelector('.style-library[aria-label="Book style library"]', { hidden: true });
+    if (previewStarted) await previewStarted;
     await settlePreview();
   };
 
