@@ -22,57 +22,31 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          patches = {
-              Path('scripts/v107-theme-matrix.ts'): (
-                  '''            for (let i = 1; i < words.length; i++) {
-              if (words[i].dataset.folioSpaceBefore === "true") {
-                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[i].getBoundingClientRect().left - words[i - 1].getBoundingClientRect().right) / fontSize);
-              }
-            }
-          }
-          const text =''',
-                  '''            for (let i = 1; i < words.length; i++) {
-              if (words[i].dataset.folioSpaceBefore === "true") {
-                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[i].getBoundingClientRect().left - words[i - 1].getBoundingClientRect().right) / fontSize);
-              }
-            }
-          } else {
-            // Natural lines reset compositor continuity. Do not compare a later
-            // microtyped line against a line from before that reset.
-            previousGlyphScale = null;
-            previousSpacing = null;
-          }
-          const text ='''
-              ),
-              Path('scripts/v107-visual-qa.ts'): (
-                  '''            for (let index = 1; index < words.length; index++) {
-              if (words[index].dataset.folioSpaceBefore === "true") {
-                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[index].getBoundingClientRect().left - words[index - 1].getBoundingClientRect().right) / fontSize);
-              }
-            }
-          }
-          if (line.textContent?.endsWith("-")) {''',
-                  '''            for (let index = 1; index < words.length; index++) {
-              if (words[index].dataset.folioSpaceBefore === "true") {
-                maxSemanticGapEm = Math.max(maxSemanticGapEm, (words[index].getBoundingClientRect().left - words[index - 1].getBoundingClientRect().right) / fontSize);
-              }
-            }
-          } else {
-            // Natural lines reset compositor continuity. Do not compare a later
-            // microtyped line against a line from before that reset.
-            previousGlyphScale = null;
-            previousSpacing = null;
-          }
-          if (line.textContent?.endsWith("-")) {'''
-              ),
-          }
+          def insert_reset(path: Path, target_fragment: str) -> None:
+              lines = path.read_text().splitlines(keepends=True)
+              targets = [i for i, line in enumerate(lines) if target_fragment in line]
+              if len(targets) != 1:
+                  raise SystemExit(f'{path}: expected one target, found {len(targets)}')
+              target = targets[0]
+              window = ''.join(lines[max(0, target - 30):target])
+              if 'previousSpacing = spacing;' not in window or 'previousGlyphScale = glyphScale;' not in window:
+                  raise SystemExit(f'{path}: continuity assignments are not immediately upstream of target')
+              close = target - 1
+              if lines[close].strip() != '}':
+                  raise SystemExit(f'{path}: expected closing brace immediately before target, got {lines[close]!r}')
+              indent = lines[close][:len(lines[close]) - len(lines[close].lstrip())]
+              lines[close:target] = [
+                  f'{indent}}} else {{\n',
+                  f'{indent}  // Natural lines reset compositor continuity. Do not compare a later\n',
+                  f'{indent}  // microtyped line against a line from before that reset.\n',
+                  f'{indent}  previousGlyphScale = null;\n',
+                  f'{indent}  previousSpacing = null;\n',
+                  f'{indent}}}\n',
+              ]
+              path.write_text(''.join(lines))
 
-          for path, (old, new) in patches.items():
-              text = path.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected exactly one continuity block, found {count}')
-              path.write_text(text.replace(old, new, 1))
+          insert_reset(Path('scripts/v107-theme-matrix.ts'), 'const text = (line.textContent ?? "")')
+          insert_reset(Path('scripts/v107-visual-qa.ts'), 'if (line.textContent?.endsWith("-")) {')
           PY
           git diff --check
           git diff -- scripts/v107-theme-matrix.ts scripts/v107-visual-qa.ts
@@ -81,5 +55,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add scripts/v107-theme-matrix.ts scripts/v107-visual-qa.ts
-          git commit -m "Fix QA continuity across natural lines [skip ci]"
+          git commit -m "Fix QA continuity across natural lines"
           git push origin HEAD:fix/v1.0.7
