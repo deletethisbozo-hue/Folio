@@ -26,8 +26,9 @@ jobs:
           node --input-type=module <<'NODE'
           import Hypher from 'hypher';
           import oldPatterns from 'hyphenation.en-us';
-          import { hyphenateSync as current } from 'hyphen/en-us/index.js';
+          import currentPackage from 'hyphen/en-us/index.js';
           import fs from 'node:fs';
+          const { hyphenateSync: current } = currentPackage;
           const old = new Hypher(oldPatterns);
           const words = ['stranded','every','professional','excessive','accidental','careful','designer','protects','ordinary','extraordinary','overlooked','meaning','reader'];
           const result = [];
