@@ -1,2 +1,2 @@
 Folio 1.0.7 Windows qualification trigger
-Reason: deterministic preview synchronization in the 90-case release matrix.
+Reason: final release qualification after deterministic preview synchronization in the 90-case matrix.
