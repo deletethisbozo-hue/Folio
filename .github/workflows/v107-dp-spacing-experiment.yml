@@ -1,4 +1,4 @@
-name: v1.0.7 widow-first and residual experiment
+name: v1.0.7 diverse fit frontier experiment
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply widow-first final selection and 1.50px residual ceiling
+      - name: Preserve a small diverse legal fit frontier
         shell: python
         run: |
           from pathlib import Path
@@ -44,23 +44,24 @@ jobs:
 
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
-          s = one(s, '  let bestHyphenBudgetPriority = 3;\n', '  let bestHyphenBudgetPriority = 3;\n  let bestWidowPriority = 2;\n', 'widow declaration')
           s = one(
               s,
-              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              '    const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);\n    const finalSemanticWords = state.from < count\n      ? 1 + words.slice(state.from + 1, count).filter((word) => word.spaceBefore).length\n      : 0;\n    const widowPriority = finalSemanticWords === 1 ? 1 : 0;\n    // A one-word final line is a composition defect, so widow avoidance outranks\n    // the preferred 0.40 hyphen target. The hard 0.45 ceiling remains the next\n    // selection dimension once widow status is equal.\n    // 0.45 is the release ceiling, not the composition target. Prefer 0.40\n',
-              'widow calculation',
+              '  selection: "badness" | "continuity" | "spacing-continuity" = "badness",\n',
+              '  selection: "badness" | "continuity" | "spacing-continuity" | "tight-spacing" | "loose-spacing" | "compressed-scale" | "expanded-scale" = "badness",\n',
+              'selection union',
           )
           s = one(
               s,
-              '    if (hyphenBudgetPriority < bestHyphenBudgetPriority\n      || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)) {\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              '    if (widowPriority < bestWidowPriority\n      || (widowPriority === bestWidowPriority\n        && (hyphenBudgetPriority < bestHyphenBudgetPriority\n          || (hyphenBudgetPriority === bestHyphenBudgetPriority && betterSamePriority)))) {\n      bestWidowPriority = widowPriority;\n      bestHyphenBudgetPriority = hyphenBudgetPriority;\n      bestCost = state.cost;\n      bestSectionRate = sectionRate;\n      bestKey = key;\n    }\n',
-              'widow selection',
+              '''    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : selection === "spacing-continuity"\n        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n        : candidate.badness;\n''',
+              '''    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : selection === "spacing-continuity"\n        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n        : selection === "tight-spacing"\n          ? wordSpacing * 100_000 + candidate.badness\n          : selection === "loose-spacing"\n            ? -wordSpacing * 100_000 + candidate.badness\n            : selection === "compressed-scale"\n              ? glyphScale * 100_000 + candidate.badness\n              : selection === "expanded-scale"\n                ? -glyphScale * 100_000 + candidate.badness\n                : candidate.badness;\n''',
+              'selection ranking',
           )
-          count = s.count('1.70')
-          if count != 2:
-              raise SystemExit(f'residual constant occurrences: {count}')
-          s = s.replace('1.70', '1.50')
+          anchor = '''        const spacingFit = strictSpacingFit ?? (emergency && !last\n          ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, language, "spacing-continuity", previous.wordSpacing)\n          : null);\n'''
+          addition = anchor + '''        const frontierFits = !last ? [\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "tight-spacing"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "loose-spacing"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "compressed-scale"),\n          fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, emergency, false, language, "expanded-scale"),\n        ] : [];\n'''
+          s = one(s, anchor, addition, 'frontier fits')
+          anchor2 = '''        if (spacingFit && !fitOptions.some((candidate) =>\n          candidate\n          && Math.abs(candidate.glyphScale - spacingFit.glyphScale) < 0.000001\n          && Math.abs(candidate.wordSpacing - spacingFit.wordSpacing) < 0.000001\n          && Math.abs(candidate.tracking - spacingFit.tracking) < 0.000001\n        )) fitOptions.push(spacingFit);\n'''
+          addition2 = anchor2 + '''        for (const frontierFit of frontierFits) {\n          if (frontierFit && !fitOptions.some((candidate) =>\n            candidate\n            && Math.abs(candidate.glyphScale - frontierFit.glyphScale) < 0.000001\n            && Math.abs(candidate.wordSpacing - frontierFit.wordSpacing) < 0.000001\n            && Math.abs(candidate.tracking - frontierFit.tracking) < 0.000001\n          )) fitOptions.push(frontierFit);\n        }\n'''
+          s = one(s, anchor2, addition2, 'frontier insertion')
           p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
@@ -82,7 +83,7 @@ jobs:
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Summarize representative failures
+      - name: Summarize frontier probe
         if: always()
         shell: python
         run: |
@@ -102,27 +103,20 @@ jobs:
           for r in d['results']:
               m = r.get('metrics', {})
               out['results'].append({
-                  'theme': r['theme'],
-                  'scenario': r['scenario'],
-                  'pass': r['pass'],
-                  'failures': r['failures'],
-                  'font': m.get('bodyFont'),
-                  'hyphenRate': m.get('hyphenRate'),
-                  'rightError': m.get('maxRightErrorPx'),
-                  'emergency': m.get('emergencyLines'),
-                  'widow': m.get('oneWordFinalLines'),
+                  'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'],
+                  'failures': r['failures'], 'font': m.get('bodyFont'),
+                  'hyphenRate': m.get('hyphenRate'), 'rightError': m.get('maxRightErrorPx'),
+                  'emergency': m.get('emergencyLines'), 'widow': m.get('oneWordFinalLines'),
                   'compositionFailures': m.get('compositionFailures'),
                   'dropcapOpening': m.get('dropcapOpening'),
-                  'emergencyDetails': m.get('emergencyDetails'),
-                  'compositionFailureDetails': m.get('compositionFailureDetails'),
               })
-          Path('build/qa-v107/widow-residual-probe.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          Path('build/qa-v107/diverse-frontier-probe.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(out, indent=2))
           if '${{ steps.reference.outcome }}' != 'success':
               raise SystemExit('reference corpus failed')
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v107-widow-residual-probe
-          path: build/qa-v107/widow-residual-probe.json
+          name: v107-diverse-frontier-probe
+          path: build/qa-v107/diverse-frontier-probe.json
           if-no-files-found: error
