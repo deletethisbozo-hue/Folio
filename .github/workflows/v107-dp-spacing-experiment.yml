@@ -1,4 +1,4 @@
-name: v1.0.7 post-render residual experiment
+name: v1.0.7 no-fit diagnostics
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  diagnose:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -31,60 +31,24 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Add bounded post-render word-spacing correction
+      - name: Limit matrix to representative font families
         shell: python
         run: |
           from pathlib import Path
-
-          def one(text, old, new, label):
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label} matches: {count}')
-              return text.replace(old, new, 1)
-
-          p = Path('web/src/compositor.ts')
+          p = Path('scripts/v107-theme-matrix.ts')
           s = p.read_text(encoding='utf-8')
-          old = (
-              '    line.dataset.folioGlyphScale = String(correctedScale);\n'
-              '    previousCorrectedScale = correctedScale;\n'
-          )
-          new = (
-              '    line.dataset.folioGlyphScale = String(correctedScale);\n'
-              '    const gapCount = content.querySelectorAll<HTMLElement>(\'.folio-word[data-folio-space-before="true"]\').length;\n'
-              '    if (gapCount > 0) {\n'
-              '      const rerendered = content.getBoundingClientRect().width;\n'
-              '      const residual = opticalMeasure - rerendered;\n'
-              '      if (Math.abs(residual) > 0.05) {\n'
-              '        const renderedFontSize = pixels(getComputedStyle(line).fontSize) || fontSize;\n'
-              '        const relaxedCorrection = line.classList.contains("folio-line-relaxed") || line.classList.contains("folio-line-final-compressed");\n'
-              '        const minSpacing = -(renderedFontSize * (relaxedCorrection ? 0.12 : 0.099));\n'
-              '        const maxSpacing = renderedFontSize * (relaxedCorrection ? 0.12 : 0.075);\n'
-              '        const currentSpacing = Number(line.dataset.folioWordSpacing ?? 0);\n'
-              '        const correctedSpacing = Math.max(minSpacing, Math.min(maxSpacing, currentSpacing + residual / Math.max(0.01, gapCount * correctedScale)));\n'
-              '        line.style.wordSpacing = `${baseWordSpacing + correctedSpacing}px`;\n'
-              '        line.dataset.folioWordSpacing = String(correctedSpacing);\n'
-              '      }\n'
-              '    }\n'
-              '    previousCorrectedScale = correctedScale;\n'
-          )
-          p.write_text(one(s, old, new, 'post-render correction anchor'), encoding='utf-8')
-
-          q = Path('scripts/v107-theme-matrix.ts')
-          t = q.read_text(encoding='utf-8')
-          old_themes = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          new_themes = '  const probeNames = new Set(["ivory", "stanza", "cloister", "timber", "decorative"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 5) throw new Error(`Expected exactly 5 probe themes, found ${themes.length}`);\n'
-          q.write_text(one(t, old_themes, new_themes, 'probe themes'), encoding='utf-8')
+          old = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
+          new = '  const probeNames = new Set(["decorative", "editorial", "modern", "ivory", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 5) throw new Error(`Expected exactly 5 diagnostic themes, found ${themes.length}`);\n'
+          if s.count(old) != 1:
+              raise SystemExit(f'theme anchor matches: {s.count(old)}')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Reference corpus
-        id: reference
-        continue-on-error: true
-        run: node --import tsx scripts/v107-visual-qa.ts
-      - name: 15-case residual matrix
+      - name: Run representative matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
-      - name: Summarize residual probe
+      - name: Print composition diagnostics
         if: always()
         shell: python
         run: |
@@ -95,32 +59,36 @@ jobs:
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(p.read_text(encoding='utf-8'))
           out = {
-              'reference': '${{ steps.reference.outcome }}',
-              'matrix': '${{ steps.matrix.outcome }}',
+              'matrixOutcome': '${{ steps.matrix.outcome }}',
               'passed': d['passed'],
               'failed': d['failed'],
-              'results': [],
+              'failedScenarios': [],
           }
           for r in d['results']:
+              if r.get('pass'):
+                  continue
               m = r.get('metrics', {})
-              out['results'].append({
-                  'theme': r['theme'], 'scenario': r['scenario'], 'pass': r['pass'],
-                  'failures': r['failures'], 'font': m.get('bodyFont'),
+              out['failedScenarios'].append({
+                  'theme': r['theme'],
+                  'scenario': r['scenario'],
+                  'failures': r.get('failures', []),
+                  'bodyFont': m.get('bodyFont'),
+                  'hyphenRate': m.get('hyphenRate'),
                   'rightError': m.get('maxRightErrorPx'),
-                  'wordSpacing': m.get('maxWordSpacingEm'),
-                  'adjacentSpacing': m.get('maxAdjacentSpacingDeltaEm'),
-                  'glyphScale': m.get('maxGlyphScaleDelta'),
-                  'adjacentScale': m.get('maxAdjacentGlyphScaleDelta'),
-                  'emergency': m.get('emergencyLines'),
-                  'compositionFailures': m.get('compositionFailures'),
+                  'semanticGap': m.get('maxSemanticGapEm'),
+                  'oneWordFinalLines': m.get('oneWordFinalLines'),
+                  'compositionFailureDetails': m.get('compositionFailureDetails', []),
+                  'emergencyDetails': m.get('emergencyDetails', []),
+                  'dropcapOpening': m.get('dropcapOpening', []),
               })
-          Path('build/qa-v107/post-render-residual-probe.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps(out, indent=2))
-          if '${{ steps.reference.outcome }}' != 'success':
-              raise SystemExit('reference corpus failed')
+          text = json.dumps(out, indent=2, ensure_ascii=False)
+          Path('build/qa-v107/no-fit-diagnostics.json').write_text(text + '\n', encoding='utf-8')
+          print(text)
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v107-post-render-residual-probe
-          path: build/qa-v107/post-render-residual-probe.json
+          name: v107-no-fit-diagnostics
+          path: |
+            build/qa-v107/no-fit-diagnostics.json
+            build/qa-v107/theme-matrix.json
           if-no-files-found: error
