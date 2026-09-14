@@ -103,10 +103,17 @@ h3 {
   font-weight: inherit !important;
 }
 
-/* Scene breaks: a plain centred asterism, never the theme's ornament. */
+/* Scene breaks: a plain centred asterism, never the theme's ornament.
+   Keep the chapter+paragraph specificity at least as high as the prose rule
+   above, otherwise the generic body paragraph alignment wins in the cascade. */
+section.chapter p.scene-break,
 .scene-break {
   break-inside: avoid;
   text-align: center;
+  text-align-last: center;
+  text-indent: 0;
+  -webkit-hyphens: none;
+  hyphens: none;
   margin: 1.2em 0;
   font-size: 14pt;
   letter-spacing: 0.4em;
@@ -169,6 +176,14 @@ section.blues-cover > h1 {
   font-family: "Consolas", "Courier New", monospace;
   font-size: 9.5pt;
   color: #666;
+}
+
+/* Paged.js 0.4 can retain the default @page top-left content on a named first
+   page even though @page bluescover clears it. This selector runs against the
+   generated page DOM, so the cover stays blank regardless of that named-page
+   quirk. Chromium used by Folio supports :has(). */
+.pagedjs_page:has(section.blues-cover) .pagedjs_margin-top-left .pagedjs_margin-content::after {
+  content: none !important;
 }
 
 /* ---- Table of contents (orientation only — no links, no leaders) ---- */
