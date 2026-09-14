@@ -1,4 +1,4 @@
-name: v1.0.7 font measure experiment
+name: v1.0.7 continuity-aware fit experiment
 
 on:
   push:
@@ -10,17 +10,12 @@ permissions:
   contents: read
 
 jobs:
-  measure-factor:
-    strategy:
-      fail-fast: false
-      matrix:
-        factor: ['0.94', '0.96', '0.98']
+  continuity-fit:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
-      MEASURE_FACTOR: ${{ matrix.factor }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,13 +32,10 @@ jobs:
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
 
-      - name: Apply checkout-only measure factor
+      - name: Add checkout-only continuity-aware fit candidate
         shell: python
         run: |
-          import os
           from pathlib import Path
-
-          factor = float(os.environ['MEASURE_FACTOR'])
 
           def one(text, old, new, label):
               count = text.count(old)
@@ -53,9 +45,9 @@ jobs:
 
           p = Path('web/src/compositor.ts')
           s = p.read_text(encoding='utf-8')
-          old = '  const width = Math.max(1, paragraphRect.width - borderLeft - borderRight - paddingLeft - paddingRight);\n'
-          new = f'  const width = Math.max(1, (paragraphRect.width - borderLeft - borderRight - paddingLeft - paddingRight) * {factor});\n'
-          s = one(s, old, new, 'measure width')
+          old = '''    const scaledAdjustment = available / glyphScale - naturalWidth;\n    let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));\n    let remaining = scaledAdjustment - wordSpacing * gaps;\n    let tracking = trackingOps > 0 ? remaining / trackingOps : 0;\n\n    if (tracking > maxTracking || tracking < minTracking) {\n      tracking = Math.max(minTracking, Math.min(maxTracking, tracking));\n      wordSpacing = (scaledAdjustment - tracking * trackingOps) / gaps;\n    }\n    wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));\n    tracking = Math.max(minTracking, Math.min(maxTracking, tracking));\n    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;\n    if (Math.abs(residualPx) > 1.70) continue;\n\n    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);\n    const trackingRatio = tracking / Math.max(1, fontSize);\n    const scaleRatio = Math.abs(glyphScale - 1) / 0.01;\n    const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;\n    const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)\n      + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)\n      + 42 * Math.pow(scaleRatio, 3)\n      + 90 * Math.pow(scaleJumpRatio, 2)\n      + 100 * Math.pow(Math.abs(residualPx) / 1.70, 2);\n    const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;\n    const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };\n    const rank = selection === "continuity"\n      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n      : selection === "spacing-continuity"\n        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n        : candidate.badness;\n    if (!best || rank < bestRank) {\n      best = candidate;\n      bestRank = rank;\n    }\n'''
+          new = '''    const scaledAdjustment = available / glyphScale - naturalWidth;\n    const allocations: Array<{ wordSpacing: number; tracking: number }> = [];\n\n    let greedyWordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));\n    let greedyRemaining = scaledAdjustment - greedyWordSpacing * gaps;\n    let greedyTracking = trackingOps > 0 ? greedyRemaining / trackingOps : 0;\n    if (greedyTracking > maxTracking || greedyTracking < minTracking) {\n      greedyTracking = Math.max(minTracking, Math.min(maxTracking, greedyTracking));\n      greedyWordSpacing = (scaledAdjustment - greedyTracking * trackingOps) / gaps;\n    }\n    allocations.push({\n      wordSpacing: Math.max(minWordSpacing, Math.min(maxWordSpacing, greedyWordSpacing)),\n      tracking: Math.max(minTracking, Math.min(maxTracking, greedyTracking)),\n    });\n\n    // The old fitter only varied glyph scale when asked to preserve spacing.\n    // That misses legal solutions where a tiny amount of tracking can keep the\n    // word spacing close to the previous line. Add that exact constrained\n    // allocation without changing any spacing, tracking, scale or residual cap.\n    if (selection === "spacing-continuity" && trackingOps > 0) {\n      const targetTracking = Math.max(\n        minTracking,\n        Math.min(maxTracking, (scaledAdjustment - targetWordSpacing * gaps) / trackingOps),\n      );\n      const targetSpacing = (scaledAdjustment - targetTracking * trackingOps) / gaps;\n      if (targetSpacing >= minWordSpacing - 0.000001 && targetSpacing <= maxWordSpacing + 0.000001) {\n        allocations.push({ wordSpacing: targetSpacing, tracking: targetTracking });\n      }\n    }\n\n    for (const allocation of allocations) {\n      const wordSpacing = allocation.wordSpacing;\n      const tracking = allocation.tracking;\n      const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;\n      if (Math.abs(residualPx) > 1.70) continue;\n\n      const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);\n      const trackingRatio = tracking / Math.max(1, fontSize);\n      const scaleRatio = Math.abs(glyphScale - 1) / 0.01;\n      const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;\n      const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)\n        + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)\n        + 42 * Math.pow(scaleRatio, 3)\n        + 90 * Math.pow(scaleJumpRatio, 2)\n        + 100 * Math.pow(Math.abs(residualPx) / 1.70, 2);\n      const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;\n      const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };\n      const rank = selection === "continuity"\n        ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness\n        : selection === "spacing-continuity"\n          ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness\n          : candidate.badness;\n      if (!best || rank < bestRank) {\n        best = candidate;\n        bestRank = rank;\n      }\n    }\n'''
+          s = one(s, old, new, 'fit allocation')
           p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
@@ -79,11 +71,11 @@ jobs:
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
 
-      - name: Summarize factor
+      - name: Summarize
         if: always()
         shell: python
         run: |
-          import json, os
+          import json
           from collections import Counter
           from pathlib import Path
           p = Path('build/qa-v107/theme-matrix.json')
@@ -95,7 +87,6 @@ jobs:
               for failure in r.get('failures', []):
                   categories[failure.split('=')[0]] += 1
           out = {
-              'factor': os.environ['MEASURE_FACTOR'],
               'reference': '${{ steps.reference.outcome }}',
               'matrix': '${{ steps.matrix.outcome }}',
               'passed': d['passed'],
@@ -108,20 +99,24 @@ jobs:
                       'pass': r['pass'],
                       'failures': r['failures'],
                       'bodyFont': r.get('metrics', {}).get('bodyFont'),
-                      'measurePx': r.get('metrics', {}).get('measurePx'),
+                      'maxAdjacentSpacingDeltaEm': r.get('metrics', {}).get('maxAdjacentSpacingDeltaEm'),
+                      'emergencyLines': r.get('metrics', {}).get('emergencyLines'),
+                      'compositionFailures': r.get('metrics', {}).get('compositionFailures'),
                   }
                   for r in d['results']
               ],
           }
-          target = Path(f"build/qa-v107/measure-factor-{os.environ['MEASURE_FACTOR']}.json")
-          target.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          Path('build/qa-v107/continuity-aware-fit.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(out, indent=2))
-          if '${{ steps.reference.outcome }}' != 'success':
-              raise SystemExit('reference corpus failed')
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v107-measure-factor-${{ matrix.factor }}
-          path: build/qa-v107/measure-factor-${{ matrix.factor }}.json
+          name: v107-continuity-aware-fit
+          path: build/qa-v107/continuity-aware-fit.json
           if-no-files-found: error
+
+      - name: Require green reference
+        if: always()
+        shell: bash
+        run: test '${{ steps.reference.outcome }}' = success
