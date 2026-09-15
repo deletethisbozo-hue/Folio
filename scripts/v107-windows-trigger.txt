@@ -1,2 +1,2 @@
-Folio 1.0.7 Windows qualification trigger
-Reason: final clean-SHA qualification after compositor spacing/widow fixes, preview synchronization fixes, and the qualified DP word-spacing state correction.
+Folio 1.0.8 Windows release trigger
+Reason: trigger the immutable Windows release from the fully qualified compositor state promoted from 1.0.7, with synchronized 1.0.8 package metadata and strict release gates preserved.
