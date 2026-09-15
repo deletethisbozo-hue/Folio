@@ -59,10 +59,10 @@ const FONTS = {
 type FontKey = keyof typeof FONTS;
 
 /*
- * These body-only substitutions are deliberately theme-scoped. The original
- * display/decorative families stay available to headings and ornaments, while
- * body text and drop caps use the families that passed the v1.0.7 compositor
- * qualification matrix across PL, PL-dropcap and EN scenarios.
+ * v1.0.7 qualified body-only substitutions are deliberately theme-scoped.
+ * The original display/decorative families stay available to headings and
+ * ornaments, while body text and drop caps use the families that passed the
+ * compositor qualification matrix across PL, PL-dropcap and EN scenarios.
  */
 const BODY_FONT_OVERRIDES: Partial<Record<ThemeName, FontKey>> = {
   decorative: "garamond",
