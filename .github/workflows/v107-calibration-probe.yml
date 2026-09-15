@@ -1,4 +1,4 @@
-name: v1.0.7 word-spacing state probe
+name: v1.0.7 font-family control probe
 
 on:
   push:
@@ -11,10 +11,6 @@ permissions:
 
 jobs:
   probe:
-    strategy:
-      fail-fast: false
-      matrix:
-        theme: [decorative, editorial, cloister]
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
@@ -35,36 +31,29 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only word-spacing state candidate
+      - name: Apply checkout-only known-good family substitutions
         shell: python
         run: |
           from pathlib import Path
-          p = Path('web/src/compositor.ts')
+          p = Path('server/pipeline/theme-fonts.ts')
           s = p.read_text(encoding='utf-8')
-
-          old = '''const HYPHEN_BUCKET_COUNT = 9;\n\nfunction hyphenCountBucket(hyphenCount: number): number {\n  return Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);\n}\n'''
-          new = '''const HYPHEN_BUCKET_COUNT = 9;\nconst WORD_SPACING_BUCKET_MIN_EM = -0.12;\nconst WORD_SPACING_BUCKET_STEP_EM = 0.02;\nconst WORD_SPACING_BUCKET_COUNT = 13;\n\nfunction hyphenCountBucket(hyphenCount: number): number {\n  return Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);\n}\n\nfunction wordSpacingBucket(wordSpacing: number, fontSize: number): number {\n  const em = wordSpacing / Math.max(1, fontSize);\n  return Math.max(0, Math.min(\n    WORD_SPACING_BUCKET_COUNT - 1,\n    Math.round((em - WORD_SPACING_BUCKET_MIN_EM) / WORD_SPACING_BUCKET_STEP_EM),\n  ));\n}\n'''
-          if s.count(old) != 1:
-              raise SystemExit(f'constant block matches: {s.count(old)}')
-          s = s.replace(old, new, 1)
-
-          old = '''function encodeState(\n  line: number,\n  hyphenStreak: number,\n  fitness: number,\n  glyphScale: number,\n  hyphenCount: number,\n): number {\n  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;\n  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);\n  return packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);\n}\n\nfunction decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number } {\n  const hyphenBucket = key % HYPHEN_BUCKET_COUNT;\n  const packed = Math.floor(key / HYPHEN_BUCKET_COUNT);\n'''
-          new = '''function encodeState(\n  line: number,\n  hyphenStreak: number,\n  fitness: number,\n  glyphScale: number,\n  hyphenCount: number,\n  wordSpacing: number,\n  fontSize: number,\n): number {\n  const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;\n  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);\n  const hyphenPacked = packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);\n  return hyphenPacked * WORD_SPACING_BUCKET_COUNT + wordSpacingBucket(wordSpacing, fontSize);\n}\n\nfunction decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number } {\n  const hyphenPacked = Math.floor(key / WORD_SPACING_BUCKET_COUNT);\n  const hyphenBucket = hyphenPacked % HYPHEN_BUCKET_COUNT;\n  const packed = Math.floor(hyphenPacked / HYPHEN_BUCKET_COUNT);\n'''
-          if s.count(old) != 1:
-              raise SystemExit(f'encode/decode block matches: {s.count(old)}')
-          s = s.replace(old, new, 1)
-
-          old = 'states[0].set(encodeState(0, 0, initialFitness, 1, 0), {'
-          new = 'states[0].set(encodeState(0, 0, initialFitness, 1, 0, 0, fontSize), {'
-          if s.count(old) != 1:
-              raise SystemExit(f'initial state matches: {s.count(old)}')
-          s = s.replace(old, new, 1)
-
-          old = 'const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);'
-          new = 'const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount, lineFit?.wordSpacing ?? 0, fontSize);'
-          if s.count(old) != 1:
-              raise SystemExit(f'next state matches: {s.count(old)}')
-          s = s.replace(old, new, 1)
+          replacements = {
+            '["Folio Source Serif 4", "sourceSerif"]': '["Folio Source Serif 4", "vollkorn"]',
+            '["Source Serif 4", "sourceSerif"]': '["Source Serif 4", "vollkorn"]',
+            '["Times New Roman", "sourceSerif"]': '["Times New Roman", "vollkorn"]',
+            '["Georgia", "sourceSerif"]': '["Georgia", "vollkorn"]',
+            '["Folio Libre Baskerville", "baskerville"]': '["Folio Libre Baskerville", "newsreader"]',
+            '["Libre Baskerville", "baskerville"]': '["Libre Baskerville", "newsreader"]',
+            '["Hoefler Text", "baskerville"]': '["Hoefler Text", "newsreader"]',
+            '["Baskerville", "baskerville"]': '["Baskerville", "newsreader"]',
+            '["Folio Libre Caslon Text", "caslon"]': '["Folio Libre Caslon Text", "garamond"]',
+            '["Libre Caslon Text", "caslon"]': '["Libre Caslon Text", "garamond"]',
+            '["Charter", "caslon"]': '["Charter", "garamond"]',
+          }
+          for old, new in replacements.items():
+              if s.count(old) != 1:
+                  raise SystemExit(f'expected one mapping for {old!r}, found {s.count(old)}')
+              s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
@@ -91,12 +80,12 @@ jobs:
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(src.read_text(encoding='utf-8'))
           out = {'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
-          Path('build/qa-v107/word-spacing-state.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({'passed': d['passed'], 'failed': d['failed']}, indent=2))
+          Path('build/qa-v107/font-family-control.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps({'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-word-spacing-state
-          path: build/qa-v107/word-spacing-state.json
+          name: v107-font-family-control
+          path: build/qa-v107/font-family-control.json
           if-no-files-found: error
