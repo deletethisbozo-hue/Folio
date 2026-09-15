@@ -62,7 +62,11 @@ new_correction = '''    let rendered = content.getBoundingClientRect().width;
     // directly prevents the "written as one run" failure without forcing the
     // line breaker into inferior hyphenation paths.
     const lineFontSize = pixels(getComputedStyle(line).fontSize) || fontSize;
-    const minimumRenderedGap = Math.max(1.5, lineFontSize * 0.12);
+    const releaseGapFloor = Math.max(1.5, lineFontSize * 0.12);
+    // Do not aim exactly at a floating-point/browser-pixel threshold. A tiny
+    // 0.04px reserve keeps the same visible requirement stable across Windows
+    // rasterization and fractional device geometry.
+    const correctionGapTarget = releaseGapFloor + 0.04;
     const semanticGapMinimum = () => {
       const lineWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
       let minimum = Number.POSITIVE_INFINITY;
@@ -80,9 +84,9 @@ new_correction = '''    let rendered = content.getBoundingClientRect().width;
     let correctedScale = currentScale;
     for (let pass = 0; pass < 3; pass++) {
       const minimumGap = semanticGapMinimum();
-      if (Number.isFinite(minimumGap) && minimumGap < minimumRenderedGap - 0.01) {
+      if (Number.isFinite(minimumGap) && minimumGap < correctionGapTarget) {
         const safeScale = Math.max(0.98, Math.abs(correctedScale) > 0.0001 ? correctedScale : 1);
-        correctedWordSpacing += (minimumRenderedGap - minimumGap) / safeScale;
+        correctedWordSpacing += (correctionGapTarget - minimumGap) / safeScale;
         line.style.wordSpacing = `${baseWordSpacing + correctedWordSpacing}px`;
         line.dataset.folioWordSpacing = String(correctedWordSpacing);
       }
@@ -105,12 +109,12 @@ new_correction = '''    let rendered = content.getBoundingClientRect().width;
     }
 
     // A compositor line must never leave the DOM with collapsed semantic
-    // whitespace. If the three correction passes cannot satisfy the physical
-    // floor, leave a diagnostic marker so release QA can reject the build.
+    // whitespace. If the correction passes cannot satisfy the physical floor,
+    // leave a diagnostic marker so release QA can reject the build.
     const finalMinimumGap = semanticGapMinimum();
     if (Number.isFinite(finalMinimumGap)) {
       line.dataset.folioMinSemanticGap = String(finalMinimumGap);
-      if (finalMinimumGap < minimumRenderedGap - 0.03) line.dataset.folioGapViolation = "true";
+      if (finalMinimumGap < releaseGapFloor) line.dataset.folioGapViolation = "true";
     }
     previousCorrectedScale = correctedScale;'''
 if text.count(old_correction) != 1:
