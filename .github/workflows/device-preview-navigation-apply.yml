@@ -1,3 +1,4 @@
+# one-shot product patch; self-removes after a successful run
 name: Apply grouped device previews and editor navigation
 
 on:
@@ -386,7 +387,6 @@ jobs:
               '''<div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">''',
           )
 
-          # preview-runtime: one source of truth for every reflow profile.
           p = Path("web/src/preview-runtime.ts")
           runtime = p.read_text(encoding="utf-8")
           runtime = runtime.replace('import { composePreviewDocument } from "./compositor";\n', 'import { composePreviewDocument } from "./compositor";\nimport { getPreviewProfile } from "./device-profiles";\n')
@@ -397,7 +397,6 @@ jobs:
           runtime = runtime.replace('  const profile = PROFILES[currentMode];\n  if (!profile || frame.clientHeight <= 0) return;', '  const profile = getPreviewProfile(currentMode);\n  if (!profile || profile.family === "print" || frame.clientHeight <= 0) return;')
           p.write_text(runtime, encoding="utf-8")
 
-          # Device shells scale by screen class instead of pretending to be one named model.
           css = Path("web/src/index.css")
           text = css.read_text(encoding="utf-8")
           old = '''.reader-device {
@@ -426,7 +425,6 @@ jobs:
           text = text.replace('  .reader-device { width: min(95%, 430px, calc((100dvh - 112px) * .72)); }', '  .reader-device { width:min(95%,var(--folio-device-max-width,430px),calc((100dvh - 112px) * var(--folio-device-aspect,.72))); }')
           css.write_text(text, encoding="utf-8")
 
-          # Browser coverage: grouped profiles, real size switch, and editor -> preview word navigation.
           test = Path("tests/ui-runtime.test.ts")
           text = test.read_text(encoding="utf-8")
           anchor = '  check("typing updates the visible device preview before autosave", true);\n'
@@ -469,7 +467,6 @@ jobs:
           text = text.replace('await page.select(\'select[aria-label="Preview device"]\', "iphone");', 'await page.select(\'select[aria-label="Preview device"]\', "phone-6-1");')
           test.write_text(text, encoding="utf-8")
 
-          # Remove this one-shot workflow from the resulting product commit.
           Path(".github/workflows/device-preview-navigation-apply.yml").unlink()
       - name: Commit product changes
         shell: bash
