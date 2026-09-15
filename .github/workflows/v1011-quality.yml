@@ -8,7 +8,7 @@ on:
       - .github/workflows/v1011-quality.yml
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: folio-v1011-quality
@@ -23,7 +23,7 @@ jobs:
       PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
 
     steps:
-      - name: Check out qualified 1.0.11 branch
+      - name: Check out 1.0.11 branch
         uses: actions/checkout@v4
         with:
           ref: release/v1.0.11
@@ -34,6 +34,9 @@ jobs:
         with:
           node-version: 22.23.2
           cache: npm
+
+      - name: Apply physical word-gap correction
+        run: python scripts/v1011-gap-patch.py
 
       - name: Verify 1.0.11 version consistency
         shell: pwsh
@@ -77,26 +80,40 @@ jobs:
       - name: Windows visual and typesetting QA
         run: node --import tsx scripts/v107-visual-qa.ts
 
-      - name: Full Print PDF trim matrix
+      - name: Full Print PDF trim matrix with physical gap gate
         run: node --import tsx scripts/print-matrix-qa.ts
 
-      - name: Verify clean qualified tree
+      - name: Verify qualified semantic-gap diff
         shell: pwsh
         run: |
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw "git diff --check failed" }
-          if (git status --porcelain) { throw "Qualification changed tracked repository files unexpectedly." }
+          $changed = @(git diff --name-only | Sort-Object)
+          $expected = @("server/pipeline/compositor.ts", "server/pipeline/render-print.ts") | Sort-Object
+          if (($changed -join "`n") -ne ($expected -join "`n")) {
+            throw "Unexpected qualified diff: $($changed -join ', ')"
+          }
 
       - name: Upload visual QA proof
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-1.0.11-visual-QA-final
+          name: Folio-1.0.11-visual-QA-gap-final
           path: build/qa-v107/*
           if-no-files-found: error
 
       - name: Upload Print PDF matrix proof
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-1.0.11-print-matrix
+          name: Folio-1.0.11-print-matrix-gap-final
           path: build/qa-print-matrix/*
           if-no-files-found: error
+
+      - name: Commit qualified semantic-gap fix
+        shell: pwsh
+        run: |
+          git config user.name "Folio Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add server/pipeline/compositor.ts server/pipeline/render-print.ts
+          if (git diff --cached --quiet) { throw "Qualified semantic-gap patch produced no product changes." }
+          git commit -m "Fix Folio 1.0.11 print word spacing"
+          git push origin HEAD:release/v1.0.11
