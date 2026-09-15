@@ -11,16 +11,11 @@ permissions:
 
 jobs:
   probe:
-    strategy:
-      fail-fast: false
-      matrix:
-        family: [baskerville, source-serif, caslon]
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
-      TARGET_FAMILY: ${{ matrix.family }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,7 +35,6 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import os
 
           p = Path('server/pipeline/theme-fonts.ts')
           s = p.read_text(encoding='utf-8')
@@ -63,24 +57,23 @@ jobs:
               s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
 
-          groups = {
-            'baskerville': ['decorative','heritage','nocturne','obsidian','cathedral','revenant'],
-            'source-serif': ['editorial','scholar','folio','atlas','ember','solstice','runestone'],
-            'caslon': ['cloister','timber','wyrmwood','ironbound'],
-          }
-          target = os.environ['TARGET_FAMILY']
-          names = groups[target]
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
           oldq = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          name_list = ', '.join(repr(name) for name in names)
-          newq = f'  const probeNames = new Set([{name_list}]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== {len(names)}) throw new Error(`Expected exactly {len(names)} probe themes, found ${{themes.length}}`);\n'
+          newq = '''  const probeNames = new Set([
+    "decorative", "heritage", "nocturne", "obsidian", "cathedral", "revenant",
+    "editorial", "scholar", "folio", "atlas", "ember", "solstice", "runestone",
+    "cloister", "timber", "wyrmwood", "ironbound",
+  ]);
+  const themes = themeList().filter((theme) => probeNames.has(theme.name));
+  if (themes.length !== 17) throw new Error(`Expected exactly 17 probe themes, found ${themes.length}`);
+'''
           if t.count(oldq) != 1:
               raise SystemExit('matrix selector changed unexpectedly')
           q.write_text(t.replace(oldq, newq, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Run affected-family matrix
+      - name: Run 51-case affected-theme matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
@@ -88,20 +81,19 @@ jobs:
         if: always()
         shell: python
         run: |
-          import json, os
+          import json
           from pathlib import Path
           src = Path('build/qa-v107/theme-matrix.json')
           if not src.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(src.read_text(encoding='utf-8'))
-          out = {'family': os.environ['TARGET_FAMILY'], 'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
-          dst = Path(f"build/qa-v107/affected-{os.environ['TARGET_FAMILY']}.json")
-          dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({'family': out['family'], 'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
+          out = {'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
+          Path('build/qa-v107/affected-family-control.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps({'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-affected-${{ matrix.family }}
-          path: build/qa-v107/affected-${{ matrix.family }}.json
+          name: v107-affected-family-control
+          path: build/qa-v107/affected-family-control.json
           if-no-files-found: error
