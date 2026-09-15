@@ -6,6 +6,7 @@ on:
       - release/v1.0.11
     paths:
       - .github/workflows/v1011-quality.yml
+      - scripts/v1011-gap-patch.py
 
 permissions:
   contents: write
