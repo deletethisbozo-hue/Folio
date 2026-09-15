@@ -1,4 +1,4 @@
-name: v1.0.7 soft article probe
+name: v1.0.7 continuity-aware fit probe
 
 on:
   push:
@@ -35,7 +35,7 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only soft English article breaks
+      - name: Apply checkout-only continuity-aware fit candidate
         shell: python
         env:
           TARGET_THEME: ${{ matrix.theme }}
@@ -43,13 +43,100 @@ jobs:
           from pathlib import Path
           import os
 
-          compositor = Path('web/src/compositor.ts')
-          text = compositor.read_text(encoding='utf-8')
-          old = '    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && !articleGlue))\n'
-          new = '    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && (!articleGlue || englishProse)))\n'
-          if text.count(old) != 1:
-              raise SystemExit('article glue expression changed unexpectedly')
-          compositor.write_text(text.replace(old, new, 1), encoding='utf-8')
+          p = Path('web/src/compositor.ts')
+          s = p.read_text(encoding='utf-8')
+          old = '''    const scaledAdjustment = available / glyphScale - naturalWidth;
+    let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
+    let remaining = scaledAdjustment - wordSpacing * gaps;
+    let tracking = trackingOps > 0 ? remaining / trackingOps : 0;
+
+    if (tracking > maxTracking || tracking < minTracking) {
+      tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+      wordSpacing = (scaledAdjustment - tracking * trackingOps) / gaps;
+    }
+    wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
+    tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+    const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
+    if (Math.abs(residualPx) > 1.70) continue;
+
+    const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
+    const trackingRatio = tracking / Math.max(1, fontSize);
+    const scaleRatio = Math.abs(glyphScale - 1) / 0.01;
+    const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;
+    const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
+      + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
+      + 42 * Math.pow(scaleRatio, 3)
+      + 90 * Math.pow(scaleJumpRatio, 2)
+      + 100 * Math.pow(Math.abs(residualPx) / 1.70, 2);
+    const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
+    const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
+    const rank = selection === "continuity"
+      ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness
+      : selection === "spacing-continuity"
+        ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness
+        : candidate.badness;
+    if (!best || rank < bestRank) {
+      best = candidate;
+      bestRank = rank;
+    }
+'''
+          new = '''    const scaledAdjustment = available / glyphScale - naturalWidth;
+    const allocations: Array<{ wordSpacing: number; tracking: number }> = [];
+
+    let greedyWordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
+    let greedyRemaining = scaledAdjustment - greedyWordSpacing * gaps;
+    let greedyTracking = trackingOps > 0 ? greedyRemaining / trackingOps : 0;
+    if (greedyTracking > maxTracking || greedyTracking < minTracking) {
+      greedyTracking = Math.max(minTracking, Math.min(maxTracking, greedyTracking));
+      greedyWordSpacing = (scaledAdjustment - greedyTracking * trackingOps) / gaps;
+    }
+    allocations.push({
+      wordSpacing: Math.max(minWordSpacing, Math.min(maxWordSpacing, greedyWordSpacing)),
+      tracking: Math.max(minTracking, Math.min(maxTracking, greedyTracking)),
+    });
+
+    if (selection === "spacing-continuity" && trackingOps > 0) {
+      const targetTracking = Math.max(
+        minTracking,
+        Math.min(maxTracking, (scaledAdjustment - targetWordSpacing * gaps) / trackingOps),
+      );
+      const targetSpacing = (scaledAdjustment - targetTracking * trackingOps) / gaps;
+      if (targetSpacing >= minWordSpacing - 0.000001 && targetSpacing <= maxWordSpacing + 0.000001) {
+        allocations.push({ wordSpacing: targetSpacing, tracking: targetTracking });
+      }
+    }
+
+    for (const allocation of allocations) {
+      const wordSpacing = allocation.wordSpacing;
+      const tracking = allocation.tracking;
+      const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
+      if (Math.abs(residualPx) > 1.70) continue;
+
+      const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
+      const trackingRatio = tracking / Math.max(1, fontSize);
+      const scaleRatio = Math.abs(glyphScale - 1) / 0.01;
+      const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;
+      const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
+        + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
+        + 42 * Math.pow(scaleRatio, 3)
+        + 90 * Math.pow(scaleJumpRatio, 2)
+        + 100 * Math.pow(Math.abs(residualPx) / 1.70, 2);
+      const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
+      const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
+      const rank = selection === "continuity"
+        ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness
+        : selection === "spacing-continuity"
+          ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness
+          : candidate.badness;
+      if (!best || rank < bestRank) {
+        best = candidate;
+        bestRank = rank;
+      }
+    }
+'''
+          if s.count(old) != 1:
+              raise SystemExit(f'fit allocation matches: {s.count(old)}')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
 
           theme = os.environ['TARGET_THEME']
           q = Path('scripts/v107-theme-matrix.ts')
@@ -62,7 +149,7 @@ jobs:
           q.write_text(matrix.replace(selector, targeted, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Run 3-case targeted matrix
+      - name: Run targeted matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
@@ -86,13 +173,13 @@ jobs:
               'failed': data['failed'],
               'results': data['results'],
           }
-          dst = Path(f"build/qa-v107/article-{out['theme']}.json")
+          dst = Path(f"build/qa-v107/continuity-{out['theme']}.json")
           dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps({'theme': out['theme'], 'passed': out['passed'], 'failed': out['failed']}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-article-${{ matrix.theme }}
-          path: build/qa-v107/article-${{ matrix.theme }}.json
+          name: v107-continuity-${{ matrix.theme }}
+          path: build/qa-v107/continuity-${{ matrix.theme }}.json
           if-no-files-found: error
