@@ -1,4 +1,4 @@
-name: v1.0.7 body-font product candidate
+name: v1.0.7 body-font candidate parallel
 
 on:
   push:
@@ -11,8 +11,12 @@ permissions:
 
 jobs:
   probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [baskerville, source-serif, caslon]
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 12
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -33,51 +37,59 @@ jobs:
       - run: npx puppeteer browsers install chrome-headless-shell
       - name: Apply checkout-only body and dropcap replacements
         shell: python
+        env:
+          TARGET_FAMILY: ${{ matrix.family }}
         run: |
           from pathlib import Path
+          import os
 
           groups = {
-            'Newsreader': ['decorative','heritage','nocturne','obsidian','cathedral','revenant'],
-            'Vollkorn': ['editorial','scholar','folio','atlas','ember','solstice','runestone'],
-            'EB Garamond': ['cloister','timber','wyrmwood','ironbound'],
+            'baskerville': ('Newsreader', ['decorative','heritage','nocturne','obsidian','cathedral','revenant']),
+            'source-serif': ('Vollkorn', ['editorial','scholar','folio','atlas','ember','solstice','runestone']),
+            'caslon': ('EB Garamond', ['cloister','timber','wyrmwood','ironbound']),
           }
-          for family, themes in groups.items():
-              for theme in themes:
-                  p = Path(f'themes/{theme}/theme.css')
-                  s = p.read_text(encoding='utf-8')
-                  s += f'\n\n/* checkout-only v1.0.7 body-family candidate */\nbody {{ font-family: "{family}", serif; }}\n.dropcap {{ font-family: "{family}", serif; }}\n'
-                  p.write_text(s, encoding='utf-8')
+          target = os.environ['TARGET_FAMILY']
+          family, themes = groups[target]
+          for theme in themes:
+              p = Path(f'themes/{theme}/theme.css')
+              s = p.read_text(encoding='utf-8')
+              s += f'\n\n/* checkout-only v1.0.7 body-family candidate */\nbody {{ font-family: "{family}", serif; }}\n.dropcap {{ font-family: "{family}", serif; }}\n'
+              p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
           oldq = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          newq = '  const probeNames = new Set(["decorative", "heritage", "nocturne", "obsidian", "cathedral", "revenant", "editorial", "scholar", "folio", "atlas", "ember", "solstice", "runestone", "cloister", "timber", "wyrmwood", "ironbound"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 17) throw new Error(`Expected exactly 17 probe themes, found ${themes.length}`);\n'
+          quoted = ', '.join(f'"{name}"' for name in themes)
+          newq = f'  const probeNames = new Set([{quoted}]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== {len(themes)}) throw new Error(`Expected exactly {len(themes)} probe themes, found ${{themes.length}}`);\n'
           if t.count(oldq) != 1:
               raise SystemExit('matrix selector changed unexpectedly')
           q.write_text(t.replace(oldq, newq, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Run 51-case candidate matrix
+      - name: Run family matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
       - name: Summarize
         if: always()
         shell: python
+        env:
+          TARGET_FAMILY: ${{ matrix.family }}
         run: |
-          import json
+          import json, os
           from pathlib import Path
           src = Path('build/qa-v107/theme-matrix.json')
           if not src.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(src.read_text(encoding='utf-8'))
-          out = {'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
-          Path('build/qa-v107/body-font-candidate.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
+          out = {'family': os.environ['TARGET_FAMILY'], 'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
+          dst = Path(f"build/qa-v107/body-family-{os.environ['TARGET_FAMILY']}.json")
+          dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps({'family': out['family'], 'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-body-font-candidate
-          path: build/qa-v107/body-font-candidate.json
+          name: v107-body-family-${{ matrix.family }}
+          path: build/qa-v107/body-family-${{ matrix.family }}.json
           if-no-files-found: error
