@@ -70,6 +70,22 @@ replace_exact(
     'title: Duplicate Titles\\nauthor: Folio Test\\nlanguage: en\\ntheme: classic\\nchapters: chapters\\n',
     'title: Duplicate Titles\\nauthor: Folio Test\\nlanguage: en\\ntheme: folio\\nchapters: chapters\\n',
 )
+replace_exact(
+    "tests/review-folder.test.ts",
+    'theme: "classic"',
+    'theme: "folio"',
+)
+replace_exact(
+    "tests/web-export.test.ts",
+    'theme: "classic"',
+    'theme: "folio"',
+    expected=6,
+)
+replace_exact(
+    "tests/dropcap.test.ts",
+    'for (const theme of ["classic", "modern", "decorative"]) {',
+    'for (const theme of ["folio", "modern", "decorative"]) {',
+)
 
 replace_exact(
     "tests/ui-runtime.test.ts",
