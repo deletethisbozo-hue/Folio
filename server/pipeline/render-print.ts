@@ -7,7 +7,7 @@ import { insertPrintToc } from "./build-doc.ts";
 import { getBrowser } from "./render-pdf.ts";
 import { ROOT, THEMES_DIR, resolveAppResource } from "./paths.ts";
 import { alignDropCaps } from "./dropcap.ts";
-import { autoGutter, buildPageCss, estimatePages, getTrim, type PrintOptions } from "../print.ts";
+import { autoGutter, buildPageCss, estimatePages, getTrim, printContentWidthIn, type PrintOptions } from "../print.ts";
 import { applyProfessionalHyphenation } from "./hyphenation.ts";
 import { composeProfessionalParagraphs } from "./compositor.ts";
 
@@ -70,7 +70,24 @@ async function withPaginated<T>(
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
+    // page.pdf() ultimately uses print media. Compose under the same media from
+    // the beginning so @media print font/spacing rules cannot invalidate the
+    // line geometry after Folio has already frozen lines into nowrap spans.
+    await page.emulateMediaType("print");
     await page.setContent(html, { waitUntil: "load" });
+
+    // Paged.js applies @page margins only during pagination. The professional
+    // compositor runs before that, so explicitly give the source book the exact
+    // final text measure. Without this, it measures the browser viewport and the
+    // resulting nowrap lines can be wider than the physical page and get cropped.
+    const contentWidthIn = printContentWidthIn(opts, gutter);
+    await page.evaluate((measure) => {
+      const sourceMeasure = document.createElement("style");
+      sourceMeasure.id = "folio-print-source-measure";
+      sourceMeasure.textContent = `main.book{width:${measure}in!important;max-width:${measure}in!important;margin-left:0!important;margin-right:0!important;}`;
+      document.head.appendChild(sourceMeasure);
+    }, contentWidthIn);
+
     await applyProfessionalHyphenation(page, book);
     // Seat the drop caps before pagination — the correction changes how text
     // wraps around the float, so it has to settle before pages are measured.
@@ -123,6 +140,76 @@ async function withPaginated<T>(
         span.textContent = String(parseInt(attr, 10) - offset);
       });
     });
+    // Paged.js resolves physical page boxes after the compositor has finished.
+    // Fractional inch/px conversion and cloned page geometry can therefore leave
+    // a tiny final horizontal mismatch even when source composition used the
+    // exact calculated text measure. Calibrate those rare lines against the real
+    // Paged.js area. Never hide a genuine layout failure: correction is capped at
+    // 2% horizontal scale and a strict second pass still blocks the export.
+    const overflow = await page.evaluate(() => {
+      const lines = [...document.querySelectorAll<HTMLElement>(".folio-composed-line")];
+      let corrected = 0;
+      let largestCorrection = 0;
+
+      for (const line of lines) {
+        const pageNode = line.closest<HTMLElement>(".pagedjs_page");
+        const area = pageNode?.querySelector<HTMLElement>(".pagedjs_area")
+          ?? pageNode?.querySelector<HTMLElement>(".pagedjs_page_content");
+        const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
+        if (!area || !content) continue;
+        const areaRect = area.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        if (contentRect.width <= 0) continue;
+        const protrusion = Math.max(0, Number(line.dataset.folioRightProtrusion ?? 0));
+        const overshoot = contentRect.right - (areaRect.right + protrusion);
+        if (overshoot <= 0.25) continue;
+
+        const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
+        if (!Number.isFinite(currentScale) || currentScale <= 0) continue;
+        const desiredWidth = Math.max(1, contentRect.width - overshoot - 0.35);
+        const nextScale = currentScale * desiredWidth / contentRect.width;
+        if (nextScale < 0.98) continue;
+        largestCorrection = Math.max(largestCorrection, Math.abs(nextScale - currentScale));
+        content.style.transform = Math.abs(nextScale - 1) > 0.00001 ? `scaleX(${nextScale})` : "";
+        line.dataset.folioGlyphScale = String(nextScale);
+        line.dataset.folioPagedFit = "true";
+        corrected++;
+      }
+
+      let checked = 0;
+      let violations = 0;
+      let worstPx = 0;
+      let sample = "";
+      let minimumScale = 1;
+      for (const line of lines) {
+        const pageNode = line.closest<HTMLElement>(".pagedjs_page");
+        const area = pageNode?.querySelector<HTMLElement>(".pagedjs_area")
+          ?? pageNode?.querySelector<HTMLElement>(".pagedjs_page_content");
+        const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
+        if (!area || !content) continue;
+        checked++;
+        const areaRect = area.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        const protrusion = Math.max(0, Number(line.dataset.folioRightProtrusion ?? 0));
+        const scale = Number(line.dataset.folioGlyphScale ?? 1);
+        if (Number.isFinite(scale)) minimumScale = Math.min(minimumScale, scale);
+        const leftOverflow = Math.max(0, areaRect.left - contentRect.left);
+        const rightOverflow = Math.max(0, contentRect.right - areaRect.right - protrusion);
+        const excess = Math.max(leftOverflow, rightOverflow);
+        if (excess > 0.50) {
+          violations++;
+          if (excess > worstPx) {
+            worstPx = excess;
+            sample = (line.textContent ?? "").replace(/\u00ad/g, "").trim().slice(0, 180);
+          }
+        }
+      }
+      return { checked, violations, worstPx, sample, corrected, largestCorrection, minimumScale };
+    });
+    if (overflow.violations > 0 || overflow.minimumScale < 0.98 - 0.00001) {
+      throw new Error(`Print layout overflow after final page calibration: ${JSON.stringify(overflow)}`);
+    }
+
     const pages = await page.evaluate(() => document.querySelectorAll(".pagedjs_page").length);
     const result = await fn(page);
     return { result, meta: { pages, gutter } };

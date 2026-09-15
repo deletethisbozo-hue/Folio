@@ -1006,3 +1006,165 @@
 
 /* v1.0.7 export chrome cleanup */
 .folio-shell[data-ui-tone] .generate-wrap { background:transparent!important; border:0!important; box-shadow:none!important; }
+
+
+/* v1.0.11 restrained desktop polish */
+.folio-shell[data-ui-tone="ivory"] {
+  --studio-bg: #ebe9e5;
+  --studio-chrome: #f8f7f4;
+  --studio-sidebar: #f2f0ec;
+  --studio-surface: #fcfbf8;
+  --studio-paper: #fffefb;
+  --studio-editor-canvas: #e7e4df;
+  --studio-preview: #dfddd8;
+  --studio-preview-chrome: #f5f4f1;
+  --studio-preview-control: #eeece7;
+  --studio-preview-hover: #e7e3dc;
+  --studio-ink: #242320;
+  --studio-muted: #6c6861;
+  --studio-faint: #9b958c;
+  --studio-rule: #d8d3cb;
+  --studio-rule-strong: #c7c1b8;
+  --studio-accent: #8c664d;
+  --studio-accent-soft: #e8ded4;
+  --studio-control: #f4f2ed;
+}
+
+.folio-shell[data-ui-tone="midnight"] {
+  --studio-bg: #17181a;
+  --studio-chrome: #1d1e20;
+  --studio-sidebar: #202124;
+  --studio-surface: #252629;
+  --studio-paper: #292a2d;
+  --studio-editor-canvas: #1a1b1d;
+  --studio-preview: #121315;
+  --studio-preview-chrome: #1b1c1f;
+  --studio-preview-control: #25262a;
+  --studio-preview-hover: #303136;
+  --studio-rule: #36383c;
+  --studio-rule-strong: #484a4f;
+  --studio-accent: #c7a077;
+  --studio-accent-soft: #3d342d;
+  --studio-control: #292a2e;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar,
+.folio-shell[data-ui-tone] .editor-topbar,
+.folio-shell[data-ui-tone] .format-toolbar,
+.folio-shell[data-ui-tone] .preview-topbar,
+.folio-shell[data-ui-tone] .device-toolbar,
+.folio-shell[data-ui-tone] .folio-statusbar {
+  -webkit-font-smoothing: antialiased;
+}
+
+.folio-shell[data-ui-tone] .command-wordmark {
+  font-size: 14px;
+  font-weight: 670;
+  letter-spacing: -.02em;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav button,
+.folio-shell[data-ui-tone] .folio-commandbar .tone-toggle {
+  transition: color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav button:hover,
+.folio-shell[data-ui-tone] .folio-commandbar .tone-toggle:hover {
+  background: color-mix(in srgb, var(--studio-accent-soft) 28%, transparent);
+}
+
+.folio-shell[data-ui-tone] .contents-list,
+.folio-shell[data-ui-tone] .manuscript-editor,
+.folio-shell[data-ui-tone] .preview-stage {
+  scrollbar-width: thin;
+}
+
+.folio-shell[data-ui-tone] .contents-row {
+  height: 32px;
+  line-height: 32px;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.folio-shell[data-ui-tone] .contents-row:hover {
+  background: color-mix(in srgb, var(--studio-accent-soft) 42%, transparent);
+}
+
+.folio-shell[data-ui-tone] .contents-row.selected {
+  background: color-mix(in srgb, var(--studio-accent-soft) 72%, var(--studio-sidebar));
+  box-shadow: inset 2px 0 0 var(--studio-accent);
+}
+
+.folio-shell[data-ui-tone] .contents-row.selected::after {
+  width: 3px;
+  height: 3px;
+  opacity: .6;
+}
+
+.folio-shell[data-ui-tone] .section-titlebar {
+  background: color-mix(in srgb, var(--studio-surface) 96%, var(--studio-bg));
+}
+
+.folio-shell[data-ui-tone] .section-title,
+.folio-shell[data-ui-tone] .section-title-button {
+  font-size: 20.5px;
+  font-weight: 650;
+}
+
+.folio-shell[data-ui-tone] .format-toolbar button,
+.folio-shell[data-ui-tone] .search-pill,
+.folio-shell[data-ui-tone] .section-move,
+.folio-shell[data-ui-tone] .section-design,
+.folio-shell[data-ui-tone] .section-delete,
+.folio-shell[data-ui-tone] .toolbar-text-button,
+.folio-shell[data-ui-tone] .icon-button {
+  border-radius: 4px;
+  transition: background-color 100ms ease, color 100ms ease, border-color 100ms ease;
+}
+
+.folio-shell[data-ui-tone] .editor-paper {
+  background: color-mix(in srgb, var(--studio-editor-canvas) 94%, var(--studio-surface));
+}
+
+.folio-shell[data-ui-tone] .manuscript-editor {
+  border-color: color-mix(in srgb, var(--studio-rule-strong) 78%, transparent);
+  background: var(--studio-paper);
+}
+
+.folio-shell[data-ui-tone="ivory"] .manuscript-editor {
+  box-shadow: 0 1px 0 rgba(49, 43, 36, .035);
+}
+
+.folio-shell[data-ui-tone] .preview-topbar,
+.folio-shell[data-ui-tone] .device-toolbar {
+  background: color-mix(in srgb, var(--studio-preview-chrome) 96%, var(--studio-preview));
+}
+
+.folio-shell[data-ui-tone] .device-label select,
+.folio-shell[data-ui-tone] .trim-select,
+.folio-shell[data-ui-tone] .editor-search {
+  border-radius: 4px;
+}
+
+.folio-shell[data-ui-tone] .generate-button {
+  text-decoration: none;
+}
+
+.folio-shell[data-ui-tone] .generate-button:hover {
+  text-decoration: none;
+  box-shadow: inset 0 -1px 0 currentColor;
+}
+
+.folio-shell[data-ui-tone] .folio-dialog,
+.folio-shell[data-ui-tone] .style-library {
+  border-radius: 5px;
+  box-shadow: 0 20px 52px rgba(0,0,0,.24);
+}
+
+.folio-shell[data-ui-tone] .native-button,
+.folio-shell[data-ui-tone] .dialog-field input,
+.folio-shell[data-ui-tone] .dialog-field textarea,
+.folio-shell[data-ui-tone] .dialog-field select,
+.folio-shell[data-ui-tone] .setting-control input,
+.folio-shell[data-ui-tone] .setting-control select {
+  border-radius: 4px;
+}

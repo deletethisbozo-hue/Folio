@@ -40,7 +40,13 @@ export async function renderPdf(book: Book): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
+    await page.emulateMediaType("print");
     await page.setContent(html, { waitUntil: "load" });
+    // The reading PDF is 6×9 with 0.7in side margins. Compose against its
+    // 4.6in text measure before freezing lines into nowrap compositor spans.
+    await page.addStyleTag({
+      content: "main.book{width:4.6in!important;max-width:4.6in!important;margin-left:0!important;margin-right:0!important;}",
+    });
     await applyProfessionalHyphenation(page, book);
     await alignDropCaps(page);
     await composeProfessionalParagraphs(page, book);

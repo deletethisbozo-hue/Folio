@@ -104,6 +104,7 @@ await fs.writeFile(path.join(outDir, "sample-universal.epub"), uni.buffer);
 const kdp = await renderEpub(sample, "kdp");
 await fs.writeFile(path.join(outDir, "sample-kdp.epub"), kdp.buffer);
 const print = await renderPrintPdf(sample, DEFAULT_PRINT);
+const narrowPrint = await renderPrintPdf(sample, { ...DEFAULT_PRINT, trim: "5x8" });
 const reading = await renderPdf(sample);
 const docx = await renderDocx(sample);
 const md = renderMarkdown(sample);
@@ -161,6 +162,11 @@ check(
   "   print output is a non-trivial PDF",
   print.buffer.subarray(0, 5).toString() === "%PDF-" && print.buffer.length > 50_000,
   `${print.buffer.length} bytes`,
+);
+check(
+  "   narrow 5x8 print PDF composes without clipped text",
+  narrowPrint.buffer.subarray(0, 5).toString() === "%PDF-" && narrowPrint.buffer.length > 50_000 && narrowPrint.meta.pages >= print.meta.pages,
+  `${narrowPrint.meta.pages} pages; ${narrowPrint.buffer.length} bytes`,
 );
 check(
   "reading output is a non-trivial PDF",

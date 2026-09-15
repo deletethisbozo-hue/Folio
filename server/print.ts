@@ -120,6 +120,13 @@ function margins(gutter: number, trim: Trim): Margins {
   };
 }
 
+/** Exact horizontal text measure used by the paged print interior. */
+export function printContentWidthIn(opts: PrintOptions, gutter: number): number {
+  const trim = getTrim(opts.trim);
+  const m = margins(gutter, trim);
+  return Math.max(1, trim.w - m.inner - m.outer);
+}
+
 function cssString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ");
 }
