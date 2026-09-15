@@ -45,20 +45,13 @@ jobs:
               for theme in themes:
                   p = Path(f'themes/{theme}/theme.css')
                   s = p.read_text(encoding='utf-8')
-                  s += f'''\n\n/* checkout-only v1.0.7 body-family candidate */\nbody {{ font-family: "{family}", serif; }}\n.dropcap {{ font-family: "{family}", serif; }}\n'''
+                  s += f'\n\n/* checkout-only v1.0.7 body-family candidate */\nbody {{ font-family: "{family}", serif; }}\n.dropcap {{ font-family: "{family}", serif; }}\n'
                   p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
           oldq = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          newq = '''  const probeNames = new Set([
-    "decorative", "heritage", "nocturne", "obsidian", "cathedral", "revenant",
-    "editorial", "scholar", "folio", "atlas", "ember", "solstice", "runestone",
-    "cloister", "timber", "wyrmwood", "ironbound",
-  ]);
-  const themes = themeList().filter((theme) => probeNames.has(theme.name));
-  if (themes.length !== 17) throw new Error(`Expected exactly 17 probe themes, found ${themes.length}`);
-'''
+          newq = '  const probeNames = new Set(["decorative", "heritage", "nocturne", "obsidian", "cathedral", "revenant", "editorial", "scholar", "folio", "atlas", "ember", "solstice", "runestone", "cloister", "timber", "wyrmwood", "ironbound"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 17) throw new Error(`Expected exactly 17 probe themes, found ${themes.length}`);\n'
           if t.count(oldq) != 1:
               raise SystemExit('matrix selector changed unexpectedly')
           q.write_text(t.replace(oldq, newq, 1), encoding='utf-8')
