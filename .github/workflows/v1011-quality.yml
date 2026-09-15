@@ -39,6 +39,7 @@ jobs:
         shell: pwsh
         run: |
           python scripts/v1011-quality-patch.py
+          python scripts/v1011-paged-fit-patch.py
           npm version 1.0.11 --no-git-tag-version
 
       - name: Install locked dependencies
