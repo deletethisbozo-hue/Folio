@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/v1011-quality.yml
       - scripts/v1011-gap-patch.py
+      - scripts/v1011-paged-gap-repair.py
 
 permissions:
   contents: write
@@ -38,6 +39,9 @@ jobs:
 
       - name: Apply physical word-gap correction
         run: python scripts/v1011-gap-patch.py
+
+      - name: Apply final Paged.js gap repair
+        run: python scripts/v1011-paged-gap-repair.py
 
       - name: Verify 1.0.11 version consistency
         shell: pwsh
