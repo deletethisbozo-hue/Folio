@@ -55,7 +55,8 @@ jobs:
           q = Path('scripts/v107-theme-matrix.ts')
           text = q.read_text(encoding='utf-8')
           old = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          new = f'  const themes = themeList().filter((theme) => theme.name === "{theme}");\n  if (themes.length !== 1) throw new Error(`Expected exactly 1 probe theme, found ${{themes.length}}`);\n'
+          dollar = '$'
+          new = f'  const themes = themeList().filter((theme) => theme.name === "{theme}");\n  if (themes.length !== 1) throw new Error(`Expected exactly 1 probe theme, found {dollar}{{themes.length}}`);\n'
           if text.count(old) != 1:
               raise SystemExit('matrix selector changed unexpectedly')
           q.write_text(text.replace(old, new, 1), encoding='utf-8')
