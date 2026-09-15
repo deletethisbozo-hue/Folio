@@ -57,15 +57,12 @@ new_correction = '''    let rendered = content.getBoundingClientRect().width;
 
     // Measure what the reader actually sees, not the model-space estimate used
     // by the dynamic-programming pass. If Chromium renders a semantic word gap
-    // below the professional floor, restore that physical whitespace first and
-    // recover the line measure with subtle glyph expansion/compression. This
-    // directly prevents the "written as one run" failure without forcing the
-    // line breaker into inferior hyphenation paths.
+    // below the professional floor, restore that physical whitespace first.
+    // Recover the line measure with tiny tracking changes before asking glyph
+    // scaling to do any extra work. This avoids both run-together words and the
+    // visibly distorted 3% emergency compression that a naive post-pass needs.
     const lineFontSize = pixels(getComputedStyle(line).fontSize) || fontSize;
     const releaseGapFloor = Math.max(1.5, lineFontSize * 0.12);
-    // Do not aim exactly at a floating-point/browser-pixel threshold. A tiny
-    // 0.04px reserve keeps the same visible requirement stable across Windows
-    // rasterization and fractional device geometry.
     const correctionGapTarget = releaseGapFloor + 0.04;
     const semanticGapMinimum = () => {
       const lineWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
@@ -81,14 +78,30 @@ new_correction = '''    let rendered = content.getBoundingClientRect().width;
     };
 
     let correctedWordSpacing = Number(line.dataset.folioWordSpacing ?? 0);
+    let correctedTracking = Number(line.dataset.folioTracking ?? 0);
     let correctedScale = currentScale;
-    for (let pass = 0; pass < 3; pass++) {
+    const minimumTracking = -lineFontSize * 0.0055;
+    const trackingOps = Math.max(1, (content.textContent ?? "").replace(/\\u00ad/g, "").length - 1);
+    for (let pass = 0; pass < 5; pass++) {
       const minimumGap = semanticGapMinimum();
       if (Number.isFinite(minimumGap) && minimumGap < correctionGapTarget) {
         const safeScale = Math.max(0.98, Math.abs(correctedScale) > 0.0001 ? correctedScale : 1);
         correctedWordSpacing += (correctionGapTarget - minimumGap) / safeScale;
         line.style.wordSpacing = `${baseWordSpacing + correctedWordSpacing}px`;
         line.dataset.folioWordSpacing = String(correctedWordSpacing);
+      }
+
+      rendered = content.getBoundingClientRect().width;
+      if (rendered <= 0) break;
+      const overfill = rendered - opticalMeasure;
+      if (overfill > 0.05 && correctedTracking > minimumTracking + 0.000001) {
+        const safeScale = Math.max(0.98, Math.abs(correctedScale) > 0.0001 ? correctedScale : 1);
+        correctedTracking = Math.max(
+          minimumTracking,
+          correctedTracking - overfill / (trackingOps * safeScale),
+        );
+        line.style.letterSpacing = `${baseTracking + correctedTracking}px`;
+        line.dataset.folioTracking = String(correctedTracking);
       }
 
       rendered = content.getBoundingClientRect().width;
@@ -108,9 +121,6 @@ new_correction = '''    let rendered = content.getBoundingClientRect().width;
       currentScale = correctedScale;
     }
 
-    // A compositor line must never leave the DOM with collapsed semantic
-    // whitespace. If the correction passes cannot satisfy the physical floor,
-    // leave a diagnostic marker so release QA can reject the build.
     const finalMinimumGap = semanticGapMinimum();
     if (Number.isFinite(finalMinimumGap)) {
       line.dataset.folioMinSemanticGap = String(finalMinimumGap);
@@ -121,4 +131,4 @@ if text.count(old_correction) != 1:
     raise SystemExit(f"expected one optical correction block, found {text.count(old_correction)}")
 text = text.replace(old_correction, new_correction)
 path.write_text(text, encoding="utf-8")
-print("Applied DOM-measured semantic-gap correction.")
+print("Applied DOM-measured semantic-gap correction with tracking compensation.")

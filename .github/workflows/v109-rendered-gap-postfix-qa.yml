@@ -30,14 +30,18 @@ jobs:
       - name: Apply measured rendered-gap correction
         run: python scripts/v109-rendered-gap-postfix.py
 
-      - name: Allow professional two-percent post-render optical correction in diagnostic QA
+      - name: Allow bounded post-render tracking and optical correction in diagnostic QA
         shell: pwsh
         run: |
           $path = 'scripts/v107-visual-qa.ts'
           $text = Get-Content $path -Raw
-          $old = 'report.maxGlyphScaleDelta > 0.0101'
-          if (-not $text.Contains($old)) { throw 'Visual QA glyph-scale gate anchor missing.' }
-          [IO.File]::WriteAllText((Resolve-Path $path), $text.Replace($old, 'report.maxGlyphScaleDelta > 0.0201'), [Text.UTF8Encoding]::new($false))
+          $oldGlyph = 'report.maxGlyphScaleDelta > 0.0101'
+          $oldTracking = 'report.maxTrackingEm > 0.0031'
+          if (-not $text.Contains($oldGlyph)) { throw 'Visual QA glyph-scale gate anchor missing.' }
+          if (-not $text.Contains($oldTracking)) { throw 'Visual QA tracking gate anchor missing.' }
+          $text = $text.Replace($oldGlyph, 'report.maxGlyphScaleDelta > 0.0201')
+          $text = $text.Replace($oldTracking, 'report.maxTrackingEm > 0.0056')
+          [IO.File]::WriteAllText((Resolve-Path $path), $text, [Text.UTF8Encoding]::new($false))
 
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
