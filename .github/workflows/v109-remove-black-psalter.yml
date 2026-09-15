@@ -94,7 +94,7 @@ jobs:
         run: |
           git config user.name "Folio Release Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A server/pipeline/types.ts server/pipeline/themes.ts server/pipeline/ingest.ts themes/classic/theme.css samples/clockwork-garden/book.yaml tests/folio-runtime.test.ts tests/ui-runtime.test.ts tests/acceptance.test.ts scripts/packaged-ui-smoke.mjs
+          git add -A server/api.ts server/pipeline/types.ts server/pipeline/themes.ts server/pipeline/ingest.ts themes/classic/theme.css samples/clockwork-garden/book.yaml tests/folio-runtime.test.ts tests/ui-runtime.test.ts tests/acceptance.test.ts scripts/packaged-ui-smoke.mjs
           if (git diff --cached --quiet) { throw "Removal patch produced no staged changes." }
           git commit -m "Remove Black Psalter theme from Folio 1.0.9"
           git push origin HEAD:fix/v1.0.9-remove-black-psalter
