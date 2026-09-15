@@ -42,6 +42,11 @@ replace_exact(
     '  const theme = (cfg.theme && hasTheme(cfg.theme) ? cfg.theme : "classic") as ThemeName;',
     '  const theme = (cfg.theme && hasTheme(cfg.theme) ? cfg.theme : "folio") as ThemeName;',
 )
+replace_exact(
+    "server/api.ts",
+    '        theme: "classic",',
+    '        theme: "folio",',
+)
 
 # Remove the stylesheet itself. Git does not keep the now-empty directory.
 classic_css = ROOT / "themes/classic/theme.css"
