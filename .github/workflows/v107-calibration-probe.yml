@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        factor: ['0.88', '0.92', '0.96', '1.04', '1.08', '1.12']
+        factor: ['0.995', '0.99', '0.985', '0.98', '0.975', '0.97', '0.88']
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
@@ -35,7 +35,7 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only real calibration factor
+      - name: Apply checkout-only calibration and soft article breaks
         shell: python
         env:
           FACTOR: ${{ matrix.factor }}
@@ -52,6 +52,14 @@ jobs:
           if s.count(old) != 1:
               raise SystemExit('preview calibration block changed unexpectedly')
           p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          c = Path('web/src/compositor.ts')
+          cs = c.read_text(encoding='utf-8')
+          oldc = '    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && !articleGlue))\n'
+          newc = '    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && (!articleGlue || englishProse)))\n'
+          if cs.count(oldc) != 1:
+              raise SystemExit('article glue block changed unexpectedly')
+          c.write_text(cs.replace(oldc, newc, 1), encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
@@ -90,6 +98,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-calibration-${{ matrix.factor }}
+          name: v107-calibration-${{ matrix.factor }}-soft-articles
           path: build/qa-v107/calibration-${{ matrix.factor }}.json
           if-no-files-found: error
