@@ -33,6 +33,7 @@ jobs:
       - name: Apply quality patch
         run: |
           python3 scripts/v109-quality-patch.py
+          python3 scripts/v109-spacing-followup.py
           git restore --source=HEAD -- themes/classic/theme.css
           npm version 1.0.9 --no-git-tag-version
       - name: Install locked dependencies
