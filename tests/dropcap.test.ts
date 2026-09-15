@@ -101,7 +101,7 @@ async function measure(): Promise<{ delta: number; font: string; capPx: number; 
 
 for (const print of [false, true]) {
   console.log(`\n${print ? "Print / reading PDF (3-line cap)" : "EPUB & preview (2-line cap)"}`);
-  for (const theme of ["classic", "modern", "decorative"]) {
+  for (const theme of ["folio", "modern", "decorative"]) {
     await p.setContent(await pageHtml(theme, print), { waitUntil: "load" });
     const before = await measure();
     const adjusted = await alignDropCaps(p);

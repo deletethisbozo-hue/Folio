@@ -56,7 +56,7 @@ try {
   await page.click('[data-command="design"]');
   await page.waitForSelector(".theme-sample");
   const themes = await page.$$eval(".theme-sample", (items) => items.length);
-  if (themes < 30) throw new Error("Packaged style browser contains only " + themes + " themes.");
+  if (themes !== 29) throw new Error("Packaged style browser expected 29 themes after retiring Black Psalter, found " + themes + ".");
   await page.click(".style-category-list button:nth-child(6)");
   const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
@@ -110,7 +110,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged UI passed: page counts, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 30 themes, 6 device profiles.");
+  console.log("Packaged UI passed: page counts, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 29 themes, 6 device profiles.");
 } finally {
   browser.disconnect();
 }

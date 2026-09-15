@@ -53,7 +53,7 @@ const opened = await post("/api/projects/open-folder", { path: bookDir });
 check("opens from a real folder", opened.status === 200 && opened.body.source === "folder", opened.body.source);
 const id = opened.body.projectId;
 
-const blues1 = await post(`/api/projects/${id}/export`, { format: "blues", pages: 20, meta: {}, theme: "classic" });
+const blues1 = await post(`/api/projects/${id}/export`, { format: "blues", pages: 20, meta: {}, theme: "folio" });
 check("blues written server-side", blues1.body.written === true, JSON.stringify(blues1.body.message ?? ""));
 check("   no bytes sent to the browser", blues1.body.dataBase64 === undefined);
 check("   landed in the review folder", String(blues1.body.path).startsWith(path.resolve(reviewDir)), blues1.body.path);
@@ -67,17 +67,17 @@ check("   respected the page cap", blues1.body.pages <= 20, `${blues1.body.pages
 
 // ---- the confirm round trip ----
 console.log("\nThe confirm round trip");
-const blues2 = await post(`/api/projects/${id}/export`, { format: "blues", pages: 20, meta: {}, theme: "classic" });
+const blues2 = await post(`/api/projects/${id}/export`, { format: "blues", pages: 20, meta: {}, theme: "folio" });
 check("second run asks instead of writing", blues2.body.needsConfirm === true && !blues2.body.written);
 check("   the message names the file and version", /source unchanged since v6/.test(blues2.body.message ?? "") && /already exists/.test(blues2.body.message ?? ""), blues2.body.message);
-const blues3 = await post(`/api/projects/${id}/export`, { format: "blues", pages: 20, force: true, meta: {}, theme: "classic" });
+const blues3 = await post(`/api/projects/${id}/export`, { format: "blues", pages: 20, force: true, meta: {}, theme: "folio" });
 check("   force writes and reports the overwrite", blues3.body.written === true && blues3.body.overwrote === true);
 const reviewFiles = (await fs.readdir(reviewDir)).filter((f) => f.endsWith(".pdf"));
 check("   still exactly one file", reviewFiles.length === 1, reviewFiles.join(", "));
 
 // ---- a non-blues artifact goes to _exports ----
 console.log("\nNon-blues artifacts stay with the book");
-const kdp = await post(`/api/projects/${id}/export`, { format: "epub", preset: "kdp", meta: {}, theme: "classic" });
+const kdp = await post(`/api/projects/${id}/export`, { format: "epub", preset: "kdp", meta: {}, theme: "folio" });
 check("epub written server-side", kdp.body.written === true);
 check("   into _exports/", String(kdp.body.path).includes(`${path.sep}_exports${path.sep}`), kdp.body.path);
 check(
@@ -97,10 +97,10 @@ console.log("\nDrag-and-drop / sample project (download fallback)");
 const sample = await post("/api/sample", {});
 const sid = sample.body.projectId;
 check("sample is not folder-backed", sample.body.source === "sample");
-const sampleMd = await post(`/api/projects/${sid}/export`, { format: "md", meta: {}, theme: "classic" });
+const sampleMd = await post(`/api/projects/${sid}/export`, { format: "md", meta: {}, theme: "folio" });
 check("falls back to bytes for download", sampleMd.body.written === false && typeof sampleMd.body.dataBase64 === "string");
 check("   nothing written to the repo sample folder", !(await fs.readdir(path.join(process.cwd(), "samples", "clockwork-garden"))).includes("_exports"));
-const sampleBlues = await post(`/api/projects/${sid}/export`, { format: "blues", meta: {}, theme: "classic" });
+const sampleBlues = await post(`/api/projects/${sid}/export`, { format: "blues", meta: {}, theme: "folio" });
 check("blues refused with a useful reason", sampleBlues.status >= 400 && /opened from a folder/.test(sampleBlues.body.error ?? ""), sampleBlues.body.error);
 
 // ---------------------------------------------------------------- safety

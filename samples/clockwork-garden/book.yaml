@@ -26,7 +26,7 @@ rights: All rights reserved.
 
 # --- Presentation ---
 cover: cover.png                 # relative to this file
-theme: decorative                # classic | modern | decorative
+theme: decorative                # folio | modern | decorative
 
 # --- Custom fonts (optional) ---
 # Embed your own fonts and assign them to document styles (journal, letter,

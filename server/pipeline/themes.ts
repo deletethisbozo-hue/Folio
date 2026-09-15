@@ -14,13 +14,6 @@ export interface ThemeConfig {
 }
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
-  classic: {
-    name: "classic", label: "Black Psalter",
-    description: "Editorial dark-gothic codex: bone paper, cathedral-black opener, oxblood rubrication and engraved tracery.",
-    sceneOrnament: "◆", dropcap: true, chapterLabel: "LIBER I",
-    previewFont: "Garamond, serif", previewHeadingFont: "UnifrakturCook, serif",
-    previewAccent: "#741b22", previewPaper: "#f4eddf",
-  },
   modern: {
     name: "modern", label: "Modern", description: "Clean sans-serif headings, generous spacing, minimalist scene breaks.",
     sceneOrnament: "•   •   •", dropcap: false, chapterLabel: "CHAPTER 01", previewFont: "Arial, sans-serif",
@@ -175,7 +168,7 @@ export function hasTheme(name: string): name is ThemeName {
 }
 
 export function getTheme(name: string): ThemeConfig {
-  return THEMES[hasTheme(name) ? name : "classic"];
+  return THEMES[hasTheme(name) ? name : "folio"];
 }
 
 export function themeList(): ThemeConfig[] {

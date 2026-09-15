@@ -1,7 +1,6 @@
 // Core data model shared across the pipeline.
 
 export type ThemeName =
-  | "classic"
   | "modern"
   | "decorative"
   | "literary"

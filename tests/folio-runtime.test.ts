@@ -33,8 +33,16 @@ console.log("\nFolio live runtime");
 const health = await json("/api/health");
 check("health reports Folio", health.status === 200 && health.body.name === "Folio", JSON.stringify(health.body));
 
+const retiredThemeDir = path.join(os.tmpdir(), "folio-retired-theme-" + crypto.randomUUID());
+await fs.mkdir(path.join(retiredThemeDir, "chapters"), { recursive: true });
+await fs.writeFile(path.join(retiredThemeDir, "book.yaml"), "title: Retired Theme\nauthor: Folio Test\nlanguage: en\ntheme: classic\nchapters: chapters\n");
+await fs.writeFile(path.join(retiredThemeDir, "chapters", "01.md"), "# One\n\nMigration probe.\n");
+const retiredTheme = await post("/api/projects/open-folder", { path: retiredThemeDir });
+check("retired Black Psalter projects migrate to Folio", retiredTheme.status === 200 && retiredTheme.body.meta.theme === "folio", retiredTheme.body.meta.theme);
+await fs.rm(retiredThemeDir, { recursive: true, force: true });
+
 const themes = await json("/api/themes");
-check("at least 30 real themes are registered", themes.body.length >= 30, String(themes.body.length));
+check("exactly 29 real themes are registered after retiring Black Psalter", themes.body.length === 29, String(themes.body.length));
 for (const theme of themes.body) {
   const css = await fs.readFile(themeCss(theme.name), "utf8");
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
@@ -173,7 +181,7 @@ check("sample exports a non-empty DOCX", docx.status === 200 && docx.body.bytes 
 
 const duplicateDir = path.join(os.tmpdir(), `folio-duplicate-${crypto.randomUUID()}`);
 await fs.mkdir(path.join(duplicateDir, "chapters"), { recursive: true });
-await fs.writeFile(path.join(duplicateDir, "book.yaml"), "title: Duplicate Titles\nauthor: Folio Test\nlanguage: en\ntheme: classic\nchapters: chapters\n");
+await fs.writeFile(path.join(duplicateDir, "book.yaml"), "title: Duplicate Titles\nauthor: Folio Test\nlanguage: en\ntheme: folio\nchapters: chapters\n");
 const firstPath = path.join(duplicateDir, "chapters", "01.md");
 const secondPath = path.join(duplicateDir, "chapters", "02.md");
 await fs.writeFile(firstPath, "# Echo\n\nFirst file body.\n");

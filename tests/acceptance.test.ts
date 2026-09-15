@@ -114,7 +114,7 @@ const md = renderMarkdown(sample);
 // test silently had no baseline on any machine but the one that made it.
 const ref = JSON.parse(await fs.readFile(path.join(ROOT, "tests", "fixtures", "pipeline-reference.json"), "utf8"));
 
-// stylesheet1.css is base.css, stylesheet2.css is the selected Classic theme,
+// stylesheet1.css is base.css, stylesheet2.css is the selected theme,
 // and stylesheet3.css is buildDocCss(). Folio 1.0.5 intentionally changes all
 // three typography layers: base/theme preview corrections plus bounded/manual
 // hyphenation and scene-break isolation in generated document CSS. Every other

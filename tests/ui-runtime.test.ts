@@ -195,7 +195,7 @@ try {
     });
     return new Set(signatures).size;
   });
-  check("style browser exposes all 30 visual themes", themeCount >= 30, String(themeCount));
+  check("style browser exposes all 29 visual themes", themeCount === 29, String(themeCount));
   check("theme cards have materially different visual signatures", distinctCards >= 24, String(distinctCards) + " distinct");
 
   await page.click(".style-category-list button:nth-child(6)");

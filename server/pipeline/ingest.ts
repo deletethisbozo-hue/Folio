@@ -74,7 +74,7 @@ async function isDir(p: string): Promise<boolean> {
 }
 
 function normalizeMeta(cfg: RawConfig, overrides?: Partial<BookMeta>): BookMeta {
-  const theme = (cfg.theme && hasTheme(cfg.theme) ? cfg.theme : "classic") as ThemeName;
+  const theme = (cfg.theme && hasTheme(cfg.theme) ? cfg.theme : "folio") as ThemeName;
   const meta: BookMeta = {
     title: cfg.title?.trim() || "Untitled",
     subtitle: cfg.subtitle?.trim() || undefined,

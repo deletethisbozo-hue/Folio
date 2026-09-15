@@ -65,7 +65,7 @@ const dest1 = await resolveDestinations(fx.bookDir);
 check("   the CLI path sees the same value", dest1.bluesDir === path.resolve(fx.reviewDir));
 
 console.log("\nAnd a blues now writes");
-const blues = await post(`/api/projects/${id}/export`, { format: "blues", pages: 12, meta: {}, theme: "classic" });
+const blues = await post(`/api/projects/${id}/export`, { format: "blues", pages: 12, meta: {}, theme: "folio" });
 check("written to the chosen folder", blues.body.written === true && String(blues.body.path).startsWith(path.resolve(fx.reviewDir)), blues.body.path ?? blues.body.error);
 check("   the file is really there", (await fs.readdir(fx.reviewDir)).some((f) => f.endsWith(".pdf")));
 
