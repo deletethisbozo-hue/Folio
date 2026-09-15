@@ -1,4 +1,4 @@
-name: v1.0.7 serif measure probe
+name: v1.0.7 soft article probe
 
 on:
   push:
@@ -15,7 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         theme: [decorative, editorial, cloister]
-        width: ['100', '99.5', '99', '98.5', '98', '97', '96']
     runs-on: ubuntu-24.04
     timeout-minutes: 14
     env:
@@ -36,30 +35,31 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only paragraph measure
+      - name: Apply checkout-only soft English article breaks
         shell: python
         env:
           TARGET_THEME: ${{ matrix.theme }}
-          WIDTH: ${{ matrix.width }}
         run: |
           from pathlib import Path
           import os
 
-          theme = os.environ['TARGET_THEME']
-          width = os.environ['WIDTH']
-          css = Path(f'themes/{theme}/theme.css')
-          source = css.read_text(encoding='utf-8')
-          source += f'''\n\n/* checkout-only v1.0.7 measure probe */\nsection.chapter > p:not(.scene-break) {{\n  width: {width}%;\n  margin-left: auto;\n  margin-right: auto;\n}}\n'''
-          css.write_text(source, encoding='utf-8')
-
-          q = Path('scripts/v107-theme-matrix.ts')
-          text = q.read_text(encoding='utf-8')
-          old = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          dollar = '$'
-          new = f'  const themes = themeList().filter((theme) => theme.name === "{theme}");\n  if (themes.length !== 1) throw new Error(`Expected exactly 1 probe theme, found {dollar}{{themes.length}}`);\n'
+          compositor = Path('web/src/compositor.ts')
+          text = compositor.read_text(encoding='utf-8')
+          old = '    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && !articleGlue))\n'
+          new = '    const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && (!articleGlue || englishProse)))\n'
           if text.count(old) != 1:
+              raise SystemExit('article glue expression changed unexpectedly')
+          compositor.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          theme = os.environ['TARGET_THEME']
+          q = Path('scripts/v107-theme-matrix.ts')
+          matrix = q.read_text(encoding='utf-8')
+          selector = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
+          dollar = '$'
+          targeted = f'  const themes = themeList().filter((theme) => theme.name === "{theme}");\n  if (themes.length !== 1) throw new Error(`Expected exactly 1 probe theme, found {dollar}{{themes.length}}`);\n'
+          if matrix.count(selector) != 1:
               raise SystemExit('matrix selector changed unexpectedly')
-          q.write_text(text.replace(old, new, 1), encoding='utf-8')
+          q.write_text(matrix.replace(selector, targeted, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
       - name: Run 3-case targeted matrix
@@ -71,7 +71,6 @@ jobs:
         shell: python
         env:
           TARGET_THEME: ${{ matrix.theme }}
-          WIDTH: ${{ matrix.width }}
           MATRIX_OUTCOME: ${{ steps.matrix.outcome }}
         run: |
           import json, os
@@ -82,19 +81,18 @@ jobs:
           data = json.loads(src.read_text(encoding='utf-8'))
           out = {
               'theme': os.environ['TARGET_THEME'],
-              'width': os.environ['WIDTH'],
               'matrix': os.environ['MATRIX_OUTCOME'],
               'passed': data['passed'],
               'failed': data['failed'],
               'results': data['results'],
           }
-          dst = Path(f"build/qa-v107/measure-{out['theme']}-{out['width']}.json")
+          dst = Path(f"build/qa-v107/article-{out['theme']}.json")
           dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({'theme': out['theme'], 'width': out['width'], 'passed': out['passed'], 'failed': out['failed']}, indent=2))
+          print(json.dumps({'theme': out['theme'], 'passed': out['passed'], 'failed': out['failed']}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-measure-${{ matrix.theme }}-${{ matrix.width }}
-          path: build/qa-v107/measure-${{ matrix.theme }}-${{ matrix.width }}.json
+          name: v107-article-${{ matrix.theme }}
+          path: build/qa-v107/article-${{ matrix.theme }}.json
           if-no-files-found: error
