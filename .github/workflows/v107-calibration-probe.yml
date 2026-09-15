@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        family: ['Newsreader', 'EB Garamond', 'Vollkorn']
+        candidate: [newsreader, garamond, vollkorn]
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
@@ -35,15 +35,20 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only Baskerville body and dropcap replacement
+      - name: Apply checkout-only Baskerville replacement
         shell: python
         env:
-          TARGET_FAMILY: ${{ matrix.family }}
+          CANDIDATE: ${{ matrix.candidate }}
         run: |
           from pathlib import Path
           import os
 
-          family = os.environ['TARGET_FAMILY']
+          families = {
+              'newsreader': 'Newsreader',
+              'garamond': 'EB Garamond',
+              'vollkorn': 'Vollkorn',
+          }
+          family = families[os.environ['CANDIDATE']]
           themes = ['decorative','heritage','nocturne','obsidian','cathedral','revenant']
           for theme in themes:
               p = Path(f'themes/{theme}/theme.css')
@@ -69,24 +74,23 @@ jobs:
         if: always()
         shell: python
         env:
-          TARGET_FAMILY: ${{ matrix.family }}
+          CANDIDATE: ${{ matrix.candidate }}
         run: |
-          import json, os, re
+          import json, os
           from pathlib import Path
           src = Path('build/qa-v107/theme-matrix.json')
           if not src.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(src.read_text(encoding='utf-8'))
-          family = os.environ['TARGET_FAMILY']
-          slug = re.sub(r'[^a-z0-9]+', '-', family.lower()).strip('-')
-          out = {'family': family, 'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
-          dst = Path(f'build/qa-v107/baskerville-replacement-{slug}.json')
+          candidate = os.environ['CANDIDATE']
+          out = {'candidate': candidate, 'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
+          dst = Path(f'build/qa-v107/baskerville-replacement-{candidate}.json')
           dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({'family': family, 'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
+          print(json.dumps({'candidate': candidate, 'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-baskerville-${{ matrix.family }}
-          path: build/qa-v107/baskerville-replacement-*.json
+          name: v107-baskerville-${{ matrix.candidate }}
+          path: build/qa-v107/baskerville-replacement-${{ matrix.candidate }}.json
           if-no-files-found: error
