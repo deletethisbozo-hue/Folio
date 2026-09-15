@@ -1,4 +1,4 @@
-name: v1.0.7 continuity-aware spacing probe
+name: v1.0.7 lower real font-calibration probe
 
 on:
   push:
@@ -14,9 +14,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        theme: [decorative, editorial, cloister]
+        factor: ['0.88', '0.875', '0.87', '0.865', '0.86', '0.85', '0.84']
     runs-on: ubuntu-24.04
-    timeout-minutes: 14
+    timeout-minutes: 18
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
@@ -35,33 +35,34 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only spacing-continuity candidate
+      - name: Apply checkout-only real calibration factor
         shell: python
         env:
-          TARGET_THEME: ${{ matrix.theme }}
+          FACTOR: ${{ matrix.factor }}
         run: |
           from pathlib import Path
           import os
-          p = Path('web/src/compositor.ts')
+          factor = os.environ['FACTOR']
+          dollar = '$'
+
+          p = Path('web/src/preview-runtime.ts')
           s = p.read_text(encoding='utf-8')
-          old = '    let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));\n'
-          new = '    let wordSpacing = selection === "spacing-continuity"\n      ? Math.max(minWordSpacing, Math.min(maxWordSpacing, targetWordSpacing))\n      : Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));\n'
+          old = '''  const css = [\n    `body{font-size:${profile.baseFont * scale}px!important}`,\n    `main.book{padding:${top}px ${right}px ${bottom}px ${left}px!important}`,\n  ].join("");\n'''
+          new = f'''  const bodyFamily = doc.body && doc.defaultView ? doc.defaultView.getComputedStyle(doc.body).fontFamily : "";\n  const opticalFactor = /Libre Baskerville|Source Serif 4|Libre Caslon Text/i.test(bodyFamily) ? {factor} : 1;\n  const css = [\n    `body{{font-size:{dollar}{{profile.baseFont * scale * opticalFactor}}px!important}}`,\n    `main.book{{padding:{dollar}{{top}}px {dollar}{{right}}px {dollar}{{bottom}}px {dollar}{{left}}px!important}}`,\n  ].join("");\n'''
           if s.count(old) != 1:
-              raise SystemExit(f'word spacing matches: {s.count(old)}')
+              raise SystemExit('preview calibration block changed unexpectedly')
           p.write_text(s.replace(old, new, 1), encoding='utf-8')
 
-          theme = os.environ['TARGET_THEME']
           q = Path('scripts/v107-theme-matrix.ts')
-          matrix = q.read_text(encoding='utf-8')
-          selector = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
-          dollar = '$'
-          targeted = f'  const themes = themeList().filter((theme) => theme.name === "{theme}");\n  if (themes.length !== 1) throw new Error(`Expected exactly 1 probe theme, found {dollar}{{themes.length}}`);\n'
-          if matrix.count(selector) != 1:
+          t = q.read_text(encoding='utf-8')
+          oldq = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
+          newq = '  const probeNames = new Set(["decorative", "editorial", "cloister"]);\n  const themes = themeList().filter((theme) => probeNames.has(theme.name));\n  if (themes.length !== 3) throw new Error(`Expected exactly 3 probe themes, found ${themes.length}`);\n'
+          if t.count(oldq) != 1:
               raise SystemExit('matrix selector changed unexpectedly')
-          q.write_text(matrix.replace(selector, targeted, 1), encoding='utf-8')
+          q.write_text(t.replace(oldq, newq, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Run targeted matrix
+      - name: Run 9-case targeted matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
@@ -69,7 +70,7 @@ jobs:
         if: always()
         shell: python
         env:
-          TARGET_THEME: ${{ matrix.theme }}
+          FACTOR: ${{ matrix.factor }}
           MATRIX_OUTCOME: ${{ steps.matrix.outcome }}
         run: |
           import json, os
@@ -77,15 +78,15 @@ jobs:
           src = Path('build/qa-v107/theme-matrix.json')
           if not src.exists():
               raise SystemExit('theme-matrix.json missing')
-          data = json.loads(src.read_text(encoding='utf-8'))
-          out = {'theme': os.environ['TARGET_THEME'], 'matrix': os.environ['MATRIX_OUTCOME'], 'passed': data['passed'], 'failed': data['failed'], 'results': data['results']}
-          dst = Path(f"build/qa-v107/continuity-{out['theme']}.json")
+          d = json.loads(src.read_text(encoding='utf-8'))
+          out = {'factor': os.environ['FACTOR'], 'matrix': os.environ['MATRIX_OUTCOME'], 'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
+          dst = Path(f"build/qa-v107/lower-calibration-{os.environ['FACTOR']}.json")
           dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({'theme': out['theme'], 'passed': out['passed'], 'failed': out['failed']}, indent=2))
+          print(json.dumps({'factor': out['factor'], 'passed': out['passed'], 'failed': out['failed']}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-continuity-${{ matrix.theme }}
-          path: build/qa-v107/continuity-${{ matrix.theme }}.json
+          name: v107-lower-calibration-${{ matrix.factor }}
+          path: build/qa-v107/lower-calibration-${{ matrix.factor }}.json
           if-no-files-found: error
