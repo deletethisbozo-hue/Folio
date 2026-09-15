@@ -6,10 +6,11 @@ on:
       - fix/v1.0.9-remove-black-psalter
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows-qa:
+    if: github.event.head_commit.message != 'Finalize rendered-gap compositor for Folio 1.0.9'
     runs-on: windows-2025
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
@@ -84,3 +85,13 @@ jobs:
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed' }
           git diff -- web/src/compositor.ts scripts/v107-visual-qa.ts
+
+      - name: Commit qualified compositor correction
+        shell: pwsh
+        run: |
+          git config user.name "Folio Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add web/src/compositor.ts scripts/v107-visual-qa.ts
+          if (git diff --cached --quiet) { throw 'Qualified compositor correction produced no staged changes.' }
+          git commit -m "Finalize rendered-gap compositor for Folio 1.0.9"
+          git push origin HEAD:fix/v1.0.9-remove-black-psalter
