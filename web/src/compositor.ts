@@ -358,6 +358,17 @@ function glyphScaleBucket(glyphScale: number): number {
 }
 
 const HYPHEN_BUCKET_COUNT = 9;
+const WORD_SPACING_BUCKET_MIN_EM = -0.12;
+const WORD_SPACING_BUCKET_STEP_EM = 0.02;
+const WORD_SPACING_BUCKET_COUNT = 13;
+
+function wordSpacingBucket(wordSpacing: number, fontSize: number): number {
+  const em = wordSpacing / Math.max(1, fontSize);
+  return Math.max(0, Math.min(
+    WORD_SPACING_BUCKET_COUNT - 1,
+    Math.round((em - WORD_SPACING_BUCKET_MIN_EM) / WORD_SPACING_BUCKET_STEP_EM),
+  ));
+}
 
 function hyphenCountBucket(hyphenCount: number): number {
   return Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);
@@ -369,17 +380,21 @@ function encodeState(
   fitness: number,
   glyphScale: number,
   hyphenCount: number,
+  wordSpacing = 0,
+  fontSize = 16,
 ): number {
   const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
-  const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
-  return packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);
+  const glyphPacked = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
+  const spacingPacked = glyphPacked * WORD_SPACING_BUCKET_COUNT + wordSpacingBucket(wordSpacing, fontSize);
+  return spacingPacked * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);
 }
 
 function decodeState(key: number): { line: number; hyphenStreak: number; fitness: number; glyphScale: number; hyphenBucket: number } {
   const hyphenBucket = key % HYPHEN_BUCKET_COUNT;
-  const packed = Math.floor(key / HYPHEN_BUCKET_COUNT);
-  const glyphBucket = packed % GLYPH_SCALE_COUNT;
-  const base = Math.floor(packed / GLYPH_SCALE_COUNT);
+  const spacingPacked = Math.floor(key / HYPHEN_BUCKET_COUNT);
+  const glyphPacked = Math.floor(spacingPacked / WORD_SPACING_BUCKET_COUNT);
+  const glyphBucket = glyphPacked % GLYPH_SCALE_COUNT;
+  const base = Math.floor(glyphPacked / GLYPH_SCALE_COUNT);
   return {
     line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
     hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
@@ -683,7 +698,7 @@ function chooseBreaks(
         const nextLine = line + 1;
         const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
         const nextHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
-        const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);
+        const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount, lineFit?.wordSpacing ?? 0, fontSize);
         const old = states[end + 1].get(nextKey);
         if (!old || cost < old.cost) {
           states[end + 1].set(nextKey, {
