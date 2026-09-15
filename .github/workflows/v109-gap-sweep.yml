@@ -59,17 +59,19 @@ jobs:
         run: |
           $base = '  const minimumRenderedGapEm = emergency || finalCompression ? 0.13 : 0.14;'
           $candidates = @(
-            @{ strict = '0.125'; rescue = '0.115' },
-            @{ strict = '0.120'; rescue = '0.110' },
-            @{ strict = '0.115'; rescue = '0.105' },
-            @{ strict = '0.110'; rescue = '0.100' },
-            @{ strict = '0.105'; rescue = '0.095' },
-            @{ strict = '0.100'; rescue = '0.090' }
+            @{ strict = '0.095'; rescue = '0.085' },
+            @{ strict = '0.090'; rescue = '0.080' },
+            @{ strict = '0.085'; rescue = '0.075' },
+            @{ strict = '0.080'; rescue = '0.070' },
+            @{ strict = '0.075'; rescue = '0.065' },
+            @{ strict = '0.070'; rescue = '0.060' },
+            @{ strict = '0.060'; rescue = '0.050' }
           )
           $best = $null
           New-Item -ItemType Directory -Force build\gap-sweep | Out-Null
           foreach ($candidate in $candidates) {
             git checkout -- web/src/compositor.ts
+            Remove-Item build\qa-v107 -Recurse -Force -ErrorAction SilentlyContinue
             $text = Get-Content web/src/compositor.ts -Raw
             if (-not $text.Contains($base)) { throw 'Baseline rendered-gap floor was not found.' }
             $replacement = "  const minimumRenderedGapEm = emergency || finalCompression ? $($candidate.rescue) : $($candidate.strict);"
@@ -83,11 +85,9 @@ jobs:
               break
             }
             Write-Host "FAIL strict=$($candidate.strict) rescue=$($candidate.rescue)"
+            Get-Content "build\gap-sweep\qa-$($candidate.strict).log" | Select-String 'failed typographic QA' | Select-Object -First 1 | ForEach-Object { Write-Host $_.Line }
           }
-          if (-not $best) {
-            Get-Content build\gap-sweep\qa-*.log | Select-Object -Last 120
-            throw 'No candidate rendered-gap floor passed visual/typesetting QA.'
-          }
+          if (-not $best) { throw 'No candidate rendered-gap floor passed visual/typesetting QA.' }
           git checkout -- web/src/compositor.ts
           $text = Get-Content web/src/compositor.ts -Raw
           $replacement = "  const minimumRenderedGapEm = emergency || finalCompression ? $($best.rescue) : $($best.strict);"
