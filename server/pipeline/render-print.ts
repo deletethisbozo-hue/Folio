@@ -176,11 +176,110 @@ async function withPaginated<T>(
         corrected++;
       }
 
+      // Paged.js can apply one last sub-percent horizontal fit after the source
+      // compositor has already satisfied its physical semantic-gap floor. Repair
+      // only those tiny final-page gap losses against the *actual* page box. The
+      // correction is coupled: move width from character tracking into word gaps
+      // first, then use at most the existing 2% glyph-scale envelope. If both the
+      // page boundary and the physical gap cannot be satisfied together, the
+      // strict validation below still aborts the export.
+      let pagedGapCorrections = 0;
+      let largestPagedGapCorrection = 0;
+      for (const line of lines) {
+        const pageNode = line.closest<HTMLElement>(".pagedjs_page");
+        const area = pageNode?.querySelector<HTMLElement>(".pagedjs_area")
+          ?? pageNode?.querySelector<HTMLElement>(".pagedjs_page_content");
+        const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
+        if (!area || !content) continue;
+
+        const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+        if (words.length < 2) continue;
+        const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
+        const gapFloor = Math.max(1.5, fontSize * 0.12);
+        // Leave a little rasterisation reserve; this is still visually tiny and
+        // prevents a repaired 1.500px gap from quantising back under the gate.
+        const gapTarget = gapFloor + 0.035;
+        const minimumGap = () => {
+          let minimum = Number.POSITIVE_INFINITY;
+          for (let index = 1; index < words.length; index++) {
+            if (words[index].dataset.folioSpaceBefore !== "true") continue;
+            minimum = Math.min(
+              minimum,
+              words[index].getBoundingClientRect().left - words[index - 1].getBoundingClientRect().right,
+            );
+          }
+          return minimum;
+        };
+
+        let scale = Number(line.dataset.folioGlyphScale ?? 1);
+        if (!Number.isFinite(scale) || scale <= 0) scale = 1;
+        let trackingDelta = Number(line.dataset.folioTracking ?? 0);
+        if (!Number.isFinite(trackingDelta)) trackingDelta = 0;
+        let wordSpacingDelta = Number(line.dataset.folioWordSpacing ?? 0);
+        if (!Number.isFinite(wordSpacingDelta)) wordSpacingDelta = 0;
+        const trackingOps = Math.max(1, (content.textContent ?? "").replace(/\u00ad/g, "").length - 1);
+        const minimumTrackingDelta = -fontSize * 0.0055;
+
+        for (let pass = 0; pass < 6; pass++) {
+          const gap = minimumGap();
+          if (!Number.isFinite(gap) || gap >= gapTarget - 0.003) break;
+          const deficit = gapTarget - gap;
+          // Anything this large is a line-breaking problem, not a calibration
+          // problem. Do not disguise it by brutal post-render distortion.
+          if (deficit > 0.32) break;
+
+          const safeScale = Math.max(0.98, scale);
+          const addedWordSpacing = deficit / safeScale;
+          const computedWordSpacing = Number.parseFloat(getComputedStyle(line).wordSpacing) || 0;
+          line.style.wordSpacing = `${computedWordSpacing + addedWordSpacing}px`;
+          wordSpacingDelta += addedWordSpacing;
+          line.dataset.folioWordSpacing = String(wordSpacingDelta);
+          pagedGapCorrections++;
+          largestPagedGapCorrection = Math.max(largestPagedGapCorrection, deficit);
+
+          // Expanding a handful of word gaps may create a small right overshoot.
+          // Prefer transferring that width out of letter tracking because it
+          // preserves readable inter-word whitespace without changing the break.
+          let areaRect = area.getBoundingClientRect();
+          let contentRect = content.getBoundingClientRect();
+          const protrusion = Math.max(0, Number(line.dataset.folioRightProtrusion ?? 0));
+          let overshoot = contentRect.right - (areaRect.right + protrusion);
+          if (overshoot > 0.05 && trackingDelta > minimumTrackingDelta + 0.000001) {
+            const removableTracking = Math.max(0, trackingDelta - minimumTrackingDelta);
+            const requestedTracking = overshoot / (trackingOps * safeScale);
+            const trackingReduction = Math.min(removableTracking, requestedTracking);
+            if (trackingReduction > 0.000001) {
+              const computedTracking = Number.parseFloat(getComputedStyle(line).letterSpacing) || 0;
+              line.style.letterSpacing = `${computedTracking - trackingReduction}px`;
+              trackingDelta -= trackingReduction;
+              line.dataset.folioTracking = String(trackingDelta);
+            }
+          }
+
+          areaRect = area.getBoundingClientRect();
+          contentRect = content.getBoundingClientRect();
+          overshoot = contentRect.right - (areaRect.right + protrusion);
+          if (overshoot > 0.05 && contentRect.width > 0) {
+            const desiredWidth = Math.max(1, contentRect.width - overshoot - 0.08);
+            const nextScale = Math.max(0.98, Math.min(1.01, scale * desiredWidth / contentRect.width));
+            if (nextScale < scale - 0.000001) {
+              scale = nextScale;
+              content.style.transform = Math.abs(scale - 1) > 0.00001 ? `scaleX(${scale})` : "";
+              line.dataset.folioGlyphScale = String(scale);
+              line.dataset.folioPagedGapFit = "true";
+            }
+          }
+        }
+      }
+
       let checked = 0;
       let violations = 0;
       let worstPx = 0;
       let sample = "";
       let minimumScale = 1;
+      let gapViolations = 0;
+      let minimumGapPx = Number.POSITIVE_INFINITY;
+      let gapSample = "";
       for (const line of lines) {
         const pageNode = line.closest<HTMLElement>(".pagedjs_page");
         const area = pageNode?.querySelector<HTMLElement>(".pagedjs_area")
@@ -203,11 +302,28 @@ async function withPaginated<T>(
             sample = (line.textContent ?? "").replace(/\u00ad/g, "").trim().slice(0, 180);
           }
         }
+
+        const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
+        const gapFloor = Math.max(1.5, fontSize * 0.12);
+        const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+        for (let index = 1; index < words.length; index++) {
+          if (words[index].dataset.folioSpaceBefore !== "true") continue;
+          const gap = words[index].getBoundingClientRect().left - words[index - 1].getBoundingClientRect().right;
+          if (gap < minimumGapPx) {
+            minimumGapPx = gap;
+            gapSample = `${words[index - 1].textContent ?? ""} | ${words[index].textContent ?? ""}`;
+          }
+          if (gap + 0.005 < gapFloor) gapViolations++;
+        }
       }
-      return { checked, violations, worstPx, sample, corrected, largestCorrection, minimumScale };
+      return {
+        checked, violations, worstPx, sample, corrected, largestCorrection, minimumScale,
+        gapViolations, minimumGapPx: Number.isFinite(minimumGapPx) ? minimumGapPx : null, gapSample,
+        pagedGapCorrections, largestPagedGapCorrection,
+      };
     });
-    if (overflow.violations > 0 || overflow.minimumScale < 0.98 - 0.00001) {
-      throw new Error(`Print layout overflow after final page calibration: ${JSON.stringify(overflow)}`);
+    if (overflow.violations > 0 || overflow.gapViolations > 0 || overflow.minimumScale < 0.98 - 0.00001) {
+      throw new Error(`Print layout quality failure after final page calibration: ${JSON.stringify(overflow)}`);
     }
 
     const pages = await page.evaluate(() => document.querySelectorAll(".pagedjs_page").length);

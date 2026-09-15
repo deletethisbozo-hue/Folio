@@ -120,6 +120,19 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         }
         wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
         tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+
+        // A line that only fits by visually collapsing whitespace is not a valid
+        // book line. Keep a conservative pre-break reserve above the release
+        // floor because Chromium/Paged.js can shave roughly 0.4 px from modeled
+        // inline-space geometry at 11pt. The final gate still enforces the real
+        // 0.12em floor, so this changes the break instead of lowering quality.
+        const physicalGapFloor = Math.max(1.5, fontSize * 0.12) + Math.min(0.45, fontSize * 0.03);
+        const minimumPhysicalWordSpacing = physicalGapFloor / glyphScale - spaceWidth - tracking;
+        if (minimumPhysicalWordSpacing > maxWordSpacing + 0.000001) continue;
+        if (wordSpacing < minimumPhysicalWordSpacing) {
+          wordSpacing = minimumPhysicalWordSpacing;
+        }
+
         const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
         if (Math.abs(residualPx) > 1.705) continue;
 
@@ -772,11 +785,9 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       sectionStats.justifiedLines += breaks.filter((lineBreak) => lineBreak.justified).length;
       sectionStats.hyphenatedLines += breaks.filter((lineBreak) => lineBreak.justified && lineBreak.hyphenated).length;
 
-      // Mirror live preview exactly: calibrate the final transformed fragment
-      // against Chromium's real rendered width. Platform font rasterizers can
-      // differ slightly from the algebraic width model; correcting scale after
-      // layout keeps export and preview on the same professional measure without
-      // widening any spacing/tracking envelope.
+      // Verify/calibrate what the reader actually sees. fitLine now rejects
+      // candidates below the physical gap floor, so this is only a rasterisation
+      // safety net and should need at most a tiny correction.
       const maxAdjacentScaleDelta = 0.012;
       let previousCorrectedScale: number | null = null;
       for (const line of lines) {
@@ -789,27 +800,66 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           previousCorrectedScale = null;
           continue;
         }
-        const rendered = content.getBoundingClientRect().width;
+        let rendered = content.getBoundingClientRect().width;
         const measure = line.getBoundingClientRect().width;
         const protrusion = Number(line.dataset.folioRightProtrusion ?? 0);
         const opticalMeasure = measure + protrusion;
-        const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
-        if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(currentScale)) {
+        let correctedScale = Number(line.dataset.folioGlyphScale ?? 1);
+        if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(correctedScale)) {
           previousCorrectedScale = null;
           continue;
         }
-        let correctedScale = Math.max(0.99, Math.min(1.01, currentScale * opticalMeasure / rendered));
-        if (previousCorrectedScale !== null) {
-          correctedScale = Math.max(
-            previousCorrectedScale - maxAdjacentScaleDelta,
-            Math.min(previousCorrectedScale + maxAdjacentScaleDelta, correctedScale),
-          );
-          correctedScale = Math.max(0.99, Math.min(1.01, correctedScale));
+
+        const lineFontSize = px(getComputedStyle(line).fontSize) || fontSize;
+        const releaseGapFloor = Math.max(1.5, lineFontSize * 0.12);
+        const semanticGapMinimum = () => {
+          const lineWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+          let minimum = Number.POSITIVE_INFINITY;
+          for (let index = 1; index < lineWords.length; index++) {
+            if (lineWords[index].dataset.folioSpaceBefore !== "true") continue;
+            minimum = Math.min(
+              minimum,
+              lineWords[index].getBoundingClientRect().left - lineWords[index - 1].getBoundingClientRect().right,
+            );
+          }
+          return minimum;
+        };
+
+        const minimumGap = semanticGapMinimum();
+        if (Number.isFinite(minimumGap) && minimumGap < releaseGapFloor - 0.005) {
+          // This should be sub-pixel only because fitLine already enforced the
+          // same floor. Do not widen a line by several pixels after breaking.
+          const deficit = releaseGapFloor - minimumGap;
+          if (deficit > 0.20) {
+            line.dataset.folioGapViolation = "true";
+          } else {
+            const currentWordSpacing = Number(line.dataset.folioWordSpacing ?? 0);
+            line.style.wordSpacing = `${baseWordSpacing + currentWordSpacing + deficit / Math.max(0.98, correctedScale)}px`;
+            line.dataset.folioWordSpacing = String(currentWordSpacing + deficit / Math.max(0.98, correctedScale));
+          }
         }
-        content.style.transform = Math.abs(correctedScale - 1) > 0.00001
-          ? "scaleX(" + correctedScale + ")"
-          : "";
-        line.dataset.folioGlyphScale = String(correctedScale);
+
+        rendered = content.getBoundingClientRect().width;
+        if (rendered > 0) {
+          correctedScale = Math.max(0.98, Math.min(1.01, correctedScale * opticalMeasure / rendered));
+          if (previousCorrectedScale !== null) {
+            correctedScale = Math.max(
+              previousCorrectedScale - maxAdjacentScaleDelta,
+              Math.min(previousCorrectedScale + maxAdjacentScaleDelta, correctedScale),
+            );
+            correctedScale = Math.max(0.98, Math.min(1.01, correctedScale));
+          }
+          content.style.transform = Math.abs(correctedScale - 1) > 0.00001
+            ? "scaleX(" + correctedScale + ")"
+            : "";
+          line.dataset.folioGlyphScale = String(correctedScale);
+        }
+
+        const finalMinimumGap = semanticGapMinimum();
+        if (Number.isFinite(finalMinimumGap)) {
+          line.dataset.folioMinSemanticGap = String(finalMinimumGap);
+          if (finalMinimumGap < releaseGapFloor - 0.005) line.dataset.folioGapViolation = "true";
+        }
         previousCorrectedScale = correctedScale;
       }
     }
