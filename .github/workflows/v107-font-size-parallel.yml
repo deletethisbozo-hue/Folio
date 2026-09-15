@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        size: ['1.02', '0.98', '0.96', '0.94', '0.92']
+        factor: ['1.00', '0.98', '0.96', '0.94', '0.92', '0.90', '0.88']
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
@@ -38,11 +38,11 @@ jobs:
       - name: Apply checkout-only typography probe
         shell: python
         env:
-          PROBE_SIZE: ${{ matrix.size }}
+          PROBE_FACTOR: ${{ matrix.factor }}
         run: |
           from pathlib import Path
           import os
-          size = os.environ['PROBE_SIZE']
+          factor = float(os.environ['PROBE_FACTOR'])
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
           old = '  const themes = themeList();\n  if (themes.length !== 30) throw new Error(`Expected exactly 30 release themes, found ${themes.length}`);\n'
@@ -50,10 +50,12 @@ jobs:
           if t.count(old) != 1:
               raise SystemExit('matrix selector changed unexpectedly')
           q.write_text(t.replace(old, new, 1), encoding='utf-8')
+          px = 17.5 * factor
           for theme in ('decorative', 'editorial', 'cloister'):
               p = Path(f'themes/{theme}/theme.css')
               s = p.read_text(encoding='utf-8')
-              p.write_text(s + f'\n/* checkout-only body-size probe */\nbody {{ font-size: {size}rem; }}\n', encoding='utf-8')
+              p.write_text(s + f'\n/* checkout-only body-size probe */\nbody {{ font-size: {px:.5f}px !important; }}\n', encoding='utf-8')
+          print(f'Applied body font size {px:.5f}px ({factor:.2f} × 17.5px)')
       - run: npm run build
       - name: Run 12-case targeted matrix
         id: matrix
@@ -63,7 +65,7 @@ jobs:
         if: always()
         shell: python
         env:
-          PROBE_SIZE: ${{ matrix.size }}
+          PROBE_FACTOR: ${{ matrix.factor }}
           MATRIX_OUTCOME: ${{ steps.matrix.outcome }}
         run: |
           import json, os
@@ -72,8 +74,10 @@ jobs:
           if not src.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(src.read_text(encoding='utf-8'))
+          factor = float(os.environ['PROBE_FACTOR'])
           out = {
-              'size': os.environ['PROBE_SIZE'],
+              'factor': os.environ['PROBE_FACTOR'],
+              'fontSizePx': 17.5 * factor,
               'matrix': os.environ['MATRIX_OUTCOME'],
               'passed': d['passed'],
               'failed': d['failed'],
@@ -89,15 +93,13 @@ jobs:
                   }} for r in d['results']
               ],
           }
-          dst = Path(f"build/qa-v107/body-size-{os.environ['PROBE_SIZE']}.json")
+          dst = Path(f"build/qa-v107/body-size-{os.environ['PROBE_FACTOR']}.json")
           dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps(out, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-body-size-${{ matrix.size }}
-          path: build/qa-v107/body-size-${{ matrix.size }}.json
+          name: v107-body-size-${{ matrix.factor }}
+          path: build/qa-v107/body-size-${{ matrix.factor }}.json
           if-no-files-found: error
-
-# rerun marker: 2026-09-15
