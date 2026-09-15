@@ -1,4 +1,4 @@
-name: v1.0.7 body-font candidate parallel
+name: v1.0.7 Baskerville replacement probe
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        family: [baskerville, source-serif, caslon]
+        family: ['Newsreader', 'EB Garamond', 'Vollkorn']
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
@@ -35,7 +35,7 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only body and dropcap replacements
+      - name: Apply checkout-only Baskerville body and dropcap replacement
         shell: python
         env:
           TARGET_FAMILY: ${{ matrix.family }}
@@ -43,17 +43,12 @@ jobs:
           from pathlib import Path
           import os
 
-          groups = {
-            'baskerville': ('Newsreader', ['decorative','heritage','nocturne','obsidian','cathedral','revenant']),
-            'source-serif': ('Vollkorn', ['editorial','scholar','folio','atlas','ember','solstice','runestone']),
-            'caslon': ('EB Garamond', ['cloister','timber','wyrmwood','ironbound']),
-          }
-          target = os.environ['TARGET_FAMILY']
-          family, themes = groups[target]
+          family = os.environ['TARGET_FAMILY']
+          themes = ['decorative','heritage','nocturne','obsidian','cathedral','revenant']
           for theme in themes:
               p = Path(f'themes/{theme}/theme.css')
               s = p.read_text(encoding='utf-8')
-              s += f'\n\n/* checkout-only v1.0.7 body-family candidate */\nbody {{ font-family: "{family}", serif; }}\n.dropcap {{ font-family: "{family}", serif; }}\n'
+              s += f'\n\n/* checkout-only v1.0.7 Baskerville replacement probe */\nbody {{ font-family: "{family}", serif; }}\n.dropcap {{ font-family: "{family}", serif; }}\n'
               p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
@@ -66,7 +61,7 @@ jobs:
           q.write_text(t.replace(oldq, newq, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Run family matrix
+      - name: Run 18-case family matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
@@ -76,20 +71,22 @@ jobs:
         env:
           TARGET_FAMILY: ${{ matrix.family }}
         run: |
-          import json, os
+          import json, os, re
           from pathlib import Path
           src = Path('build/qa-v107/theme-matrix.json')
           if not src.exists():
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(src.read_text(encoding='utf-8'))
-          out = {'family': os.environ['TARGET_FAMILY'], 'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
-          dst = Path(f"build/qa-v107/body-family-{os.environ['TARGET_FAMILY']}.json")
+          family = os.environ['TARGET_FAMILY']
+          slug = re.sub(r'[^a-z0-9]+', '-', family.lower()).strip('-')
+          out = {'family': family, 'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
+          dst = Path(f'build/qa-v107/baskerville-replacement-{slug}.json')
           dst.write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({'family': out['family'], 'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
+          print(json.dumps({'family': family, 'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-body-family-${{ matrix.family }}
-          path: build/qa-v107/body-family-${{ matrix.family }}.json
+          name: v107-baskerville-${{ matrix.family }}
+          path: build/qa-v107/baskerville-replacement-*.json
           if-no-files-found: error
