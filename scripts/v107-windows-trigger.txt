@@ -1,2 +1,2 @@
 Folio 1.0.7 Windows qualification trigger
-Reason: final clean-SHA qualification after compositor spacing and widow-selection fix, language preview synchronization fix, and experimental workflow cleanup.
+Reason: final clean-SHA qualification after compositor spacing/widow fixes, preview synchronization fixes, and the qualified DP word-spacing state correction.
