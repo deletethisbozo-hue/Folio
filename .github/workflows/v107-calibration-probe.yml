@@ -43,11 +43,12 @@ jobs:
           from pathlib import Path
           import os
           factor = os.environ['FACTOR']
+          dollar = '$'
 
           p = Path('web/src/preview-runtime.ts')
           s = p.read_text(encoding='utf-8')
           old = '''  const css = [\n    `body{font-size:${profile.baseFont * scale}px!important}`,\n    `main.book{padding:${top}px ${right}px ${bottom}px ${left}px!important}`,\n  ].join("");\n'''
-          new = f'''  const bodyFamily = doc.body && doc.defaultView ? doc.defaultView.getComputedStyle(doc.body).fontFamily : "";\n  const opticalFactor = /Libre Baskerville|Source Serif 4|Libre Caslon Text/i.test(bodyFamily) ? {factor} : 1;\n  const css = [\n    `body{{font-size:${{profile.baseFont * scale * opticalFactor}}px!important}}`,\n    `main.book{{padding:${{top}}px ${{right}}px ${{bottom}}px ${{left}}px!important}}`,\n  ].join("");\n'''
+          new = f'''  const bodyFamily = doc.body && doc.defaultView ? doc.defaultView.getComputedStyle(doc.body).fontFamily : "";\n  const opticalFactor = /Libre Baskerville|Source Serif 4|Libre Caslon Text/i.test(bodyFamily) ? {factor} : 1;\n  const css = [\n    `body{{font-size:{dollar}{{profile.baseFont * scale * opticalFactor}}px!important}}`,\n    `main.book{{padding:{dollar}{{top}}px {dollar}{{right}}px {dollar}{{bottom}}px {dollar}{{left}}px!important}}`,\n  ].join("");\n'''
           if s.count(old) != 1:
               raise SystemExit('preview calibration block changed unexpectedly')
           p.write_text(s.replace(old, new, 1), encoding='utf-8')
