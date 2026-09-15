@@ -62,7 +62,7 @@ jobs:
         shell: pwsh
         run: |
           npx puppeteer browsers install chrome-headless-shell
-          $chrome = Get-ChildItem build\\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\\.0\\.7977\\.75" } | Select-Object -First 1
+          $chrome = Get-ChildItem build\\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -like "*152.0.7977.75*" } | Select-Object -First 1
           if (-not $chrome) { throw "Pinned Chrome Headless Shell was not installed." }
 
       - name: Typecheck
