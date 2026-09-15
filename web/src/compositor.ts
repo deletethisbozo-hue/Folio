@@ -11,6 +11,7 @@ const PROSE_SELECTOR = PROSE_SELECTORS.join(",");
 const ATOMIC_INLINE = "a,em,strong,b,i,u,s,sup,sub";
 const compositionGeneration = new WeakMap<Document, number>();
 const compositionObservers = new WeakMap<Document, IntersectionObserver>();
+const compositionCleanups = new WeakMap<Document, () => void>();
 let lastBreakFailure: unknown = null;
 
 type Word = {
@@ -594,7 +595,17 @@ function chooseBreaks(
           break;
         }
         const dropcapRescue = false;
-        const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && !spacingFit && natural <= available + 0.75;
+        const emergencyRescue = allowNaturalRescue
+          && !last
+          && !fit
+          && !continuityFit
+          && !spacingFit
+          && natural <= available + 0.75
+          // A non-final ragged rescue line below roughly three quarters of the
+          // measure is more conspicuous than an extra legal hyphen. Folio 1.0.9
+          // could otherwise choose lines such as a lone “Umierali,” merely to
+          // improve the paragraph-wide hyphen budget.
+          && natural / Math.max(1, available) >= 0.72;
         const rescueNatural = emergencyRescue;
         const fitOptions: Array<LineFit | null> = [];
         if (fit) fitOptions.push(fit);
@@ -663,7 +674,12 @@ function chooseBreaks(
           : 0;
         const rescuePenalty = dropcapRescue
           ? 115 + 260 * Math.pow(1 - fill, 2)
-          : rescueNatural ? 1100 + 900 * Math.pow(1 - fill, 2) : 0;
+          : rescueNatural
+            // Natural rescue is a cross-platform escape hatch, not a preferred
+            // way to lower hyphen density. Keep it available for genuinely hard
+            // measures, but make a legal justified line decisively cheaper.
+            ? 4200 + 18000 * Math.pow(Math.max(0, 0.90 - fill) / 0.18, 2)
+            : 0;
         const relaxedPenalty = relaxedFit
           ? Math.max(220, 420 - previousHyphenCount * 100)
           : 0;
@@ -1087,7 +1103,7 @@ function installObserver(
   document: Document,
   paragraphs: HTMLElement[],
   queue: HTMLElement[],
-  queued: WeakSet<HTMLElement>,
+  queued: Set<HTMLElement>,
   generation: number,
   language: string,
   statsBySection: WeakMap<HTMLElement, SectionHyphenStats>,
@@ -1095,22 +1111,31 @@ function installObserver(
   const view = document.defaultView;
   if (!view) return;
   let scheduled = false;
+  let scrolling = false;
+  let scrollTimer: number | null = null;
   let observer: IntersectionObserver;
 
   const request = () => {
-    if (scheduled || compositionGeneration.get(document) !== generation) return;
+    if (scheduled || scrolling || compositionGeneration.get(document) !== generation) return;
     scheduled = true;
     view.requestAnimationFrame(run);
   };
 
   const run = () => {
     scheduled = false;
-    if (compositionGeneration.get(document) !== generation) return;
+    if (scrolling || compositionGeneration.get(document) !== generation) return;
     const started = view.performance.now();
     let processed = 0;
-    while (queue.length && processed < 2 && view.performance.now() - started < 8) {
+    // One expensive paragraph is enough work for one animation frame. The old
+    // two-paragraph batch could monopolise the UI thread after a fast scroll.
+    while (queue.length && processed < 1 && view.performance.now() - started < 5) {
       const paragraph = queue.shift()!;
-      if (!paragraph.isConnected) continue;
+      if (!queued.delete(paragraph) || !paragraph.isConnected) continue;
+      const rect = paragraph.getBoundingClientRect();
+      const viewportHeight = view.innerHeight || document.documentElement.clientHeight;
+      // Drop stale work collected while the user flew past this paragraph.
+      // IntersectionObserver will enqueue it again if the reader comes back.
+      if (rect.bottom < -340 || rect.top > viewportHeight + 340) continue;
       observer.unobserve(paragraph);
       composeParagraph(paragraph, language, sectionStatsFor(paragraph, statsBySection));
       processed++;
@@ -1118,18 +1143,42 @@ function installObserver(
     if (queue.length) request();
   };
 
+  const onScroll = () => {
+    scrolling = true;
+    if (scrollTimer !== null) view.clearTimeout(scrollTimer);
+    scrollTimer = view.setTimeout(() => {
+      scrolling = false;
+      scrollTimer = null;
+      if (queue.length) request();
+    }, 110);
+  };
+  view.addEventListener("scroll", onScroll, { passive: true, capture: true });
+
   observer = new view.IntersectionObserver((entries) => {
     if (compositionGeneration.get(document) !== generation) return;
     for (const entry of entries) {
       const paragraph = entry.target as HTMLElement;
-      if (entry.isIntersecting && !queued.has(paragraph)) {
-        queued.add(paragraph);
-        queue.push(paragraph);
+      if (entry.isIntersecting) {
+        if (!queued.has(paragraph)) {
+          queued.add(paragraph);
+          queue.push(paragraph);
+        }
+      } else {
+        // Leave the stale array entry in place and invalidate it in O(1). The
+        // worker skips it later; if the paragraph returns, it may be queued anew.
+        queued.delete(paragraph);
       }
     }
     if (queue.length) request();
-  }, { root: null, rootMargin: "700px 0px", threshold: 0 });
+  }, { root: null, rootMargin: "320px 0px", threshold: 0 });
+
+  const cleanup = () => {
+    observer.disconnect();
+    view.removeEventListener("scroll", onScroll, true);
+    if (scrollTimer !== null) view.clearTimeout(scrollTimer);
+  };
   compositionObservers.set(document, observer);
+  compositionCleanups.set(document, cleanup);
   for (const paragraph of paragraphs) observer.observe(paragraph);
   if (queue.length) request();
 }
@@ -1137,6 +1186,8 @@ function installObserver(
 export async function composePreviewDocument(document: Document, enabled: boolean): Promise<void> {
   const generation = (compositionGeneration.get(document) ?? 0) + 1;
   compositionGeneration.set(document, generation);
+  compositionCleanups.get(document)?.();
+  compositionCleanups.delete(document);
   compositionObservers.get(document)?.disconnect();
   compositionObservers.delete(document);
 
@@ -1172,7 +1223,7 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   }
 
   const queue: HTMLElement[] = [];
-  const queued = new WeakSet<HTMLElement>();
+  const queued = new Set<HTMLElement>();
   const statsBySection = new WeakMap<HTMLElement, SectionHyphenStats>();
   for (const paragraph of paragraphs.slice(0, 2)) {
     queued.add(paragraph);

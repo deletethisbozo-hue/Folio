@@ -24,6 +24,8 @@ const polish = [
   "Poczucie bezsensowności było o wiele większym brzemieniem niż brak zasobów. Porażka — nic więcej niż przygnębiający epizod. Z jego perspektywy życie nie było wyborem, lecz konsekwencją wszystkich przemilczanych wcześniej decyzji.",
   "Niektórzy w mieście chcieli jego śmierci za rzeczy, których nigdy nie uczynił. W Polsce i na świecie profesjonalny skład książki ma zachowywać równy rytm, rozsądne dzielenie wyrazów oraz spokojną szarość typograficzną bez rzek bieli. Ma służyć treści, nie sobie, i wieść wzrok przez tekst bez trudu.",
   "— Czy naprawdę możemy tam wrócić? — zapytała. — Możemy, jeśli naprawdę musimy, ale nie powinniśmy udawać, że niczego się nie boimy. Najtrudniejsze odpowiedzi przychodzą przecież dopiero wtedy, gdy kończą się wszystkie pozornie łatwe pytania.",
+  "Umierali, a jedno z niewielu remediów na śmierć w ludzkiej postaci postanowiło chować się jak tchórz.",
+  "Ostatnimi czasy coraz częściej wypadało mi to z głowy, choć niby takie oczywiste. Oddychaj i żyj.",
 ];
 const english = [
   "Some mornings begin so quietly that their meaning becomes clear only much later. I did not know, as sunlight crossed the table and warmed the pages before me, that I had reached the opening of a larger story.",
