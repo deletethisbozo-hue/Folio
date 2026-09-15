@@ -33,6 +33,7 @@ jobs:
       - name: Apply quality patch
         run: |
           python3 scripts/v109-quality-patch.py
+          git restore --source=HEAD -- themes/classic/theme.css
           npm version 1.0.9 --no-git-tag-version
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
@@ -51,6 +52,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/src/App.tsx web/src/compositor.ts themes/classic/theme.css tests/ui-runtime.test.ts package.json package-lock.json
+          git add web/src/App.tsx web/src/compositor.ts tests/ui-runtime.test.ts package.json package-lock.json
           git commit -m "Fix Folio 1.0.9 composition and editing regressions"
           git push origin HEAD:release/v1.0.9
