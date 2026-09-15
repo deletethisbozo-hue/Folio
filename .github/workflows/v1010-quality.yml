@@ -92,3 +92,5 @@ jobs:
           if (git diff --cached --quiet) { throw "Qualified 1.0.10 patch produced no staged changes." }
           git commit -m "Fix Folio 1.0.10 line quality and rapid scrolling"
           git push origin HEAD:release/v1.0.10
+
+# run 2: scroll harness avoids transpiler-local named callbacks inside page.evaluate
