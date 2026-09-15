@@ -279,6 +279,10 @@ export default function App() {
 
   useEffect(() => {
     if (!project || !selectedId) return;
+    // Renaming can change a chapter slug/id. updateCurrentChapterHeading already
+    // holds the authoritative renamed document, so keep that editor mounted
+    // instead of clearing it and fetching the same manuscript again.
+    if (document?.id === selectedId) return;
     let cancelled = false;
     setDocument(null);
     setSaveState("idle");
@@ -289,7 +293,7 @@ export default function App() {
       setDocument(doc); setDraft(doc.markdown); setPreviewDraft(doc.markdown); setDirty(false);
     }).catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => { cancelled = true; };
-  }, [project?.projectId, selectedId, sectionRevision]);
+  }, [project?.projectId, selectedId, sectionRevision, document?.id]);
 
   useEffect(() => {
     if (!project || !meta || !selectedId || document?.id !== selectedId || previewMode === "print") return;
@@ -676,12 +680,22 @@ export default function App() {
         ...(change.subtitle !== undefined ? { subtitle } : {}),
       });
       await flushEditorDom();
-      const summary = await api.reload(project.projectId);
       const liveDraft = draftRef.current;
       const draftChangedDuringSave = liveDraft !== draftAtStart;
       if (updated.id !== selectedId) { undoRef.current = []; redoRef.current = []; }
-      setProject({ ...summary, meta: meta ?? summary.meta, typography });
-      setMeta(meta ?? summary.meta);
+      // updateSectionHeading already re-ingests the authoritative source. A
+      // second full-project reload made large books pause and briefly removed
+      // the editor after every rename. Update only the summary row that changed.
+      const renamedSummary: ProjectSummary = {
+        ...project,
+        sections: project.sections.map((section) => section.id === selectedId
+          ? { ...section, id: updated.id, title: updated.title }
+          : section),
+        meta: meta ?? project.meta,
+        typography,
+      };
+      setProject(renamedSummary);
+      setMeta(meta ?? project.meta);
       setTypography(typography);
       setSelectedId(updated.id);
       selectedRef.current = updated.id;

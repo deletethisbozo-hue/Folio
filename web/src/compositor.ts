@@ -21,6 +21,7 @@ type Word = {
   canBreakBefore: boolean;
   characters: number;
   rightProtrusion: number;
+  atomicRoot: Element | null;
 };
 
 type LineFit = {
@@ -178,10 +179,14 @@ function tokenize(paragraph: HTMLElement, language: string): Word[] {
   const englishProse = language.toLowerCase().startsWith("en");
   return nodes.map((node) => {
     const atomic = node.closest(ATOMIC_INLINE);
+    let atomicRoot = atomic;
+    while (atomicRoot?.parentElement && atomicRoot.parentElement !== paragraph && atomicRoot.parentElement.matches(ATOMIC_INLINE)) {
+      atomicRoot = atomicRoot.parentElement;
+    }
     let atomicId = 0;
-    if (atomic) {
-      atomicId = atomicIds.get(atomic) ?? nextAtomicId++;
-      atomicIds.set(atomic, atomicId);
+    if (atomicRoot) {
+      atomicId = atomicIds.get(atomicRoot) ?? nextAtomicId++;
+      atomicIds.set(atomicRoot, atomicId);
     }
     const spaceBefore = node.dataset.folioSpaceBefore === "true";
     const breakableSpaceBefore = node.dataset.folioBreakableSpaceBefore === "true";
@@ -193,7 +198,10 @@ function tokenize(paragraph: HTMLElement, language: string): Word[] {
       && /^(?:a|an|the)$/.test(previousLexeme);
     const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && !articleGlue))
       && !(atomicId && atomicId === previousAtomic);
-    const canBreakBefore = hyphenBefore || structuralBreakBefore;
+    // Do not split inside a semantic inline wrapper. Keeping the complete
+    // <strong>/<em>/<i>/<b> range on one line lets cloneLineFragment retain the
+    // wrapper instead of flattening formatted text into plain spans.
+    const canBreakBefore = (hyphenBefore && !(atomicId && atomicId === previousAtomic)) || structuralBreakBefore;
     const rawText = node.textContent ?? "";
     const cleanText = rawText.replace(/\u00ad/g, "");
     let rightProtrusion = 0;
@@ -218,6 +226,7 @@ function tokenize(paragraph: HTMLElement, language: string): Word[] {
       canBreakBefore,
       characters: cleanText.length,
       rightProtrusion,
+      atomicRoot,
     };
     previousAtomic = atomicId;
     previousLexeme = cleanText.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").toLowerCase();
@@ -280,21 +289,21 @@ function fitLine(
 ): LineFit | null {
   if (gaps <= 0) return null;
 
+  // Preserve the full proven 1.0.8 adjustment range, but prevent the final
+  // rendered inter-word gap from visually collapsing. The raw word-spacing
+  // number is not itself a quality metric: some fonts legitimately need close
+  // to -0.10em on narrow readers while still leaving an unmistakable space.
   const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);
-  // Cap the rendered semantic gap, including positive tracking and the allowed 1% glyph stretch.
   const semanticGapHeadroom = Math.max(0, fontSize * 0.3685 / 1.01 - spaceWidth - fontSize * 0.003);
   const maxWordSpacing = Math.min(configuredWordSpacing, semanticGapHeadroom);
   const relaxedCompressionEm = 0.120;
-  // Windows and Linux rasterize the same serif faces a little differently.
-  // Keep the normal line fitter inside the release gate, but give Polish prose
-  // enough bounded compression headroom to choose a clean word boundary instead
-  // of exceeding the 0.45 section hyphen-density ceiling. The optimiser still
-  // pays badness for every compressed gap, so this is an available rescue path,
-  // not the new preferred spacing.
   const strictCompressionEm = 0.099;
-  const minWordSpacing = emergency || finalCompression
-    ? -(fontSize * relaxedCompressionEm)
-    : -(fontSize * strictCompressionEm);
+  const minimumRenderedGapEm = emergency || finalCompression ? 0.13 : 0.14;
+  const gapFloorWordSpacing = fontSize * minimumRenderedGapEm - spaceWidth;
+  const minWordSpacing = Math.max(
+    -(fontSize * (emergency || finalCompression ? relaxedCompressionEm : strictCompressionEm)),
+    gapFloorWordSpacing,
+  );
   const maxTracking = fontSize * 0.003;
   const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
   const maxGlyphScaleDelta = 0.01;
@@ -302,8 +311,8 @@ function fitLine(
   let best: LineFit | null = null;
   let bestRank = Number.POSITIVE_INFINITY;
 
-  for (let step = -20; step <= 20; step++) {
-    const glyphScale = 1 + step * 0.0005;
+  for (let step = -10; step <= 10; step++) {
+    const glyphScale = 1 + step * 0.001;
     if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
     if (Math.abs(glyphScale - previousGlyphScale) > 0.012) continue;
     const scaledAdjustment = available / glyphScale - naturalWidth;
@@ -347,8 +356,11 @@ function fitLine(
 const FITNESS_COUNT = 4;
 const HYPHEN_STREAK_COUNT = 3;
 const GLYPH_SCALE_MIN = 0.99;
-const GLYPH_SCALE_STEP = 0.0005;
-const GLYPH_SCALE_COUNT = 41;
+// 0.05% buckets created twice as many DP states for no visible benefit. A
+// 0.1% grid keeps the same ±1% optical correction range while halving this
+// dimension of the line-breaking state space.
+const GLYPH_SCALE_STEP = 0.001;
+const GLYPH_SCALE_COUNT = 21;
 
 function glyphScaleBucket(glyphScale: number): number {
   return Math.max(0, Math.min(
@@ -814,8 +826,12 @@ function chooseBreaks(
 
 function cloneLineFragment(document: Document, words: Word[], start: number, end: number): DocumentFragment {
   const range = document.createRange();
-  range.setStartBefore(words[start].node);
-  range.setEndAfter(words[end - 1].node);
+  // Line breaks are forbidden inside atomic inline formatting, so a line that
+  // touches a formatted range contains that whole range. Expand the Range to
+  // its semantic wrapper; otherwise Range.cloneContents() returns only the
+  // internal .folio-word spans and silently loses bold/italic/links.
+  range.setStartBefore(words[start].atomicRoot ?? words[start].node);
+  range.setEndAfter(words[end - 1].atomicRoot ?? words[end - 1].node);
   return range.cloneContents();
 }
 
@@ -1053,7 +1069,7 @@ function installObserver(
       }
     }
     if (queue.length) request();
-  }, { root: null, rootMargin: "1600px 0px", threshold: 0 });
+  }, { root: null, rootMargin: "700px 0px", threshold: 0 });
   compositionObservers.set(document, observer);
   for (const paragraph of paragraphs) observer.observe(paragraph);
   if (queue.length) request();
@@ -1099,7 +1115,7 @@ export async function composePreviewDocument(document: Document, enabled: boolea
   const queue: HTMLElement[] = [];
   const queued = new WeakSet<HTMLElement>();
   const statsBySection = new WeakMap<HTMLElement, SectionHyphenStats>();
-  for (const paragraph of paragraphs.slice(0, 4)) {
+  for (const paragraph of paragraphs.slice(0, 2)) {
     queued.add(paragraph);
     queue.push(paragraph);
   }

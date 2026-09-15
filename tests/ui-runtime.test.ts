@@ -123,14 +123,21 @@ try {
     const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
     selection?.removeAllRanges(); selection?.addRange(range);
     const transfer = new DataTransfer();
-    transfer.setData("text/html", "<html><head><style>.T1{font-weight:bold}</style></head><body><p>Libre first <span class=\"T1\">bold</span></p><p>Libre second</p><ul><li>Writer list</li></ul></body></html>");
+    transfer.setData("text/html", "<html><head><style>.T1{font-weight:bold}</style></head><body><p>Libre first <span class=\"T1\">bold</span> and <em>italic</em></p><p>Libre second</p><ul><li>Writer list</li></ul></body></html>");
     editor.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: transfer }));
   });
   await stage("LibreOffice rich paste", () => page.waitForFunction(() => {
     const markdown = (document.querySelector(".rich-editor") as HTMLElement)?.dataset.markdown ?? "";
-    return markdown.includes("Libre first **bold**") && markdown.includes("Libre second") && markdown.includes("- Writer list");
+    return markdown.includes("Libre first **bold** and *italic*") && markdown.includes("Libre second") && markdown.includes("- Writer list");
   }, { timeout: 30000 }));
   check("Writer class-based rich text preserves paragraphs, bold and lists", true);
+  await stage("composed bold and italic survive preview", () => page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const strong = [...(doc?.querySelectorAll<HTMLElement>("strong") ?? [])].find((node) => node.textContent?.includes("bold"));
+    const em = [...(doc?.querySelectorAll<HTMLElement>("em") ?? [])].find((node) => node.textContent?.includes("italic"));
+    return Boolean(strong && em && Number.parseFloat(getComputedStyle(strong).fontWeight) >= 600 && getComputedStyle(em).fontStyle === "italic");
+  }, { timeout: 30000 }));
+  check("bold and italic remain semantic after professional line composition", true);
 
   await page.$eval(".rich-editor", (el) => {
     const editor = el as HTMLElement;
@@ -498,6 +505,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
         Math.max(...wordSpacing, 0) <= fontSize * .121 &&
         Math.max(...tracking, 0) <= fontSize * .0056 &&
         Math.max(...semanticGaps, 0) <= fontSize * .42 &&
+        Math.min(...semanticGaps, fontSize) >= Math.max(1.5, fontSize * .12) &&
         lines.at(-1)?.classList.contains("folio-line-natural") === true &&
         dropcapOk,
       maxRightError: Math.max(...errors, 0),
@@ -505,6 +513,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       maxWordSpacing: Math.max(...wordSpacing, 0),
       maxTracking: Math.max(...tracking, 0),
       maxSemanticGap: Math.max(...semanticGaps, 0),
+      minSemanticGap: Math.min(...semanticGaps, fontSize),
       dropcapOk,
       lineGeometry,
     };
@@ -597,6 +606,18 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   await page.keyboard.type("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY.");
   await stage("heading-safety body autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved"));
 
+  await page.evaluate(() => {
+    const paper = document.querySelector(".editor-paper")!;
+    (window as any).__folioRenameBlanked = false;
+    const observer = new MutationObserver(() => {
+      const editor = paper.querySelector(".rich-editor") as HTMLElement | null;
+      if (!editor || !(editor.dataset.markdown ?? "").includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY")) {
+        (window as any).__folioRenameBlanked = true;
+      }
+    });
+    observer.observe(paper, { childList: true, subtree: true });
+    (window as any).__folioRenameObserver = observer;
+  });
   await page.click(".section-title-button");
   await stage("chapter title editor", () => page.waitForSelector(".section-title-input"));
   await page.click(".section-title-input");
@@ -604,7 +625,14 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   await page.keyboard.type("Renamed in UI");
   await page.keyboard.press("Enter");
   await stage("chapter renamed", () => page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Renamed in UI")));
-  await stage("renamed chapter body reloaded", () => page.waitForFunction(() => document.querySelector(".rich-editor")?.getAttribute("data-markdown")?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY")));
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const renameContinuity = await page.evaluate(() => {
+    (window as any).__folioRenameObserver?.disconnect();
+    const editor = document.querySelector(".rich-editor") as HTMLElement | null;
+    return !(window as any).__folioRenameBlanked && Boolean(editor?.dataset.markdown?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY"));
+  });
+  check("renaming never blanks or unmounts the manuscript editor", renameContinuity);
+  await stage("renamed chapter body remains mounted", () => page.waitForFunction(() => document.querySelector(".rich-editor")?.getAttribute("data-markdown")?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY")));
   check("chapter name can be edited without deleting its body", true);
 
   await page.click(".section-subtitle-button");
