@@ -1,4 +1,4 @@
-name: v1.0.7 affected-family control matrix
+name: v1.0.7 body-font product candidate
 
 on:
   push:
@@ -31,31 +31,22 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - run: npx puppeteer browsers install chrome-headless-shell
-      - name: Apply checkout-only known-good family substitutions
+      - name: Apply checkout-only body and dropcap replacements
         shell: python
         run: |
           from pathlib import Path
 
-          p = Path('server/pipeline/theme-fonts.ts')
-          s = p.read_text(encoding='utf-8')
-          replacements = {
-            '["Folio Source Serif 4", "sourceSerif"]': '["Folio Source Serif 4", "vollkorn"]',
-            '["Source Serif 4", "sourceSerif"]': '["Source Serif 4", "vollkorn"]',
-            '["Times New Roman", "sourceSerif"]': '["Times New Roman", "vollkorn"]',
-            '["Georgia", "sourceSerif"]': '["Georgia", "vollkorn"]',
-            '["Folio Libre Baskerville", "baskerville"]': '["Folio Libre Baskerville", "newsreader"]',
-            '["Libre Baskerville", "baskerville"]': '["Libre Baskerville", "newsreader"]',
-            '["Hoefler Text", "baskerville"]': '["Hoefler Text", "newsreader"]',
-            '["Baskerville", "baskerville"]': '["Baskerville", "newsreader"]',
-            '["Folio Libre Caslon Text", "caslon"]': '["Folio Libre Caslon Text", "garamond"]',
-            '["Libre Caslon Text", "caslon"]': '["Libre Caslon Text", "garamond"]',
-            '["Charter", "caslon"]': '["Charter", "garamond"]',
+          groups = {
+            'Newsreader': ['decorative','heritage','nocturne','obsidian','cathedral','revenant'],
+            'Vollkorn': ['editorial','scholar','folio','atlas','ember','solstice','runestone'],
+            'EB Garamond': ['cloister','timber','wyrmwood','ironbound'],
           }
-          for old, new in replacements.items():
-              if s.count(old) != 1:
-                  raise SystemExit(f'expected one mapping for {old!r}, found {s.count(old)}')
-              s = s.replace(old, new, 1)
-          p.write_text(s, encoding='utf-8')
+          for family, themes in groups.items():
+              for theme in themes:
+                  p = Path(f'themes/{theme}/theme.css')
+                  s = p.read_text(encoding='utf-8')
+                  s += f'''\n\n/* checkout-only v1.0.7 body-family candidate */\nbody {{ font-family: "{family}", serif; }}\n.dropcap {{ font-family: "{family}", serif; }}\n'''
+                  p.write_text(s, encoding='utf-8')
 
           q = Path('scripts/v107-theme-matrix.ts')
           t = q.read_text(encoding='utf-8')
@@ -73,7 +64,7 @@ jobs:
           q.write_text(t.replace(oldq, newq, 1), encoding='utf-8')
       - run: npm run typecheck
       - run: npm run build
-      - name: Run 51-case affected-theme matrix
+      - name: Run 51-case candidate matrix
         id: matrix
         continue-on-error: true
         run: node --import tsx scripts/v107-theme-matrix.ts
@@ -88,12 +79,12 @@ jobs:
               raise SystemExit('theme-matrix.json missing')
           d = json.loads(src.read_text(encoding='utf-8'))
           out = {'passed': d['passed'], 'failed': d['failed'], 'results': d['results']}
-          Path('build/qa-v107/affected-family-control.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          Path('build/qa-v107/body-font-candidate.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           print(json.dumps({'passed': d['passed'], 'failed': d['failed'], 'failuresByTheme': d.get('failuresByTheme', {})}, indent=2))
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v107-affected-family-control
-          path: build/qa-v107/affected-family-control.json
+          name: v107-body-font-candidate
+          path: build/qa-v107/body-font-candidate.json
           if-no-files-found: error
