@@ -1,4 +1,5 @@
 name: Folio 1.0.9 quality patch
+# qualification revision: rendered-gap floor
 
 on:
   push:
