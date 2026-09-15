@@ -116,7 +116,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -lt 30) { throw "Packaged app returned only $($themes.Count) themes." }
+            if ($themes.Count -lt 29) { throw "Packaged app returned only $($themes.Count) themes." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
@@ -208,4 +208,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 1.0.9 restores reliable chapter-title editing without blanking the manuscript, preserves bold and italic formatting through professional line composition, adds a rendered word-gap safeguard against visually run-together text, and reduces compositor work for faster previews. Black Psalter is unchanged in this release. The Windows release remains gated by typecheck, the complete formatter/UI suite, visual and typesetting QA, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 1.0.9 restores reliable chapter-title editing without blanking the manuscript, preserves bold and italic formatting through professional line composition, removes the Black Psalter theme, adds a rendered word-gap safeguard against visually run-together text, and reduces compositor work for faster previews. The Windows release remains gated by typecheck, the complete formatter/UI suite, visual and typesetting QA, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
