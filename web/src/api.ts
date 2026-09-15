@@ -26,6 +26,11 @@ async function json<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+function isTransientPreviewConnectionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\bconnection (?:closed|terminated)\b|\btarget closed\b|\bbrowser (?:has )?disconnected\b|\bprotocol error\b|\bfetch failed\b|\bfailed to fetch\b|\bnetworkerror\b/i.test(message);
+}
+
 export const api = {
   themes: () => fetch("/api/themes").then((r) => json<Theme[]>(r)),
   presets: () => fetch("/api/presets").then((r) => json<Preset[]>(r)),
@@ -163,7 +168,7 @@ export const api = {
       signal,
     }).then((r) => json<{ html: string }>(r)),
 
-  previewPrint: (
+  previewPrint: async (
     projectId: string,
     meta: Partial<BookMeta>,
     theme: string,
@@ -172,13 +177,29 @@ export const api = {
     previewSectionId?: string,
     draft?: string,
     signal?: AbortSignal,
-  ) =>
-    fetch(`/api/projects/${projectId}/preview-print`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft }),
-      signal,
-    }).then((r) => json<PrintPreviewResult>(r)),
+  ) => {
+    const request = () =>
+      fetch(`/api/projects/${projectId}/preview-print`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft }),
+        signal,
+      }).then((r) => json<PrintPreviewResult>(r));
+
+    try {
+      return await request();
+    } catch (error) {
+      if (signal?.aborted || !isTransientPreviewConnectionError(error)) throw error;
+
+      // Print preview is the only live preview that depends on the bundled
+      // Chromium/Paged.js process. Give a freshly relaunched browser one short
+      // recovery attempt so a transport hiccup does not cover a valid page with
+      // a scary error banner. Deterministic layout errors are never retried.
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      return request();
+    }
+  },
 
   saveExportSettings: (projectId: string, bluesOutput: string) =>
     fetch(`/api/projects/${projectId}/export-settings`, {
