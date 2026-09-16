@@ -69,6 +69,14 @@ try {
     const rect = printed?.getBoundingClientRect();
     return Boolean(rect && rect.width > 120 && rect.height > 160);
   }, { timeout: 45000 });
+  // The paginated mode must show the editor's current section, not merely any
+  // successfully-paginated copy from disk. This is the user-visible contract
+  // that a raw serialized-HTML regex cannot reliably test after the compositor
+  // has split words into spans at discretionary hyphenation points.
+  await page.waitForFunction(() => {
+    const text = document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "") || "";
+    return text.includes("PACKAGED UI DRAFT") && text.includes("Packaged Libre paragraph");
+  }, { timeout: 20000 });
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");
   await page.waitForFunction(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
@@ -120,7 +128,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged Folio 2.0.2 UI passed: startup screen, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
+  console.log("Packaged Folio 2.0.2 UI passed: startup screen, live-draft Print Preview, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
 } finally {
   browser.disconnect();
 }
