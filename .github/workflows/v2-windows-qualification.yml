@@ -11,6 +11,7 @@ on:
       - "tests/**"
       - "themes/**"
       - "scripts/**"
+      - "assets/**"
       - "package.json"
       - "package-lock.json"
 
@@ -114,7 +115,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -ne 16) { throw "Folio 2.0 packaged app must expose exactly 16 curated themes, found $($themes.Count)." }
+            if ($themes.Count -ne 14) { throw "Folio 2.0 packaged app must expose exactly 14 curated themes, found $($themes.Count)." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
