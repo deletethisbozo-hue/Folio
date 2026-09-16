@@ -292,9 +292,12 @@ try {
   await page.click(".style-library-header button");
 
   const deviceModes = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.map((item) => (item as HTMLOptionElement).value));
-  check("preview offers Kindle, tablet, phone, Android and print profiles", deviceModes.length === 6, deviceModes.join(", "));
-  await page.select('select[aria-label="Preview device"]', "phone-6-1");
-  await stage("switch to iPhone device", () => page.waitForSelector(".reader-device.device-iphone"));
+check("preview offers size-based Kindle, Kobo, phone, tablet and print profiles",
+  deviceModes.length === 12
+  && ["kindle-6", "kindle-6-8", "kindle-7", "kobo-6", "kobo-7", "kobo-8", "phone-6-1", "phone-6-7", "tablet-8", "tablet-11", "tablet-13", "print"].every((mode) => deviceModes.includes(mode)),
+  deviceModes.join(", "));
+await page.select('select[aria-label="Preview device"]', "phone-6-1");
+await stage("switch to phone size class", () => page.waitForSelector('.reader-device.device-phone-6-1[data-device-family="phone"]'));
   await stage("phone justified layout", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
     return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
