@@ -20,6 +20,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: node scripts/apply-v203-fixes.mjs
+      - run: node scripts/apply-v203-typefix.mjs
       - run: npm run typecheck
       - run: npm run build:web
       - name: Focused regression tests
