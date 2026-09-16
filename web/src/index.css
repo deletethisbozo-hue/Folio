@@ -287,15 +287,15 @@ button:disabled { cursor: default; opacity: .45; }
 .ornament-picker button span { font:600 9px "Segoe UI",sans-serif; }
 .ornament-picker button small { font:8px "Segoe UI",sans-serif; color:#888; }
 
-.preview-stage { position:relative; flex:1 1 0; width:100%; height:0; min-height:0; display:grid; place-items:center; padding:13px 12px 16px; overflow:hidden; contain:size layout paint; background:linear-gradient(135deg,#d4d3d0 0%,#c9c8c5 100%); }
+.preview-stage { position:relative; flex:1 1 0; width:100%; height:0; min-height:0; display:grid; place-items:center; padding:13px 12px 16px; overflow:hidden; contain:size layout paint; container-type:size; background:linear-gradient(135deg,#d4d3d0 0%,#c9c8c5 100%); }
 .preview-stage.print-stage { place-items:start center; overflow:auto; }
 .reader-device {
-  flex:none; width:min(95%,var(--folio-device-max-width,480px),calc((100dvh - 112px) * var(--folio-device-aspect,.72))); max-height:100%; aspect-ratio:var(--folio-device-aspect,.72); padding:25px 21px 27px; margin:auto; border-radius:14px; background:linear-gradient(145deg,#222,#171717 58%,#292929);
+  flex:none; width:min(95%,var(--folio-device-max-width,480px),calc(100cqh * var(--folio-device-aspect,.72))); max-height:100%; aspect-ratio:var(--folio-device-aspect,.72); padding:25px 21px 27px; margin:auto; border-radius:14px; background:linear-gradient(145deg,#222,#171717 58%,#292929);
   border:1px solid #50504f; box-shadow:0 4px 7px rgba(0,0,0,.35),inset 0 1px 1px rgba(255,255,255,.16),inset 0 -1px 2px rgba(0,0,0,.7);
 }
 .reader-device[data-device-family="kobo"] { padding:20px 18px 23px; border-radius:9px; background:linear-gradient(145deg,#30302f,#181817 62%,#252524); }
-.reader-device[data-device-family="phone"] { width:min(84%,var(--folio-device-max-width,340px),calc((100dvh - 112px) * var(--folio-device-aspect,.48))); padding:23px 11px 26px; border-radius:32px; background:linear-gradient(145deg,#25282b,#111214); }
-.reader-device[data-device-family="tablet"] { width:min(96%,var(--folio-device-max-width,520px),calc((100dvh - 112px) * var(--folio-device-aspect,.72))); padding:23px; border-radius:22px; background:linear-gradient(145deg,#c7c8c8,#909292); border-color:#858686; }
+.reader-device[data-device-family="phone"] { width:min(84%,var(--folio-device-max-width,340px),calc(100cqh * var(--folio-device-aspect,.48))); padding:23px 11px 26px; border-radius:32px; background:linear-gradient(145deg,#25282b,#111214); }
+.reader-device[data-device-family="tablet"] { width:min(96%,var(--folio-device-max-width,520px),calc(100cqh * var(--folio-device-aspect,.72))); padding:23px; border-radius:22px; background:linear-gradient(145deg,#c7c8c8,#909292); border-color:#858686; }
 .reader-device.device-print { width:min(95%,480px); aspect-ratio:.667; padding:13px; border-radius:3px; background:#b8b8b5; }
 .reader-screen { position: relative; width: 100%; height: 100%; overflow: hidden; background: #eeeee6; box-shadow: inset 0 0 0 1px rgba(0,0,0,.28); }
 .reader-device[data-device-family="tablet"] .reader-screen,.reader-device[data-device-family="phone"] .reader-screen { background:#fff; }
@@ -354,7 +354,7 @@ button:disabled { cursor: default; opacity: .45; }
 @media (max-width: 1050px) {
   .folio-shell { grid-template-columns: 150px minmax(320px, .9fr) minmax(370px, 1.15fr); }
   .manuscript-editor { font-size: 11.6px; }
-  .reader-device { width:min(95%,var(--folio-device-max-width,430px),calc((100dvh - 112px) * var(--folio-device-aspect,.72))); }
+  .reader-device { width:min(95%,var(--folio-device-max-width,430px),calc(100cqh * var(--folio-device-aspect,.72))); }
   .style-overlay { right: 31%; left: 155px; }
 }
 

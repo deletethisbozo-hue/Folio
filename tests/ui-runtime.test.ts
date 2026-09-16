@@ -366,7 +366,28 @@ await stage("switch to phone size class", () => page.waitForSelector('.reader-de
       Boolean(previewScroller && previewScroller.scrollHeight > previewScroller.clientHeight && previewScroller.scrollTop > 0) &&
       device.width > 150 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
   });
-  check("100,000-word paste keeps both panes fixed while only editor text scrolls", visibleAfterLargePaste);
+  if (visibleAfterLargePaste) {
+    check("100,000-word paste keeps both panes fixed while only editor text scrolls", true);
+  } else {
+    const layoutDebug = await page.evaluate(() => {
+      const shell = document.querySelector(".folio-shell") as HTMLElement;
+      const editor = document.querySelector(".rich-editor") as HTMLElement;
+      const previewScroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
+      const stageRect = document.querySelector(".preview-stage")!.getBoundingClientRect();
+      const deviceRect = document.querySelector(".reader-device")!.getBoundingClientRect();
+      const shellRect = shell.getBoundingClientRect();
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        documentScrollHeight: document.documentElement.scrollHeight,
+        shell: { top: shellRect.top, bottom: shellRect.bottom, height: shellRect.height },
+        editor: { scrollTop: editor.scrollTop, scrollHeight: editor.scrollHeight, clientHeight: editor.clientHeight },
+        preview: previewScroller ? { scrollTop: previewScroller.scrollTop, scrollHeight: previewScroller.scrollHeight, clientHeight: previewScroller.clientHeight } : null,
+        stage: { left: stageRect.left, right: stageRect.right, top: stageRect.top, bottom: stageRect.bottom, width: stageRect.width, height: stageRect.height },
+        device: { left: deviceRect.left, right: deviceRect.right, top: deviceRect.top, bottom: deviceRect.bottom, width: deviceRect.width, height: deviceRect.height },
+      };
+    });
+    check("100,000-word paste keeps both panes fixed while only editor text scrolls", false, JSON.stringify(layoutDebug));
+  }
   const rapidPreviewScroll = await page.evaluate(async () => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
     const scroller = frame?.contentDocument?.scrollingElement as HTMLElement | null;
@@ -425,7 +446,7 @@ await page.evaluate(() => {
   const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
   if (scroller) scroller.scrollTop = 0;
 });
-await page.select('select[aria-label="Preview device"]', "kindle-oasis");
+await page.select('select[aria-label="Preview device"]', "kindle-7");
 await stage("Polish preview language", () => page.waitForFunction(() => {
   const doc = document.querySelector("iframe")?.contentDocument;
   return Boolean(doc && /^pl(?:-|$)/i.test(doc.documentElement.lang || ""));

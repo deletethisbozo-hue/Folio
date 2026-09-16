@@ -964,7 +964,10 @@ export default function App() {
   function previewRangeAtWord(ordinal: number): Range[] | null {
     const doc = previewRef.current?.contentDocument;
     if (!doc || !selectedId || ordinal < 0) return null;
-    const section = doc.getElementById(selectedId)
+    const pagedSection = previewMode === "print"
+      ? Array.from(doc.querySelectorAll<HTMLElement>(".pagedjs_page section")).find((candidate) => candidate.id === selectedId) ?? null
+      : null;
+    const section = pagedSection ?? doc.getElementById(selectedId)
       ?? doc.querySelector<HTMLElement>("main.book > section.level1, main.book > section.chapter, main.book > section.backmatter");
     if (!section) return null;
     const blocks = Array.from(section.querySelectorAll<HTMLElement>("p:not(.scene-break),li,h2,h3,h4,h5,h6"))
@@ -986,7 +989,7 @@ export default function App() {
     registry?.delete("folio-editor-word");
   }
 
-  function highlightPreviewWord(target: { ordinal: number }, retry = false): boolean {
+  function highlightPreviewWord(target: { ordinal: number }): boolean {
     const frame = previewRef.current;
     const doc = frame?.contentDocument;
     const ranges = doc ? previewRangeAtWord(target.ordinal) : null;
@@ -1005,6 +1008,7 @@ export default function App() {
     }
     registry.delete("folio-editor-word");
     registry.set("folio-editor-word", new HighlightCtor(...ranges));
+    pendingPreviewWordRef.current = null;
 
     const range = ranges[0];
     const anchor = range.startContainer.nodeType === Node.TEXT_NODE
@@ -1015,15 +1019,8 @@ export default function App() {
     if (previewHighlightTimerRef.current !== null) window.clearTimeout(previewHighlightTimerRef.current);
     previewHighlightTimerRef.current = window.setTimeout(() => {
       clearPreviewHighlight(previewRef.current?.contentDocument);
-      if (pendingPreviewWordRef.current?.ordinal === target.ordinal) pendingPreviewWordRef.current = null;
       previewHighlightTimerRef.current = null;
     }, 1050);
-
-    if (!retry && previewMode !== "print") {
-      window.setTimeout(() => {
-        if (pendingPreviewWordRef.current?.ordinal === target.ordinal) highlightPreviewWord(target, true);
-      }, 220);
-    }
     return true;
   }
 
@@ -1114,7 +1111,12 @@ export default function App() {
       : pendingPreviewScrollRef.current || doc.scrollingElement?.scrollTop || 0;
     pendingPreviewScrollRef.current = 0;
     requestAnimationFrame(() => {
-      doc.scrollingElement?.scrollTo(0, targetScroll);
+      // A profile switch already operates on the live iframe. Do not enqueue a
+      // stale numeric scroll restoration that can fire after the reader has
+      // clicked or scrolled to a new location in the same frame.
+      if (!geometryOnly || typeof restoreScroll === "number") {
+        doc.scrollingElement?.scrollTo(0, targetScroll);
+      }
       updatePreviewPageCounts(frame);
       const pendingWord = pendingPreviewWordRef.current;
       if (pendingWord) window.setTimeout(() => highlightPreviewWord(pendingWord), 70);
