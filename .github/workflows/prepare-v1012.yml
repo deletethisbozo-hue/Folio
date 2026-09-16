@@ -1,0 +1,112 @@
+name: Qualify visible-preview compositor recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/prepare-v1012.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Apply visible-anchor compositor repair
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          path = Path("web/src/compositor.ts")
+          text = path.read_text(encoding="utf-8")
+          old = '''  const onScroll = () => {
+            scrolling = true;
+            if (scrollTimer !== null) view.clearTimeout(scrollTimer);
+            scrollTimer = view.setTimeout(() => {
+              scrolling = false;
+              scrollTimer = null;
+              if (queue.length) request();
+            }, 110);
+          };
+          '''
+          new = '''  const composeVisibleAnchor = () => {
+            if (compositionGeneration.get(document) !== generation) return;
+            const viewportWidth = document.documentElement.clientWidth || view.innerWidth;
+            const viewportHeight = view.innerHeight || document.documentElement.clientHeight;
+            if (viewportWidth <= 0 || viewportHeight <= 0) return;
+            const x = Math.max(1, Math.min(viewportWidth - 1, Math.floor(viewportWidth / 2)));
+            const ys = [0.5, 0.32, 0.68, 0.18, 0.82].map((ratio) =>
+              Math.max(1, Math.min(viewportHeight - 1, Math.floor(viewportHeight * ratio))),
+            );
+            for (const y of ys) {
+              for (const element of document.elementsFromPoint(x, y)) {
+                const paragraph = element.closest<HTMLElement>(PROSE_SELECTOR);
+                if (!paragraph || !paragraph.isConnected || paragraph.classList.contains("folio-composed")) continue;
+                observer.unobserve(paragraph);
+                queued.delete(paragraph);
+                composeParagraph(paragraph, language, sectionStatsFor(paragraph, statsBySection));
+                return;
+              }
+            }
+          };
+
+          const onScroll = () => {
+            scrolling = true;
+            if (scrollTimer !== null) view.clearTimeout(scrollTimer);
+            scrollTimer = view.setTimeout(() => {
+              scrolling = false;
+              scrollTimer = null;
+              // IntersectionObserver delivery can lag behind a programmatic or
+              // very fast scroll on Windows. Compose the prose actually under
+              // the reader once scrolling settles so the visible paragraph can
+              // never remain in the safe uncomposed fallback indefinitely.
+              composeVisibleAnchor();
+              if (queue.length) request();
+            }, 110);
+          };
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f"scroll block count={text.count(old)}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          '@ | python -
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install pinned Pandoc 3.11
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip" -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+      - name: Install pinned Chromium runtime
+        run: npx puppeteer browsers install chrome-headless-shell
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build web test harness
+        run: npm run build:web
+      - name: Windows UI runtime qualification
+        run: node --import tsx tests/ui-runtime.test.ts
+      - name: Commit repair
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/src/compositor.ts
+          git commit -m "Compose visible preview prose after scrolling settles"
+          git push origin HEAD:main
