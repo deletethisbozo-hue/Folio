@@ -1,17 +1,6 @@
 import type { ThemeName } from "./types.ts";
 
-export interface ThemeConfig {
-  name: ThemeName;
-  label: string;
-  description: string;
-  sceneOrnament: string;
-  dropcap: boolean;
-  chapterLabel: string;
-  previewFont: string;
-  previewHeadingFont: string;
-  previewAccent: string;
-  previewPaper: string;
-}
+export interface ThemeConfig { name: ThemeName; label: string; description: string; sceneOrnament: string; dropcap: boolean; chapterLabel: string; previewFont: string; previewHeadingFont: string; previewAccent: string; previewPaper: string; }
 
 export const THEMES: Record<ThemeName, ThemeConfig> = {
   modern: { name: "modern", label: "Modern", description: "Clean sans-serif headings, generous spacing, minimalist scene breaks.", sceneOrnament: "•   •   •", dropcap: false, chapterLabel: "CHAPTER 01", previewFont: "Arial, sans-serif", previewHeadingFont: "Arial, sans-serif", previewAccent: "#20262c", previewPaper: "#ffffff" },
@@ -52,15 +41,6 @@ export const SUPPORTED_THEMES = [
 
 const SUPPORTED_THEME_SET = new Set<string>(SUPPORTED_THEMES);
 
-/** Folio 2.0 exposes only the curated, production-qualified theme set. */
-export function hasTheme(name: string): name is ThemeName {
-  return SUPPORTED_THEME_SET.has(name);
-}
-
-export function getTheme(name: string): ThemeConfig {
-  return THEMES[hasTheme(name) ? name : "literary"];
-}
-
-export function themeList(): ThemeConfig[] {
-  return SUPPORTED_THEMES.map((name) => THEMES[name]);
-}
+export function hasTheme(name: string): name is ThemeName { return SUPPORTED_THEME_SET.has(name); }
+export function getTheme(name: string): ThemeConfig { return THEMES[hasTheme(name) ? name : "literary"]; }
+export function themeList(): ThemeConfig[] { return SUPPORTED_THEMES.map((name) => THEMES[name]); }
