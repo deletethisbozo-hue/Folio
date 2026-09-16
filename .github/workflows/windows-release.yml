@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 1.0.12 version consistency
+      - name: Verify Folio 2.0.0 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "1.0.12") { throw "Windows release is scoped to Folio 1.0.12, found $version." }
+          if ($version -ne "2.0.0") { throw "Windows release is scoped to Folio 2.0.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -121,7 +121,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -lt 29) { throw "Packaged app returned only $($themes.Count) themes." }
+            if ($themes.Count -ne 14) { throw "Folio 2.0 packaged app must expose exactly 14 curated themes, found $($themes.Count)." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
@@ -154,12 +154,12 @@ jobs:
             $deleted = Invoke-RestMethod -Method Delete "$base/api/projects/$($sample.projectId)/sections/$renamedId"
             if (-not $deleted.ok) { throw "Packaged chapter delete failed." }
 
-            $printBody = @{ meta = $sample.meta; theme = "folio"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
+            $printBody = @{ meta = $sample.meta; theme = "literary"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
             if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page") { throw "Packaged print preview did not paginate." }
 
             foreach ($format in @("epub", "pdf", "print")) {
-              $body = @{ format = $format; meta = $sample.meta; theme = "folio" }
+              $body = @{ format = $format; meta = $sample.meta; theme = "literary" }
               if ($format -eq "epub") { $body["preset"] = "kdp" }
               if ($format -eq "print") { $body["print"] = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } }
               $export = Invoke-RestMethod -Method Post -ContentType "application/json" -Body ($body | ConvertTo-Json -Depth 10) "$base/api/projects/$($sample.projectId)/export"
@@ -214,4 +214,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 1.0.12 improves preview reliability and navigation: Print preview recovers from transient bundled-Chromium disconnects, device previews are grouped into Kindle, Kobo, phone and tablet size profiles, device shells stay inside the preview pane at smaller window sizes, and clicking a manuscript word follows and highlights the corresponding word in the live preview. The release is gated by typecheck, the complete formatter/UI suite, visual and typesetting QA, the Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 2.0 is a major workflow and publishing update: a new Recent Books start screen opens projects without repeated folder hunting; covers are first-class book items with live preview and correct EPUB/reading-PDF export; Front Matter supports full-page image pages for maps and illustrations; Print Preview now survives Reader/Print transitions reliably; leading en/em dashes no longer become drop caps during export; and the style library is reduced to 14 curated themes with obsolete Cloister and Necropolis removed and fixed micro-labels eliminated. The release is gated by typecheck, the complete formatter/UI suite on Linux and Windows, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
