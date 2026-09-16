@@ -1,6 +1,8 @@
 import puppeteer from "puppeteer";
 
 const port = process.env.FOLIO_E2E_DEBUG_PORT || "43128";
+const appPort = process.env.FOLIO_E2E_PORT || "43127";
+const apiBase = `http://127.0.0.1:${appPort}`;
 let browser;
 let lastError;
 for (let attempt = 0; attempt < 80; attempt++) {
@@ -18,7 +20,7 @@ try {
   let page;
   for (let attempt = 0; attempt < 80 && !page; attempt++) {
     const pages = await browser.pages();
-    page = pages.find((candidate) => candidate.url().includes("127.0.0.1:43127"));
+    page = pages.find((candidate) => candidate.url().includes(`127.0.0.1:${appPort}`));
     if (!page) await new Promise((resolve) => setTimeout(resolve, 250));
   }
   if (!page) throw new Error("Packaged Folio window was not found.");
@@ -82,6 +84,40 @@ try {
     const doc = document.querySelector("iframe")?.contentDocument;
     return Boolean(doc?.querySelector("section.chapter") && !doc.querySelector(".pagedjs_pages"));
   }, { timeout: 20000 });
+
+  // Separately exercise the packaged print-preview API with a marker that cannot
+  // be changed by dictionary hyphenation. Nothing is saved first, so this proves
+  // the endpoint applies the live draft itself rather than accidentally succeeding
+  // only because the UI autosaved before switching device modes.
+  const apiMarker = "Z9X8Q7V6P5";
+  const apiSampleResponse = await fetch(`${apiBase}/api/sample`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
+  if (!apiSampleResponse.ok) throw new Error(`Packaged API sample failed: ${apiSampleResponse.status}`);
+  const apiSample = await apiSampleResponse.json();
+  const apiChapter = apiSample.sections?.find((section) => section.kind === "chapter");
+  if (!apiChapter) throw new Error("Packaged API sample has no chapter for Print Preview probe.");
+  const apiPrintResponse = await fetch(`${apiBase}/api/projects/${apiSample.projectId}/preview-print`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      meta: apiSample.meta,
+      theme: "literary",
+      typography: {},
+      previewSectionId: apiChapter.id,
+      draft: apiMarker,
+      print: { trim: "6x9", binding: "paperback", startChaptersRecto: true, layout: "author-title-bottom" },
+    }),
+  });
+  if (!apiPrintResponse.ok) throw new Error(`Packaged Print Preview API failed: ${apiPrintResponse.status}`);
+  const apiPrint = await apiPrintResponse.json();
+  const serializedPrint = String(apiPrint.html || "").replace(/\u00ad/g, "");
+  if (apiPrint.pages < 1 || !serializedPrint.includes("pagedjs_page") || !serializedPrint.includes(apiMarker)) {
+    throw new Error(`Packaged Print Preview API lost its unsaved live draft (pages=${apiPrint.pages}, marker=${serializedPrint.includes(apiMarker)}).`);
+  }
+
   await page.$eval(".rich-editor", (element) => {
     element.focus();
     const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
@@ -128,7 +164,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged Folio 2.0.2 UI passed: startup screen, live-draft Print Preview, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
+  console.log("Packaged Folio 2.0.2 UI passed: startup screen, live-draft Print Preview, unsaved Print Preview API draft, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
 } finally {
   browser.disconnect();
 }
