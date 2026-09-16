@@ -60,8 +60,20 @@ try {
   const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
   await page.click(".style-library-header button");
-  const devices = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.length);
+  const devices = await page.$eval('select[aria-label="Preview device"] option', (items) => items.length);
   if (devices < 6) throw new Error("Packaged preview contains only " + devices + " device modes.");
+  await page.select('select[aria-label="Preview device"]', "print");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector("iframe");
+    const printed = frame?.contentDocument?.querySelector(".pagedjs_page");
+    const rect = printed?.getBoundingClientRect();
+    return Boolean(rect && rect.width > 120 && rect.height > 160);
+  }, { timeout: 45000 });
+  await page.select('select[aria-label="Preview device"]', "kindle-6-8");
+  await page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    return Boolean(doc?.querySelector("section.chapter") && !doc.querySelector(".pagedjs_pages"));
+  }, { timeout: 20000 });
   await page.$eval(".rich-editor", (element) => {
     element.focus();
     const range = document.createRange(); range.selectNodeContents(element); range.collapse(false);
@@ -108,7 +120,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged Folio 2.0 UI passed: startup screen, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 14 curated themes, and grouped device profiles.");
+  console.log("Packaged Folio 2.0.1 UI passed: startup screen, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 14 curated themes, and grouped device profiles.");
 } finally {
   browser.disconnect();
 }

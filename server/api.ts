@@ -49,6 +49,7 @@ import type { ArtifactType } from "./destinations.ts";
 import { THEME_FONTS_DIR } from "./pipeline/paths.ts";
 import { normalizeThemeFontStack } from "./pipeline/theme-fonts.ts";
 import { registerImagePageApi } from "./image-page-api.ts";
+import { forgetRecentProject, readRecentProjects, rememberRecentProject } from "./recent-projects.ts";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -165,6 +166,16 @@ export function registerApi(app: Express): void {
   app.get("/api/matter-types", (_req, res) => res.json(MATTER_TYPES));
   app.get("/api/trims", (_req, res) => res.json(TRIMS));
   app.get("/api/print-layouts", (_req, res) => res.json(LAYOUTS));
+  app.get("/api/recent-projects", (_req, res) =>
+    wrap(res, async () => { res.json(await readRecentProjects()); }),
+  );
+  app.delete("/api/recent-projects", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const folder = String(req.body?.folder ?? "").trim();
+      if (!folder) throw new Error("No recent-project folder provided.");
+      res.json(await forgetRecentProject(folder));
+    }),
+  );
 
   app.post("/api/sample", (_req, res) =>
     wrap(res, async () => {
@@ -202,7 +213,9 @@ export function registerApi(app: Express): void {
       const folder = String(req.body?.path ?? "").trim();
       if (!folder) throw new Error("No folder path provided.");
       const id = await createProjectFromFolderPath(folder);
-      res.json(await buildSummary(id));
+      const summary = await buildSummary(id);
+      if (summary.folder) await rememberRecentProject(summary.folder, summary.meta.title, summary.meta.author);
+      res.json(summary);
     }),
   );
 
@@ -224,7 +237,9 @@ export function registerApi(app: Express): void {
       };
       await saveMeta(dir, meta);
       await addChapter(dir, meta, String(req.body?.chapterTitle ?? "Chapter One"));
-      res.json(await buildSummary(id));
+      const summary = await buildSummary(id);
+      if (summary.folder) await rememberRecentProject(summary.folder, summary.meta.title, summary.meta.author);
+      res.json(summary);
     }),
   );
 
@@ -269,7 +284,9 @@ export function registerApi(app: Express): void {
       if (!meta) throw new Error("No metadata provided.");
       const dir = await writableBookDir(req.params.id);
       await saveMeta(dir, meta);
-      res.json(await buildSummary(req.params.id));
+      const summary = await buildSummary(req.params.id);
+      if (summary.folder) await rememberRecentProject(summary.folder, summary.meta.title, summary.meta.author);
+      res.json(summary);
     }),
   );
 

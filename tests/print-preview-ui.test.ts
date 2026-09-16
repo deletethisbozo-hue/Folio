@@ -46,7 +46,13 @@ try {
     return Boolean(frame?.contentDocument?.querySelector(".pagedjs_pages .pagedjs_page"));
   }, { timeout: 45_000 });
   const printPages = await page.$eval("iframe", (frame) => frame.contentDocument?.querySelectorAll(".pagedjs_page").length ?? 0);
+  const printRect = await page.$eval("iframe", (frame) => {
+    const pageNode = frame.contentDocument?.querySelector(".pagedjs_page") as HTMLElement | null;
+    const rect = pageNode?.getBoundingClientRect();
+    return rect ? { width: rect.width, height: rect.height } : { width: 0, height: 0 };
+  });
   check("switching Reader → Print displays physical paginated pages", printPages > 0, `${printPages} pages`);
+  check("print page is visibly sized, not merely present in hidden DOM", printRect.width > 120 && printRect.height > 160, `${printRect.width.toFixed(1)}×${printRect.height.toFixed(1)}`);
 
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");
   await page.waitForFunction(() => {
