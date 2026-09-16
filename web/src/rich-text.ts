@@ -7,6 +7,10 @@ function children(element: Element): string {
   return Array.from(element.childNodes).map(renderNode).join("");
 }
 
+function escapeMarkdownAlt(value: string): string {
+  return value.replace(/([\\\]])/g, "\\$1");
+}
+
 function wrapInline(marker: string, value: string): string {
   // Writer and Word split a sentence into many styled spans. Trimming each span
   // glues words together ("one <b>two</b> three" became "one**two**three").
@@ -53,6 +57,14 @@ function renderNode(node: Node): string {
   if (["STYLE", "SCRIPT", "META", "LINK", "TITLE", "XML"].includes(tag)) return "";
 
   if (element.hasAttribute("data-scene-break")) return "\n\n---\n\n";
+  if (element.hasAttribute("data-folio-illustration")) {
+    const image = element.querySelector<HTMLImageElement>("img[data-folio-asset]");
+    if (!image) return "";
+    const asset = image.dataset.folioAsset?.trim();
+    if (!asset) return "";
+    const alt = escapeMarkdownAlt(image.alt.trim() || "Illustration");
+    return `\n\n![${alt}](${asset}){.folio-illustration}\n\n`;
+  }
 
   // Clipboard HTML from Word, Pages and LibreOffice often contains a <br> at
   // every visual line ending. A Markdown hard break (two trailing spaces)
@@ -84,6 +96,11 @@ function renderNode(node: Node): string {
   if (tag === "BLOCKQUOTE") return children(element).trim().split("\n").map((line) => `> ${line}`).join("\n") + "\n\n";
   if (tag === "PRE") return `\`\`\`\n${element.textContent?.replace(/\r\n/g, "\n").trimEnd() ?? ""}\n\`\`\`\n\n`;
   if (tag === "TABLE") return renderTable(element);
+  if (tag === "IMG" && element.hasAttribute("data-folio-asset")) {
+    const asset = element.getAttribute("data-folio-asset")?.trim();
+    const alt = escapeMarkdownAlt(element.getAttribute("alt")?.trim() || "Illustration");
+    return asset ? `![${alt}](${asset}){.folio-illustration}` : alt;
+  }
   if (tag === "IMG") return element.getAttribute("alt")?.trim() || "";
 
   let value = children(element);
@@ -185,7 +202,7 @@ function inlineMarkdown(value: string): string {
 
 /** A deliberately small, deterministic editor renderer. Publishing still goes
  * through Pandoc; this only gives the writing surface a clean WYSIWYG view. */
-export function markdownToEditorHtml(markdown: string, ornament = "❦"): string {
+export function markdownToEditorHtml(markdown: string, ornament = "❦", resolveAsset?: (asset: string) => string): string {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: string[] = [];
   let paragraph: string[] = [];
@@ -204,6 +221,15 @@ export function markdownToEditorHtml(markdown: string, ornament = "❦"): string
   const flush = () => { flushParagraph(); flushList(); };
 
   for (const line of lines) {
+    const image = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)(?:\{[^}]*\})?$/);
+    if (image) {
+      flush();
+      const alt = image[1].trim() || "Illustration";
+      const asset = image[2].trim();
+      const src = resolveAsset ? resolveAsset(asset) : asset;
+      blocks.push(`<figure class="editor-illustration" data-folio-illustration="true" contenteditable="false"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" data-folio-asset="${escapeHtml(asset)}"><figcaption>${escapeHtml(alt)}</figcaption><button type="button" class="editor-illustration-remove" aria-label="Remove illustration" title="Remove illustration">×</button></figure>`);
+      continue;
+    }
     if (/^\s*(?:---|\* \* \*)\s*$/.test(line)) {
       flush();
       blocks.push(`<div class="editor-scene-break" data-scene-break="true" contenteditable="false"><span>${escapeHtml(ornament)}</span><button type="button" class="editor-scene-break-remove" aria-label="Remove scene break" title="Remove scene break">×</button></div>`);
