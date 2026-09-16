@@ -257,8 +257,12 @@ try {
   });
   await page.click('.theme-sample[data-theme="blackletter"]');
   await stage("render Blackletter theme", () => page.waitForFunction(() => {
-    const h1 = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
-    return Boolean(h1 && getComputedStyle(h1).fontFamily.includes("Folio Grenze Gotisch"));
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const h1 = doc?.querySelector("section.chapter > h1");
+    if (!doc || !h1) return false;
+    const heading = getComputedStyle(h1);
+    const body = getComputedStyle(doc.body);
+    return parseFloat(heading.borderTopWidth) === 0 && body.backgroundColor === "rgb(244, 236, 218)";
   }));
   const blackletter = await page.evaluate(() => {
     const h1 = document.querySelector("iframe")!.contentDocument!.querySelector("section.chapter > h1")!;
