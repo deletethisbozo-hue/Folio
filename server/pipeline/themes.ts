@@ -35,8 +35,8 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
 };
 
 export const SUPPORTED_THEMES = [
-  "blackletter", "stanza", "witchlight", "revenant", "solstice", "literary", "necropolis", "nocturne",
-  "obsidian", "grimoire", "ivory", "heritage", "decorative", "cloister", "cathedral", "aubade",
+  "blackletter", "stanza", "witchlight", "revenant", "solstice", "literary", "nocturne",
+  "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade",
 ] as const satisfies readonly ThemeName[];
 
 const SUPPORTED_THEME_SET = new Set<string>(SUPPORTED_THEMES);
