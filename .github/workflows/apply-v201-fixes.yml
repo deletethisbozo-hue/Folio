@@ -35,10 +35,11 @@ jobs:
           p.write_text(s.replace(old, new, 1), encoding="utf-8")
           PY
           node scripts/apply-v201-fixes.mjs
-      - name: Commit product patch and remove applicator
+      - name: Commit product patch
         shell: bash
         run: |
-          rm -f scripts/apply-v201-fixes.mjs .github/workflows/apply-v201-fixes.yml
+          git restore .github/workflows/v2-suite.yml .github/workflows/v2-windows-qualification.yml .github/workflows/windows-release.yml
+          git restore scripts/apply-v201-fixes.mjs .github/workflows/apply-v201-fixes.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
