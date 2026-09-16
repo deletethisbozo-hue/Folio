@@ -116,6 +116,37 @@ try {
   await stage("sample live draft preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("BROWSER LIVE DRAFT")));
   check("typing updates the visible device preview before autosave", true);
 
+  const previewGroups = await page.$$eval('select[aria-label="Preview device"] optgroup', (groups) => groups.map((group) => ({ label: group.label, values: [...group.querySelectorAll("option")].map((option) => option.value) })));
+  check("preview devices are grouped by Kindle, Kobo, phone, tablet and print size classes",
+    ["Kindle", "Kobo", "Phone", "Tablet", "Print"].every((label) => previewGroups.some((group) => group.label === label))
+    && previewGroups.some((group) => group.values.includes("kindle-6") && group.values.includes("kindle-6-8") && group.values.includes("kindle-7"))
+    && previewGroups.some((group) => group.values.includes("kobo-6") && group.values.includes("kobo-7") && group.values.includes("kobo-8")));
+
+  await page.evaluate(() => {
+    const editor = document.querySelector(".rich-editor") as HTMLElement;
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let node: Text | null = null;
+    while (walker.nextNode()) {
+      const candidate = walker.currentNode as Text;
+      if (candidate.data.includes("BROWSER")) { node = candidate; break; }
+    }
+    if (!node) throw new Error("BROWSER marker was not found in editor");
+    const index = node.data.indexOf("BROWSER") + 2;
+    const range = document.createRange();
+    range.setStart(node, index); range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges(); selection?.addRange(range);
+    (node.parentElement ?? editor).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  await stage("editor click follows word in preview", () => page.waitForFunction(() => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    const registry = (frame?.contentWindow as any)?.CSS?.highlights;
+    const highlight = registry?.get("folio-editor-word");
+    if (!highlight) return false;
+    return [...highlight].some((range: Range) => range.toString().replace(/\u00ad/g, "").includes("BROWSER"));
+  }));
+  check("clicking a manuscript word scrolls to and briefly highlights the same preview word", true);
+
   await page.$eval(".rich-editor", (el) => {
     const editor = el as HTMLElement;
     editor.focus();
@@ -261,9 +292,12 @@ try {
   await page.click(".style-library-header button");
 
   const deviceModes = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.map((item) => (item as HTMLOptionElement).value));
-  check("preview offers Kindle, tablet, phone, Android and print profiles", deviceModes.length === 6, deviceModes.join(", "));
-  await page.select('select[aria-label="Preview device"]', "iphone");
-  await stage("switch to iPhone device", () => page.waitForSelector(".reader-device.device-iphone"));
+check("preview offers size-based Kindle, Kobo, phone, tablet and print profiles",
+  deviceModes.length === 12
+  && ["kindle-6", "kindle-6-8", "kindle-7", "kobo-6", "kobo-7", "kobo-8", "phone-6-1", "phone-6-7", "tablet-8", "tablet-11", "tablet-13", "print"].every((mode) => deviceModes.includes(mode)),
+  deviceModes.join(", "));
+await page.select('select[aria-label="Preview device"]', "phone-6-1");
+await stage("switch to phone size class", () => page.waitForSelector('.reader-device.device-phone-6-1[data-device-family="phone"]'));
   await stage("phone justified layout", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
     return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
@@ -332,7 +366,28 @@ try {
       Boolean(previewScroller && previewScroller.scrollHeight > previewScroller.clientHeight && previewScroller.scrollTop > 0) &&
       device.width > 150 && device.height > 250 && device.left >= stage.left && device.right <= stage.right && device.top >= stage.top && device.bottom <= stage.bottom;
   });
-  check("100,000-word paste keeps both panes fixed while only editor text scrolls", visibleAfterLargePaste);
+  if (visibleAfterLargePaste) {
+    check("100,000-word paste keeps both panes fixed while only editor text scrolls", true);
+  } else {
+    const layoutDebug = await page.evaluate(() => {
+      const shell = document.querySelector(".folio-shell") as HTMLElement;
+      const editor = document.querySelector(".rich-editor") as HTMLElement;
+      const previewScroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
+      const stageRect = document.querySelector(".preview-stage")!.getBoundingClientRect();
+      const deviceRect = document.querySelector(".reader-device")!.getBoundingClientRect();
+      const shellRect = shell.getBoundingClientRect();
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        documentScrollHeight: document.documentElement.scrollHeight,
+        shell: { top: shellRect.top, bottom: shellRect.bottom, height: shellRect.height },
+        editor: { scrollTop: editor.scrollTop, scrollHeight: editor.scrollHeight, clientHeight: editor.clientHeight },
+        preview: previewScroller ? { scrollTop: previewScroller.scrollTop, scrollHeight: previewScroller.scrollHeight, clientHeight: previewScroller.clientHeight } : null,
+        stage: { left: stageRect.left, right: stageRect.right, top: stageRect.top, bottom: stageRect.bottom, width: stageRect.width, height: stageRect.height },
+        device: { left: deviceRect.left, right: deviceRect.right, top: deviceRect.top, bottom: deviceRect.bottom, width: deviceRect.width, height: deviceRect.height },
+      };
+    });
+    check("100,000-word paste keeps both panes fixed while only editor text scrolls", false, JSON.stringify(layoutDebug));
+  }
   const rapidPreviewScroll = await page.evaluate(async () => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
     const scroller = frame?.contentDocument?.scrollingElement as HTMLElement | null;
@@ -391,7 +446,7 @@ await page.evaluate(() => {
   const scroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
   if (scroller) scroller.scrollTop = 0;
 });
-await page.select('select[aria-label="Preview device"]', "kindle-oasis");
+await page.select('select[aria-label="Preview device"]', "kindle-7");
 await stage("Polish preview language", () => page.waitForFunction(() => {
   const doc = document.querySelector("iframe")?.contentDocument;
   return Boolean(doc && /^pl(?:-|$)/i.test(doc.documentElement.lang || ""));
@@ -578,7 +633,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   }));
   check("justified body text never pulls ornamental breaks off center", true);
   const dropcapBeforeDeviceChange = await page.evaluate(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap")));
-  await page.select('select[aria-label="Preview device"]', "iphone");
+  await page.select('select[aria-label="Preview device"]', "phone-6-1");
   await stage("narrow justified composition", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
     return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));

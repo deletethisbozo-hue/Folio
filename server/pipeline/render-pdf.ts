@@ -8,29 +8,61 @@ import { applyProfessionalHyphenation } from "./hyphenation.ts";
 import { composeProfessionalParagraphs } from "./compositor.ts";
 
 let browserPromise: Promise<Browser> | null = null;
+let browserGeneration = 0;
 
-export async function getBrowser(): Promise<Browser> {
-  if (!browserPromise) {
-    const options: LaunchOptions = { headless: true, args: ["--no-sandbox"] };
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+function launchBrowser(): Promise<Browser> {
+  const generation = ++browserGeneration;
+  const options: LaunchOptions = { headless: true, args: ["--no-sandbox"] };
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
 
-    browserPromise = puppeteer.launch(options).catch((e) => {
-      browserPromise = null;
+  const pending = puppeteer.launch(options)
+    .then((browser) => {
+      // A bundled Chromium can occasionally disappear underneath a long Paged.js
+      // render. Never leave that disconnected Browser cached forever: the next
+      // preview/export must be allowed to launch a fresh rendering engine.
+      browser.once("disconnected", () => {
+        if (browserGeneration === generation) browserPromise = null;
+      });
+      return browser;
+    })
+    .catch((e) => {
+      if (browserGeneration === generation) browserPromise = null;
       throw new AppError(
         "CHROMIUM_LAUNCH",
         "Couldn't start Folio's bundled PDF rendering engine.",
         { detail: (e as Error).message, cause: e },
       );
     });
+
+  browserPromise = pending;
+  return pending;
+}
+
+export async function getBrowser(): Promise<Browser> {
+  const pending = browserPromise;
+  if (pending) {
+    const browser = await pending;
+    if (browser.connected) return browser;
+
+    // The disconnect event normally clears this first, but checking connected
+    // here closes the race where a request arrives between the transport dying
+    // and Puppeteer's disconnected event being delivered.
+    if (browserPromise === pending) browserPromise = null;
   }
-  return browserPromise;
+  return launchBrowser();
 }
 
 export async function closeBrowser(): Promise<void> {
-  if (browserPromise) {
-    const b = await browserPromise;
-    await b.close();
-    browserPromise = null;
+  const pending = browserPromise;
+  browserPromise = null;
+  browserGeneration++;
+  if (!pending) return;
+
+  try {
+    const browser = await pending;
+    if (browser.connected) await browser.close();
+  } catch {
+    // Nothing useful remains to close after a failed launch/disconnect.
   }
 }
 
@@ -58,6 +90,8 @@ export async function renderPdf(book: Book): Promise<Buffer> {
     });
     return Buffer.from(pdf);
   } finally {
-    await page.close();
+    // If Chromium itself disconnected, closing its Page can throw a second
+    // "Connection closed" error and hide the operation that actually failed.
+    await page.close().catch(() => undefined);
   }
 }
