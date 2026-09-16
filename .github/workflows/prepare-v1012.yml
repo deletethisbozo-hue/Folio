@@ -42,6 +42,7 @@ jobs:
               "      if (queue.length) request();",
               "    }, 110);",
               "  };",
+              "  view.addEventListener(\"scroll\", onScroll, { passive: true, capture: true });",
           ])
           new = "\n".join([
               "  const composeVisibleAnchor = () => {",
@@ -71,18 +72,37 @@ jobs:
               "    scrollTimer = view.setTimeout(() => {",
               "      scrolling = false;",
               "      scrollTimer = null;",
-              "      // IntersectionObserver delivery can lag behind a programmatic or",
-              "      // very fast scroll on Windows. Compose the prose actually under",
-              "      // the reader once scrolling settles so the visible paragraph can",
-              "      // never remain in the safe uncomposed fallback indefinitely.",
               "      composeVisibleAnchor();",
               "      if (queue.length) request();",
               "    }, 110);",
               "  };",
+              "  view.addEventListener(\"scroll\", onScroll, { passive: true, capture: true });",
+              "  document.addEventListener(\"scroll\", onScroll, { passive: true, capture: true });",
+              "  const visibleAnchorTimers = [0, 180, 700].map((delay) => view.setTimeout(composeVisibleAnchor, delay));",
           ])
           if text.count(old) != 1:
               raise SystemExit(f"scroll block count={text.count(old)}")
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          text = text.replace(old, new, 1)
+
+          old_cleanup = "\n".join([
+              "  const cleanup = () => {",
+              "    observer.disconnect();",
+              "    view.removeEventListener(\"scroll\", onScroll, true);",
+              "    if (scrollTimer !== null) view.clearTimeout(scrollTimer);",
+              "  };",
+          ])
+          new_cleanup = "\n".join([
+              "  const cleanup = () => {",
+              "    observer.disconnect();",
+              "    view.removeEventListener(\"scroll\", onScroll, true);",
+              "    document.removeEventListener(\"scroll\", onScroll, true);",
+              "    if (scrollTimer !== null) view.clearTimeout(scrollTimer);",
+              "    visibleAnchorTimers.forEach((timer) => view.clearTimeout(timer));",
+              "  };",
+          ])
+          if text.count(old_cleanup) != 1:
+              raise SystemExit(f"cleanup block count={text.count(old_cleanup)}")
+          path.write_text(text.replace(old_cleanup, new_cleanup, 1), encoding="utf-8")
           '@ | python -
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
@@ -111,5 +131,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add web/src/compositor.ts
-          git commit -m "Compose visible preview prose after scrolling settles"
+          git commit -m "Keep visible preview prose professionally composed"
           git push origin HEAD:main
