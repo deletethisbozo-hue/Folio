@@ -32,52 +32,54 @@ jobs:
 
           path = Path("web/src/compositor.ts")
           text = path.read_text(encoding="utf-8")
-          old = '''  const onScroll = () => {
-            scrolling = true;
-            if (scrollTimer !== null) view.clearTimeout(scrollTimer);
-            scrollTimer = view.setTimeout(() => {
-              scrolling = false;
-              scrollTimer = null;
-              if (queue.length) request();
-            }, 110);
-          };
-          '''
-          new = '''  const composeVisibleAnchor = () => {
-            if (compositionGeneration.get(document) !== generation) return;
-            const viewportWidth = document.documentElement.clientWidth || view.innerWidth;
-            const viewportHeight = view.innerHeight || document.documentElement.clientHeight;
-            if (viewportWidth <= 0 || viewportHeight <= 0) return;
-            const x = Math.max(1, Math.min(viewportWidth - 1, Math.floor(viewportWidth / 2)));
-            const ys = [0.5, 0.32, 0.68, 0.18, 0.82].map((ratio) =>
-              Math.max(1, Math.min(viewportHeight - 1, Math.floor(viewportHeight * ratio))),
-            );
-            for (const y of ys) {
-              for (const element of document.elementsFromPoint(x, y)) {
-                const paragraph = element.closest<HTMLElement>(PROSE_SELECTOR);
-                if (!paragraph || !paragraph.isConnected || paragraph.classList.contains("folio-composed")) continue;
-                observer.unobserve(paragraph);
-                queued.delete(paragraph);
-                composeParagraph(paragraph, language, sectionStatsFor(paragraph, statsBySection));
-                return;
-              }
-            }
-          };
-
-          const onScroll = () => {
-            scrolling = true;
-            if (scrollTimer !== null) view.clearTimeout(scrollTimer);
-            scrollTimer = view.setTimeout(() => {
-              scrolling = false;
-              scrollTimer = null;
-              // IntersectionObserver delivery can lag behind a programmatic or
-              // very fast scroll on Windows. Compose the prose actually under
-              // the reader once scrolling settles so the visible paragraph can
-              // never remain in the safe uncomposed fallback indefinitely.
-              composeVisibleAnchor();
-              if (queue.length) request();
-            }, 110);
-          };
-          '''
+          old = "\n".join([
+              "  const onScroll = () => {",
+              "    scrolling = true;",
+              "    if (scrollTimer !== null) view.clearTimeout(scrollTimer);",
+              "    scrollTimer = view.setTimeout(() => {",
+              "      scrolling = false;",
+              "      scrollTimer = null;",
+              "      if (queue.length) request();",
+              "    }, 110);",
+              "  };",
+          ])
+          new = "\n".join([
+              "  const composeVisibleAnchor = () => {",
+              "    if (compositionGeneration.get(document) !== generation) return;",
+              "    const viewportWidth = document.documentElement.clientWidth || view.innerWidth;",
+              "    const viewportHeight = view.innerHeight || document.documentElement.clientHeight;",
+              "    if (viewportWidth <= 0 || viewportHeight <= 0) return;",
+              "    const x = Math.max(1, Math.min(viewportWidth - 1, Math.floor(viewportWidth / 2)));",
+              "    const ys = [0.5, 0.32, 0.68, 0.18, 0.82].map((ratio) =>",
+              "      Math.max(1, Math.min(viewportHeight - 1, Math.floor(viewportHeight * ratio))),",
+              "    );",
+              "    for (const y of ys) {",
+              "      for (const element of document.elementsFromPoint(x, y)) {",
+              "        const paragraph = element.closest<HTMLElement>(PROSE_SELECTOR);",
+              "        if (!paragraph || !paragraph.isConnected || paragraph.classList.contains(\"folio-composed\")) continue;",
+              "        observer.unobserve(paragraph);",
+              "        queued.delete(paragraph);",
+              "        composeParagraph(paragraph, language, sectionStatsFor(paragraph, statsBySection));",
+              "        return;",
+              "      }",
+              "    }",
+              "  };",
+              "",
+              "  const onScroll = () => {",
+              "    scrolling = true;",
+              "    if (scrollTimer !== null) view.clearTimeout(scrollTimer);",
+              "    scrollTimer = view.setTimeout(() => {",
+              "      scrolling = false;",
+              "      scrollTimer = null;",
+              "      // IntersectionObserver delivery can lag behind a programmatic or",
+              "      // very fast scroll on Windows. Compose the prose actually under",
+              "      // the reader once scrolling settles so the visible paragraph can",
+              "      // never remain in the safe uncomposed fallback indefinitely.",
+              "      composeVisibleAnchor();",
+              "      if (queue.length) request();",
+              "    }, 110);",
+              "  };",
+          ])
           if text.count(old) != 1:
               raise SystemExit(f"scroll block count={text.count(old)}")
           path.write_text(text.replace(old, new, 1), encoding="utf-8")
@@ -93,6 +95,7 @@ jobs:
           if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
           Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
           $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable missing" }
           Copy-Item $exe.FullName build\pandoc\pandoc.exe
       - name: Install pinned Chromium runtime
         run: npx puppeteer browsers install chrome-headless-shell
