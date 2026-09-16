@@ -83,6 +83,8 @@ jobs:
       - name: Verify clean qualified tree
         shell: pwsh
         run: |
+          git status --short
+          git diff --name-only
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw "git diff --check failed" }
           if (-not (git diff --quiet)) { throw "Quality gate modified tracked product files." }
