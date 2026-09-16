@@ -156,7 +156,9 @@ jobs:
 
             $printBody = @{ meta = $sample.meta; theme = "literary"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
-            if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page" -or $printPreview.html -notmatch "Packaged preview probe") { throw "Packaged print preview did not paginate the selected live section." }
+            $printText = [System.Net.WebUtility]::HtmlDecode([regex]::Replace([string]$printPreview.html, '<[^>]+>', ' '))
+            $printText = (($printText -replace [char]0x00AD, '') -replace '\s+', ' ').Trim()
+            if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page" -or $printText -notmatch "Packaged preview probe") { throw "Packaged print preview did not paginate the selected live section." }
 
             foreach ($format in @("epub", "pdf", "print")) {
               $body = @{ format = $format; meta = $sample.meta; theme = "literary" }
