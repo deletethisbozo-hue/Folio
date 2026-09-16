@@ -1,0 +1,41 @@
+name: Apply Folio 2.0 print preview fix
+
+on:
+  push:
+    branches: ["release/v2.0.0"]
+    paths:
+      - ".github/workflows/v2-print-preview-patch.yml"
+      - "scripts/apply-v2-print-preview-fix.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: folio-v2-print-preview-patch
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v2.0.0
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+      - name: Patch print preview iframe lifecycle
+        run: node scripts/apply-v2-print-preview-fix.mjs
+      - name: Commit patched App
+        shell: bash
+        run: |
+          if git diff --quiet -- web/src/App.tsx; then
+            echo "No print preview patch changes were needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/src/App.tsx
+          git commit -m "Reload iframe cleanly across Print preview mode"
+          git push origin HEAD:release/v2.0.0
