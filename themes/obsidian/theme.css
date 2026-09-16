@@ -1,9 +1,9 @@
 /* Obsidian — stark black slab opener for dark epic fantasy. */
 body{font-family:Baskerville,Georgia,serif;line-height:1.52;color:#18181c;background:#f0efed}
-main.book{counter-reset:shard}
-section.chapter{counter-increment:shard}
+main.book{counter-reset:obsidian-chapter}
+section.chapter{counter-increment:obsidian-chapter}
 section.chapter>h1{text-align:center;margin:.65em 0 2.4em;padding:1em .7em .9em;background:#17171b;color:#f4f0e8;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.95em;font-weight:500;letter-spacing:.075em;text-transform:uppercase}
-section.chapter>h1::before{content:"SHARD  ·  " counter(shard,upper-roman);display:block;margin-bottom:.9em;font-family:Avenir,Arial,sans-serif;font-size:.32em;font-weight:700;letter-spacing:.36em;color:#9fa0a5}
+section.chapter>h1::before{content:counter(obsidian-chapter,upper-roman);display:block;margin-bottom:.9em;font-family:Avenir,Arial,sans-serif;font-size:.32em;font-weight:700;letter-spacing:.36em;color:#9fa0a5}
 section.chapter>h1::after{content:"◆";display:block;margin:.8em 0 -.15em;font-size:.34em;color:#d5d0c5}
 .chapter-subtitle{margin:-2.05em 0 2.05em}.chapter-subtitle p{font-style:normal;font-family:Avenir,Arial,sans-serif;font-size:.8em;letter-spacing:.16em;text-transform:uppercase;color:#5e5f64}
 .dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.45em;color:#151519}
