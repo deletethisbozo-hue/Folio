@@ -71,6 +71,14 @@ try {
   check("inline illustration reaches autosave", /!\[[^\]]+\]\(assets\/[a-z0-9._-]+\.png\)\{\.folio-illustration\}/i.test(beforeReload), beforeReload);
 
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
+  await page.waitForFunction(() => [...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Preface")), { timeout: 30000 });
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLElement>(".contents-row")].find((item) => item.textContent?.includes("Preface"));
+    if (!row) throw new Error("Preface row is missing after project reload");
+    row.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Preface"), { timeout: 30000 });
+  await page.waitForSelector('.rich-editor[contenteditable="true"]');
   await page.waitForFunction(() => {
     const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
     const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
