@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.0.1 version consistency
+      - name: Verify Folio 2.0.2 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.0.1") { throw "Windows release is scoped to Folio 2.0.1, found $version." }
+          if ($version -ne "2.0.2") { throw "Windows release is scoped to Folio 2.0.2, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -121,7 +121,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -ne 14) { throw "Folio 2.0 packaged app must expose exactly 14 curated themes, found $($themes.Count)." }
+            if ($themes.Count -ne 13) { throw "Folio 2.0 packaged app must expose exactly 13 curated themes, found $($themes.Count)." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
@@ -156,7 +156,7 @@ jobs:
 
             $printBody = @{ meta = $sample.meta; theme = "literary"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
-            if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page") { throw "Packaged print preview did not paginate." }
+            if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page" -or $printPreview.html -notmatch "Packaged preview probe") { throw "Packaged print preview did not paginate the selected live section." }
 
             foreach ($format in @("epub", "pdf", "print")) {
               $body = @{ format = $format; meta = $sample.meta; theme = "literary" }
@@ -214,4 +214,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.0.1 is a focused reliability patch: Recent Books now persists across app restarts and changing localhost ports instead of disappearing with browser-origin storage; asynchronous theme switching is qualified without racing the previous preview render; and the Windows package is revalidated end-to-end. The release is gated by typecheck, the complete formatter/UI suite on Linux and Windows, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 2.0.2 fixes visible 2.0.1 regressions: the Folio display face is used consistently for bold UI labels, Export is restored as a proper publishing control, Full-page Image behaves like the rest of Add Content and reliably opens image selection, Print Preview paginates the selected live section instead of reflowing the entire manuscript on every update, and Revenant is removed from the curated theme set. The release remains gated by typecheck, the complete formatter/UI suite on Linux and Windows, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
