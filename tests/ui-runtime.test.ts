@@ -485,7 +485,12 @@ await stage("Polish professional justification", async () => {
           .includes("W Polsce i na świecie najprawdopodobniej"));
       if (!paragraph) return false;
       paragraph.dataset.folioQaPolish = "true";
-      if (!paragraph.classList.contains("folio-composed")) return false;
+      if (!paragraph.classList.contains("folio-composed")) {
+        // The authoritative preview can replace the iframe after the paragraph was first made visible.
+        // Bring the replacement into view again so the lazy compositor observes and composes it.
+        paragraph.scrollIntoView({ block: "center" });
+        return false;
+      }
       const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
       return /^pl(?:-|$)/i.test(paragraph.dataset.folioCompositionLanguage ?? "") &&
         lines.length > 1 &&
