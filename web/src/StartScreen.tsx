@@ -28,7 +28,7 @@ function projectMonogram(project: RecentProject): string {
   return (project.title.trim()[0] || "F").toLocaleUpperCase();
 }
 
-export default function StartScreen(props: { onOpenPath: (path: string) => void }) {
+export default function StartScreen(props: { onOpenPath: (path: string) => void; onOpenSample: () => void }) {
   const [recent, setRecent] = useState<RecentProject[]>(() => readRecentProjects());
   const [busy, setBusy] = useState<"open" | "new" | "create" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +104,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => void 
             <button className="start-button" disabled={busy !== null} onClick={() => void chooseExisting()}>
               {busy === "open" ? "Opening…" : "Open Book…"}
             </button>
+            <button className="start-button sample" disabled={busy !== null} onClick={props.onOpenSample}>Open Sample</button>
           </div>
           {error && <button className="start-error" onClick={() => setError(null)}>{error}</button>}
         </section>
