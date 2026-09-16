@@ -96,7 +96,8 @@ jobs:
           git diff --name-only
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw "git diff --check failed" }
-          if (-not (git diff --quiet)) { throw "Quality gate modified tracked product files." }
+          git diff --quiet
+          if ($LASTEXITCODE -ne 0) { throw "Quality gate modified tracked product files." }
 
       - name: Upload visual QA proof
         uses: actions/upload-artifact@v4
