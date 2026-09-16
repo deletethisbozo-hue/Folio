@@ -23,7 +23,7 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
     const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, target === "print" ? "print" : "html");
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.themeCss, "utf8");
-    const css = [path.join(THEMES_DIR, "base.css"), runtimeThemePath];
+    const css = [path.join(THEMES_DIR, "base.css"), path.join(THEMES_DIR, "image-page.css"), runtimeThemePath];
     if (target === "print" && (await fileExists(printCss(book.meta.theme)))) {
       css.push(printCss(book.meta.theme));
     }
