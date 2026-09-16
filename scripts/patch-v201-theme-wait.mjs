@@ -1,5 +1,7 @@
 import { promises as fs } from "node:fs";
 
+// Final 2.0.1 qualification repair: wait for the reader iframe to actually
+// finish switching themes instead of sampling the previous async render.
 const file = "tests/ui-runtime.test.ts";
 let source = await fs.readFile(file, "utf8");
 const before = `  await page.click('.theme-sample[data-theme="blackletter"]');
