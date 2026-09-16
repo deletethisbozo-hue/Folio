@@ -89,10 +89,9 @@ jobs:
       - name: Verify clean qualified tree
         shell: pwsh
         run: |
-          # Theme fonts are intentionally hydrated from pinned Google Fonts assets
-          # during the build. Restore that deterministic build-time cache before
-          # checking whether tests or QA mutated any actual product source files.
-          git restore --worktree -- themes/fonts
+          # Theme fonts are a deterministic untracked build-time cache. The
+          # source-integrity gate intentionally checks tracked product changes;
+          # generated/untracked QA and font assets are not product mutations.
           git status --short
           git diff --name-only
           git diff --check
