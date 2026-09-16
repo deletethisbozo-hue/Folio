@@ -1143,16 +1143,40 @@ function installObserver(
     if (queue.length) request();
   };
 
+  const composeVisibleAnchor = () => {
+    if (compositionGeneration.get(document) !== generation) return;
+    const viewportWidth = document.documentElement.clientWidth || view.innerWidth;
+    const viewportHeight = view.innerHeight || document.documentElement.clientHeight;
+    if (viewportWidth <= 0 || viewportHeight <= 0) return;
+    const x = Math.max(1, Math.min(viewportWidth - 1, Math.floor(viewportWidth / 2)));
+    const ys = [0.5, 0.32, 0.68, 0.18, 0.82].map((ratio) =>
+      Math.max(1, Math.min(viewportHeight - 1, Math.floor(viewportHeight * ratio))),
+    );
+    for (const y of ys) {
+      for (const element of document.elementsFromPoint(x, y)) {
+        const paragraph = element.closest<HTMLElement>(PROSE_SELECTOR);
+        if (!paragraph || !paragraph.isConnected || paragraph.classList.contains("folio-composed")) continue;
+        observer.unobserve(paragraph);
+        queued.delete(paragraph);
+        composeParagraph(paragraph, language, sectionStatsFor(paragraph, statsBySection));
+        return;
+      }
+    }
+  };
+
   const onScroll = () => {
     scrolling = true;
     if (scrollTimer !== null) view.clearTimeout(scrollTimer);
     scrollTimer = view.setTimeout(() => {
       scrolling = false;
       scrollTimer = null;
+      composeVisibleAnchor();
       if (queue.length) request();
     }, 110);
   };
   view.addEventListener("scroll", onScroll, { passive: true, capture: true });
+  document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+  const visibleAnchorTimers = [0, 180, 700].map((delay) => view.setTimeout(composeVisibleAnchor, delay));
 
   observer = new view.IntersectionObserver((entries) => {
     if (compositionGeneration.get(document) !== generation) return;
@@ -1175,7 +1199,9 @@ function installObserver(
   const cleanup = () => {
     observer.disconnect();
     view.removeEventListener("scroll", onScroll, true);
+    document.removeEventListener("scroll", onScroll, true);
     if (scrollTimer !== null) view.clearTimeout(scrollTimer);
+    visibleAnchorTimers.forEach((timer) => view.clearTimeout(timer));
   };
   compositionObservers.set(document, observer);
   compositionCleanups.set(document, cleanup);
