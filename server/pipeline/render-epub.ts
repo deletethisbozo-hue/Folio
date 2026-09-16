@@ -64,7 +64,7 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
     const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, "epub");
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.css, "utf8");
-    const cssFiles = [path.join(THEMES_DIR, "base.css"), runtimeThemePath];
+    const cssFiles = [path.join(THEMES_DIR, "base.css"), path.join(THEMES_DIR, "image-page.css"), runtimeThemePath];
 
     // Custom fonts + per-class style overrides.
     const docCss = await buildDocCss(book, "epub", { embedFonts: preset.embedFonts });
