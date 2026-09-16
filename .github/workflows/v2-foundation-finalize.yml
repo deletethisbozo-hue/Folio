@@ -22,6 +22,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
+      - name: Repair generated finalizer quoting
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/finalize-v2-foundation.mjs')
+          s = p.read_text()
+          s = s.replace('\\\\`', '\\`')
+          s = s.replace('${newUni.size}', '\\${newUni.size}')
+          s = s.replace('${INTENDED.size}', '\\${INTENDED.size}')
+          p.write_text(s)
+          PY
       - name: Apply final 2.0 foundation cleanup
         run: node scripts/finalize-v2-foundation.mjs
       - name: Commit finalization
