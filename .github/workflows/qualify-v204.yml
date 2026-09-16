@@ -31,7 +31,7 @@ jobs:
         run: |
           mkdir -p build/pandoc build/pandoc-unpack
           curl -L --fail -o build/pandoc.tar.gz https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz
-          echo '2229a596a9d75fb17e4ae8896e2921fc4baf60e2ef115b154cdb34560a4dbd26  build/pandoc.tar.gz' | sha256sum -c -
+          echo '37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc.tar.gz' | sha256sum -c -
           tar -xzf build/pandoc.tar.gz -C build/pandoc-unpack --strip-components=1
           cp build/pandoc-unpack/bin/pandoc build/pandoc/pandoc
           chmod +x build/pandoc/pandoc
