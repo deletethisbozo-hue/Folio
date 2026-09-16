@@ -2,9 +2,10 @@ name: Folio 2.0 composition test patch
 
 on:
   push:
-    branches: ["release/v2.0.0"]
+    branches:
+      - release/v2.0.0
     paths:
-      - ".github/workflows/v2-fix-composition-flake.yml"
+      - .github/workflows/v2-fix-composition-flake.yml
 
 permissions:
   contents: write
@@ -17,30 +18,19 @@ jobs:
         with:
           ref: release/v2.0.0
           fetch-depth: 0
-      - name: Make Polish composition wait survive authoritative iframe replacement
-        shell: python
+      - name: Patch lazy composition wait
         run: |
+          python - <<'PY'
           from pathlib import Path
-          path = Path("tests/ui-runtime.test.ts")
-          text = path.read_text(encoding="utf-8")
-          old = '''      paragraph.dataset.folioQaPolish = "true";
-      if (!paragraph.classList.contains("folio-composed")) return false;
-      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];'''
-          new = '''      paragraph.dataset.folioQaPolish = "true";
-      if (!paragraph.classList.contains("folio-composed")) {
-        // The authoritative preview can replace the iframe after the paragraph was
-        // first scrolled into view. The replacement must be made visible again so
-        // the lazy compositor's IntersectionObserver gets a chance to compose it.
-        paragraph.scrollIntoView({ block: "center" });
-        return false;
-      }
-      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];'''
+          path = Path('tests/ui-runtime.test.ts')
+          text = path.read_text(encoding='utf-8')
+          old = '      paragraph.dataset.folioQaPolish = "true";\n      if (!paragraph.classList.contains("folio-composed")) return false;\n      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];'
+          new = '      paragraph.dataset.folioQaPolish = "true";\n      if (!paragraph.classList.contains("folio-composed")) {\n        // The authoritative preview can replace the iframe after the paragraph was first made visible.\n        // Bring the replacement into view again so the lazy compositor observes and composes it.\n        paragraph.scrollIntoView({ block: "center" });\n        return false;\n      }\n      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];'
           if old not in text:
-              raise SystemExit("Polish composition wait block was not found")
-          text = text.replace(old, new, 1)
-          path.write_text(text, encoding="utf-8")
+              raise SystemExit('Polish composition wait block was not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Commit regression-test fix
-        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
