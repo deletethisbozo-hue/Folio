@@ -8,6 +8,13 @@ function replaceOnce(path, from, to) {
   write(path, src.replace(from, to));
 }
 
+// Keep one icon source for builder + BrowserWindow. electron-builder accepts PNG
+// on Windows and this avoids pointing at a non-existent folio.ico.
+const pkg = JSON.parse(read('package.json'));
+pkg.build.files = (pkg.build.files ?? []).filter((item) => item !== 'assets/folio.ico');
+pkg.build.win.icon = 'assets/folio-icon.png';
+write('package.json', JSON.stringify(pkg, null, 2) + '\n');
+
 let oldTest = read('tests/illustration-ui.test.ts');
 oldTest = oldTest.replaceAll('includes("{.folio-illustration}")', 'includes("{.folio-illustration")');
 oldTest = oldTest.replace(
@@ -37,5 +44,20 @@ const previewAnchor = '    .replace(/<button\\b[^>]*class="editor-illustration-r
 if (!rich.includes(previewAnchor)) throw new Error('Could not find illustration preview cleanup anchor.');
 rich = rich.replace(previewAnchor, '    .replace(/<div\\b[^>]*class="editor-illustration-controls"[^>]*>[\\s\\S]*?<\\/div>/g, "")\n' + previewAnchor);
 write('web/src/rich-text.ts', rich);
+
+// Turn the two opaque timeouts into useful assertions. If an asset fails to
+// load, CI prints its URL, HTTP status, editor Markdown and visible error text.
+const oldWait = `  await page.waitForFunction(() => {\n    const figure = document.querySelector<HTMLElement>(".editor-illustration");\n    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");\n    const remove = figure?.querySelector<HTMLButtonElement>(".editor-illustration-remove");\n    const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";\n    return Boolean(image?.complete && image.naturalWidth > 0 && remove && image.dataset.folioAsset?.startsWith("assets/") && markdown.includes("{.folio-illustration"));\n  });`;
+const oldDiag = `  await page.waitForSelector(".editor-illustration", { timeout: 8000 });\n  await new Promise((resolve) => setTimeout(resolve, 350));\n  const inserted = await page.evaluate(async () => {\n    const figure = document.querySelector<HTMLElement>(".editor-illustration");\n    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");\n    const remove = figure?.querySelector<HTMLButtonElement>(".editor-illustration-remove");\n    const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";\n    let status = 0; let body = "";\n    if (image?.src) { try { const response = await fetch(image.src); status = response.status; if (!response.ok) body = (await response.text()).slice(0, 240); } catch (error) { body = String(error); } }\n    return { ok: Boolean(image?.complete && image.naturalWidth > 0 && remove && image.dataset.folioAsset?.startsWith("assets/") && markdown.includes("{.folio-illustration")), src: image?.src ?? "", complete: image?.complete ?? false, naturalWidth: image?.naturalWidth ?? 0, asset: image?.dataset.folioAsset ?? "", hasRemove: Boolean(remove), markdown, status, body, error: document.querySelector(".global-error")?.textContent ?? "" };\n  });\n  if (!inserted.ok) throw new Error("illustration insert diagnostic: " + JSON.stringify(inserted));`;
+if (!oldTest.includes(oldWait)) throw new Error('Could not find legacy illustration wait for diagnostics.');
+oldTest = oldTest.replace(oldWait, oldDiag);
+write('tests/illustration-ui.test.ts', oldTest);
+
+let previewTest = read('tests/illustration-preview-ui.test.ts');
+const previewWait = `  await page.waitForFunction(() => {\n    const figure = document.querySelector<HTMLElement>(".editor-illustration");\n    return Boolean(\n      figure?.querySelector(".editor-illustration-controls") &&\n      figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.naturalWidth\n    );\n  });`;
+const previewDiag = `  await page.waitForSelector(".editor-illustration", { timeout: 8000 });\n  await new Promise((resolve) => setTimeout(resolve, 350));\n  const first = await page.evaluate(async () => {\n    const figure = document.querySelector<HTMLElement>(".editor-illustration");\n    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");\n    let status = 0; let body = "";\n    if (image?.src) { try { const response = await fetch(image.src); status = response.status; if (!response.ok) body = (await response.text()).slice(0, 240); } catch (error) { body = String(error); } }\n    return { ok: Boolean(figure?.querySelector(".editor-illustration-controls") && image?.complete && image.naturalWidth > 0), controls: Boolean(figure?.querySelector(".editor-illustration-controls")), src: image?.src ?? "", complete: image?.complete ?? false, naturalWidth: image?.naturalWidth ?? 0, asset: image?.dataset.folioAsset ?? "", markdown: (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "", status, body, error: document.querySelector(".global-error")?.textContent ?? "" };\n  });\n  if (!first.ok) throw new Error("illustration preview diagnostic: " + JSON.stringify(first));`;
+if (!previewTest.includes(previewWait)) throw new Error('Could not find preview illustration wait for diagnostics.');
+previewTest = previewTest.replace(previewWait, previewDiag);
+write('tests/illustration-preview-ui.test.ts', previewTest);
 
 console.log('Applied Folio 2.0.4 illustration follow-up.');
