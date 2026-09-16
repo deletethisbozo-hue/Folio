@@ -25,7 +25,10 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 const fixture = path.join(os.tmpdir(), `folio-inline-illustration-${Date.now()}.png`);
-await fs.writeFile(fixture, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
+const persistedFixture = path.join(os.tmpdir(), `folio-inline-illustration-persisted-${Date.now()}.png`);
+const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+await fs.writeFile(fixture, pixel);
+await fs.writeFile(persistedFixture, pixel);
 
 console.log("\nFolio front matter illustration UI");
 try {
@@ -68,6 +71,19 @@ try {
   });
   check("choosing a PNG inserts a visible illustration and semantic Markdown", true);
 
+  await page.$eval(".editor-illustration-remove", (button) => (button as HTMLButtonElement).click());
+  await page.waitForFunction(() => !document.querySelector(".editor-illustration") && !(document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown?.includes("{.folio-illustration}"));
+  check("front-matter illustration can be removed from the editor", true);
+
+  const inputAgain = await page.$(".illustration-input");
+  if (!inputAgain) throw new Error("Illustration file input disappeared after removal");
+  await inputAgain.uploadFile(persistedFixture);
+  await page.waitForFunction(() => {
+    const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
+    const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
+    return Boolean(image?.complete && image.naturalWidth > 0 && image.dataset.folioAsset?.startsWith("assets/") && markdown.includes("{.folio-illustration}"));
+  });
+
   await page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 });
   const beforeReload = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
   check("inline illustration reaches autosave", /!\[[^\]]+\]\(assets\/[a-z0-9._-]+\.png\)\{\.folio-illustration\}/i.test(beforeReload), beforeReload);
@@ -76,29 +92,34 @@ try {
     const request = response.request();
     return request.method() === "POST" && new URL(response.url()).pathname.endsWith("/reload") && response.ok();
   }, { timeout: 30000 });
-  const sectionResponse = page.waitForResponse((response) => {
-    const request = response.request();
-    const pathname = new URL(response.url()).pathname;
-    return request.method() === "GET" && /\/api\/projects\/[^/]+\/sections\/[^/]+$/.test(pathname) && response.ok();
-  }, { timeout: 30000 });
-
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
   await reloadResponse;
-  await sectionResponse;
+  await page.waitForFunction(() => [...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Preface")), { timeout: 30000 });
+
+  await page.evaluate(() => {
+    const chapter = document.querySelector<HTMLElement>(".contents-row.chapter-row");
+    if (!chapter) throw new Error("Sample chapter row is missing after project reload");
+    chapter.click();
+  });
+  await page.waitForFunction(() => {
+    const selected = document.querySelector(".contents-row.selected");
+    const editor = document.querySelector<HTMLElement>('.rich-editor[contenteditable="true"]');
+    return Boolean(selected && !selected.textContent?.includes("Preface") && editor);
+  }, { timeout: 30000 });
+
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLElement>(".contents-row")].find((item) => item.textContent?.includes("Preface"));
+    if (!row) throw new Error("Preface row is missing after project reload");
+    row.click();
+  });
   await page.waitForFunction(() => {
     const selected = document.querySelector(".contents-row.selected")?.textContent?.includes("Preface");
     const editor = document.querySelector<HTMLElement>('.rich-editor[contenteditable="true"]');
-    const figure = editor?.querySelector<HTMLElement>(".editor-illustration");
-    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
-    const remove = figure?.querySelector<HTMLButtonElement>(".editor-illustration-remove");
+    const image = editor?.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
     const markdown = editor?.dataset.markdown ?? "";
-    return Boolean(selected && image?.complete && image.naturalWidth > 0 && remove && markdown.includes("{.folio-illustration}"));
+    return Boolean(selected && image?.complete && image.naturalWidth > 0 && markdown.includes("{.folio-illustration}"));
   }, { timeout: 30000 });
   check("saved front-matter illustration survives a real project reload", true);
-
-  await page.$eval(".editor-illustration-remove", (button) => (button as HTMLButtonElement).click());
-  await page.waitForFunction(() => !document.querySelector(".editor-illustration") && !(document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown?.includes("{.folio-illustration}"));
-  check("front-matter illustration can be removed from the editor", true);
 } catch (error) {
   failed++;
   console.error("✗ browser illustration scenario completed");
@@ -106,7 +127,7 @@ try {
 } finally {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
-  await fs.rm(fixture, { force: true });
+  await Promise.all([fs.rm(fixture, { force: true }), fs.rm(persistedFixture, { force: true })]);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
