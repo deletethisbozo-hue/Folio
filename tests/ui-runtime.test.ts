@@ -65,7 +65,15 @@ try {
   await stage("sample rich editor", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
   check("sample opens in a genuinely editable rich-text surface", await page.$eval(".rich-editor", (el) => (el as HTMLElement).contentEditable === "true"));
 
-  await page.click(".contents-row:not(.chapter-row)");
+  await page.click(".cover-row");
+  await stage("cover workspace", () => page.waitForSelector(".cover-editor-panel"));
+  await stage("cover preview image", () => page.waitForFunction(() => {
+    const image = document.querySelector(".cover-preview-surface img") as HTMLImageElement | null;
+    return Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0);
+  }));
+  check("cover is a first-class workspace item and appears in device preview", true);
+
+  await page.click(".contents-row:not(.chapter-row):not(.cover-row)");
   await stage("generated title page", () => page.waitForSelector('.rich-editor[contenteditable="false"]'));
   await stage("title page authoritative preview", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.titlepage .tp-author"))));
   const generatedPage = await page.evaluate(() => {
@@ -80,7 +88,7 @@ try {
   });
   check("generated title page never exposes internal HTML in editor or preview", !generatedPage.visibleEditorText.includes("<p class=") && !generatedPage.visiblePreviewText.includes("<p class="));
   check("title/front matter receives neither drop caps nor discretionary hyphens", !generatedPage.hasDropcap && !generatedPage.hasTitleHyphen);
-  const frontRowsBeforeDelete = await page.$$eval(".contents-list > .contents-row:not(.chapter-row)", (rows) => rows.length);
+  const frontRowsBeforeDelete = await page.$$eval(".contents-list > .contents-row:not(.chapter-row):not(.cover-row)", (rows) => rows.length);
   await stage("generated front matter delete button ready", () => page.waitForFunction(() => {
     const button = document.querySelector(".section-delete") as HTMLButtonElement | null;
     return Boolean(button && !button.disabled);
@@ -96,7 +104,7 @@ try {
     throw new Error(`Generated front matter DELETE failed with HTTP ${deletionResponse.status()}: ${await deletionResponse.text()}`);
   }
   await stage("generated front matter deletion", () => page.waitForFunction((before) =>
-    document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row)").length === before - 1,
+    document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row):not(.cover-row)").length === before - 1,
     { timeout: 30000 },
     frontRowsBeforeDelete,
   ));
