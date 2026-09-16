@@ -1,0 +1,37 @@
+name: Apply Folio 2.0 narrow preview regression fix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [release/v2.0.0]
+    paths:
+      - scripts/patch-v2-ui-narrow-test.mjs
+      - .github/workflows/v2-ui-narrow-test-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v2.0.0
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+      - name: Patch narrow device regression coverage
+        run: node scripts/patch-v2-ui-narrow-test.mjs
+      - name: Commit patched test and remove one-shot machinery
+        run: |
+          git config user.name "deletethisbozo-hue"
+          git config user.email "deletethisbozo@gmail.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Make narrow preview regression follow visible prose"
+          git push origin HEAD:release/v2.0.0
