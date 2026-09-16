@@ -1,3 +1,4 @@
+# one-shot assertion repair; delete after the feature branch is green
 name: Repair grouped preview runtime assertions
 
 on:
