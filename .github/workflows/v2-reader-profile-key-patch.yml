@@ -1,0 +1,32 @@
+name: Apply Folio 2.0 reader profile remount fix
+
+on:
+  push:
+    branches: [release/v2.0.0]
+    paths:
+      - scripts/patch-v2-reader-profile-key.mjs
+      - .github/workflows/v2-reader-profile-key-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v2.0.0
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+      - name: Patch reader profile iframe identity
+        run: node scripts/patch-v2-reader-profile-key.mjs
+      - name: Commit product fix and remove one-shot machinery
+        run: |
+          git config user.name "deletethisbozo-hue"
+          git config user.email "deletethisbozo@gmail.com"
+          git add -A
+          git commit -m "Keep live reader DOM across device profile changes"
+          git push origin HEAD:release/v2.0.0
