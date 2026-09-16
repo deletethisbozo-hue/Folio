@@ -5,6 +5,7 @@ on:
     branches: ["fix/v2.0.2-ui-print-images"]
     paths:
       - "scripts/apply-v202-hotfix.mjs"
+      - "scripts/v202-remove-revenant-leftovers.mjs"
       - ".github/workflows/apply-v202-hotfix.yml"
   workflow_dispatch:
 
@@ -32,6 +33,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Remove remaining Revenant references
+        run: node scripts/v202-remove-revenant-leftovers.mjs
       - name: Apply 2.0.2 corrections
         run: node scripts/apply-v202-hotfix.mjs
       - name: Typecheck corrected product
@@ -43,7 +46,7 @@ jobs:
       - name: Commit qualified product changes
         shell: bash
         run: |
-          git restore scripts/apply-v202-hotfix.mjs .github/workflows/apply-v202-hotfix.yml
+          git restore scripts/apply-v202-hotfix.mjs scripts/v202-remove-revenant-leftovers.mjs .github/workflows/apply-v202-hotfix.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
