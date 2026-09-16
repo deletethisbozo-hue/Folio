@@ -78,7 +78,8 @@ try {
   }, { timeout: 30000 });
   check("saved front-matter illustration survives a real project reload", true);
 
-  await page.click(".editor-illustration-remove");
+  await page.waitForSelector(".editor-illustration-remove");
+  await page.$eval(".editor-illustration-remove", (button) => (button as HTMLButtonElement).click());
   await page.waitForFunction(() => !document.querySelector(".editor-illustration") && !(document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown?.includes("{.folio-illustration}"));
   check("front-matter illustration can be removed from the editor", true);
 } catch (error) {
