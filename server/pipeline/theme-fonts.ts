@@ -70,7 +70,6 @@ const BODY_FONT_OVERRIDES: Partial<Record<ThemeName, FontKey>> = {
   nocturne: "garamond",
   obsidian: "garamond",
   cathedral: "garamond",
-  revenant: "garamond",
   editorial: "vollkorn",
   scholar: "vollkorn",
   folio: "vollkorn",

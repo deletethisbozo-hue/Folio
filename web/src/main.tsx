@@ -13,6 +13,7 @@ import "./theme-fonts.css";
 import "./start-screen.css";
 import "./cover-workspace.css";
 import "./image-page-workspace.css";
+import "./ui-polish.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);

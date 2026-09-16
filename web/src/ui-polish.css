@@ -1,0 +1,68 @@
+:root {
+  --folio-ui-display: Georgia, "Times New Roman", serif;
+}
+
+/* Product rule: every intentionally bold UI label uses the Folio wordmark face.
+ * Body copy, manuscript text and book-preview typography remain untouched. */
+.start-shell :is(strong, b, h1, h2, h3, h4, h5, h6),
+.start-shell :is(.start-brand, .start-mark, .start-kicker, .recent-eyebrow, .start-modal-head p, .start-button, .recent-meta strong, .recent-path b, .start-folder-summary span, .start-field > span),
+.folio-shell :is(strong, b, h1, h2, h3, h4, h5, h6),
+.folio-shell :is(.command-wordmark, .pane-label, .book-title, .contents-heading, .topbar-title, .section-index, .section-title, .section-title-button, .section-title-input, .style-category-list button.active, .native-button.primary, .theme-name, .style-library-footer strong, .ornament-heading span) {
+  font-family: var(--folio-ui-display) !important;
+}
+
+/* Export is a primary publishing action, not a 9px faux-native afterthought. */
+.folio-shell[data-ui-tone] .generate-button {
+  height: 30px;
+  min-width: 82px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 3px;
+  background: var(--studio-control);
+  color: var(--studio-ink);
+  box-shadow: none;
+  font-family: var(--folio-ui-display);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.folio-shell[data-ui-tone] .generate-button::after {
+  content: "⌄";
+  color: var(--studio-muted);
+  font: 600 11px/1 system-ui, sans-serif;
+  transform: translateY(-1px);
+}
+
+.folio-shell[data-ui-tone] .generate-button:hover,
+.folio-shell[data-ui-tone] .generate-wrap:has(.generate-menu) .generate-button {
+  border-color: var(--studio-accent);
+  background: var(--studio-accent-soft);
+}
+
+.folio-shell[data-ui-tone] .generate-menu {
+  top: 35px;
+  width: 210px;
+  padding: 4px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 3px;
+  background: var(--studio-chrome);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .16);
+  backdrop-filter: none;
+}
+
+.folio-shell[data-ui-tone] .generate-menu button {
+  height: 31px;
+  border-radius: 2px;
+  color: var(--studio-ink);
+  cursor: pointer;
+}
+
+.folio-shell[data-ui-tone] .generate-menu button:hover {
+  background: var(--studio-accent-soft);
+}

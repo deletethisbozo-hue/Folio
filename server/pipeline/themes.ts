@@ -31,11 +31,10 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   runestone: { name: "runestone", label: "Runestone", description: "Angular Nordic display type and carved dividers with a clean reading face.", sceneOrnament: "◇ ◆ ◇", dropcap: false, chapterLabel: "RUNE 01", previewFont: "Georgia, serif", previewHeadingFont: "Copperplate, Arial Narrow, sans-serif", previewAccent: "#405868", previewPaper: "#f2f5f3" },
   witchlight: { name: "witchlight", label: "Witchlight", description: "Elegant occult fantasy with violet ink, star points and whispered italics.", sceneOrnament: "✦", dropcap: true, chapterLabel: "I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#60446f", previewPaper: "#f7f3f6" },
   ironbound: { name: "ironbound", label: "Ironbound", description: "Heavy forged headings, boxed numerals and disciplined military-fantasy rhythm.", sceneOrnament: "■", dropcap: false, chapterLabel: "01", previewFont: "Charter, Georgia, serif", previewHeadingFont: "Rockwell, Arial Black, serif", previewAccent: "#333b3d", previewPaper: "#f4f1e9" },
-  revenant: { name: "revenant", label: "Revenant", description: "Pale spectral restraint, narrow titles and a haunting offset chapter mark.", sceneOrnament: "☾", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif", previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#52616b", previewPaper: "#f1f4f3" },
 };
 
 export const SUPPORTED_THEMES = [
-  "blackletter", "stanza", "witchlight", "revenant", "solstice", "literary", "nocturne",
+  "blackletter", "stanza", "witchlight", "solstice", "literary", "nocturne",
   "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade",
 ] as const satisfies readonly ThemeName[];
 

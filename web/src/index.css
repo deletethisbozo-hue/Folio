@@ -265,8 +265,6 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-witchlight { align-items:flex-end; text-align:right; }
 .theme-witchlight .sample-title { padding-right:9px; border-right:3px solid #745683; color:#60446f; font:italic 18px Baskerville,Georgia,serif; }
 .theme-ironbound .sample-title { padding:7px; border:3px solid #3e4749; font:700 16px Rockwell,Georgia,serif; text-transform:uppercase; }
-.theme-revenant .sample-chapter { margin-left:-45px; letter-spacing:.22em; }
-.theme-revenant .sample-title { font:400 18px Didot,Georgia,serif; font-style:normal; letter-spacing:.12em; }
 .style-library-footer { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 0 14px 0 18px; border-top: 1px solid #c9c8c3; background: linear-gradient(#f4f3ef,#e8e7e2); }
 .style-library-footer>div { min-width: 0; display: flex; flex-direction: column; }
 .style-library-footer strong { font-size: 10px; }

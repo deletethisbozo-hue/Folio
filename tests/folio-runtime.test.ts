@@ -42,8 +42,8 @@ check("unsupported legacy themes migrate to Literary", retiredTheme.status === 2
 await fs.rm(retiredThemeDir, { recursive: true, force: true });
 
 const themes = await json("/api/themes");
-const expectedThemes = ["blackletter", "stanza", "witchlight", "revenant", "solstice", "literary", "nocturne", "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade"];
-check("Folio 2.0 registers exactly the 14 curated themes", themes.body.length === expectedThemes.length && expectedThemes.every((name) => themes.body.some((theme: any) => theme.name === name)), themes.body.map((theme: any) => theme.name).join(", "));
+const expectedThemes = ["blackletter", "stanza", "witchlight", "solstice", "literary", "nocturne", "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade"];
+check("Folio 2.0 registers exactly the 13 curated themes", themes.body.length === expectedThemes.length && expectedThemes.every((name) => themes.body.some((theme: any) => theme.name === name)), themes.body.map((theme: any) => theme.name).join(", "));
 for (const theme of themes.body) {
   const css = await fs.readFile(themeCss(theme.name), "utf8");
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);

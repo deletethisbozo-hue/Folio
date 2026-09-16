@@ -1,40 +1,39 @@
 .content-image-kind {
   position: relative;
-  display: grid;
-  gap: 3px;
+}
+
+/* The Full-page Image action is deliberately the same row component as the
+ * other front-matter actions. No one needs a mystery card inside a plain list. */
+.content-kind-group .content-image-kind {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  min-height: 58px;
-  padding: 11px 12px;
-  border: 1px solid rgba(123, 105, 80, .28);
+  height: 31px;
+  min-height: 31px;
+  padding: 0 9px;
+  border: 0;
   border-radius: 4px;
-  background: rgba(255, 255, 255, .36);
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.content-image-kind:hover {
-  border-color: rgba(134, 93, 43, .48);
-  background: rgba(255, 255, 255, .52);
-}
-
-.content-image-kind span {
-  color: var(--ui-text, #302a24);
-  font-weight: 600;
-}
-
-.content-image-kind small {
-  color: var(--ui-muted, #786d61);
-  font-size: 11px;
-}
-
-.content-image-kind input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 10px;
   cursor: pointer;
 }
 
-.content-image-kind:has(input:disabled) {
-  opacity: .55;
-  cursor: default;
+.content-kind-group .content-image-kind:hover:not(:disabled) {
+  background: #e5e4df;
+}
+
+.content-image-input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
 }

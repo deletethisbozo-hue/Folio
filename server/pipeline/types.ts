@@ -28,8 +28,7 @@ export type ThemeName =
   | "wyrmwood"
   | "runestone"
   | "witchlight"
-  | "ironbound"
-  | "revenant";
+  | "ironbound";
 export type PresetName = "kdp" | "universal";
 
 export interface BookMeta {
