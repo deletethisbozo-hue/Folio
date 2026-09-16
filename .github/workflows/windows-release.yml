@@ -154,7 +154,15 @@ jobs:
             $deleted = Invoke-RestMethod -Method Delete "$base/api/projects/$($sample.projectId)/sections/$renamedId"
             if (-not $deleted.ok) { throw "Packaged chapter delete failed." }
 
-            $printBody = @{ meta = $sample.meta; theme = "literary"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
+            # Structural mutations return fresh summaries in the real UI. Mirror that
+            # client contract here instead of deliberately sending an id captured
+            # before add/rename/delete operations.
+            $current = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/projects/$($sample.projectId)/reload"
+            $currentChapter = $current.sections | Where-Object { $_.kind -eq "chapter" -and $_.title -eq $saved.title } | Select-Object -First 1
+            if (-not $currentChapter) { throw "Packaged sample lost the originally edited chapter after structural mutations." }
+            Write-Host "Packaged section identity after mutations: before=$($chapter.id) after=$($currentChapter.id)"
+
+            $printBody = @{ meta = $current.meta; theme = "literary"; typography = @{}; previewSectionId = $currentChapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
             $printText = [System.Net.WebUtility]::HtmlDecode([regex]::Replace([string]$printPreview.html, '<[^>]+>', ' '))
             $printText = (($printText -replace [char]0x00AD, '') -replace '\s+', ' ').Trim()
@@ -165,7 +173,7 @@ jobs:
             if (-not $hasPages -or -not $hasPagedDom -or -not $hasDraft) { throw "Packaged print preview did not paginate the selected live section." }
 
             foreach ($format in @("epub", "pdf", "print")) {
-              $body = @{ format = $format; meta = $sample.meta; theme = "literary" }
+              $body = @{ format = $format; meta = $current.meta; theme = "literary" }
               if ($format -eq "epub") { $body["preset"] = "kdp" }
               if ($format -eq "print") { $body["print"] = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } }
               $export = Invoke-RestMethod -Method Post -ContentType "application/json" -Body ($body | ConvertTo-Json -Depth 10) "$base/api/projects/$($sample.projectId)/export"
