@@ -13,7 +13,7 @@ permissions:
 jobs:
   repair:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,6 +31,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
+      - name: Build web test harness
+        run: npm run build:web
       - name: UI runtime qualification
         run: node --import tsx tests/ui-runtime.test.ts
       - name: Commit repair
