@@ -38,11 +38,12 @@ await fs.mkdir(path.join(retiredThemeDir, "chapters"), { recursive: true });
 await fs.writeFile(path.join(retiredThemeDir, "book.yaml"), "title: Retired Theme\nauthor: Folio Test\nlanguage: en\ntheme: classic\nchapters: chapters\n");
 await fs.writeFile(path.join(retiredThemeDir, "chapters", "01.md"), "# One\n\nMigration probe.\n");
 const retiredTheme = await post("/api/projects/open-folder", { path: retiredThemeDir });
-check("retired Black Psalter projects migrate to Folio", retiredTheme.status === 200 && retiredTheme.body.meta.theme === "folio", retiredTheme.body.meta.theme);
+check("unsupported legacy themes migrate to Literary", retiredTheme.status === 200 && retiredTheme.body.meta.theme === "literary", retiredTheme.body.meta.theme);
 await fs.rm(retiredThemeDir, { recursive: true, force: true });
 
 const themes = await json("/api/themes");
-check("exactly 29 real themes are registered after retiring Black Psalter", themes.body.length === 29, String(themes.body.length));
+const expectedThemes = ["blackletter", "stanza", "witchlight", "revenant", "solstice", "literary", "necropolis", "nocturne", "obsidian", "grimoire", "ivory", "heritage", "decorative", "cloister", "cathedral", "aubade"];
+check("Folio 2.0 registers exactly the 16 curated themes", themes.body.length === expectedThemes.length && expectedThemes.every((name) => themes.body.some((theme: any) => theme.name === name)), themes.body.map((theme: any) => theme.name).join(", "));
 for (const theme of themes.body) {
   const css = await fs.readFile(themeCss(theme.name), "utf8");
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
@@ -142,13 +143,13 @@ const longDraft = Array.from({ length: 5200 }, (_, index) =>
   `Akapit ${index + 1}. Najprawdopodobniej profesjonalne formatowanie całej książki powinno zachowywać wszystkie akapity oraz wyróżnienia bez niekontrolowanych odstępów pomiędzy zwyczajnymi słowami podczas dokładnego podglądu czytnika${index === 5199 ? " WHOLE BOOK SERVER MARKER" : ""}.`,
 ).join("\n\n");
 const longPreview = await post(`/api/projects/${projectId}/preview`, {
-  meta: { ...sample.body.meta, language: "pl" }, theme: "folio", typography: { bodyAlign: "justify" }, previewSectionId: chapter.id, draft: longDraft,
+  meta: { ...sample.body.meta, language: "pl" }, theme: "literary", typography: { bodyAlign: "justify" }, previewSectionId: chapter.id, draft: longDraft,
 });
 check("100,000-word manuscript survives the exact Pandoc preview", longPreview.status === 200 && longPreview.body.html.includes("WHOLE BOOK SERVER MARKER") && longPreview.body.html.length > longDraft.length);
 check("justified preview carries professional hyphenation rules", longPreview.body.html.includes("hyphenate-limit-chars: 7 3 3") && longPreview.body.html.includes("text-align-last: left"));
 check("justification excludes and defensively centers ornamental breaks", longPreview.body.html.includes("section.chapter > p:not(.scene-break)") && longPreview.body.html.includes(".scene-break {") && longPreview.body.html.includes("text-align: center !important"));
 const polishSpacingPreview = await post(`/api/projects/${projectId}/preview`, {
-  meta: { ...sample.body.meta, language: "pl" }, theme: "folio", typography: { bodyAlign: "justify" }, previewSectionId: chapter.id, draft: "A kiedy i później w Polsce z przyjaciółmi.",
+  meta: { ...sample.body.meta, language: "pl" }, theme: "literary", typography: { bodyAlign: "justify" }, previewSectionId: chapter.id, draft: "A kiedy i później w Polsce z przyjaciółmi.",
 });
 check("Polish one-letter words stay with the following word", polishSpacingPreview.body.html.includes("\u00a0kiedy") && polishSpacingPreview.body.html.includes("i\u00a0później"));
 

@@ -1,172 +1,121 @@
-/* ============================================================
-   Chronicle — austere monastic / royal annal manuscript.
-   Red ruling, marginalia, narrow measure and sober rubrication.
-   ============================================================ */
-
+/* Cloister — illuminated monastic bookwork without fake immutable manuscript labels. */
 body {
   font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  line-height: 1.5;
-  color: #2b211a;
-  background: #ead9ae;
+  line-height: 1.52;
+  color: #2d241c;
+  background: #e9d8ae;
 }
-
-main.book { counter-reset: chronicle; }
-
+main.book { counter-reset: cloister; }
 section.chapter {
-  counter-increment: chronicle;
+  counter-increment: cloister;
   position: relative;
-  margin-left: 2.55em;
-  margin-right: .45em;
-  padding: 1.2em 1.18em 1.95em;
-  border-left: 1px solid #9e4d40;
-  border-right: 1px solid #9e4d40;
+  margin: 0 .55em;
+  padding: 1.5em 1.45em 2.2em 2.25em;
+  border-left: 2px solid #8f3129;
+  border-right: 1px solid rgba(126, 77, 48, .35);
   background:
-    repeating-linear-gradient(to bottom, transparent 0, transparent 1.47em, rgba(140, 61, 49, .028) 1.49em),
-    #eee1bc;
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.48em, rgba(124, 73, 45, .035) 1.51em),
+    #f0e2bd;
+  box-shadow: inset 8px 0 0 rgba(31, 82, 117, .055);
 }
-
 section.chapter::before {
-  content: "A.D.\A M·CC·LXVI\A\A DE\A ADVENTV\A REGIS\A\A ✠";
-  white-space: pre-line;
+  content: "";
   position: absolute;
-  left: -3.5em;
-  top: 4.9em;
-  width: 2.55em;
-  font-family: "Libre Caslon Text", Garamond, serif;
-  font-size: .59em;
-  font-style: italic;
-  line-height: 1.18;
-  text-align: center;
-  color: #87493d;
+  left: .46em;
+  top: 1.35em;
+  bottom: 1.35em;
+  width: .44em;
+  border-left: 1px solid #b39051;
+  border-right: 1px solid #b39051;
+  background: radial-gradient(circle at center, #275979 0 28%, transparent 31%) center .12em / 100% 1.45em repeat-y;
 }
-
-section.chapter::after {
-  content: "FOL. " counter(chronicle, decimal-leading-zero);
-  position: absolute;
-  top: .38em;
-  right: .68em;
-  font-family: Cinzel, "Times New Roman", serif;
-  font-size: .54em;
-  letter-spacing: .14em;
-  color: #8d4f42;
-}
-
 section.chapter > h1,
 h1.chapter {
   text-align: center;
-  margin: 1.12em 0 2.15em;
-  padding: .88em .55em .92em;
-  border-top: 1px solid #9f4a3e;
-  border-bottom: 1px solid #9f4a3e;
+  margin: .7em 0 2.15em;
+  padding: .35em .55em .9em;
   font-family: Cinzel, "Times New Roman", serif;
   font-size: 1.72em;
-  font-weight: 500;
-  line-height: 1.14;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #5b241d;
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: .075em;
+  color: #702a24;
 }
-
-section.chapter > h1::before {
-  content: "✠  CAPITVLVM " counter(chronicle, upper-roman) "  ✠";
-  display: block;
-  margin-bottom: .88em;
+section.chapter > h1::before,
+h1.chapter::before {
+  content: counter(cloister, upper-roman);
+  display: grid;
+  place-items: center;
+  width: 2.15em;
+  height: 2.15em;
+  box-sizing: border-box;
+  margin: 0 auto .72em;
+  border: 2px solid #b08c4e;
+  outline: 1px solid #275979;
+  outline-offset: -.34em;
+  background: #8f3129;
+  color: #f0d68a;
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: .37em;
-  font-weight: 650;
-  letter-spacing: .25em;
-  color: #362922;
-}
-
-section.chapter > h1::after {
-  content: "HIC INCIPIT · ANNO DOMINI";
-  display: block;
-  margin-top: .9em;
-  font-family: "Libre Caslon Text", Garamond, serif;
-  font-size: .36em;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: .13em;
-  color: #8c463a;
-}
-
-.chapter-subtitle {
-  margin: -1.78em 0 1.7em;
-}
-.chapter-subtitle p {
-  font-style: italic;
-  font-size: .95em;
-  color: #6d493f;
-}
-
-.dropcap {
-  margin: .02em .14em 0 0;
-  padding: .015em .055em .035em 0;
-  border-right: 1px solid rgba(143, 53, 43, .35);
-  font-family: "Libre Caslon Text", Garamond, Georgia, serif;
-  font-size: 4.1em;
+  font-size: .72em;
   font-weight: 700;
-  line-height: .78;
-  color: #913b30;
+  line-height: 1;
+  letter-spacing: .03em;
 }
-
-section.chapter > p:first-of-type {
-  padding-top: .2em;
+section.chapter > h1::after,
+h1.chapter::after {
+  content: "❦  ✦  ❦";
+  display: block;
+  margin-top: .78em;
+  padding-top: .72em;
+  border-top: 1px solid #b39156;
+  font-family: Georgia, serif;
+  font-size: .38em;
+  letter-spacing: .36em;
+  color: #285a79;
 }
-section.chapter > h1 + p::first-line,
-.chapter-subtitle + p::first-line,
+.chapter-subtitle { margin: -1.72em 0 1.9em; }
+.chapter-subtitle p { font-style: italic; color: #725044; }
+.dropcap {
+  margin: .04em .14em 0 0;
+  padding: .04em .12em .08em;
+  border: 2px solid #b39156;
+  background: #8f3129;
+  box-shadow: inset 0 0 0 2px rgba(240, 214, 138, .18);
+  font-family: Cinzel, "Times New Roman", serif;
+  font-size: 3.7em;
+  font-weight: 700;
+  line-height: .82;
+  color: #f0d68a;
+}
 section.chapter > p:first-of-type::first-line {
-  color: #81362c;
+  font-variant: small-caps;
+  letter-spacing: .025em;
+  color: #6f3028;
 }
-
-section.chapter > p:not(:first-of-type):not(.scene-break) {
-  text-indent: 1.15em;
-}
-
+section.chapter > p:not(:first-of-type):not(.scene-break) { text-indent: 1.08em; }
 .scene-break {
-  margin: 1.75em auto;
-  width: 72%;
-  color: #8b3c31;
-  font-size: .9em;
-  letter-spacing: .14em;
+  margin: 1.8em auto;
+  font-size: 1em;
+  letter-spacing: .28em;
+  color: #7f3029;
 }
-.scene-break::before,
-.scene-break::after {
-  content: "──────";
-  padding: 0 .65em;
-  color: #ad695c;
-  letter-spacing: -.08em;
-}
-
 section.titlepage > h1 {
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: 2.08em;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: #5f281f;
+  font-size: 2.18em;
+  letter-spacing: .085em;
+  color: #712b24;
 }
-.tp-subtitle {
-  font-style: italic;
-  color: #7d4d42;
-}
-.tp-author {
-  font-variant: small-caps;
-  letter-spacing: .12em;
-}
-
+.tp-subtitle { font-style: italic; color: #725044; }
+.tp-author { font-variant: small-caps; letter-spacing: .12em; color: #315d77; }
 section.frontmatter > h1,
 section.backmatter > h1 {
   text-align: center;
+  padding: .5em 0 .62em;
+  border-top: 1px solid #b39156;
+  border-bottom: 1px solid #b39156;
   font-family: Cinzel, "Times New Roman", serif;
-  font-size: 1.18em;
-  letter-spacing: .13em;
-  text-transform: uppercase;
-  color: #6b2e25;
-  border-top: 1px solid #b66a5d;
-  border-bottom: 1px solid #b66a5d;
-  padding: .55em 0;
+  font-size: 1.22em;
+  letter-spacing: .1em;
+  color: #702a24;
 }
-
-@media print {
-  section.chapter > h1 { margin-top: 1.35in; }
-}
+@media print { section.chapter > h1 { margin-top: 1.45in; } }

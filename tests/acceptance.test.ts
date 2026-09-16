@@ -115,30 +115,32 @@ const md = renderMarkdown(sample);
 // test silently had no baseline on any machine but the one that made it.
 const ref = JSON.parse(await fs.readFile(path.join(ROOT, "tests", "fixtures", "pipeline-reference.json"), "utf8"));
 
-// stylesheet1.css is base.css, stylesheet2.css is the selected theme,
-// and stylesheet3.css is buildDocCss(). Folio 1.0.5 intentionally changes all
-// three typography layers: base/theme preview corrections plus bounded/manual
-// hyphenation and scene-break isolation in generated document CSS. Every other
-// content, metadata, image, and font entry must remain byte-identical.
+// stylesheet1.css is base.css, stylesheet2.css is the image-page layer,
+// stylesheet3.css is the selected theme, and stylesheet4.css is buildDocCss().
+// Adding one CSS link deliberately changes every XHTML wrapper and nav.xhtml,
+// while their semantic book content and the rest of the archive must remain structurally stable.
 const INTENDED = new Set([
   "EPUB/styles/stylesheet1.css",
   "EPUB/styles/stylesheet2.css",
   "EPUB/styles/stylesheet3.css",
+  "EPUB/styles/stylesheet4.css",
 ]);
 const refUni = new Map<string, number>(Object.entries(ref.epubUniversal));
 const newUni = await entries(path.join(outDir, "sample-universal.epub"));
 const addedThemeFonts = [...newUni.keys()].filter((n) => /\.(ttf|otf|woff2?)$/i.test(n) && !refUni.has(n));
+const intentionalXhtmlWrapper = (name: string) => name === "EPUB/nav.xhtml" || /^EPUB\/text\/.*\.xhtml$/.test(name);
 const uniDiffs = [...newUni.entries()].filter(
-  ([n, s]) => !n.endsWith(".opf") && !INTENDED.has(n) && !addedThemeFonts.includes(n) && refUni.get(n) !== s,
+  ([n, s]) => !n.endsWith(".opf") && !INTENDED.has(n) && !intentionalXhtmlWrapper(n) && !addedThemeFonts.includes(n) && refUni.get(n) !== s,
+);
+const addedNonFontEntries = [...newUni.keys()].filter((name) => !refUni.has(name) && !addedThemeFonts.includes(name));
+check(
+  "epub (universal): image-page CSS changes wrappers but preserves archive structure",
+  uniDiffs.length === 0 && addedNonFontEntries.every((name) => name === "EPUB/styles/stylesheet4.css") && newUni.size === refUni.size + addedThemeFonts.length + 1,
+  uniDiffs.map(([n]) => n).join(", ") || addedNonFontEntries.join(", ") || `${newUni.size} entries`,
 );
 check(
-  "epub (universal): only the three intentional typography stylesheets changed",
-  uniDiffs.length === 0 && newUni.size === refUni.size + addedThemeFonts.length,
-  uniDiffs.map(([n]) => n).join(", ") || `${newUni.size} entries, ${INTENDED.size} intentionally changed`,
-);
-check(
-  "   all three intended stylesheets did change",
-  [...INTENDED].every((name) => newUni.get(name) !== refUni.get(name)),
+  "   all four intended stylesheets are present and differ from the legacy baseline",
+  [...INTENDED].every((name) => (newUni.get(name) ?? 0) > 0 && newUni.get(name) !== refUni.get(name)),
 );
 
 // KDP has no pre-work reference (the preset was inert, so both presets were the
