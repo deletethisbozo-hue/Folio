@@ -12,6 +12,10 @@
   text-transform: uppercase;
 }
 
+.format-toolbar.cover-toolbar {
+  display: none;
+}
+
 .cover-editor-panel {
   min-height: 100%;
   display: grid;
