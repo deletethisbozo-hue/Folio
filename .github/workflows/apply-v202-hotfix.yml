@@ -44,6 +44,8 @@ jobs:
           "$PANDOC_BIN" --version | head -n 1
       - name: Remove remaining Revenant references
         run: node scripts/v202-remove-revenant-leftovers.mjs
+      - name: Stage 2.0.1 release workflow anchors
+        run: git checkout origin/main -- .github/workflows/windows-release.yml
       - name: Apply 2.0.2 corrections
         run: node scripts/apply-v202-hotfix.mjs
       - name: Typecheck corrected product
