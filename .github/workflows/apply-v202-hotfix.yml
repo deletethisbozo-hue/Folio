@@ -33,6 +33,11 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Install Pandoc for formatter tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+          pandoc --version | head -1
       - name: Remove remaining Revenant references
         run: node scripts/v202-remove-revenant-leftovers.mjs
       - name: Apply 2.0.2 corrections
