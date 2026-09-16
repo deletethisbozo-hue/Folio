@@ -117,6 +117,9 @@ jobs:
             }
             if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged /api/health did not become ready with bundled Pandoc." }
 
+            # This browser smoke owns the semantic Print Preview check. It reads
+            # textContent from the actual packaged iframe after pagination, which
+            # is robust to Folio splitting hyphenation candidates into nested spans.
             node scripts\packaged-ui-smoke.mjs
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
@@ -154,23 +157,14 @@ jobs:
             $deleted = Invoke-RestMethod -Method Delete "$base/api/projects/$($sample.projectId)/sections/$renamedId"
             if (-not $deleted.ok) { throw "Packaged chapter delete failed." }
 
-            # Structural mutations return fresh summaries in the real UI. Mirror that
-            # client contract here instead of deliberately sending an id captured
-            # before add/rename/delete operations.
+            # Reload after structural mutations exactly as the UI does, then make
+            # sure the REST endpoint still returns a genuinely paginated document.
             $current = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/projects/$($sample.projectId)/reload"
             $currentChapter = $current.sections | Where-Object { $_.kind -eq "chapter" -and $_.title -eq $saved.title } | Select-Object -First 1
             if (-not $currentChapter) { throw "Packaged sample lost the originally edited chapter after structural mutations." }
-            Write-Host "Packaged section identity after mutations: before=$($chapter.id) after=$($currentChapter.id)"
-
             $printBody = @{ meta = $current.meta; theme = "literary"; typography = @{}; previewSectionId = $currentChapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
-            $printText = [System.Net.WebUtility]::HtmlDecode([regex]::Replace([string]$printPreview.html, '<[^>]+>', ' '))
-            $printText = (($printText -replace [char]0x00AD, '') -replace '\s+', ' ').Trim()
-            $hasPages = $printPreview.pages -ge 1
-            $hasPagedDom = [string]$printPreview.html -match "pagedjs_page"
-            $hasDraft = $printText -match "Packaged\s*preview\s*probe"
-            Write-Host "Packaged print preview diagnostics: pages=$($printPreview.pages) pagedDom=$hasPagedDom liveDraft=$hasDraft"
-            if (-not $hasPages -or -not $hasPagedDom -or -not $hasDraft) { throw "Packaged print preview did not paginate the selected live section." }
+            if ($printPreview.pages -lt 1 -or [string]$printPreview.html -notmatch "pagedjs_page") { throw "Packaged print-preview endpoint did not return paginated pages." }
 
             foreach ($format in @("epub", "pdf", "print")) {
               $body = @{ format = $format; meta = $current.meta; theme = "literary" }
