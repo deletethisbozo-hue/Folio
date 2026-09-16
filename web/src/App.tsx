@@ -97,13 +97,14 @@ function applyDraftDropcap(section: Element, enabled: boolean): void {
   }
 }
 
-export default function App() {
+export default function App({ initialProject = null }: { initialProject?: ProjectSummary | null } = {}) {
+  const initialSection = initialProject?.sections.find((section) => section.kind === "chapter") ?? initialProject?.sections[0] ?? null;
   const [themes, setThemes] = useState<Theme[]>([]);
   const [matterTypes, setMatterTypes] = useState<MatterType[]>([]);
-  const [project, setProject] = useState<ProjectSummary | null>(null);
-  const [meta, setMeta] = useState<BookMeta | null>(null);
-  const [typography, setTypography] = useState<Typography>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [project, setProject] = useState<ProjectSummary | null>(initialProject);
+  const [meta, setMeta] = useState<BookMeta | null>(initialProject?.meta ?? null);
+  const [typography, setTypography] = useState<Typography>(initialProject?.typography ?? {});
+  const [selectedId, setSelectedId] = useState<string | null>(initialSection?.id ?? null);
   const [sectionRevision, setSectionRevision] = useState(0);
   const [document, setDocument] = useState<SectionDocument | null>(null);
   const [draft, setDraft] = useState("");
@@ -227,6 +228,7 @@ export default function App() {
     Promise.all([api.themes(), api.matterTypes()])
       .then(([loadedThemes, loadedMatter]) => { setThemes(loadedThemes); setMatterTypes(loadedMatter); })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    if (initialProject) return;
     const params = new URLSearchParams(window.location.search);
     const bookPath = params.get("book")?.trim();
     if (bookPath) void openFolder(bookPath);
@@ -1091,9 +1093,10 @@ export default function App() {
     if (previewMode === "print") {
       doc.getElementById("folio-device-calibration")?.remove();
       const page = doc.querySelector(".pagedjs_page") as HTMLElement | null;
-      const width = page?.getBoundingClientRect().width || 576;
-      const scale = Math.min(1, (frame.clientWidth - 14) / width);
-      style.textContent = `.pagedjs_pages{transform:scale(${scale});transform-origin:top center;width:${100 / scale}%!important;margin-left:${(100 - 100 / scale) / 2}%!important}.pagedjs_page{margin:10px auto!important}`;
+      const width = Math.max(1, page?.getBoundingClientRect().width || 576);
+      const available = Math.max(320, frame.clientWidth || previewStageRef.current?.clientWidth || 576);
+      const scale = Math.max(.35, Math.min(1, (available - 28) / width));
+      style.textContent = `html,body{background:#e9edf2!important}.pagedjs_pages{zoom:${scale};transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 0 24px!important}.pagedjs_page{margin:10px auto!important}`;
     } else {
       const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li,body.book-formatter main.book section.backmatter>p:not(.scene-break),body.book-formatter main.book section.backmatter li";
       const proseComposition = typography.bodyAlign === "left"

@@ -288,7 +288,7 @@ button:disabled { cursor: default; opacity: .45; }
 .ornament-picker button small { font:8px "Segoe UI",sans-serif; color:#888; }
 
 .preview-stage { position:relative; flex:1 1 0; width:100%; height:0; min-height:0; display:grid; place-items:center; padding:13px 12px 16px; overflow:hidden; contain:size layout paint; container-type:size; background:linear-gradient(135deg,#d4d3d0 0%,#c9c8c5 100%); }
-.preview-stage.print-stage { place-items:start center; overflow:auto; }
+.preview-stage.print-stage { place-items:stretch; overflow:hidden; padding:0; background:#e9edf2; }
 .reader-device {
   flex:none; width:min(95%,var(--folio-device-max-width,480px),calc(100cqh * var(--folio-device-aspect,.72))); max-height:100%; aspect-ratio:var(--folio-device-aspect,.72); padding:25px 21px 27px; margin:auto; border-radius:14px; background:linear-gradient(145deg,#222,#171717 58%,#292929);
   border:1px solid #50504f; box-shadow:0 4px 7px rgba(0,0,0,.35),inset 0 1px 1px rgba(255,255,255,.16),inset 0 -1px 2px rgba(0,0,0,.7);
@@ -296,7 +296,8 @@ button:disabled { cursor: default; opacity: .45; }
 .reader-device[data-device-family="kobo"] { padding:20px 18px 23px; border-radius:9px; background:linear-gradient(145deg,#30302f,#181817 62%,#252524); }
 .reader-device[data-device-family="phone"] { width:min(84%,var(--folio-device-max-width,340px),calc(100cqh * var(--folio-device-aspect,.48))); padding:23px 11px 26px; border-radius:32px; background:linear-gradient(145deg,#25282b,#111214); }
 .reader-device[data-device-family="tablet"] { width:min(96%,var(--folio-device-max-width,520px),calc(100cqh * var(--folio-device-aspect,.72))); padding:23px; border-radius:22px; background:linear-gradient(145deg,#c7c8c8,#909292); border-color:#858686; }
-.reader-device.device-print { width:min(95%,480px); aspect-ratio:.667; padding:13px; border-radius:3px; background:#b8b8b5; }
+.reader-device.device-print { width:100%; height:100%; max-height:none; aspect-ratio:auto; padding:0; margin:0; border:0; border-radius:0; background:#e9edf2; box-shadow:none; }
+.reader-device.device-print .reader-screen { height:100%; overflow:hidden; background:#e9edf2; box-shadow:none; }
 .reader-screen { position: relative; width: 100%; height: 100%; overflow: hidden; background: #eeeee6; box-shadow: inset 0 0 0 1px rgba(0,0,0,.28); }
 .reader-device[data-device-family="tablet"] .reader-screen,.reader-device[data-device-family="phone"] .reader-screen { background:#fff; }
 .reader-device[data-device-family="phone"] .reader-screen { border-radius:14px; }
@@ -312,7 +313,7 @@ button:disabled { cursor: default; opacity: .45; }
 .folio-windowbar { height: 38px; border-bottom: 1px solid #d0cfcb; display: flex; align-items: center; padding: 0 10px; background: linear-gradient(#f4f3f0, #e9e8e4); }
 .empty-windowbar { justify-content: space-between; }
 .windowbar-spacer { width: 55px; }
-.folio-wordmark { font-size: 11px; font-weight: 650; }
+.folio-wordmark { font:700 20px/1 Georgia,"Times New Roman",serif; letter-spacing:-.02em; }
 .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 7vh; }
 .empty-book-mark { width: 64px; height: 82px; display: grid; place-items: center; border: 1px solid #bdbbb4; border-radius: 3px; background: #faf9f4; box-shadow: 0 6px 18px rgba(0,0,0,.08); font: italic 34px Georgia, serif; color: #3e3d39; }
 .empty-state h1 { margin: 16px 0 4px; font: 600 20px Georgia, serif; }
@@ -375,7 +376,7 @@ button:disabled { cursor: default; opacity: .45; }
   background:var(--folio-bg); color:var(--folio-text);
 }
 .folio-commandbar { grid-column:1/-1; display:flex; align-items:center; min-width:0; padding:0 12px; border-bottom:1px solid var(--folio-border); background:var(--folio-bg); }
-.command-wordmark { width:152px; font:600 17px/1 Georgia,"Times New Roman",serif; letter-spacing:-.025em; color:var(--folio-text); }
+.command-wordmark { width:152px; font:700 20px/1 Georgia,"Times New Roman",serif; letter-spacing:-.02em; color:var(--folio-text); }
 .folio-commandbar nav { display:flex; align-items:center; gap:2px; }
 .folio-commandbar button { height:26px; padding:0 9px; border:0; border-radius:3px; background:transparent; color:var(--folio-text); font-size:11px; }
 .folio-commandbar button:hover { background:var(--folio-hover); }

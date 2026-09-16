@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import {
   forgetRecentProject,
@@ -28,7 +28,7 @@ function projectMonogram(project: RecentProject): string {
   return (project.title.trim()[0] || "F").toLocaleUpperCase();
 }
 
-export default function StartScreen(props: { onOpenPath: (path: string) => void; onOpenSample: () => void }) {
+export default function StartScreen(props: { onOpenPath: (path: string) => Promise<void>; onOpenProject: (project: Awaited<ReturnType<typeof api.newBook>>) => void; onOpenSample: () => Promise<void> }) {
   const [recent, setRecent] = useState<RecentProject[]>(() => readRecentProjects());
   const [busy, setBusy] = useState<"open" | "new" | "create" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +36,19 @@ export default function StartScreen(props: { onOpenPath: (path: string) => void;
   const [newBook, setNewBook] = useState({ path: "", title: "", author: "" });
   const tone = useMemo(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory", []);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.recentProjects().then((items) => {
+      if (!cancelled && items.length) setRecent(items);
+    }).catch(() => { /* localStorage remains a same-session fallback */ });
+    return () => { cancelled = true; };
+  }, []);
+
   async function chooseExisting() {
     setBusy("open"); setError(null);
     try {
       const selected = (await api.pickFolder(recent[0]?.folder)).path;
-      if (selected) props.onOpenPath(selected);
+      if (selected) await props.onOpenPath(selected);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -71,7 +79,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => void;
       const summary = await api.newBook(newBook.path, title, author);
       setRecent(readRecentProjects());
       setShowCreate(false);
-      props.onOpenPath(summary.folder || newBook.path);
+      props.onOpenProject(summary);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -79,9 +87,26 @@ export default function StartScreen(props: { onOpenPath: (path: string) => void;
     }
   }
 
+  async function openRecent(folder: string) {
+    if (busy !== null) return;
+    setBusy("open"); setError(null);
+    try { await props.onOpenPath(folder); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(null); }
+  }
+
+  async function openBundledSample() {
+    if (busy !== null) return;
+    setBusy("open"); setError(null);
+    try { await props.onOpenSample(); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(null); }
+  }
+
   function removeRecent(event: React.MouseEvent, folder: string) {
     event.stopPropagation();
     setRecent(forgetRecentProject(folder));
+    void api.forgetRecentProject(folder).catch(() => {});
   }
 
   return (
@@ -104,7 +129,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => void;
             <button className="start-button" disabled={busy !== null} onClick={() => void chooseExisting()}>
               {busy === "open" ? "Opening…" : "Open Book…"}
             </button>
-            <button className="start-button sample" disabled={busy !== null} onClick={props.onOpenSample}>Open Sample</button>
+            <button className="start-button sample" disabled={busy !== null} onClick={() => void openBundledSample()}>Open Sample</button>
           </div>
           {error && <button className="start-error" onClick={() => setError(null)}>{error}</button>}
         </section>
@@ -121,7 +146,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => void;
           {recent.length > 0 ? (
             <div className="recent-list">
               {recent.map((item) => (
-                <button key={item.folder} className="recent-row" onClick={() => props.onOpenPath(item.folder)} title={item.folder}>
+                <button key={item.folder} className="recent-row" disabled={busy !== null} onClick={() => void openRecent(item.folder)} title={item.folder}>
                   <span className="recent-cover" aria-hidden="true"><b>{projectMonogram(item)}</b><i>Folio</i></span>
                   <span className="recent-meta">
                     <strong>{item.title}</strong>

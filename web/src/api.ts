@@ -12,6 +12,7 @@ import type {
   Trim,
   Typography,
 } from "./types";
+import type { RecentProject } from "./recent-projects";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -37,6 +38,12 @@ export const api = {
   matterTypes: () => fetch("/api/matter-types").then((r) => json<MatterType[]>(r)),
   trims: () => fetch("/api/trims").then((r) => json<Trim[]>(r)),
   printLayouts: () => fetch("/api/print-layouts").then((r) => json<PrintLayout[]>(r)),
+  recentProjects: () => fetch("/api/recent-projects").then((r) => json<RecentProject[]>(r)),
+  forgetRecentProject: (folder: string) => fetch("/api/recent-projects", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folder }),
+  }).then((r) => json<RecentProject[]>(r)),
 
   loadSample: () => fetch("/api/sample", { method: "POST" }).then((r) => json<ProjectSummary>(r)),
 

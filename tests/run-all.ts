@@ -32,6 +32,7 @@ const ORDER = [
   "dropcap.test.ts",
   "dropcap-filter-regression.test.ts",
   "recent-projects.test.ts",
+  "recent-persistence.test.ts",
   "image-page.test.ts",
   "print-preview-ui.test.ts",
   "folio-runtime.test.ts",
