@@ -66,4 +66,32 @@ t = test.read_text(encoding="utf-8")
 if '"kindle-oasis"' not in t:
     raise SystemExit("legacy kindle-oasis assertion not found")
 t = t.replace('"kindle-oasis"', '"kindle-7"', 1)
+
+old_check = '  check("100,000-word paste keeps both panes fixed while only editor text scrolls", visibleAfterLargePaste);\n'
+new_check = '''  if (visibleAfterLargePaste) {
+    check("100,000-word paste keeps both panes fixed while only editor text scrolls", true);
+  } else {
+    const layoutDebug = await page.evaluate(() => {
+      const shell = document.querySelector(".folio-shell") as HTMLElement;
+      const editor = document.querySelector(".rich-editor") as HTMLElement;
+      const previewScroller = document.querySelector("iframe")?.contentDocument?.scrollingElement as HTMLElement | null;
+      const stageRect = document.querySelector(".preview-stage")!.getBoundingClientRect();
+      const deviceRect = document.querySelector(".reader-device")!.getBoundingClientRect();
+      const shellRect = shell.getBoundingClientRect();
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        documentScrollHeight: document.documentElement.scrollHeight,
+        shell: { top: shellRect.top, bottom: shellRect.bottom, height: shellRect.height },
+        editor: { scrollTop: editor.scrollTop, scrollHeight: editor.scrollHeight, clientHeight: editor.clientHeight },
+        preview: previewScroller ? { scrollTop: previewScroller.scrollTop, scrollHeight: previewScroller.scrollHeight, clientHeight: previewScroller.clientHeight } : null,
+        stage: { left: stageRect.left, right: stageRect.right, top: stageRect.top, bottom: stageRect.bottom, width: stageRect.width, height: stageRect.height },
+        device: { left: deviceRect.left, right: deviceRect.right, top: deviceRect.top, bottom: deviceRect.bottom, width: deviceRect.width, height: deviceRect.height },
+      };
+    });
+    check("100,000-word paste keeps both panes fixed while only editor text scrolls", false, JSON.stringify(layoutDebug));
+  }
+'''
+if old_check not in t:
+    raise SystemExit("large paste layout check not found")
+t = t.replace(old_check, new_check, 1)
 test.write_text(t, encoding="utf-8")
