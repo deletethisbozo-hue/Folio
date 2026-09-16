@@ -220,7 +220,7 @@ export function registerApi(app: Express): void {
         title: String(req.body?.title ?? path.basename(dir)).trim() || "Untitled",
         author: String(req.body?.author ?? "").trim() || "Unknown Author",
         language: String(req.body?.language ?? "en").trim() || "en",
-        theme: "folio",
+        theme: "literary",
       };
       await saveMeta(dir, meta);
       await addChapter(dir, meta, String(req.body?.chapterTitle ?? "Chapter One"));

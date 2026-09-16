@@ -56,7 +56,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   },
   nocturne: {
     name: "nocturne", label: "Nocturne", description: "Elegant dark-ink drama with moonlike ornaments and narrow titles.",
-    sceneOrnament: "☾", dropcap: true, chapterLabel: "NIGHT I", previewFont: "Baskerville, Georgia, serif",
+    sceneOrnament: "☾", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif",
     previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#39445f", previewPaper: "#f5f5f3",
   },
   cloister: {
@@ -88,7 +88,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   },
   aubade: {
     name: "aubade", label: "Aubade", description: "Bright morning palette with graceful italic headings and open leading.",
-    sceneOrnament: "✺", dropcap: true, chapterLabel: "DAWN ONE", previewFont: "Palatino, Georgia, serif",
+    sceneOrnament: "✺", dropcap: true, chapterLabel: "I", previewFont: "Palatino, Georgia, serif",
     previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#c47c36", previewPaper: "#fffaf1",
   },
   ember: {
@@ -103,7 +103,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   },
   solstice: {
     name: "solstice", label: "Solstice", description: "Geometric seasonal ornament, wide tracking and ceremonial openings.",
-    sceneOrnament: "✦", dropcap: true, chapterLabel: "SOLSTICE I", previewFont: "Georgia, serif",
+    sceneOrnament: "✦", dropcap: true, chapterLabel: "I", previewFont: "Georgia, serif",
     previewHeadingFont: "Avenir, Arial, sans-serif", previewAccent: "#526b78", previewPaper: "#f8faf8",
   },
   timber: {
@@ -113,7 +113,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   },
   obsidian: {
     name: "obsidian", label: "Obsidian", description: "Razor-black fantasy typography with a faceted ceremonial opening.",
-    sceneOrnament: "◆", dropcap: true, chapterLabel: "SHARD I", previewFont: "Baskerville, Georgia, serif",
+    sceneOrnament: "◆", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif",
     previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#17171b", previewPaper: "#f1f0ed",
   },
   bloodmoon: {
@@ -123,7 +123,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   },
   grimoire: {
     name: "grimoire", label: "Grimoire", description: "Arcane manuscript proportions, double rules and sigil-like ornaments.",
-    sceneOrnament: "☙ ❦ ❧", dropcap: true, chapterLabel: "BOOK I", previewFont: "Palatino, Georgia, serif",
+    sceneOrnament: "☙ ❦ ❧", dropcap: true, chapterLabel: "I", previewFont: "Palatino, Georgia, serif",
     previewHeadingFont: "Book Antiqua, Palatino, serif", previewAccent: "#4b315d", previewPaper: "#f4eddc",
   },
   cathedral: {
@@ -148,7 +148,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   },
   witchlight: {
     name: "witchlight", label: "Witchlight", description: "Elegant occult fantasy with violet ink, star points and whispered italics.",
-    sceneOrnament: "✦", dropcap: true, chapterLabel: "HEX I", previewFont: "Garamond, Georgia, serif",
+    sceneOrnament: "✦", dropcap: true, chapterLabel: "I", previewFont: "Garamond, Georgia, serif",
     previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#60446f", previewPaper: "#f7f3f6",
   },
   ironbound: {
@@ -158,19 +158,39 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   },
   revenant: {
     name: "revenant", label: "Revenant", description: "Pale spectral restraint, narrow titles and a haunting offset chapter mark.",
-    sceneOrnament: "☾", dropcap: true, chapterLabel: "RETURN I", previewFont: "Baskerville, Georgia, serif",
+    sceneOrnament: "☾", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif",
     previewHeadingFont: "Didot, Georgia, serif", previewAccent: "#52616b", previewPaper: "#f1f4f3",
   },
 };
 
+export const SUPPORTED_THEMES = [
+  "blackletter",
+  "stanza",
+  "witchlight",
+  "revenant",
+  "solstice",
+  "literary",
+  "nocturne",
+  "obsidian",
+  "grimoire",
+  "ivory",
+  "heritage",
+  "decorative",
+  "cathedral",
+  "aubade",
+] as const satisfies readonly ThemeName[];
+
+const SUPPORTED_THEME_SET = new Set<string>(SUPPORTED_THEMES);
+
+/** Folio 2.0 exposes only the curated, production-qualified theme set. */
 export function hasTheme(name: string): name is ThemeName {
-  return Object.prototype.hasOwnProperty.call(THEMES, name);
+  return SUPPORTED_THEME_SET.has(name);
 }
 
 export function getTheme(name: string): ThemeConfig {
-  return THEMES[hasTheme(name) ? name : "folio"];
+  return THEMES[hasTheme(name) ? name : "literary"];
 }
 
 export function themeList(): ThemeConfig[] {
-  return Object.values(THEMES);
+  return SUPPORTED_THEMES.map((name) => THEMES[name]);
 }
