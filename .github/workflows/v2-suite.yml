@@ -1,5 +1,6 @@
 name: Folio 2.0 qualification
 
+# Full branch qualification gate for the 2.0 development line.
 on:
   workflow_dispatch:
   push:
