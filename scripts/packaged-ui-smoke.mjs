@@ -172,7 +172,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged Folio 2.0.2 UI passed: startup screen, live-draft Print Preview, unsaved Print Preview API draft, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
+  console.log("Packaged Folio 2.0.3 UI passed: startup screen, live-draft Print Preview, unsaved Print Preview API draft, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
 } finally {
   browser.disconnect();
 }
