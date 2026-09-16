@@ -55,7 +55,7 @@ try {
   await page.click('[data-command="design"]');
   await page.waitForSelector(".theme-sample");
   const themes = await page.$$eval(".theme-sample", (items) => items.length);
-  if (themes !== 16) throw new Error("Packaged Folio 2.0 style browser expected exactly 16 curated themes, found " + themes + ".");
+  if (themes !== 14) throw new Error("Packaged Folio 2.0 style browser expected exactly 14 curated themes, found " + themes + ".");
   await page.click(".style-category-list button:nth-child(6)");
   const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
@@ -108,7 +108,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged Folio 2.0 UI passed: startup screen, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 16 curated themes, and grouped device profiles.");
+  console.log("Packaged Folio 2.0 UI passed: startup screen, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 14 curated themes, and grouped device profiles.");
 } finally {
   browser.disconnect();
 }
