@@ -4,7 +4,7 @@ name: Folio 2.0 Windows qualification
 on:
   workflow_dispatch:
   push:
-    branches: ["release/v2.0.0"]
+    branches: ["release/v2.0.0", "release/v2.0.1"]
     paths:
       - ".github/workflows/v2-windows-qualification.yml"
       - "web/**"
@@ -97,7 +97,7 @@ jobs:
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
 
-      - name: Smoke-test packaged Folio 2.0 candidate
+      - name: Smoke-test packaged Folio 2.0.1 candidate
         shell: pwsh
         run: |
           $env:FOLIO_E2E_PORT = "43127"
@@ -128,10 +128,10 @@ jobs:
             if (-not $covered.hasCover) { throw "Packaged cover upload failed." }
 
             $sectionId = [uri]::EscapeDataString($chapter.id)
-            $draft = "Packaged Folio 2.0 preview probe: live text before autosave."
+            $draft = "Packaged Folio 2.0.1 preview probe: live text before autosave."
             $previewBody = @{ meta = $sample.meta; theme = "blackletter"; typography = @{}; previewSectionId = $chapter.id; draft = $draft } | ConvertTo-Json -Depth 10
             $preview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $previewBody "$base/api/projects/$($sample.projectId)/preview"
-            if ($preview.html -notmatch "Folio 2.0 preview probe" -or $preview.html -notmatch "Folio Grenze Gotisch") { throw "Packaged live preview omitted draft text or theme CSS." }
+            if ($preview.html -notmatch "Folio 2.0.1 preview probe" -or $preview.html -notmatch "Folio Grenze Gotisch") { throw "Packaged live preview omitted draft text or theme CSS." }
 
             $saveBody = @{ markdown = "$draft`n`nSaved copy-on-write." } | ConvertTo-Json
             $saved = Invoke-RestMethod -Method Put -ContentType "application/json" -Body $saveBody "$base/api/projects/$($sample.projectId)/sections/$sectionId"
