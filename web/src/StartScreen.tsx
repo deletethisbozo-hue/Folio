@@ -113,7 +113,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
     <div className="start-shell" data-ui-tone={tone}>
       <div className="start-windowbar">
         <div className="start-brand">Folio</div>
-        <div className="start-version">2.0</div>
+        <div className="start-version">2.0.1</div>
       </div>
 
       <main className="start-main">
@@ -166,6 +166,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
                         event.preventDefault();
                         event.stopPropagation();
                         setRecent(forgetRecentProject(item.folder));
+                        void api.forgetRecentProject(item.folder).catch(() => {});
                       }
                     }}
                   >×</span>

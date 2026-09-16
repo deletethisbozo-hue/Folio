@@ -253,7 +253,7 @@ try {
   const cathedral = await page.evaluate(() => {
     const h1 = document.querySelector("iframe")!.contentDocument!.querySelector("section.chapter > h1")!;
     const css = getComputedStyle(h1);
-    return css.textAlign + "|" + css.borderTopWidth + "|" + css.fontFamily;
+    return [css.textAlign, css.borderTopWidth, css.borderBottomWidth, css.borderRadius, css.fontFamily, css.fontSize, css.textTransform].join("|");
   });
   await page.click('.theme-sample[data-theme="blackletter"]');
   await stage("render Blackletter theme", () => page.waitForFunction(() => {
@@ -263,7 +263,7 @@ try {
   const blackletter = await page.evaluate(() => {
     const h1 = document.querySelector("iframe")!.contentDocument!.querySelector("section.chapter > h1")!;
     const css = getComputedStyle(h1);
-    return css.textAlign + "|" + css.borderTopWidth + "|" + css.fontFamily;
+    return [css.textAlign, css.borderTopWidth, css.borderBottomWidth, css.borderRadius, css.fontFamily, css.fontSize, css.textTransform].join("|");
   });
   check("selecting themes changes the actual book layout, not only the name", cathedral !== blackletter, cathedral + " / " + blackletter);
   await page.evaluate(() => {
