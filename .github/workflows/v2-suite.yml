@@ -1,6 +1,7 @@
 name: Folio 2.0 qualification
 
 on:
+  workflow_dispatch:
   push:
     branches: ["release/v2.0.0"]
     paths:
