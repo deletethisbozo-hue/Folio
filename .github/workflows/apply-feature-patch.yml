@@ -1,5 +1,5 @@
-# temporary dispatcher; removed after the feature branch is qualified
-name: Repair pending preview feature patch
+# temporary qualification workflow; removed after the feature branch is green
+name: Qualify grouped preview feature branch
 
 on:
   push:
@@ -8,55 +8,34 @@ on:
       - ".github/workflows/apply-feature-patch.yml"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  repair:
+  qualify:
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/preview-connection-recovery
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
           cache: npm
-      - name: Repair generated patch artifacts
-        shell: python
-        run: |
-          from pathlib import Path
-
-          p = Path('web/src/device-profiles.ts')
-          s = p.read_text(encoding='utf-8')
-          if s.startswith('\\\n'):
-              s = s[2:]
-          p.write_text(s, encoding='utf-8')
-
-          p = Path('tests/ui-runtime.test.ts')
-          s = p.read_text(encoding='utf-8')
-          s = s.replace('\n\\\n  check("typing updates the visible device preview before autosave", true);', '\n  check("typing updates the visible device preview before autosave", true);', 1)
-          p.write_text(s, encoding='utf-8')
-
-          p = Path('web/src/preview-runtime.ts')
-          s = p.read_text(encoding='utf-8').replace('|| "kindle-paperwhite";', '|| "kindle-6-8";', 1)
-          p.write_text(s, encoding='utf-8')
-
-          p = Path('web/src/App.tsx')
-          s = p.read_text(encoding='utf-8')
-          old = '(Window & { Highlight?: new (...ranges: Range[]) => unknown }) | null'
-          new = '(Window & { Highlight?: new (...ranges: Range[]) => unknown; CSS?: { highlights?: { set(name: string, value: unknown): void; delete(name: string): boolean } } }) | null'
-          if s.count(old) != 2:
-              raise SystemExit(f'expected 2 Highlight window casts, found {s.count(old)}')
-          p.write_text(s.replace(old, new), encoding='utf-8')
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Install pinned Pandoc 3.11
+        shell: bash
+        run: |
+          mkdir -p build/pandoc
+          curl -fsSL "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz" -o build/pandoc-3.11-linux-amd64.tar.gz
+          echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
+          tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
       - name: Typecheck
         run: npm run typecheck
-      - name: Commit repair
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/src/device-profiles.ts web/src/preview-runtime.ts web/src/App.tsx tests/ui-runtime.test.ts
-          git commit -m "Repair grouped preview integration"
-          git push origin HEAD:fix/preview-connection-recovery
+      - name: Full formatter and UI suite
+        run: npm test
+      - name: Build web and server
+        run: npm run build
