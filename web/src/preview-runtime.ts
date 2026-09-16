@@ -1,24 +1,5 @@
 import { composePreviewDocument } from "./compositor";
-
-type ReflowProfile = {
-  width: number;
-  height: number;
-  baseFont: number;
-  padding: [number, number, number, number];
-  wordsPerPage: number;
-};
-
-const PROFILES: Record<string, ReflowProfile> = {
-  // Logical viewports at Folio's named Standard reading preset. The shell stays
-  // the same size; text and margins scale into that reduced visualisation.
-  // Paperwhite Standard uses a reader-safe side inset that keeps prose inside
-  // the professional spacing envelope without shrinking the device shell.
-  "kindle-paperwhite": { width: 412, height: 549, baseFont: 17.5, padding: [34, 16, 46, 16], wordsPerPage: 270 },
-  "kindle-oasis": { width: 421, height: 560, baseFont: 18, padding: [32, 34, 46, 28], wordsPerPage: 290 },
-  ipad: { width: 820, height: 1180, baseFont: 19, padding: [62, 68, 82, 68], wordsPerPage: 455 },
-  iphone: { width: 390, height: 844, baseFont: 18, padding: [38, 25, 58, 25], wordsPerPage: 245 },
-  android: { width: 412, height: 915, baseFont: 18, padding: [38, 26, 60, 26], wordsPerPage: 265 },
-};
+import { getPreviewProfile } from "./device-profiles";
 
 function countWords(value: string): number {
   return value.trim().match(/\S+/g)?.length ?? 0;
@@ -38,11 +19,11 @@ function mode(): string {
  * App.tsx calls this before composition, so line metrics are never calculated at
  * an obsolete 12–14px intermediate size. */
 export function calibratePreviewFrame(frame: HTMLIFrameElement): boolean {
-  const profile = PROFILES[mode()];
+  const profile = getPreviewProfile(mode());
   const doc = frame.contentDocument;
-  if (!profile || !doc?.head || !frame.clientWidth) return false;
+  if (!profile || profile.family === "print" || !doc?.head || !frame.clientWidth) return false;
 
-  const scale = frame.clientWidth / profile.width;
+  const scale = frame.clientWidth / profile.viewport.width;
   const [top, right, bottom, left] = profile.padding.map((value) => Math.max(1, value * scale)) as [number, number, number, number];
   let style = doc.getElementById("folio-device-calibration") as HTMLStyleElement | null;
   if (!style) {
@@ -103,8 +84,8 @@ export function updatePreviewPageCounts(frame: HTMLIFrameElement): void {
     return;
   }
 
-  const profile = PROFILES[currentMode];
-  if (!profile || frame.clientHeight <= 0) return;
+  const profile = getPreviewProfile(currentMode);
+  if (!profile || profile.family === "print" || frame.clientHeight <= 0) return;
   const editor = document.querySelector<HTMLElement>(".rich-editor");
   const chapterWords = countWords(editor?.dataset.markdown || editor?.innerText || "");
   const totalWords = numberFromWordsLabel();

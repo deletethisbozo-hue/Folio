@@ -114,7 +114,39 @@ try {
   await page.keyboard.press("Enter");
   await page.keyboard.type("BROWSER LIVE DRAFT");
   await stage("sample live draft preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("BROWSER LIVE DRAFT")));
+\
   check("typing updates the visible device preview before autosave", true);
+
+  const previewGroups = await page.$$eval('select[aria-label="Preview device"] optgroup', (groups) => groups.map((group) => ({ label: group.label, values: [...group.querySelectorAll("option")].map((option) => option.value) })));
+  check("preview devices are grouped by Kindle, Kobo, phone, tablet and print size classes",
+    ["Kindle", "Kobo", "Phone", "Tablet", "Print"].every((label) => previewGroups.some((group) => group.label === label))
+    && previewGroups.some((group) => group.values.includes("kindle-6") && group.values.includes("kindle-6-8") && group.values.includes("kindle-7"))
+    && previewGroups.some((group) => group.values.includes("kobo-6") && group.values.includes("kobo-7") && group.values.includes("kobo-8")));
+
+  await page.evaluate(() => {
+    const editor = document.querySelector(".rich-editor") as HTMLElement;
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let node: Text | null = null;
+    while (walker.nextNode()) {
+      const candidate = walker.currentNode as Text;
+      if (candidate.data.includes("BROWSER")) { node = candidate; break; }
+    }
+    if (!node) throw new Error("BROWSER marker was not found in editor");
+    const index = node.data.indexOf("BROWSER") + 2;
+    const range = document.createRange();
+    range.setStart(node, index); range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges(); selection?.addRange(range);
+    (node.parentElement ?? editor).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  await stage("editor click follows word in preview", () => page.waitForFunction(() => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    const registry = (frame?.contentWindow as any)?.CSS?.highlights;
+    const highlight = registry?.get("folio-editor-word");
+    if (!highlight) return false;
+    return [...highlight].some((range: Range) => range.toString().replace(/\u00ad/g, "").includes("BROWSER"));
+  }));
+  check("clicking a manuscript word scrolls to and briefly highlights the same preview word", true);
 
   await page.$eval(".rich-editor", (el) => {
     const editor = el as HTMLElement;
@@ -262,7 +294,7 @@ try {
 
   const deviceModes = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.map((item) => (item as HTMLOptionElement).value));
   check("preview offers Kindle, tablet, phone, Android and print profiles", deviceModes.length === 6, deviceModes.join(", "));
-  await page.select('select[aria-label="Preview device"]', "iphone");
+  await page.select('select[aria-label="Preview device"]', "phone-6-1");
   await stage("switch to iPhone device", () => page.waitForSelector(".reader-device.device-iphone"));
   await stage("phone justified layout", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
@@ -578,7 +610,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   }));
   check("justified body text never pulls ornamental breaks off center", true);
   const dropcapBeforeDeviceChange = await page.evaluate(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap")));
-  await page.select('select[aria-label="Preview device"]', "iphone");
+  await page.select('select[aria-label="Preview device"]', "phone-6-1");
   await stage("narrow justified composition", () => page.waitForFunction(() => {
     const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
     return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));

@@ -12,10 +12,10 @@ import {
 import { hyphenatePreviewDocument } from "./hyphenation";
 import { composePreviewDocument } from "./compositor";
 import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
+import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
-type PreviewMode = "kindle-paperwhite" | "kindle-oasis" | "ipad" | "iphone" | "android" | "print";
 type SaveState = "idle" | "saving" | "saved" | "error";
 type UiTone = "ivory" | "midnight";
 type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Paragraph After Break" | "Body" | "Scene Break" | "Header & Footer" | "Title Page";
@@ -29,14 +29,6 @@ const trims = [
   ["6x9", "6 × 9"], ["8.5x11", "8.5 × 11"],
 ] as const;
 const defaultPrint: PrintOptions = { trim: "6x9", binding: "paperback", startChaptersRecto: true, layout: "author-title-bottom" };
-const previewProfiles: Array<{ value: PreviewMode; label: string }> = [
-  { value: "kindle-paperwhite", label: "Paperwhite · Standard" },
-  { value: "kindle-oasis", label: "Oasis · Standard" },
-  { value: "ipad", label: "iPad · Standard" },
-  { value: "iphone", label: "iPhone · Standard" },
-  { value: "android", label: "Android · Standard" },
-  { value: "print", label: "Print · Pages" },
-];
 const sceneOrnaments = [
   "⁂", "❦", "❧", "✦", "◆", "◇", "◈", "❖", "※", "⁕",
   "✺", "✠", "☾", "☼", "§", "∞", "• • •", "· · ·", "* * *",
@@ -119,7 +111,7 @@ export default function App() {
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-paperwhite");
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-6-8");
   const [previewDraft, setPreviewDraft] = useState("");
   const [pastePreparing, setPastePreparing] = useState(false);
   const [uiTone, setUiTone] = useState<UiTone>(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory");
@@ -163,6 +155,8 @@ export default function App() {
   // reparsing and replacing thousands of unchanged paragraphs.
   const livePreviewDraftRef = useRef("");
   const fastPreviewComposeTimerRef = useRef<number | null>(null);
+  const pendingPreviewWordRef = useRef<{ ordinal: number } | null>(null);
+  const previewHighlightTimerRef = useRef<number | null>(null);
 
   const resetDocumentView = () => {
     draftRef.current = "";
@@ -193,6 +187,11 @@ export default function App() {
     previewIdentityRef.current = "";
     pendingPreviewIdentityRef.current = "";
     pendingPreviewScrollRef.current = 0;
+    pendingPreviewWordRef.current = null;
+    if (previewHighlightTimerRef.current !== null) {
+      window.clearTimeout(previewHighlightTimerRef.current);
+      previewHighlightTimerRef.current = null;
+    }
     setPreviewError(null);
     setPreviewLoading(false);
   };
@@ -251,6 +250,7 @@ export default function App() {
   const frontMatter = useMemo(() => project?.sections.filter((s) => s.kind !== "chapter" && s.kind !== "backmatter") ?? [], [project]);
   const backMatter = useMemo(() => project?.sections.filter((s) => s.kind === "backmatter") ?? [], [project]);
   const selectedSection = project?.sections.find((s) => s.id === selectedId) ?? null;
+  const previewProfile = getPreviewProfile(previewMode);
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
   const draftWords = useMemo(() => {
     const cached = draftWordCountCacheRef.current;
@@ -855,6 +855,186 @@ export default function App() {
     ? project.sections[selectedPosition + 1]
     : null;
 
+  function lexicalWordMatches(value: string): RegExpMatchArray[] {
+    return Array.from(value.matchAll(/[\p{L}\p{N}]+(?:[’'][\p{L}\p{N}]+)*/gu));
+  }
+
+  function editorCaretWordOrdinal(): number | null {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection?.focusNode || !editor.contains(selection.focusNode)) return null;
+    const before = window.document.createRange();
+    before.selectNodeContents(editor);
+    try { before.setEnd(selection.focusNode, selection.focusOffset); }
+    catch { return null; }
+    const text = before.toString().replace(/\u00ad/g, "");
+    const matches = lexicalWordMatches(text);
+    const previousEndsAtCaret = matches.length > 0
+      && (matches.at(-1)?.index ?? -1) + (matches.at(-1)?.[0].length ?? 0) === text.length;
+    if (previousEndsAtCaret) return matches.length - 1;
+
+    const focus = selection.focusNode;
+    const next = focus.nodeType === Node.TEXT_NODE
+      ? (focus as Text).data.slice(selection.focusOffset, selection.focusOffset + 1)
+      : "";
+    if (/[\p{L}\p{N}]/u.test(next)) return matches.length;
+    return matches.length ? matches.length - 1 : null;
+  }
+
+  function mappedRangesForText(block: HTMLElement): Range[] {
+    const doc = block.ownerDocument;
+    const walker = doc.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        return parent && !parent.closest("script,style,.scene-break") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    });
+    const mapping: Array<{ node: Text; offset: number }> = [];
+    let text = "";
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      for (let index = 0; index < node.data.length; index++) {
+        const char = node.data[index];
+        if (char === "\u00ad" || char === "\u200b" || char === "\ufeff") continue;
+        text += char;
+        mapping.push({ node, offset: index });
+      }
+    }
+    const ranges: Range[] = [];
+    for (const match of lexicalWordMatches(text)) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      const first = mapping[start];
+      const last = mapping[end - 1];
+      if (!first || !last) continue;
+      const range = doc.createRange();
+      range.setStart(first.node, first.offset);
+      range.setEnd(last.node, last.offset + 1);
+      ranges.push(range);
+    }
+    return ranges;
+  }
+
+  function composedRangesForText(block: HTMLElement): Range[] {
+    const doc = block.ownerDocument;
+    const tokens = Array.from(block.querySelectorAll<HTMLElement>(".folio-word"));
+    if (!tokens.length) return mappedRangesForText(block);
+    const groups: HTMLElement[][] = [];
+    let group: HTMLElement[] = [];
+    for (const token of tokens) {
+      if (group.length && token.dataset.folioSpaceBefore === "true") {
+        groups.push(group);
+        group = [];
+      }
+      group.push(token);
+    }
+    if (group.length) groups.push(group);
+
+    const ranges: Range[] = [];
+    for (const tokenGroup of groups) {
+      const mapping: Array<{ node: Text; offset: number }> = [];
+      let text = "";
+      for (const token of tokenGroup) {
+        const walker = doc.createTreeWalker(token, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const node = walker.currentNode as Text;
+          for (let index = 0; index < node.data.length; index++) {
+            const char = node.data[index];
+            if (char === "\u00ad" || char === "\u200b" || char === "\ufeff") continue;
+            text += char;
+            mapping.push({ node, offset: index });
+          }
+        }
+      }
+      for (const match of lexicalWordMatches(text)) {
+        const start = match.index ?? 0;
+        const end = start + match[0].length;
+        const first = mapping[start];
+        const last = mapping[end - 1];
+        if (!first || !last) continue;
+        const range = doc.createRange();
+        range.setStart(first.node, first.offset);
+        range.setEnd(last.node, last.offset + 1);
+        ranges.push(range);
+      }
+    }
+    return ranges;
+  }
+
+  function previewRangeAtWord(ordinal: number): Range[] | null {
+    const doc = previewRef.current?.contentDocument;
+    if (!doc || !selectedId || ordinal < 0) return null;
+    const section = doc.getElementById(selectedId)
+      ?? doc.querySelector<HTMLElement>("main.book > section.level1, main.book > section.chapter, main.book > section.backmatter");
+    if (!section) return null;
+    const blocks = Array.from(section.querySelectorAll<HTMLElement>("p:not(.scene-break),li,h2,h3,h4,h5,h6"))
+      .filter((block) => !block.closest(".chapter-subtitle,.scene-break") && !(block.tagName === "P" && block.closest("li")));
+    let cursor = ordinal;
+    for (const block of blocks) {
+      const ranges = block.classList.contains("folio-composed") || block.querySelector(".folio-word")
+        ? composedRangesForText(block)
+        : mappedRangesForText(block);
+      if (cursor < ranges.length) return [ranges[cursor]];
+      cursor -= ranges.length;
+    }
+    return null;
+  }
+
+  function clearPreviewHighlight(doc?: Document | null) {
+    const view = doc?.defaultView as (Window & { Highlight?: new (...ranges: Range[]) => unknown }) | null;
+    const registry = (view?.CSS as unknown as { highlights?: { delete(name: string): boolean } } | undefined)?.highlights;
+    registry?.delete("folio-editor-word");
+  }
+
+  function highlightPreviewWord(target: { ordinal: number }, retry = false): boolean {
+    const frame = previewRef.current;
+    const doc = frame?.contentDocument;
+    const ranges = doc ? previewRangeAtWord(target.ordinal) : null;
+    if (!frame || !doc?.head || !ranges?.length) return false;
+    const view = doc.defaultView as (Window & { Highlight?: new (...ranges: Range[]) => unknown }) | null;
+    const registry = (view?.CSS as unknown as { highlights?: { set(name: string, value: unknown): void; delete(name: string): boolean } } | undefined)?.highlights;
+    const HighlightCtor = view?.Highlight;
+    if (!registry || !HighlightCtor) return false;
+
+    let style = doc.getElementById("folio-editor-word-highlight") as HTMLStyleElement | null;
+    if (!style) {
+      style = doc.createElement("style");
+      style.id = "folio-editor-word-highlight";
+      style.textContent = "::highlight(folio-editor-word){background:rgba(208,162,74,.62);text-decoration:underline rgba(112,76,25,.55) 1px}";
+      doc.head.appendChild(style);
+    }
+    registry.delete("folio-editor-word");
+    registry.set("folio-editor-word", new HighlightCtor(...ranges));
+
+    const range = ranges[0];
+    const anchor = range.startContainer.nodeType === Node.TEXT_NODE
+      ? range.startContainer.parentElement
+      : range.startContainer as HTMLElement;
+    anchor?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+
+    if (previewHighlightTimerRef.current !== null) window.clearTimeout(previewHighlightTimerRef.current);
+    previewHighlightTimerRef.current = window.setTimeout(() => {
+      clearPreviewHighlight(previewRef.current?.contentDocument);
+      if (pendingPreviewWordRef.current?.ordinal === target.ordinal) pendingPreviewWordRef.current = null;
+      previewHighlightTimerRef.current = null;
+    }, 1050);
+
+    if (!retry && previewMode !== "print") {
+      window.setTimeout(() => {
+        if (pendingPreviewWordRef.current?.ordinal === target.ordinal) highlightPreviewWord(target, true);
+      }, 220);
+    }
+    return true;
+  }
+
+  function syncEditorClickToPreview() {
+    const ordinal = editorCaretWordOrdinal();
+    if (ordinal === null) return;
+    const target = { ordinal };
+    pendingPreviewWordRef.current = target;
+    highlightPreviewWord(target);
+  }
+
   function syncLiveChapterLabel(doc: Document) {
     doc.getElementById("folio-live-chapter-label")?.remove();
     if (!selectedId || selectedSection?.kind !== "chapter") return;
@@ -936,6 +1116,8 @@ export default function App() {
     requestAnimationFrame(() => {
       doc.scrollingElement?.scrollTo(0, targetScroll);
       updatePreviewPageCounts(frame);
+      const pendingWord = pendingPreviewWordRef.current;
+      if (pendingWord) window.setTimeout(() => highlightPreviewWord(pendingWord), 70);
     });
   }
 
@@ -1188,10 +1370,13 @@ export default function App() {
 
   function editorClick(event: React.MouseEvent<HTMLDivElement>) {
     const remove = (event.target as HTMLElement).closest(".editor-scene-break-remove");
-    if (!remove) return;
-    event.preventDefault();
-    remove.closest(".editor-scene-break")?.remove();
-    recordEditorDom();
+    if (remove) {
+      event.preventDefault();
+      remove.closest(".editor-scene-break")?.remove();
+      recordEditorDom();
+      return;
+    }
+    window.requestAnimationFrame(syncEditorClickToPreview);
   }
 
   async function saveAppearance() {
@@ -1264,8 +1449,8 @@ export default function App() {
 
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>}</div></div>}</div></div>
-        <div className="device-toolbar"><div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div><div className="device-nav"><button disabled={!previousSection} title="Previous section" aria-label="Previous section" onClick={() => previousSection && void selectSection(previousSection.id)}><UiIcon name="previous"/></button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {project.sections.length}</span><button disabled={!nextSection} title="Next section" aria-label="Next section" onClick={() => nextSection && void selectSection(nextSection.id)}><UiIcon name="next"/></button></div></div>
-        <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{selectedId ? <iframe key={`${project.projectId}:${selectedId}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
+        <div className="device-toolbar"><div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div><div className="device-nav"><button disabled={!previousSection} title="Previous section" aria-label="Previous section" onClick={() => previousSection && void selectSection(previousSection.id)}><UiIcon name="previous"/></button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {project.sections.length}</span><button disabled={!nextSection} title="Next section" aria-label="Next section" onClick={() => nextSection && void selectSection(nextSection.id)}><UiIcon name="next"/></button></div></div>
+        <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{selectedId ? <iframe key={`${project.projectId}:${selectedId}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
       <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
