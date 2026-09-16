@@ -1,5 +1,6 @@
 name: Folio 2.0 Windows qualification
 
+# Final Windows release gate for the Folio 2.0 candidate.
 on:
   workflow_dispatch:
   push:
