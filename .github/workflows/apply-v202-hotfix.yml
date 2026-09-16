@@ -55,7 +55,7 @@ jobs:
       - name: Commit qualified product changes
         shell: bash
         run: |
-          git restore scripts/apply-v202-hotfix.mjs scripts/v202-remove-revenant-leftovers.mjs .github/workflows/apply-v202-hotfix.yml
+          git restore scripts/apply-v202-hotfix.mjs scripts/v202-remove-revenant-leftovers.mjs .github/workflows/apply-v202-hotfix.yml .github/workflows/windows-release.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
