@@ -1,0 +1,2 @@
+Folio 2.0 Windows qualification trigger.
+Last requested after packaged UI smoke alignment: 2026-09-16.
