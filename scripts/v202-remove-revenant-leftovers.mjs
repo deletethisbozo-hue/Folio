@@ -22,5 +22,10 @@ await patch(
   'check("Folio 2.0 registers exactly the 14 curated themes", themes.body.length === expectedThemes.length && expectedThemes.every((name) => themes.body.some((theme: any) => theme.name === name)), themes.body.map((theme: any) => theme.name).join(", "));',
   'check("Folio 2.0 registers exactly the 13 curated themes", themes.body.length === expectedThemes.length && expectedThemes.every((name) => themes.body.some((theme: any) => theme.name === name)), themes.body.map((theme: any) => theme.name).join(", "));',
 );
+await patch(
+  "tests/ui-runtime.test.ts",
+  'check("curated theme cards retain broad visual differentiation", distinctCards >= 12, String(distinctCards) + " distinct");',
+  'check("curated theme cards retain broad visual differentiation", distinctCards >= 11, String(distinctCards) + " distinct");',
+);
 
-console.log("Removed remaining Revenant runtime/test references.");
+console.log("Removed remaining Revenant runtime/test references and aligned the curated-theme gate.");
