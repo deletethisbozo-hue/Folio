@@ -60,9 +60,11 @@ try {
   if (!input) throw new Error("Illustration file input is missing");
   await input.uploadFile(fixture);
   await page.waitForFunction(() => {
-    const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
+    const figure = document.querySelector<HTMLElement>(".editor-illustration");
+    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+    const remove = figure?.querySelector<HTMLButtonElement>(".editor-illustration-remove");
     const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
-    return Boolean(image?.complete && image.naturalWidth > 0 && image.dataset.folioAsset?.startsWith("assets/") && markdown.includes("{.folio-illustration}"));
+    return Boolean(image?.complete && image.naturalWidth > 0 && remove && image.dataset.folioAsset?.startsWith("assets/") && markdown.includes("{.folio-illustration}"));
   });
   check("choosing a PNG inserts a visible illustration and semantic Markdown", true);
 
@@ -70,23 +72,30 @@ try {
   const beforeReload = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
   check("inline illustration reaches autosave", /!\[[^\]]+\]\(assets\/[a-z0-9._-]+\.png\)\{\.folio-illustration\}/i.test(beforeReload), beforeReload);
 
+  const reloadResponse = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && new URL(response.url()).pathname.endsWith("/reload") && response.ok();
+  }, { timeout: 30000 });
+  const sectionResponse = page.waitForResponse((response) => {
+    const request = response.request();
+    const pathname = new URL(response.url()).pathname;
+    return request.method() === "GET" && /\/api\/projects\/[^/]+\/sections\/[^/]+$/.test(pathname) && response.ok();
+  }, { timeout: 30000 });
+
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
-  await page.waitForFunction(() => [...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Preface")), { timeout: 30000 });
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLElement>(".contents-row")].find((item) => item.textContent?.includes("Preface"));
-    if (!row) throw new Error("Preface row is missing after project reload");
-    row.click();
-  });
-  await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Preface"), { timeout: 30000 });
-  await page.waitForSelector('.rich-editor[contenteditable="true"]');
+  await reloadResponse;
+  await sectionResponse;
   await page.waitForFunction(() => {
-    const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
-    const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
-    return Boolean(image?.complete && image.naturalWidth > 0 && markdown.includes("{.folio-illustration}"));
+    const selected = document.querySelector(".contents-row.selected")?.textContent?.includes("Preface");
+    const editor = document.querySelector<HTMLElement>('.rich-editor[contenteditable="true"]');
+    const figure = editor?.querySelector<HTMLElement>(".editor-illustration");
+    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+    const remove = figure?.querySelector<HTMLButtonElement>(".editor-illustration-remove");
+    const markdown = editor?.dataset.markdown ?? "";
+    return Boolean(selected && image?.complete && image.naturalWidth > 0 && remove && markdown.includes("{.folio-illustration}"));
   }, { timeout: 30000 });
   check("saved front-matter illustration survives a real project reload", true);
 
-  await page.waitForSelector(".editor-illustration-remove");
   await page.$eval(".editor-illustration-remove", (button) => (button as HTMLButtonElement).click());
   await page.waitForFunction(() => !document.querySelector(".editor-illustration") && !(document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown?.includes("{.folio-illustration}"));
   check("front-matter illustration can be removed from the editor", true);
