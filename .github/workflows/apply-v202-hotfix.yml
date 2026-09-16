@@ -64,4 +64,6 @@ jobs:
             exit 0
           fi
           git commit -m "Fix Folio 2.0.2 UI, print preview and image pages"
+          git fetch origin fix/v2.0.2-ui-print-images
+          git rebase origin/fix/v2.0.2-ui-print-images
           git push origin HEAD:fix/v2.0.2-ui-print-images
