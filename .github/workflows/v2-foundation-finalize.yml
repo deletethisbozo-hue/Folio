@@ -1,6 +1,7 @@
 name: Finalize Folio 2.0 foundation
 
 on:
+  workflow_dispatch:
   push:
     branches: [release/v2.0.0]
     paths:
