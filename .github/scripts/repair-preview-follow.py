@@ -59,6 +59,29 @@ new = '''    previewHighlightTimerRef.current = window.setTimeout(() => {
 if old not in s:
     raise SystemExit("highlight retry block not found")
 s = s.replace(old, new, 1)
+
+old = '''    requestAnimationFrame(() => {
+      doc.scrollingElement?.scrollTo(0, targetScroll);
+      updatePreviewPageCounts(frame);
+      const pendingWord = pendingPreviewWordRef.current;
+      if (pendingWord) window.setTimeout(() => highlightPreviewWord(pendingWord), 70);
+    });
+'''
+new = '''    requestAnimationFrame(() => {
+      // A profile switch already operates on the live iframe. Do not enqueue a
+      // stale numeric scroll restoration that can fire after the reader has
+      // clicked or scrolled to a new location in the same frame.
+      if (!geometryOnly || typeof restoreScroll === "number") {
+        doc.scrollingElement?.scrollTo(0, targetScroll);
+      }
+      updatePreviewPageCounts(frame);
+      const pendingWord = pendingPreviewWordRef.current;
+      if (pendingWord) window.setTimeout(() => highlightPreviewWord(pendingWord), 70);
+    });
+'''
+if old not in s:
+    raise SystemExit("preview scroll restore block not found")
+s = s.replace(old, new, 1)
 app.write_text(s, encoding="utf-8")
 
 css = Path("web/src/index.css")
