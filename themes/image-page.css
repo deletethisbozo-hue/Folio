@@ -1,0 +1,72 @@
+/* Full-page front-matter artwork such as maps and family trees. */
+section.image-page {
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: center;
+  break-before: page;
+  break-after: page;
+  page-break-before: always;
+  page-break-after: always;
+}
+
+section.image-page > h1 {
+  display: none !important;
+}
+
+section.image-page > p {
+  margin: 0 !important;
+  padding: 0 !important;
+  text-indent: 0 !important;
+  text-align: center !important;
+  line-height: 0 !important;
+}
+
+section.image-page img.full-page-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100vh;
+  margin: 0 auto;
+  object-position: center;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+section.image-page img.full-page-image.fit-contain {
+  object-fit: contain;
+}
+
+section.image-page img.full-page-image.fit-cover {
+  object-fit: cover;
+}
+
+@media print {
+  @page folio-image-page {
+    margin: 0;
+  }
+
+  section.image-page {
+    page: folio-image-page;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: grid !important;
+    place-items: center;
+  }
+
+  section.image-page > p {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  section.image-page img.full-page-image {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+  }
+}
