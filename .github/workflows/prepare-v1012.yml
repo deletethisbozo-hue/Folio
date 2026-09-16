@@ -21,28 +21,11 @@ jobs:
           node-version: 22.23.2
       - name: Bump package version
         run: npm version 1.0.12 --no-git-tag-version
-      - name: Scope Windows release to 1.0.12
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const path = '.github/workflows/windows-release.yml';
-          let text = fs.readFileSync(path, 'utf8');
-          text = text.replace('Verify Folio 1.0.11 version consistency', 'Verify Folio 1.0.12 version consistency');
-          text = text.replace('if ($version -ne "1.0.11") { throw "Windows release is scoped to Folio 1.0.11, found $version." }', 'if ($version -ne "1.0.12") { throw "Windows release is scoped to Folio 1.0.12, found $version." }');
-          text = text.replace(/--notes "Folio 1\.0\.11[^\n]*"/, '--notes "Folio 1.0.12 improves preview reliability and navigation: Print preview recovers from transient bundled-Chromium disconnects, device previews are grouped into Kindle, Kobo, phone and tablet size profiles, device shells stay inside the preview pane at smaller window sizes, and clicking a manuscript word follows and highlights the corresponding word in the live preview. The release is gated by typecheck, the complete formatter/UI suite, visual and typesetting QA, the Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."');
-          if (!text.includes('Verify Folio 1.0.12 version consistency') || !text.includes('$version -ne "1.0.12"') || !text.includes('Folio 1.0.12 improves preview reliability')) {
-            throw new Error('Failed to rewrite Windows release workflow for 1.0.12');
-          }
-          fs.writeFileSync(path, text);
-          NODE
-      - name: Remove one-shot helper
-        run: rm .github/workflows/prepare-v1012.yml
-      - name: Commit release preparation
+      - name: Commit version bump
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json .github/workflows/windows-release.yml .github/workflows/prepare-v1012.yml
-          git commit -m "Prepare Folio 1.0.12 release"
+          git add package.json package-lock.json
+          git commit -m "Bump Folio to 1.0.12"
           git push origin HEAD:main
