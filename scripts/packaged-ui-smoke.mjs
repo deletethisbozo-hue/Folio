@@ -113,9 +113,17 @@ try {
   });
   if (!apiPrintResponse.ok) throw new Error(`Packaged Print Preview API failed: ${apiPrintResponse.status}`);
   const apiPrint = await apiPrintResponse.json();
-  const serializedPrint = String(apiPrint.html || "").replace(/\u00ad/g, "");
-  if (apiPrint.pages < 1 || !serializedPrint.includes("pagedjs_page") || !serializedPrint.includes(apiMarker)) {
-    throw new Error(`Packaged Print Preview API lost its unsaved live draft (pages=${apiPrint.pages}, marker=${serializedPrint.includes(apiMarker)}).`);
+  const serializedPrint = String(apiPrint.html || "");
+  // The compositor is allowed to wrap even a synthetic marker in nested spans,
+  // so serialized HTML is not a valid semantic-text oracle. Parse the returned
+  // document in the same Chromium instance and assert on textContent instead.
+  const apiPrintText = await page.evaluate((html) => {
+    const parsed = new DOMParser().parseFromString(html, "text/html");
+    return (parsed.body?.textContent || "").replace(/\u00ad/g, "");
+  }, serializedPrint);
+  const apiHasMarker = apiPrintText.includes(apiMarker);
+  if (apiPrint.pages < 1 || !serializedPrint.includes("pagedjs_page") || !apiHasMarker) {
+    throw new Error(`Packaged Print Preview API lost its unsaved live draft (pages=${apiPrint.pages}, marker=${apiHasMarker}).`);
   }
 
   await page.$eval(".rich-editor", (element) => {
