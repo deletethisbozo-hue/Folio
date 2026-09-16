@@ -1,0 +1,283 @@
+/* Folio 2.0.3 visual pass: stronger hierarchy, calmer spacing, and a cover
+ * preview that always shows the complete cover regardless of device profile. */
+
+.folio-shell:not(.folio-empty-shell)[data-ui-tone] {
+  grid-template-columns: 232px minmax(0, 1fr) clamp(430px, 32vw, 520px);
+  grid-template-rows: 56px minmax(0, 1fr) 28px;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar {
+  height: 56px;
+  min-height: 56px;
+  grid-template-columns: 232px minmax(0, 1fr) auto;
+}
+
+.folio-shell[data-ui-tone] .command-wordmark {
+  padding: 0 20px;
+  font: 700 24px/.95 Georgia, "Times New Roman", serif;
+  letter-spacing: -.045em;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav {
+  padding-left: 10px;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav button,
+.folio-shell[data-ui-tone] .folio-commandbar .tone-toggle {
+  height: 55px;
+  padding-inline: 15px;
+  font-size: 12.5px;
+}
+
+.folio-shell[data-ui-tone] .library-toolbar,
+.folio-shell[data-ui-tone] .editor-topbar,
+.folio-shell[data-ui-tone] .preview-topbar {
+  height: 44px;
+  min-height: 44px;
+}
+
+.folio-shell[data-ui-tone] .pane-label,
+.folio-shell[data-ui-tone] .preview-pane-title {
+  font-size: 10.5px;
+  letter-spacing: .125em;
+}
+
+.folio-shell[data-ui-tone] .book-identity {
+  padding: 19px 18px 17px;
+}
+
+.folio-shell[data-ui-tone] .book-title {
+  font-size: 16px;
+}
+
+.folio-shell[data-ui-tone] .book-author {
+  font-size: 11.5px;
+}
+
+.folio-shell[data-ui-tone] .contents-list {
+  padding-top: 14px;
+}
+
+.folio-shell[data-ui-tone] .contents-row {
+  height: 33px;
+  padding-inline: 17px 14px;
+  font-size: 12px;
+  line-height: 33px;
+}
+
+.folio-shell[data-ui-tone] .contents-heading {
+  margin-top: 15px;
+  padding-inline: 17px;
+  font-size: 10px;
+}
+
+.folio-shell[data-ui-tone] .section-titlebar {
+  height: 76px;
+  min-height: 76px;
+  padding-inline: 30px 20px;
+}
+
+.folio-shell[data-ui-tone] .section-title,
+.folio-shell[data-ui-tone] .section-title-button {
+  font-size: 22px;
+}
+
+.folio-shell[data-ui-tone] .format-toolbar {
+  min-height: 40px;
+  padding-inline: 20px;
+  gap: 10px;
+}
+
+.folio-shell[data-ui-tone] .format-toolbar .toolbar-group > button,
+.folio-shell[data-ui-tone] .search-pill {
+  min-width: 30px;
+  height: 30px;
+  border-radius: 4px;
+}
+
+.folio-shell[data-ui-tone] .scene-break-button,
+.folio-shell[data-ui-tone] .illustration-button {
+  padding-inline: 9px;
+  gap: 5px;
+}
+
+.folio-shell[data-ui-tone] .editor-paper {
+  background: color-mix(in srgb, var(--studio-editor-canvas) 92%, var(--studio-surface));
+}
+
+.folio-shell[data-ui-tone] .manuscript-editor {
+  width: min(820px, calc(100% - 48px));
+  height: calc(100% - 44px);
+  margin: 22px auto;
+  padding: 50px 62px 84px;
+  border-radius: 3px;
+  box-shadow: 0 8px 28px rgba(42, 35, 28, .075), 0 1px 2px rgba(42, 35, 28, .08);
+}
+
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .26), 0 1px 2px rgba(0, 0, 0, .4);
+}
+
+.folio-shell[data-ui-tone] .preview-topbar {
+  padding-inline: 13px 7px;
+}
+
+.folio-shell[data-ui-tone] .device-toolbar {
+  min-height: 42px;
+  padding-inline: 14px;
+}
+
+.folio-shell[data-ui-tone] .preview-stage {
+  padding: 26px 20px 30px;
+}
+
+.folio-shell[data-ui-tone] .reader-device {
+  max-width: min(100%, 450px);
+  box-shadow: 0 13px 34px rgba(26, 23, 20, .2), 0 2px 5px rgba(26, 23, 20, .18);
+}
+
+.folio-shell[data-ui-tone="midnight"] .reader-device {
+  box-shadow: 0 15px 40px rgba(0, 0, 0, .52), 0 2px 7px rgba(0, 0, 0, .5);
+}
+
+.folio-shell[data-ui-tone] .reader-screen {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Cover preview is deliberately independent of the document's scrolling flow.
+ * Every device gets the same full-cover, contain-fit treatment. */
+.folio-shell[data-ui-tone] .reader-screen > .cover-preview-surface {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  padding: clamp(10px, 3%, 18px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #eeeae2;
+}
+
+.folio-shell[data-ui-tone] .cover-preview-surface img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: transparent;
+  box-shadow: 0 5px 18px rgba(20, 17, 13, .18);
+}
+
+.folio-shell[data-ui-tone] .cover-editor-card {
+  gap: 16px;
+}
+
+.folio-shell[data-ui-tone] .cover-editor-art {
+  border-radius: 2px;
+  box-shadow: 0 12px 32px rgba(39, 29, 19, .15);
+}
+
+/* The previous brown slab looked like a leftover prototype control. */
+.folio-shell[data-ui-tone] .cover-upload-button,
+.folio-shell[data-ui-tone] .cover-button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 4px;
+  background: var(--studio-control);
+  color: var(--studio-ink);
+  box-shadow: none;
+  font: 650 12px/1 Georgia, "Times New Roman", serif;
+}
+
+.folio-shell[data-ui-tone] .cover-upload-button:hover,
+.folio-shell[data-ui-tone] .cover-button:hover {
+  border-color: var(--studio-accent);
+  background: var(--studio-accent-soft);
+}
+
+/* Inline artwork in editable front matter. */
+.folio-shell[data-ui-tone] .illustration-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration {
+  position: relative;
+  width: min(100%, 520px);
+  margin: 24px auto;
+  padding: 12px;
+  border: 1px solid var(--studio-rule);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--studio-control) 88%, transparent);
+  text-align: center;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration img {
+  display: block;
+  max-width: 100%;
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration figcaption {
+  margin-top: 8px;
+  color: var(--studio-muted);
+  font-size: 11px;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-remove {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 50%;
+  background: var(--studio-surface);
+  color: var(--studio-muted);
+  line-height: 1;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-remove:hover {
+  color: var(--studio-danger);
+  border-color: var(--studio-danger);
+}
+
+.folio-illustration {
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  margin: 1.4em auto;
+}
+
+@media (max-width: 1180px) {
+  .folio-shell:not(.folio-empty-shell)[data-ui-tone] {
+    grid-template-columns: 202px minmax(0, 1fr) 382px;
+  }
+  .folio-shell[data-ui-tone] .folio-commandbar {
+    grid-template-columns: 202px minmax(0, 1fr) auto;
+  }
+  .folio-shell[data-ui-tone] .command-wordmark {
+    padding-inline: 16px;
+    font-size: 22px;
+  }
+  .folio-shell[data-ui-tone] .manuscript-editor {
+    width: calc(100% - 34px);
+    padding-inline: 42px;
+  }
+  .folio-shell[data-ui-tone] .preview-stage {
+    padding-inline: 14px;
+  }
+}
