@@ -44,6 +44,12 @@ jobs:
         run: node scripts/v204-followup.mjs
       - name: Typecheck
         run: npm run typecheck
+      - name: Build web for focused browser checks
+        run: npm run build:web
+      - name: Focused illustration qualification
+        run: |
+          node --import tsx tests/illustration-ui.test.ts
+          node --import tsx tests/illustration-preview-ui.test.ts
       - name: Full test suite
         run: npm test
       - name: Production build
