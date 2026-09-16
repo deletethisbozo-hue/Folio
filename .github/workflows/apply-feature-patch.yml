@@ -1,5 +1,5 @@
-# temporary dispatcher; removed after the feature branch is patched
-name: Apply pending preview feature patch
+# temporary dispatcher; removed after the feature branch is qualified
+name: Repair pending preview feature patch
 
 on:
   push:
@@ -11,19 +11,43 @@ permissions:
   contents: write
 
 jobs:
-  apply:
+  repair:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/preview-connection-recovery
           fetch-depth: 0
-      - name: Apply patch
-        run: python .github/scripts/apply-device-preview.py
-      - name: Commit product changes
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Repair generated patch artifacts
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('web/src/device-profiles.ts')
+          s = p.read_text(encoding='utf-8')
+          if s.startswith('\\\n'):
+              s = s[2:]
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('tests/ui-runtime.test.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('\n\\\n  check("typing updates the visible device preview before autosave", true);', '\n  check("typing updates the visible device preview before autosave", true);', 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('web/src/preview-runtime.ts')
+          s = p.read_text(encoding='utf-8').replace('|| "kindle-paperwhite";', '|| "kindle-6-8";', 1)
+          p.write_text(s, encoding='utf-8')
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Commit repair
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Add grouped size-based previews and editor word navigation"
+          git add web/src/device-profiles.ts web/src/preview-runtime.ts tests/ui-runtime.test.ts
+          git commit -m "Repair grouped preview integration"
           git push origin HEAD:fix/preview-connection-recovery
