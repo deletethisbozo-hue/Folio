@@ -642,12 +642,36 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   check("justified body text never pulls ornamental breaks off center", true);
   const dropcapBeforeDeviceChange = await page.evaluate(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap")));
   await page.select('select[aria-label="Preview device"]', "phone-6-1");
-  await stage("narrow justified composition", () => page.waitForFunction(() => {
-    const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
-    return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
+  await stage("switch large corpus to phone", () => page.waitForSelector('.reader-device.device-phone-6-1[data-device-family="phone"]'));
+  await stage("bring narrow qualification paragraph into view", () => page.evaluate(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+      .find((candidate) => candidate.textContent
+        ?.replace(/\u00ad/g, "")
+        .replace(/\u00a0/g, " ")
+        .includes("W Polsce i na świecie najprawdopodobniej"));
+    if (!paragraph) throw new Error("Polish qualification paragraph is missing after device change");
+    paragraph.dataset.folioQaPolish = "true";
+    paragraph.scrollIntoView({ block: "center" });
   }));
+  await stage("narrow justified composition", () => page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+      .find((candidate) => candidate.textContent
+        ?.replace(/\u00ad/g, "")
+        .replace(/\u00a0/g, " ")
+        .includes("W Polsce i na świecie najprawdopodobniej"));
+    if (!paragraph?.classList.contains("folio-composed")) return false;
+    const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
+    return lines.length > 1 && lines.at(-1)?.classList.contains("folio-line-natural") === true;
+  }, { timeout: 30000 }));
   check("narrow readers honor the selected justification and keep final lines natural", true);
-  await stage("drop cap survives device change", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap"))));
+  await stage("bring narrow first paragraph into view", () => page.evaluate(() => {
+    const first = document.querySelector("iframe")?.contentDocument?.querySelector<HTMLElement>("section.chapter > p");
+    if (!first) throw new Error("First chapter paragraph is missing after device change");
+    first.scrollIntoView({ block: "center" });
+  }));
+  await stage("drop cap survives device change", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap")), { timeout: 30000 }));
   check("drop caps survive switching preview devices", dropcapBeforeDeviceChange);
 
   const chapterCountBeforeAdd = await page.$$eval(".contents-row.chapter-row", (rows) => rows.length);
