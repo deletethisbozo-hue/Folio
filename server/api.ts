@@ -48,6 +48,7 @@ import { roundWarning } from "./versioning.ts";
 import type { ArtifactType } from "./destinations.ts";
 import { THEME_FONTS_DIR } from "./pipeline/paths.ts";
 import { normalizeThemeFontStack } from "./pipeline/theme-fonts.ts";
+import { registerImagePageApi } from "./image-page-api.ts";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -136,6 +137,7 @@ function applyPreviewDraft(book: { sections: Array<{ id: string; markdown: strin
 }
 
 export function registerApi(app: Express): void {
+  registerImagePageApi(app);
   app.get("/theme-fonts/:file", (req, res) =>
     wrap(res, async () => {
       const name = String(req.params.file ?? "");
