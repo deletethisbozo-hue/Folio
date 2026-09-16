@@ -1,3 +1,4 @@
+# temporary dispatcher; removed after the feature branch is patched
 name: Apply pending preview feature patch
 
 on:
