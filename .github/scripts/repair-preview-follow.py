@@ -61,6 +61,23 @@ if old not in s:
 s = s.replace(old, new, 1)
 app.write_text(s, encoding="utf-8")
 
+css = Path("web/src/index.css")
+c = css.read_text(encoding="utf-8")
+old_stage = '.preview-stage { position:relative; flex:1 1 0; width:100%; height:0; min-height:0; display:grid; place-items:center; padding:13px 12px 16px; overflow:hidden; contain:size layout paint; background:linear-gradient(135deg,#d4d3d0 0%,#c9c8c5 100%); }'
+new_stage = '.preview-stage { position:relative; flex:1 1 0; width:100%; height:0; min-height:0; display:grid; place-items:center; padding:13px 12px 16px; overflow:hidden; contain:size layout paint; container-type:size; background:linear-gradient(135deg,#d4d3d0 0%,#c9c8c5 100%); }'
+if c.count(old_stage) != 1:
+    raise SystemExit(f"preview stage rule count={c.count(old_stage)}")
+c = c.replace(old_stage, new_stage, 1)
+old_tall = 'calc((100dvh - 112px) * var(--folio-device-aspect,.72))'
+if c.count(old_tall) != 3:
+    raise SystemExit(f"tall device viewport constraint count={c.count(old_tall)}")
+c = c.replace(old_tall, 'calc(100cqh * var(--folio-device-aspect,.72))')
+old_phone = 'calc((100dvh - 112px) * var(--folio-device-aspect,.48))'
+if c.count(old_phone) != 1:
+    raise SystemExit(f"phone viewport constraint count={c.count(old_phone)}")
+c = c.replace(old_phone, 'calc(100cqh * var(--folio-device-aspect,.48))')
+css.write_text(c, encoding="utf-8")
+
 test = Path("tests/ui-runtime.test.ts")
 t = test.read_text(encoding="utf-8")
 if '"kindle-oasis"' not in t:
