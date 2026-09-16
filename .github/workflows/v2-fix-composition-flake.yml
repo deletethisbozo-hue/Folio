@@ -1,0 +1,49 @@
+name: Folio 2.0 composition test patch
+
+on:
+  push:
+    branches: ["release/v2.0.0"]
+    paths:
+      - ".github/workflows/v2-fix-composition-flake.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v2.0.0
+          fetch-depth: 0
+      - name: Make Polish composition wait survive authoritative iframe replacement
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("tests/ui-runtime.test.ts")
+          text = path.read_text(encoding="utf-8")
+          old = '''      paragraph.dataset.folioQaPolish = "true";
+      if (!paragraph.classList.contains("folio-composed")) return false;
+      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];'''
+          new = '''      paragraph.dataset.folioQaPolish = "true";
+      if (!paragraph.classList.contains("folio-composed")) {
+        // The authoritative preview can replace the iframe after the paragraph was
+        // first scrolled into view. The replacement must be made visible again so
+        // the lazy compositor's IntersectionObserver gets a chance to compose it.
+        paragraph.scrollIntoView({ block: "center" });
+        return false;
+      }
+      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];'''
+          if old not in text:
+              raise SystemExit("Polish composition wait block was not found")
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding="utf-8")
+      - name: Commit regression-test fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/ui-runtime.test.ts
+          git commit -m "Stabilize lazy Polish composition regression test"
+          git push origin HEAD:release/v2.0.0
