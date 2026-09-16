@@ -114,7 +114,6 @@ try {
   await page.keyboard.press("Enter");
   await page.keyboard.type("BROWSER LIVE DRAFT");
   await stage("sample live draft preview", () => page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.innerText.includes("BROWSER LIVE DRAFT")));
-\
   check("typing updates the visible device preview before autosave", true);
 
   const previewGroups = await page.$$eval('select[aria-label="Preview device"] optgroup', (groups) => groups.map((group) => ({ label: group.label, values: [...group.querySelectorAll("option")].map((option) => option.value) })));

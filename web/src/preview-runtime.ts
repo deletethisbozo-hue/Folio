@@ -12,7 +12,7 @@ function numberFromWordsLabel(): number {
 }
 
 function mode(): string {
-  return document.querySelector<HTMLSelectElement>('select[aria-label="Preview device"]')?.value || "kindle-paperwhite";
+  return document.querySelector<HTMLSelectElement>('select[aria-label="Preview device"]')?.value || "kindle-6-8";
 }
 
 /** Install the one authoritative font/margin calibration for reflow preview.

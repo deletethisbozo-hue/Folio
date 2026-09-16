@@ -1,4 +1,3 @@
-\
 export type PreviewFamily = "kindle" | "kobo" | "phone" | "tablet" | "print";
 
 export type PreviewMode =

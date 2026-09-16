@@ -981,7 +981,7 @@ export default function App() {
   }
 
   function clearPreviewHighlight(doc?: Document | null) {
-    const view = doc?.defaultView as (Window & { Highlight?: new (...ranges: Range[]) => unknown }) | null;
+    const view = doc?.defaultView as (Window & { Highlight?: new (...ranges: Range[]) => unknown; CSS?: { highlights?: { set(name: string, value: unknown): void; delete(name: string): boolean } } }) | null;
     const registry = (view?.CSS as unknown as { highlights?: { delete(name: string): boolean } } | undefined)?.highlights;
     registry?.delete("folio-editor-word");
   }
@@ -991,7 +991,7 @@ export default function App() {
     const doc = frame?.contentDocument;
     const ranges = doc ? previewRangeAtWord(target.ordinal) : null;
     if (!frame || !doc?.head || !ranges?.length) return false;
-    const view = doc.defaultView as (Window & { Highlight?: new (...ranges: Range[]) => unknown }) | null;
+    const view = doc.defaultView as (Window & { Highlight?: new (...ranges: Range[]) => unknown; CSS?: { highlights?: { set(name: string, value: unknown): void; delete(name: string): boolean } } }) | null;
     const registry = (view?.CSS as unknown as { highlights?: { set(name: string, value: unknown): void; delete(name: string): boolean } } | undefined)?.highlights;
     const HighlightCtor = view?.Highlight;
     if (!registry || !HighlightCtor) return false;
