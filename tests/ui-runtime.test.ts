@@ -643,6 +643,14 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   const dropcapBeforeDeviceChange = await page.evaluate(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p .dropcap")));
   await page.select('select[aria-label="Preview device"]', "phone-6-1");
   await stage("switch large corpus to phone", () => page.waitForSelector('.reader-device.device-phone-6-1[data-device-family="phone"]'));
+  await stage("wait for narrow qualification paragraph after device reload", () => page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    return [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+      .some((candidate) => candidate.textContent
+        ?.replace(/\u00ad/g, "")
+        .replace(/\u00a0/g, " ")
+        .includes("W Polsce i na świecie najprawdopodobniej"));
+  }, { timeout: 30000 }));
   await stage("bring narrow qualification paragraph into view", () => page.evaluate(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
@@ -650,7 +658,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
         ?.replace(/\u00ad/g, "")
         .replace(/\u00a0/g, " ")
         .includes("W Polsce i na świecie najprawdopodobniej"));
-    if (!paragraph) throw new Error("Polish qualification paragraph is missing after device change");
+    if (!paragraph) throw new Error("Polish qualification paragraph disappeared after device reload");
     paragraph.dataset.folioQaPolish = "true";
     paragraph.scrollIntoView({ block: "center" });
   }));
