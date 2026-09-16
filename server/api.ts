@@ -49,6 +49,7 @@ import type { ArtifactType } from "./destinations.ts";
 import { THEME_FONTS_DIR } from "./pipeline/paths.ts";
 import { normalizeThemeFontStack } from "./pipeline/theme-fonts.ts";
 import { registerImagePageApi } from "./image-page-api.ts";
+import { registerIllustrationApi } from "./illustration-api.ts";
 import { forgetRecentProject, readRecentProjects, rememberRecentProject } from "./recent-projects.ts";
 
 const upload = multer({
@@ -139,6 +140,7 @@ function applyPreviewDraft(book: { sections: Array<{ id: string; markdown: strin
 
 export function registerApi(app: Express): void {
   registerImagePageApi(app);
+  registerIllustrationApi(app);
   app.get("/theme-fonts/:file", (req, res) =>
     wrap(res, async () => {
       const name = String(req.params.file ?? "");

@@ -14,6 +14,7 @@ import "./start-screen.css";
 import "./cover-workspace.css";
 import "./image-page-workspace.css";
 import "./ui-polish.css";
+import "./v203-polish.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);

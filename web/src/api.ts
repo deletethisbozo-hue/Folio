@@ -169,6 +169,13 @@ export const api = {
       .then((r) => json<{ ok: true; entry: string; asset: string }>(r));
   },
 
+  uploadIllustration: (projectId: string, file: File) => {
+    const fd = new FormData();
+    fd.append("image", file, file.name);
+    return fetch(`/api/projects/${projectId}/illustration`, { method: "POST", body: fd })
+      .then((r) => json<{ ok: true; asset: string; url: string }>(r));
+  },
+
   preview: (
     projectId: string,
     meta: Partial<BookMeta>,

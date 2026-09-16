@@ -134,6 +134,8 @@ export default function App({ initialProject = null }: { initialProject?: Projec
   const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
   const editorRef = useRef<HTMLDivElement>(null);
+  const illustrationInputRef = useRef<HTMLInputElement>(null);
+  const illustrationRangeRef = useRef<Range | null>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
   const previewStageRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef(draft);
@@ -219,11 +221,11 @@ export default function App({ initialProject = null }: { initialProject?: Projec
     const ornament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
     if (!editor || !document || (editor.dataset.markdown === draft && editor.dataset.ornament === ornament)) return;
     editor.innerHTML = document.editable
-      ? markdownToEditorHtml(draft, ornament)
+      ? markdownToEditorHtml(draft, ornament, (asset) => project ? `/api/projects/${encodeURIComponent(project.projectId)}/asset?path=${encodeURIComponent(asset)}` : asset)
       : generatedMatterToEditorHtml(draft);
     editor.dataset.markdown = draft;
     editor.dataset.ornament = ornament;
-  }, [document?.id, draft, typography.sceneOrnament, meta?.theme, themes]);
+  }, [document?.id, draft, typography.sceneOrnament, meta?.theme, themes, project?.projectId]);
   useEffect(() => {
     Promise.all([api.themes(), api.matterTypes()])
       .then(([loadedThemes, loadedMatter]) => { setThemes(loadedThemes); setMatterTypes(loadedMatter); })
@@ -738,6 +740,62 @@ export default function App({ initialProject = null }: { initialProject?: Projec
       setError(e instanceof Error ? e.message : String(e));
     }
     finally { setBusy(false); }
+  }
+
+  function rememberIllustrationCaret() {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection?.rangeCount || !selection.anchorNode || !editor.contains(selection.anchorNode)) {
+      illustrationRangeRef.current = null;
+      return;
+    }
+    illustrationRangeRef.current = selection.getRangeAt(0).cloneRange();
+  }
+
+  async function insertIllustration(file: File) {
+    if (!project || !document?.editable || selectedSection?.kind !== "frontmatter") return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    setBusy(true); setError(null);
+    try {
+      const uploaded = await api.uploadIllustration(project.projectId, file);
+      const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Illustration";
+      const figure = window.document.createElement("figure");
+      figure.className = "editor-illustration";
+      figure.setAttribute("data-folio-illustration", "true");
+      figure.contentEditable = "false";
+      const image = window.document.createElement("img");
+      image.src = uploaded.url;
+      image.alt = alt;
+      image.dataset.folioAsset = uploaded.asset;
+      const caption = window.document.createElement("figcaption");
+      caption.textContent = alt;
+      const remove = window.document.createElement("button");
+      remove.type = "button";
+      remove.className = "editor-illustration-remove";
+      remove.setAttribute("aria-label", "Remove illustration");
+      remove.title = "Remove illustration";
+      remove.textContent = "×";
+      figure.append(image, caption, remove);
+
+      const savedRange = illustrationRangeRef.current;
+      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {
+        savedRange.deleteContents();
+        savedRange.insertNode(figure);
+      } else {
+        editor.appendChild(figure);
+      }
+      const spacer = window.document.createElement("p");
+      spacer.innerHTML = "<br>";
+      figure.after(spacer);
+      illustrationRangeRef.current = null;
+      recordEditorDom();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      if (illustrationInputRef.current) illustrationInputRef.current.value = "";
+    }
   }
 
   async function uploadCover(file: File) {
@@ -1400,10 +1458,18 @@ export default function App({ initialProject = null }: { initialProject?: Projec
   }
 
   function editorClick(event: React.MouseEvent<HTMLDivElement>) {
-    const remove = (event.target as HTMLElement).closest(".editor-scene-break-remove");
-    if (remove) {
+    const target = event.target as HTMLElement;
+    const sceneRemove = target.closest(".editor-scene-break-remove");
+    if (sceneRemove) {
       event.preventDefault();
-      remove.closest(".editor-scene-break")?.remove();
+      sceneRemove.closest(".editor-scene-break")?.remove();
+      recordEditorDom();
+      return;
+    }
+    const illustrationRemove = target.closest(".editor-illustration-remove");
+    if (illustrationRemove) {
+      event.preventDefault();
+      illustrationRemove.closest(".editor-illustration")?.remove();
       recordEditorDom();
       return;
     }
@@ -1472,7 +1538,7 @@ export default function App({ initialProject = null }: { initialProject?: Projec
         <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
-          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button></div>
+          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
         </div>
