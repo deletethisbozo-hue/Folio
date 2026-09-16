@@ -158,7 +158,11 @@ jobs:
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
             $printText = [System.Net.WebUtility]::HtmlDecode([regex]::Replace([string]$printPreview.html, '<[^>]+>', ' '))
             $printText = (($printText -replace [char]0x00AD, '') -replace '\s+', ' ').Trim()
-            if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page" -or $printText -notmatch "Packaged preview probe") { throw "Packaged print preview did not paginate the selected live section." }
+            $hasPages = $printPreview.pages -ge 1
+            $hasPagedDom = [string]$printPreview.html -match "pagedjs_page"
+            $hasDraft = $printText -match "Packaged\s*preview\s*probe"
+            Write-Host "Packaged print preview diagnostics: pages=$($printPreview.pages) pagedDom=$hasPagedDom liveDraft=$hasDraft"
+            if (-not $hasPages -or -not $hasPagedDom -or -not $hasDraft) { throw "Packaged print preview did not paginate the selected live section." }
 
             foreach ($format in @("epub", "pdf", "print")) {
               $body = @{ format = $format; meta = $sample.meta; theme = "literary" }
