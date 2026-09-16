@@ -1,0 +1,56 @@
+name: Qualify Folio 2.0.4 patch
+
+on:
+  push:
+    branches: [fix/v2.0.4-preview-media-polish-stage]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qualify-folio-v204
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Pandoc 3.11
+        run: |
+          mkdir -p build/pandoc build/pandoc-unpack
+          curl -L --fail -o build/pandoc.tar.gz https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-linux-amd64.tar.gz
+          echo '2229a596a9d75fb17e4ae8896e2921fc4baf60e2ef115b154cdb34560a4dbd26  build/pandoc.tar.gz' | sha256sum -c -
+          tar -xzf build/pandoc.tar.gz -C build/pandoc-unpack --strip-components=1
+          cp build/pandoc-unpack/bin/pandoc build/pandoc/pandoc
+          chmod +x build/pandoc/pandoc
+          echo "PANDOC_BIN=$GITHUB_WORKSPACE/build/pandoc/pandoc" >> "$GITHUB_ENV"
+      - name: Install Chromium
+        run: npx puppeteer browsers install chrome-headless-shell
+      - name: Apply 2.0.4 patch
+        run: node scripts/apply-v204.mjs
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test suite
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Commit qualified patch
+        run: |
+          rm -f scripts/apply-v204.mjs .github/workflows/qualify-v204.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Folio 2.0.4: fix preview media and UI polish"
+          git push origin HEAD:fix/v2.0.4-preview-media-polish-stage
