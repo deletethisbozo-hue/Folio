@@ -1,0 +1,130 @@
+.contents-row.cover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.contents-row.cover-row small {
+  color: var(--ui-muted, #81776a);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.cover-editor-panel {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 38px;
+}
+
+.cover-editor-card {
+  width: min(420px, 86%);
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.cover-editor-art {
+  width: min(320px, 100%);
+  aspect-ratio: 2 / 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(120, 102, 78, .34);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .34);
+  box-shadow: 0 18px 44px rgba(39, 29, 19, .18);
+}
+
+.cover-editor-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #fff;
+}
+
+.cover-editor-empty {
+  display: grid;
+  gap: 8px;
+  padding: 26px;
+  color: var(--ui-muted, #756b60);
+}
+
+.cover-editor-empty strong {
+  color: var(--ui-text, #2f2923);
+  font: 600 20px/1.2 Georgia, serif;
+}
+
+.cover-editor-copy {
+  max-width: 360px;
+  color: var(--ui-muted, #756b60);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cover-upload-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.cover-upload-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cover-preview-surface {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #fff;
+}
+
+.cover-preview-surface img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #fff;
+}
+
+.cover-preview-empty {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 28px;
+  text-align: center;
+  color: #756b60;
+  background: #f8f3e9;
+}
+
+.cover-preview-empty strong {
+  color: #342d27;
+  font-size: 17px;
+}
+
+.cover-workspace-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.cover-workspace-heading .section-title {
+  cursor: default;
+}
+
+.cover-toolbar-note {
+  padding: 0 10px;
+  color: var(--ui-muted, #756b60);
+  font-size: 12px;
+}
