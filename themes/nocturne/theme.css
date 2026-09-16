@@ -1,10 +1,10 @@
 /* Nocturne — moonlit high contrast, ceremonial and unmistakably nocturnal. */
 body{font-family:Baskerville,Georgia,serif;line-height:1.54;color:#202534;background:#f3f4f7}
-main.book{counter-reset:night}
-section.chapter{counter-increment:night}
+main.book{counter-reset:nocturne-chapter}
+section.chapter{counter-increment:nocturne-chapter}
 section.chapter>h1{text-align:center;margin:1.35em 0 2.65em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.9em;font-weight:400;letter-spacing:.06em;color:#2d3650}
 section.chapter>h1::before{content:"☾";display:block;margin-bottom:.2em;font-family:Georgia,serif;font-size:2.25em;line-height:.7;color:#c6cad5}
-section.chapter>h1::after{content:"NIGHT  ·  " counter(night,upper-roman);display:block;width:8em;margin:1em auto 0;padding-top:.7em;border-top:1px solid #7f8aa3;font-family:Avenir,Arial,sans-serif;font-size:.3em;font-weight:600;letter-spacing:.32em;color:#65718a}
+section.chapter>h1::after{content:counter(nocturne-chapter,upper-roman);display:block;width:8em;margin:1em auto 0;padding-top:.7em;border-top:1px solid #7f8aa3;font-family:Avenir,Arial,sans-serif;font-size:.3em;font-weight:600;letter-spacing:.32em;color:#65718a}
 .chapter-subtitle{margin:-2.25em 0 2.25em}.chapter-subtitle p{font-family:Didot,"Bodoni MT",Georgia,serif;font-style:italic;color:#5d6880}
 .dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.4em;color:#39445f}
 .scene-break{font-size:1.2em;letter-spacing:.48em;color:#6f7990}
