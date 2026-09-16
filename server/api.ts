@@ -385,7 +385,11 @@ export function registerApi(app: Express): void {
     wrap(res, async () => {
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
-      applyPreviewDraft(book, req);
+      const sectionId = applyPreviewDraft(book, req);
+      // Print preview follows the same selected-section contract as Reader.
+      // Paginating the entire manuscript made realistic 100+ page projects look
+      // broken and kept Chromium busy long after the client had moved on.
+      if (sectionId) book.sections = book.sections.filter((section) => section.id === sectionId);
       const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
       const { html, meta } = await renderPrintPreviewHtml(book, print);
       res.json({ html, pages: meta.pages, gutter: meta.gutter });

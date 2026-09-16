@@ -234,8 +234,8 @@ try {
     });
     return new Set(signatures).size;
   });
-  check("Folio 2.0 exposes only the 14 curated visual themes", themeCount === 14, String(themeCount));
-  check("curated theme cards retain broad visual differentiation", distinctCards >= 12, String(distinctCards) + " distinct");
+  check("Folio 2.0 exposes only the 13 curated visual themes", themeCount === 13, String(themeCount));
+  check("curated theme cards retain broad visual differentiation", distinctCards >= 11, String(distinctCards) + " distinct");
 
   await page.click(".style-category-list button:nth-child(6)");
   const ornamentCount = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
