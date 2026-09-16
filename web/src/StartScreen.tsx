@@ -88,7 +88,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => void;
     <div className="start-shell" data-ui-tone={tone}>
       <div className="start-windowbar">
         <div className="start-brand">Folio</div>
-        <div className="start-version">2.0 development</div>
+        <div className="start-version">2.0</div>
       </div>
 
       <main className="start-main">
