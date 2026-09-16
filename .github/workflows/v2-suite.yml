@@ -7,6 +7,7 @@ on:
     branches: ["release/v2.0.0"]
     paths:
       - ".github/workflows/v2-suite.yml"
+      - ".github/workflows/v2-windows-qualification.yml"
       - "web/**"
       - "server/**"
       - "tests/**"
@@ -18,6 +19,8 @@ on:
   pull_request:
     branches: ["main"]
     paths:
+      - ".github/workflows/v2-suite.yml"
+      - ".github/workflows/v2-windows-qualification.yml"
       - "web/**"
       - "server/**"
       - "tests/**"
