@@ -48,6 +48,29 @@ local function polish_hanging_words(inlines)
   return out
 end
 
+-- The live preview only creates a cap when the first meaningful character is a
+-- letter (optionally preceded by quotation marks). Export must make the same
+-- decision. In particular, dialogue paragraphs beginning with an en/em dash
+-- must keep the dash at normal size instead of turning it into a drop cap.
+local function is_dropcap_letter(ch)
+  if ch == "" then return false end
+
+  -- Pandoc's Unicode-aware text helpers correctly handle Polish and the other
+  -- cased alphabets Folio supports. Keep a small Latin fallback for older
+  -- bundled Pandoc builds where pandoc.text is unavailable.
+  if pandoc.text and pandoc.text.lower and pandoc.text.upper then
+    return pandoc.text.lower(ch) ~= pandoc.text.upper(ch)
+  end
+
+  local cp = utf8.codepoint(ch)
+  if not cp then return false end
+  return (cp >= 0x41 and cp <= 0x5A) or
+         (cp >= 0x61 and cp <= 0x7A) or
+         (cp >= 0x00C0 and cp <= 0x00D6) or
+         (cp >= 0x00D8 and cp <= 0x00F6) or
+         (cp >= 0x00F8 and cp <= 0x024F)
+end
+
 -- Split a string into (leading quote marks, first letter, rest).
 local function split_initial(s)
   local quotes, n = "", utf8.len(s) or 0
@@ -67,6 +90,7 @@ local function split_initial(s)
   local a = utf8.offset(s, i)
   local b = utf8.offset(s, i + 1)
   local letter = b and s:sub(a, b - 1) or s:sub(a)
+  if not is_dropcap_letter(letter) then return quotes, "", s end
   local rest = b and s:sub(b) or ""
   return quotes, letter, rest
 end

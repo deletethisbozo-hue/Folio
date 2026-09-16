@@ -25,14 +25,13 @@ try {
 
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.waitForSelector(".empty-actions", { timeout: 15000 });
+  await page.waitForSelector(".start-actions", { timeout: 15000 });
   await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Open Sample"));
     if (!button) throw new Error("Open Sample button is missing from packaged Folio.");
     button.click();
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 15000 });
-  await page.waitForFunction(() => /Chapter\s+\d+\s+pages\s+·\s+Book\s+~?\d+\s+pages/.test(document.querySelector(".page-counts")?.textContent || ""), { timeout: 15000 });
   await page.$eval(".rich-editor", (element) => {
     element.focus();
     const range = document.createRange();
@@ -56,7 +55,7 @@ try {
   await page.click('[data-command="design"]');
   await page.waitForSelector(".theme-sample");
   const themes = await page.$$eval(".theme-sample", (items) => items.length);
-  if (themes !== 29) throw new Error("Packaged style browser expected 29 themes after retiring Black Psalter, found " + themes + ".");
+  if (themes !== 14) throw new Error("Packaged Folio 2.0 style browser expected exactly 14 curated themes, found " + themes + ".");
   await page.click(".style-category-list button:nth-child(6)");
   const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
@@ -97,7 +96,6 @@ try {
   await page.waitForFunction(() => document.querySelector(".rich-editor")?.dataset.markdown?.includes("RESPONSIVE TYPING MARKER"), { timeout: 5000 });
   await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes("RESPONSIVE TYPING MARKER"), { timeout: 8000 });
   if (Date.now() - typingStarted > 8000) throw new Error("Whole-book typing/preview response exceeded 8 seconds.");
-  await page.waitForFunction(() => /Chapter\s+\d+\s+pages\s+·\s+Book\s+~?\d+\s+pages/.test(document.querySelector(".page-counts")?.textContent || ""), { timeout: 5000 });
 
   await page.click(".section-title-button");
   await page.waitForSelector(".section-title-input");
@@ -110,7 +108,7 @@ try {
   await page.click(".section-delete");
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
-  console.log("Packaged UI passed: page counts, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 29 themes, 6 device profiles.");
+  console.log("Packaged Folio 2.0 UI passed: startup screen, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 14 curated themes, and grouped device profiles.");
 } finally {
   browser.disconnect();
 }

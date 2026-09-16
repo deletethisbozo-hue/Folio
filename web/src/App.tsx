@@ -29,6 +29,7 @@ const trims = [
   ["6x9", "6 × 9"], ["8.5x11", "8.5 × 11"],
 ] as const;
 const defaultPrint: PrintOptions = { trim: "6x9", binding: "paperback", startChaptersRecto: true, layout: "author-title-bottom" };
+const COVER_ID = "__folio_cover__";
 const sceneOrnaments = [
   "⁂", "❦", "❧", "✦", "◆", "◇", "◈", "❖", "※", "⁕",
   "✺", "✠", "☾", "☼", "§", "∞", "• • •", "· · ·", "* * *",
@@ -226,8 +227,10 @@ export default function App() {
     Promise.all([api.themes(), api.matterTypes()])
       .then(([loadedThemes, loadedMatter]) => { setThemes(loadedThemes); setMatterTypes(loadedMatter); })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-    const bookPath = new URLSearchParams(window.location.search).get("book")?.trim();
+    const params = new URLSearchParams(window.location.search);
+    const bookPath = params.get("book")?.trim();
     if (bookPath) void openFolder(bookPath);
+    else if (params.get("sample") === "1") void loadSample();
   }, []);
 
   // Appearance is project data too. Persist it after a short quiet period so
@@ -250,6 +253,7 @@ export default function App() {
   const frontMatter = useMemo(() => project?.sections.filter((s) => s.kind !== "chapter" && s.kind !== "backmatter") ?? [], [project]);
   const backMatter = useMemo(() => project?.sections.filter((s) => s.kind === "backmatter") ?? [], [project]);
   const selectedSection = project?.sections.find((s) => s.id === selectedId) ?? null;
+  const coverSelected = selectedId === COVER_ID;
   const previewProfile = getPreviewProfile(previewMode);
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
   const draftWords = useMemo(() => {
@@ -278,7 +282,7 @@ export default function App() {
   const totalWords = useMemo(() => project ? Math.max(draftWords, Math.round(project.bodyChars / 5.1)) : 0, [project, draftWords]);
 
   useEffect(() => {
-    if (!project || !selectedId) return;
+    if (!project || !selectedId || selectedId === COVER_ID) return;
     // Renaming can change a chapter slug/id. updateCurrentChapterHeading already
     // holds the authoritative renamed document, so keep that editor mounted
     // instead of clearing it and fetching the same manuscript again.
@@ -296,7 +300,7 @@ export default function App() {
   }, [project?.projectId, selectedId, sectionRevision, document?.id]);
 
   useEffect(() => {
-    if (!project || !meta || !selectedId || document?.id !== selectedId || previewMode === "print") return;
+    if (!project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode === "print") return;
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
@@ -319,7 +323,7 @@ export default function App() {
   }, [project?.projectId, meta, typography, previewMode === "print", selectedId, document?.id, document?.subtitle]);
 
   useEffect(() => {
-    if (!project || !meta || !selectedId || document?.id !== selectedId || previewMode !== "print") return;
+    if (!project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode !== "print") return;
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
@@ -346,7 +350,12 @@ export default function App() {
     const frame = previewRef.current;
     const current = frame?.contentDocument;
     const scrollTop = current?.scrollingElement?.scrollTop ?? 0;
-    if (current?.head && current.body) {
+    // Print preview is already paginated static HTML. Replacing its head/body in
+    // place can leave the iframe in the previous reader document lifecycle and
+    // makes Reader → Print intermittently show no physical pages. Cross the
+    // print boundary with a real srcDoc navigation instead.
+    const crossesPrintBoundary = previewMode === "print" || frame?.dataset.folioLoadedMode === "print";
+    if (current?.head && current.body && !crossesPrintBoundary) {
       const parsed = new DOMParser().parseFromString(html, "text/html");
       current.documentElement.lang = parsed.documentElement.lang;
       current.head.innerHTML = parsed.head.innerHTML;
@@ -375,7 +384,7 @@ export default function App() {
     // Generated title/copyright pages already have authoritative Pandoc HTML.
     // Re-rendering their internal markup as Markdown exposed literal <p> tags
     // and could add chapter-only typography such as drop caps.
-    if (previewMode === "print" || !selectedId || document?.id !== selectedId || !document.editable) return "none";
+    if (previewMode === "print" || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || !document.editable) return "none";
     const previewDocument = previewRef.current?.contentDocument;
     if (!previewDocument) return "none";
     // The editor model is authoritative. previewDraft is deliberately debounced
@@ -644,6 +653,21 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  async function addImagePage(file: File) {
+    if (!project || !meta || !(await saveCurrent())) return;
+    const title = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Map";
+    const before = new Set(project.sections.map((section) => section.id));
+    setBusy(true); setError(null);
+    try {
+      await api.addImagePage(project.projectId, file, title, title, "contain");
+      const summary = await api.reload(project.projectId);
+      const created = summary.sections.find((section) => !before.has(section.id));
+      adopt(summary, created?.id);
+      setShowContent(false);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
   async function deleteCurrentSection() {
     if (!project || !selectedId || !selectedSection) return;
     const recoverable = !(["titlepage", "copyright"] as string[]).includes(selectedSection.kind);
@@ -849,10 +873,11 @@ export default function App() {
     }
   }
 
-  const selectedPosition = project?.sections.findIndex((section) => section.id === selectedId) ?? -1;
-  const previousSection = selectedPosition > 0 ? project?.sections[selectedPosition - 1] : null;
-  const nextSection = project && selectedPosition >= 0 && selectedPosition < project.sections.length - 1
-    ? project.sections[selectedPosition + 1]
+  const navigationIds = project ? [COVER_ID, ...project.sections.map((section) => section.id)] : [];
+  const selectedPosition = selectedId ? navigationIds.indexOf(selectedId) : -1;
+  const previousId = selectedPosition > 0 ? navigationIds[selectedPosition - 1] : null;
+  const nextId = selectedPosition >= 0 && selectedPosition < navigationIds.length - 1
+    ? navigationIds[selectedPosition + 1]
     : null;
 
   function lexicalWordMatches(value: string): RegExpMatchArray[] {
@@ -1059,6 +1084,7 @@ export default function App() {
     const frame = previewRef.current;
     const doc = frame?.contentDocument;
     if (!doc?.head || !frame) return;
+    frame.dataset.folioLoadedMode = previewMode;
     doc.getElementById("folio-device-profile")?.remove();
     const style = doc.createElement("style");
     style.id = "folio-device-profile";
@@ -1428,6 +1454,7 @@ export default function App() {
         <div className="library-toolbar"><span className="pane-label">Manuscript</span></div>
         <div className="book-identity"><div className="book-title">{meta.title}</div><div className="book-author">{meta.author}</div></div>
         <nav className="contents-list" aria-label="Book contents">
+          <button className={`contents-row cover-row ${coverSelected ? "selected" : ""}`} onClick={() => void selectSection(COVER_ID)}><span>Cover</span><small>{project.hasCover ? "" : "Add"}</small></button>
           {frontMatter.map((section) => <button key={section.id} className={`contents-row ${selectedId === section.id ? "selected" : ""}`} onClick={() => void selectSection(section.id)}><span>{section.title}</span></button>)}
           <div className="contents-heading">Contents</div>
           {chapters.map((section, index) => <button key={section.id} draggable={!busy} onDragStart={() => setDraggedChapterId(section.id)} onDragEnd={() => setDraggedChapterId(null)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropChapter(section.id)} className={`contents-row chapter-row ${selectedId === section.id ? "selected" : ""} ${draggedChapterId === section.id ? "dragging" : ""}`} onClick={() => void selectSection(section.id)} title={`${section.title} · drag to reorder`}><span className="chapter-grip"><UiIcon name="drag"/></span><span className="chapter-number">{index + 1}.</span><span className="chapter-label">{section.title}</span></button>)}
@@ -1439,20 +1466,20 @@ export default function App() {
 
       <section className="editor-pane">
         <div className="editor-topbar"><div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div></div>
-        <div className="section-titlebar"><ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/><div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
-        <div className="format-toolbar">
+        <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
+        <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
         </div>
-        <div className="editor-paper">{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</div>
+        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
       </section>
 
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>}</div></div>}</div></div>
-        <div className="device-toolbar"><div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div><div className="device-nav"><button disabled={!previousSection} title="Previous section" aria-label="Previous section" onClick={() => previousSection && void selectSection(previousSection.id)}><UiIcon name="previous"/></button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {project.sections.length}</span><button disabled={!nextSection} title="Next section" aria-label="Next section" onClick={() => nextSection && void selectSection(nextSection.id)}><UiIcon name="next"/></button></div></div>
-        <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{selectedId ? <iframe key={`${project.projectId}:${selectedId}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
+        <div className="device-toolbar"><div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div><div className="device-nav"><button disabled={!previousId} title="Previous section" aria-label="Previous section" onClick={() => previousId && void selectSection(previousId)}><UiIcon name="previous"/></button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {navigationIds.length}</span><button disabled={!nextId} title="Next section" aria-label="Next section" onClick={() => nextId && void selectSection(nextId)}><UiIcon name="next"/></button></div></div>
+        <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{coverSelected ? (project.hasCover ? <div className="cover-preview-surface"><img src={`/api/projects/${project.projectId}/cover?v=${coverVersion}`} alt={`${meta.title} cover`}/></div> : <div className="cover-preview-empty"><strong>No cover yet</strong><span>Add a PNG or JPEG from the Cover workspace.</span></div>) : selectedId ? <iframe key={`${project.projectId}:${selectedId}:${previewMode === "print" ? "print" : "reader"}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
       <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
@@ -1460,11 +1487,15 @@ export default function App() {
       {showStyle && (
         <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
       )}
-      {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onClose={() => setShowContent(false)}/>}
+      {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
       {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}
     </div>
   );
+}
+
+function CoverEditor(props: { projectId: string; hasCover: boolean; coverVersion: number; busy: boolean; onCover: (file: File) => void }) {
+  return <div className="cover-editor-panel"><div className="cover-editor-card"><div className="cover-editor-art">{props.hasCover ? <img src={`/api/projects/${props.projectId}/cover?v=${props.coverVersion}`} alt="Book cover"/> : <div className="cover-editor-empty"><strong>No cover yet</strong><span>Add the finished front-cover image for this book.</span></div>}</div><label className="native-button primary cover-upload-button">{props.hasCover ? "Replace Cover…" : "Add Cover…"}<input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onCover(file); event.currentTarget.value = ""; }}/></label><p className="cover-editor-copy">The cover is embedded in EPUB and Reading PDF exports. Print PDF remains an interior file for print-on-demand services.</p></div></div>;
 }
 
 function DialogShell(props: { title: string; children: React.ReactNode; footer: React.ReactNode; onClose: () => void }) {
@@ -1505,11 +1536,11 @@ function BookDetailsDialog(props: { meta: BookMeta; setMeta: (meta: BookMeta) =>
   return <DialogShell title="Book Details" onClose={props.onClose} footer={<><button className="native-button" onClick={props.onClose}>Cancel</button><button className="native-button primary" disabled={props.busy || !meta.title.trim()} onClick={props.onSave}>Save</button></>}><div className="book-details-layout"><div className="cover-field"><div className="cover-thumbnail">{props.hasCover ? <img src={`/api/projects/${props.projectId}/cover?v=${props.coverVersion}`} alt="Book cover"/> : <span>No cover</span>}</div><label className="native-button cover-button">{props.hasCover ? "Replace cover…" : "Add cover…"}<input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onCover(file); }}/></label><small>PNG or JPEG. Embedded in EPUB and used by exports.</small></div><div><div className="details-grid">{field("Title", "title")}{field("Subtitle", "subtitle")}{field("Author", "author")}{field("Series", "series")}{field("Book number", "series_index")}{field("Publisher", "publisher")}{field("Language", "language")}{field("ISBN", "isbn")}</div>{field("Copyright text", "copyright", true)}{field("Description", "description", true)}</div></div></DialogShell>;
 }
 
-function ContentDialog(props: { matterTypes: MatterType[]; title: string; setTitle: (title: string) => void; busy: boolean; onAddChapter: () => void; onAddMatter: (type: MatterType) => void; onClose: () => void }) {
+function ContentDialog(props: { matterTypes: MatterType[]; title: string; setTitle: (title: string) => void; busy: boolean; onAddChapter: () => void; onAddMatter: (type: MatterType) => void; onAddImagePage: (file: File) => void; onClose: () => void }) {
   const front = props.matterTypes.filter((type) => type.placement === "frontmatter");
   const back = props.matterTypes.filter((type) => type.placement === "backmatter");
-  const group = (label: string, items: MatterType[]) => <div className="content-kind-group"><h3>{label}</h3>{items.map((type) => <button key={type.key} disabled={props.busy} onClick={() => props.onAddMatter(type)}><span>{type.label}</span><small>Add editable page</small></button>)}</div>;
-  return <DialogShell title="Add Content" onClose={props.onClose} footer={<button className="native-button" onClick={props.onClose}>Close</button>}><div className="add-chapter-box"><h3>Chapter</h3><div><input autoFocus value={props.title} onChange={(e) => props.setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && props.title.trim()) props.onAddChapter(); }}/><button className="native-button primary" disabled={props.busy || !props.title.trim()} onClick={props.onAddChapter}>Add Chapter</button></div></div><div className="content-kind-columns">{group("Front Matter", front)}{group("Back Matter", back)}</div></DialogShell>;
+  const group = (label: string, items: MatterType[], imagePage = false) => <div className="content-kind-group"><h3>{label}</h3>{imagePage && <label className="content-image-kind"><span>Full-page Image</span><small>Map, family tree or illustration</small><input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onAddImagePage(file); event.currentTarget.value = ""; }}/></label>}{items.map((type) => <button key={type.key} disabled={props.busy} onClick={() => props.onAddMatter(type)}><span>{type.label}</span><small>Add editable page</small></button>)}</div>;
+  return <DialogShell title="Add Content" onClose={props.onClose} footer={<button className="native-button" onClick={props.onClose}>Close</button>}><div className="add-chapter-box"><h3>Chapter</h3><div><input autoFocus value={props.title} onChange={(e) => props.setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && props.title.trim()) props.onAddChapter(); }}/><button className="native-button primary" disabled={props.busy || !props.title.trim()} onClick={props.onAddChapter}>Add Chapter</button></div></div><div className="content-kind-columns">{group("Front Matter", front, true)}{group("Back Matter", back)}</div></DialogShell>;
 }
 
 function StyleLibrary(props: {

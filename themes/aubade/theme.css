@@ -1,10 +1,10 @@
 /* Aubade — Art Nouveau dawn: warm curves, sun motif, lighter rhythm. */
 body{font-family:Garamond,Georgia,serif;line-height:1.6;color:#47362d;background:#fff7ea}
-main.book{counter-reset:dawn}
-section.chapter{counter-increment:dawn}
+main.book{counter-reset:aubade-chapter}
+section.chapter{counter-increment:aubade-chapter}
 section.chapter>h1{text-align:center;margin:1.45em 0 2.6em;padding:.4em 0 .75em;font-family:"Bodoni MT",Didot,Georgia,serif;font-size:1.95em;font-weight:500;font-style:italic;letter-spacing:.025em;color:#7b4a2b}
 section.chapter>h1::before{content:"☼";display:block;margin-bottom:.55em;font-family:Georgia,serif;font-size:.72em;font-style:normal;color:#d5963f}
-section.chapter>h1::after{content:"DAWN  ·  " counter(dawn,upper-roman);display:block;width:72%;margin:.9em auto 0;padding-top:.7em;border-top:1px solid #dfb77b;font-family:Avenir,Arial,sans-serif;font-size:.31em;font-style:normal;font-weight:600;letter-spacing:.28em;color:#bc7a32}
+section.chapter>h1::after{content:counter(aubade-chapter,upper-roman);display:block;width:72%;margin:.9em auto 0;padding-top:.7em;border-top:1px solid #dfb77b;font-family:Avenir,Arial,sans-serif;font-size:.31em;font-style:normal;font-weight:600;letter-spacing:.28em;color:#bc7a32}
 .chapter-subtitle{margin:-2.25em 0 2.25em}.chapter-subtitle p{font-family:Garamond,Georgia,serif;font-size:.98em;font-style:italic;color:#9b6a45}
 .dropcap{font-family:"Bodoni MT",Didot,Georgia,serif;color:#c1772e;font-size:3.2em}
 .scene-break{font-size:1.15em;letter-spacing:.34em;color:#cf9958}

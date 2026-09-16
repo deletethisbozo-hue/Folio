@@ -1,29 +1,38 @@
-name: Build and Release Folio for Windows
+name: Folio 2.0 Windows qualification
 
+# Final Windows release gate for the Folio 2.0 candidate.
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
+  push:
+    branches: ["release/v2.0.0"]
+    paths:
+      - ".github/workflows/v2-windows-qualification.yml"
+      - "web/**"
+      - "server/**"
+      - "tests/**"
+      - "themes/**"
+      - "scripts/**"
+      - "assets/**"
+      - "package.json"
+      - "package-lock.json"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: folio-windows-release
-  cancel-in-progress: false
+  group: folio-v2-windows-qualification
+  cancel-in-progress: true
 
 jobs:
   windows:
     runs-on: windows-2025
-    timeout-minutes: 75
+    timeout-minutes: 90
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
       PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
 
     steps:
-      - name: Check out Folio
+      - name: Check out Folio 2.0 candidate
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -37,27 +46,13 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.0.0 version consistency
+      - name: Verify package version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.0.0") { throw "Windows release is scoped to Folio 2.0.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Refuse an existing immutable version
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = "v$env:FOLIO_VERSION"
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Refusing to delete or replace it; bump the version." }
-          $global:LASTEXITCODE = 0
-          git ls-remote --exit-code --tags origin "refs/tags/$tag" *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Tag $tag already exists. Refusing to move or replace it; bump the version." }
-          $global:LASTEXITCODE = 0
 
       - name: Download pinned Pandoc 3.11
         shell: pwsh
@@ -102,7 +97,7 @@ jobs:
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
 
-      - name: Smoke-test packaged Folio
+      - name: Smoke-test packaged Folio 2.0 candidate
         shell: pwsh
         run: |
           $env:FOLIO_E2E_PORT = "43127"
@@ -133,10 +128,10 @@ jobs:
             if (-not $covered.hasCover) { throw "Packaged cover upload failed." }
 
             $sectionId = [uri]::EscapeDataString($chapter.id)
-            $draft = "Packaged preview probe: live text before autosave."
+            $draft = "Packaged Folio 2.0 preview probe: live text before autosave."
             $previewBody = @{ meta = $sample.meta; theme = "blackletter"; typography = @{}; previewSectionId = $chapter.id; draft = $draft } | ConvertTo-Json -Depth 10
             $preview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $previewBody "$base/api/projects/$($sample.projectId)/preview"
-            if ($preview.html -notmatch "ackaged preview probe" -or $preview.html -notmatch "Folio Grenze Gotisch") { throw "Packaged live preview omitted draft text or theme CSS." }
+            if ($preview.html -notmatch "Folio 2.0 preview probe" -or $preview.html -notmatch "Folio Grenze Gotisch") { throw "Packaged live preview omitted draft text or theme CSS." }
 
             $saveBody = @{ markdown = "$draft`n`nSaved copy-on-write." } | ConvertTo-Json
             $saved = Invoke-RestMethod -Method Put -ContentType "application/json" -Body $saveBody "$base/api/projects/$($sample.projectId)/sections/$sectionId"
@@ -154,12 +149,12 @@ jobs:
             $deleted = Invoke-RestMethod -Method Delete "$base/api/projects/$($sample.projectId)/sections/$renamedId"
             if (-not $deleted.ok) { throw "Packaged chapter delete failed." }
 
-            $printBody = @{ meta = $sample.meta; theme = "literary"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
+            $printBody = @{ meta = $sample.meta; theme = "folio"; typography = @{}; previewSectionId = $chapter.id; draft = $draft; print = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } } | ConvertTo-Json -Depth 10
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
             if ($printPreview.pages -lt 1 -or $printPreview.html -notmatch "pagedjs_page") { throw "Packaged print preview did not paginate." }
 
             foreach ($format in @("epub", "pdf", "print")) {
-              $body = @{ format = $format; meta = $sample.meta; theme = "literary" }
+              $body = @{ format = $format; meta = $sample.meta; theme = "folio" }
               if ($format -eq "epub") { $body["preset"] = "kdp" }
               if ($format -eq "print") { $body["print"] = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } }
               $export = Invoke-RestMethod -Method Post -ContentType "application/json" -Body ($body | ConvertTo-Json -Depth 10) "$base/api/projects/$($sample.projectId)/export"
@@ -171,22 +166,22 @@ jobs:
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
 
-      - name: Hash release binaries
+      - name: Hash qualification binaries
         shell: pwsh
         run: |
           $required = @("release\Folio-$env:FOLIO_VERSION-setup.exe", "release\Folio-$env:FOLIO_VERSION-portable.exe")
           foreach ($file in $required) {
-            if (-not (Test-Path $file)) { throw "Missing release asset: $file" }
-            if ((Get-Item $file).Length -lt 1MB) { throw "Release asset is unexpectedly small: $file" }
+            if (-not (Test-Path $file)) { throw "Missing qualification asset: $file" }
+            if ((Get-Item $file).Length -lt 1MB) { throw "Qualification asset is unexpectedly small: $file" }
           }
           $lines = Get-FileHash $required -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" }
           $lines | Set-Content -Encoding ascii release\sha256.txt
           Get-Content release\sha256.txt
 
-      - name: Upload Windows build artifacts
+      - name: Upload Windows qualification artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-${{ env.FOLIO_VERSION }}-Windows
+          name: Folio-v2-candidate-Windows-qualification
           path: |
             release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
             release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
@@ -194,24 +189,3 @@ jobs:
             build/qa-v107/*
             build/qa-print-matrix/*
           if-no-files-found: error
-
-      - name: Publish immutable GitHub Release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = "v$env:FOLIO_VERSION"
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Release $tag appeared during the build. Refusing to delete or replace it." }
-          $global:LASTEXITCODE = 0
-          git ls-remote --exit-code --tags origin "refs/tags/$tag" *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Tag $tag appeared during the build. Refusing to move or replace it." }
-          $global:LASTEXITCODE = 0
-          gh release create $tag `
-            "release\Folio-$env:FOLIO_VERSION-setup.exe" `
-            "release\Folio-$env:FOLIO_VERSION-portable.exe" `
-            "release\sha256.txt" `
-            --repo $env:GITHUB_REPOSITORY `
-            --target "$env:GITHUB_SHA" `
-            --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.0 is a major workflow and publishing update: a new Recent Books start screen opens projects without repeated folder hunting; covers are first-class book items with live preview and correct EPUB/reading-PDF export; Front Matter supports full-page image pages for maps and illustrations; Print Preview now survives Reader/Print transitions reliably; leading en/em dashes no longer become drop caps during export; and the style library is reduced to 14 curated themes with obsolete Cloister and Necropolis removed and fixed micro-labels eliminated. The release is gated by typecheck, the complete formatter/UI suite on Linux and Windows, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."

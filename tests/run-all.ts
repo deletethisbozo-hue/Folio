@@ -4,6 +4,8 @@
  * Chromium renders, real Pandoc, and a real Express server, and each one prints
  * what it checked so a failure reads as a sentence rather than a stack trace.
  * The runner just sequences them — they can't share a browser or a port.
+ * Folio 2.0 release qualification runs this full list on Linux and Windows
+ * before the Windows installer and portable binaries are accepted.
  *
  *   npm test              all suites
  *   npm test -- blues     only suites whose name matches
@@ -28,6 +30,10 @@ const ORDER = [
   "destinations.test.ts",
   "review-folder.test.ts",
   "dropcap.test.ts",
+  "dropcap-filter-regression.test.ts",
+  "recent-projects.test.ts",
+  "image-page.test.ts",
+  "print-preview-ui.test.ts",
   "folio-runtime.test.ts",
   "ui-runtime.test.ts",
   "web-export.test.ts",
