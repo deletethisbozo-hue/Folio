@@ -152,6 +152,16 @@ export const api = {
     return fetch(`/api/projects/${projectId}/cover`, { method: "POST", body: fd }).then((r) => json<ProjectSummary>(r));
   },
 
+  addImagePage: (projectId: string, file: File, title: string, alt: string, fit: "contain" | "cover" = "contain") => {
+    const fd = new FormData();
+    fd.append("image", file, file.name);
+    fd.append("title", title);
+    fd.append("alt", alt);
+    fd.append("fit", fit);
+    return fetch(`/api/projects/${projectId}/image-page`, { method: "POST", body: fd })
+      .then((r) => json<{ ok: true; entry: string; asset: string }>(r));
+  },
+
   preview: (
     projectId: string,
     meta: Partial<BookMeta>,

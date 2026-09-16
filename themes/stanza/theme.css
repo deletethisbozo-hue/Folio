@@ -1,9 +1,10 @@
 /* Stanza — actual poetry-minded setting: narrow ragged measure and visible breathing room. */
 body{font-family:Cambria,Georgia,serif;line-height:1.78;color:#302b31;background:#fff}
-main.book{max-width:29em}
+main.book{max-width:29em;counter-reset:stanza-chapter}
+section.chapter{counter-increment:stanza-chapter}
 section.chapter>p:not(.scene-break),section.backmatter>p:not(.scene-break){text-align:left!important;text-align-last:left!important;text-indent:0!important;margin:0 0 1.05em!important;-webkit-hyphens:none!important;hyphens:none!important}
 section.chapter>h1{text-align:left;margin:2.2em 0 2.8em;font-family:Baskerville,Georgia,serif;font-size:1.72em;font-weight:400;font-style:italic;letter-spacing:.025em;color:#56465c}
-section.chapter>h1::before{content:"I";display:block;margin:0 0 1.2em;font-family:Avenir,Arial,sans-serif;font-size:.34em;font-style:normal;font-weight:600;letter-spacing:.42em;color:#aa96af}
+section.chapter>h1::before{content:counter(stanza-chapter,upper-roman);display:block;margin:0 0 1.2em;font-family:Avenir,Arial,sans-serif;font-size:.34em;font-style:normal;font-weight:600;letter-spacing:.42em;color:#aa96af}
 section.chapter>h1::after{content:"";display:block;width:4em;height:1px;margin-top:1em;background:#d2c7d5}
 .chapter-subtitle{text-align:left;margin:-2.25em 0 2.4em}.chapter-subtitle p{text-align-last:left!important;font-size:.95em;font-style:normal;color:#7e6a84}
 .scene-break{text-align:left!important;text-align-last:left!important;margin:1.65em 0 1.65em 2.2em;font-size:1.1em;letter-spacing:.4em;color:#8c7392}

@@ -1,0 +1,40 @@
+.content-image-kind {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 58px;
+  padding: 11px 12px;
+  border: 1px solid rgba(123, 105, 80, .28);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .36);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.content-image-kind:hover {
+  border-color: rgba(134, 93, 43, .48);
+  background: rgba(255, 255, 255, .52);
+}
+
+.content-image-kind span {
+  color: var(--ui-text, #302a24);
+  font-weight: 600;
+}
+
+.content-image-kind small {
+  color: var(--ui-muted, #786d61);
+  font-size: 11px;
+}
+
+.content-image-kind input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.content-image-kind:has(input:disabled) {
+  opacity: .55;
+  cursor: default;
+}

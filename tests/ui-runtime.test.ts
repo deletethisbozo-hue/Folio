@@ -65,7 +65,15 @@ try {
   await stage("sample rich editor", () => page.waitForSelector('.rich-editor[contenteditable="true"]'));
   check("sample opens in a genuinely editable rich-text surface", await page.$eval(".rich-editor", (el) => (el as HTMLElement).contentEditable === "true"));
 
-  await page.click(".contents-row:not(.chapter-row)");
+  await page.click(".cover-row");
+  await stage("cover workspace", () => page.waitForSelector(".cover-editor-panel"));
+  await stage("cover preview image", () => page.waitForFunction(() => {
+    const image = document.querySelector(".cover-preview-surface img") as HTMLImageElement | null;
+    return Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0);
+  }));
+  check("cover is a first-class workspace item and appears in device preview", true);
+
+  await page.click(".contents-row:not(.chapter-row):not(.cover-row)");
   await stage("generated title page", () => page.waitForSelector('.rich-editor[contenteditable="false"]'));
   await stage("title page authoritative preview", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.titlepage .tp-author"))));
   const generatedPage = await page.evaluate(() => {
@@ -80,7 +88,7 @@ try {
   });
   check("generated title page never exposes internal HTML in editor or preview", !generatedPage.visibleEditorText.includes("<p class=") && !generatedPage.visiblePreviewText.includes("<p class="));
   check("title/front matter receives neither drop caps nor discretionary hyphens", !generatedPage.hasDropcap && !generatedPage.hasTitleHyphen);
-  const frontRowsBeforeDelete = await page.$$eval(".contents-list > .contents-row:not(.chapter-row)", (rows) => rows.length);
+  const frontRowsBeforeDelete = await page.$$eval(".contents-list > .contents-row:not(.chapter-row):not(.cover-row)", (rows) => rows.length);
   await stage("generated front matter delete button ready", () => page.waitForFunction(() => {
     const button = document.querySelector(".section-delete") as HTMLButtonElement | null;
     return Boolean(button && !button.disabled);
@@ -96,7 +104,7 @@ try {
     throw new Error(`Generated front matter DELETE failed with HTTP ${deletionResponse.status()}: ${await deletionResponse.text()}`);
   }
   await stage("generated front matter deletion", () => page.waitForFunction((before) =>
-    document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row)").length === before - 1,
+    document.querySelectorAll(".contents-list > .contents-row:not(.chapter-row):not(.cover-row)").length === before - 1,
     { timeout: 30000 },
     frontRowsBeforeDelete,
   ));
@@ -226,8 +234,8 @@ try {
     });
     return new Set(signatures).size;
   });
-  check("style browser exposes all 29 visual themes", themeCount === 29, String(themeCount));
-  check("theme cards have materially different visual signatures", distinctCards >= 24, String(distinctCards) + " distinct");
+  check("Folio 2.0 exposes only the 14 curated visual themes", themeCount === 14, String(themeCount));
+  check("curated theme cards remain materially different", distinctCards >= 12, String(distinctCards) + " distinct");
 
   await page.click(".style-category-list button:nth-child(6)");
   const ornamentCount = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
@@ -237,12 +245,12 @@ try {
   check("choosing an ornament updates the real preview immediately", true);
   await page.click(".style-category-list button:first-child");
 
-  await page.click('.theme-sample[data-theme="editorial"]');
-  await stage("render Editorial theme", () => page.waitForFunction(() => {
+  await page.click('.theme-sample[data-theme="cathedral"]');
+  await stage("render Cathedral theme", () => page.waitForFunction(() => {
     const h1 = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > h1");
     return h1 ? parseFloat(getComputedStyle(h1).borderTopWidth) > 0 : false;
   }));
-  const editorial = await page.evaluate(() => {
+  const cathedral = await page.evaluate(() => {
     const h1 = document.querySelector("iframe")!.contentDocument!.querySelector("section.chapter > h1")!;
     const css = getComputedStyle(h1);
     return css.textAlign + "|" + css.borderTopWidth + "|" + css.fontFamily;
@@ -257,7 +265,7 @@ try {
     const css = getComputedStyle(h1);
     return css.textAlign + "|" + css.borderTopWidth + "|" + css.fontFamily;
   });
-  check("selecting themes changes the actual book layout, not only the name", editorial !== blackletter, editorial + " / " + blackletter);
+  check("selecting themes changes the actual book layout, not only the name", cathedral !== blackletter, cathedral + " / " + blackletter);
   await page.evaluate(() => {
     const headingButton = [...document.querySelectorAll(".style-category-list button")].find((button) => button.textContent === "Chapter Heading");
     (headingButton as HTMLButtonElement | undefined)?.click();

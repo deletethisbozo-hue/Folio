@@ -1,9 +1,9 @@
 /* Grimoire — overt arcane manuscript with sigils, gothic display and ritual framing. */
 body{font-family:Palatino,"Book Antiqua",Georgia,serif;line-height:1.55;color:#302535;background:#f3ead6}
-main.book{counter-reset:folio}
-section.chapter{counter-increment:folio}
+main.book{counter-reset:grimoire-chapter}
+section.chapter{counter-increment:grimoire-chapter}
 section.chapter>h1{text-align:center;margin:.8em 0 2.45em;padding:1em .75em .95em;border:4px double #5b4264;box-shadow:inset 0 0 0 1px #b9a7bf;font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2em;font-weight:500;line-height:1.05;color:#3f2a49}
-section.chapter>h1::before{content:"✦  BOOK " counter(folio,upper-roman) "  ✦";display:block;margin-bottom:.95em;font-family:Garamond,Georgia,serif;font-size:.32em;font-weight:700;letter-spacing:.24em;color:#745783}
+section.chapter>h1::before{content:"✦  " counter(grimoire-chapter,upper-roman) "  ✦";display:block;margin-bottom:.95em;font-family:Garamond,Georgia,serif;font-size:.32em;font-weight:700;letter-spacing:.24em;color:#745783}
 section.chapter>h1::after{content:"☙  ❦  ❧";display:block;margin:.7em 0 -.12em;font-family:Garamond,Georgia,serif;font-size:.42em;letter-spacing:.3em;color:#765986}
 .chapter-subtitle{margin:-2.15em 0 2.1em}.chapter-subtitle p{font-family:Garamond,Georgia,serif;font-style:italic;color:#6c5278}
 .dropcap{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:3.35em;color:#4b315d}
