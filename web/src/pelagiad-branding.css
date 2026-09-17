@@ -1,0 +1,58 @@
+@font-face {
+  font-family: "Pelagiad";
+  src: url("/fonts/Pelagiad.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* Folio's application chrome uses Pelagiad as the display face so the UI
+ * actually belongs to the same visual system as the app icon. Book content and
+ * preview typography stay theme-controlled. */
+.start-shell,
+.folio-shell {
+  --folio-display-font: "Pelagiad", Georgia, "Times New Roman", serif;
+}
+
+/* Brand name is deliberately lowercase everywhere it is presented as a mark. */
+.start-brand,
+.command-wordmark,
+.folio-wordmark,
+.recent-cover i {
+  font-family: var(--folio-display-font) !important;
+  font-weight: 400 !important;
+  font-synthesis: none;
+  letter-spacing: 0 !important;
+  text-transform: lowercase !important;
+}
+
+.start-brand,
+.command-wordmark,
+.folio-wordmark {
+  line-height: .9;
+}
+
+/* Display/bold UI language. Pelagiad is a single regular face, so avoid fake
+ * browser bolding and let the shape of the lettering provide the emphasis. */
+.start-shell :is(h1, h2, h3, strong, b, .start-kicker, .recent-eyebrow, .start-button, .start-field > span, .start-folder-summary > span),
+.folio-shell :is(h1, h2, h3, strong, b, .pane-label, .book-title, .contents-heading, .section-title, .section-title-button, .preview-pane-title, .native-button, .generate-button, .cover-upload-button, .cover-button, .device-label, .save-indicator, .word-count, .generate-status, .dialog-title) {
+  font-family: var(--folio-display-font) !important;
+  font-weight: 400 !important;
+  font-synthesis: none;
+}
+
+/* This was easy to miss because the old rule treated it like a tiny tracking
+ * label. It is now an actual display label, using the same face as the icon. */
+.folio-shell .preview-pane-title {
+  font-size: 17px !important;
+  line-height: 1 !important;
+  letter-spacing: .01em !important;
+  text-transform: none !important;
+}
+
+/* Keep important actions readable in Pelagiad instead of inheriting the old
+ * synthetic Georgia bold. */
+.folio-shell :is(.generate-button, .cover-upload-button, .cover-button, .native-button),
+.start-shell .start-button {
+  letter-spacing: .015em;
+}
