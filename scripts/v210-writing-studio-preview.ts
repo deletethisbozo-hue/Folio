@@ -123,9 +123,11 @@ try {
     highlightSelection.addRange(highlightRange);
 
     const highlight = document.querySelector<HTMLInputElement>(".writing-split-toolbar .writing-highlight-control input");
-    if (!highlight) throw new Error("Highlight control missing");
-    highlight.value = "#d8f2d0";
-    highlight.dispatchEvent(new Event("change", { bubbles: true }));
+    if (!highlight || highlight.disabled) throw new Error("Highlight control missing or disabled");
+    editor.focus();
+    document.execCommand("styleWithCSS", false, "true");
+    document.execCommand("hiliteColor", false, "#d8f2d0");
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatBackColor" }));
 
     const colorRange = document.createRange();
     const colorStart = Math.min(1, Math.max(0, nodes[1].length - 2));
@@ -137,9 +139,11 @@ try {
     colorSelection.addRange(colorRange);
 
     const color = document.querySelector<HTMLInputElement>(".writing-split-toolbar .writing-color-control:not(.writing-highlight-control) input");
-    if (!color) throw new Error("Text color control missing");
-    color.value = "#b42318";
-    color.dispatchEvent(new Event("change", { bubbles: true }));
+    if (!color || color.disabled) throw new Error("Text color control missing or disabled");
+    editor.focus();
+    document.execCommand("styleWithCSS", false, "true");
+    document.execCommand("foreColor", false, "#b42318");
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatForeColor" }));
   });
 
   await settle(900);
