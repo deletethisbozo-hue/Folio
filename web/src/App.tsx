@@ -909,6 +909,23 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return flush ? flush() : true;
   }
 
+  async function changeWorkspaceMode(next: WorkspaceMode) {
+    if (next === workspaceMode) return;
+    if (next === "format" && splitView) {
+      if (!(await flushSplitEditor())) return;
+      setSplitView(false);
+    }
+    setWorkspaceMode(next);
+  }
+
+  async function toggleSplitView() {
+    if (splitView) {
+      if (await flushSplitEditor()) setSplitView(false);
+      return;
+    }
+    setSplitView(true);
+  }
+
   async function saveCurrent(): Promise<boolean> {
     if (!document?.editable || !project || !selectedId) return flushSplitEditor();
     await flushEditorDom();
