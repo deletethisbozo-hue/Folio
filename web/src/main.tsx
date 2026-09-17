@@ -23,6 +23,7 @@ import "./v205-coherence.css";
 import "./v206-correction.css";
 import "./v207-preview.css";
 import "./v207-mockup.css";
+import "./v207-mockup-final.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
