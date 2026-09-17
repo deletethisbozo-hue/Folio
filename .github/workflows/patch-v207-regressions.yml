@@ -23,82 +23,84 @@ jobs:
 
           def replace_once(path, old, new):
               p = Path(path)
-              text = p.read_text(encoding='utf-8')
+              text = p.read_text(encoding="utf-8")
               if old not in text:
-                  raise SystemExit(f'{path}: expected fragment not found: {old!r}')
-              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+                  raise SystemExit(f"{path}: expected fragment not found: {old!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
 
-          # Product behavior: keep semantic alt text supplied by callers, but never
-          # promote the uploaded filename to a visible page title.
+          # Keep caller-supplied semantic alt text, but never derive a visible title
+          # from the uploaded filename.
           replace_once(
-              'server/image-pages.ts',
+              "server/image-pages.ts",
               '  const alt = "Full-page illustration";',
               '  const alt = options.alt?.trim() || "Full-page illustration";',
           )
 
-          # 2.0.7 intentionally uses 5px navigation/control radii.
+          # The approved 2.0.7 navigator uses a 5px selected-row radius.
           replace_once(
-              'tests/ui-runtime.test.ts',
+              "tests/ui-runtime.test.ts",
               '        selected.borderRadius === "0px" && shell.bottom <= innerHeight + 1,',
               '        selected.borderRadius === "5px" && shell.bottom <= innerHeight + 1,',
           )
           replace_once(
-              'tests/ui-runtime.test.ts',
+              "tests/ui-runtime.test.ts",
               'check("1.0.7 keeps a legible professional preview beside the manuscript", studioGeometry.ok, JSON.stringify(studioGeometry));',
               'check("2.0.7 keeps a legible professional preview beside the manuscript", studioGeometry.ok, JSON.stringify(studioGeometry));',
           )
 
-          p = Path('tests/v206-ui-regression.test.ts')
-          text = p.read_text(encoding='utf-8')
-          required = [
-              'console.log("\\nFolio 2.0.6 visual/media regression gate");',
-              'Number.parseFloat(coverState.buttonRadius) <= 4',
-              'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");',
-              'console.error("✗ Folio 2.0.6 browser regression scenario");',
+          p = Path("tests/v206-ui-regression.test.ts")
+          text = p.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  'console.log("\\nFolio 2.0.6 visual/media regression gate");',
+                  'console.log("\\nFolio 2.0.7 visual/media regression gate");',
+              ),
+              (
+                  'Number.parseFloat(coverState.buttonRadius) <= 4',
+                  'Number.parseFloat(coverState.buttonRadius) <= 5',
+              ),
+              (
+                  'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");',
+                  'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");\nconst neutralImageLabel = "Full-page Image";',
+              ),
+              (
+                  'const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, mapLabel);',
+                  'const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, neutralImageLabel);',
+              ),
+              (
+                  '}, { timeout: 30000 }, mapLabel, beforeCount);',
+                  '}, { timeout: 30000 }, neutralImageLabel, beforeCount);',
+              ),
+              (
+                  'const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), mapLabel);',
+                  'const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), neutralImageLabel);',
+              ),
+              (
+                  'check("repeated image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
+                  'check("repeated neutral image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
+              ),
+              (
+                  'console.error("✗ Folio 2.0.6 browser regression scenario");',
+                  'console.error("✗ Folio 2.0.7 browser regression scenario");',
+              ),
           ]
-          for fragment in required:
-              if fragment not in text:
-                  raise SystemExit(f'v206-ui-regression.test.ts: expected fragment not found: {fragment!r}')
 
-          text = text.replace(
-              'console.log("\\nFolio 2.0.6 visual/media regression gate");',
-              'console.log("\\nFolio 2.0.7 visual/media regression gate");',
-              1,
-          )
-          text = text.replace(
-              'Number.parseFloat(coverState.buttonRadius) <= 4',
-              'Number.parseFloat(coverState.buttonRadius) <= 5',
-              1,
-          )
-          marker = 'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");'
-          text = text.replace(marker, marker + chr(10) + 'const neutralImageLabel = "Full-page Image";', 1)
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"tests/v206-ui-regression.test.ts: expected fragment not found: {old!r}")
+              text = text.replace(old, new, 1)
 
-          # All three sidebar-discovery calls should look for the neutral title,
-          # because exposing mapLabel would reintroduce the filename bug.
-          sidebar_arg = '}, mapLabel);'
-          if text.count(sidebar_arg) < 3:
-              raise SystemExit(f'Expected at least 3 sidebar map-label arguments, found {text.count(sidebar_arg)}')
-          text = text.replace(sidebar_arg, '}, neutralImageLabel);', 3)
-
-          first_add = '  await addFullPageImage();'
+          first_add = "  await addFullPageImage();"
           if first_add not in text:
-              raise SystemExit('First Full-page Image addition not found')
-          filename_assertion = chr(10).join([
+              raise SystemExit("First Full-page Image addition not found")
+          filename_assertion = "\n".join([
               '  const filenameVisible = await page.$eval(".contents-list", (nav, label) => (nav.textContent ?? "").includes(String(label)), mapLabel);',
               '  check("Full-page Image never exposes the uploaded filename as a visible title", !filenameVisible, mapLabel);',
           ])
-          text = text.replace(first_add, first_add + chr(10) + filename_assertion, 1)
-          text = text.replace(
-              'check("repeated image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
-              'check("repeated neutral image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
-              1,
-          )
-          text = text.replace(
-              'console.error("✗ Folio 2.0.6 browser regression scenario");',
-              'console.error("✗ Folio 2.0.7 browser regression scenario");',
-              1,
-          )
-          p.write_text(text, encoding='utf-8')
+          text = text.replace(first_add, first_add + "\n" + filename_assertion, 1)
+
+          p.write_text(text, encoding="utf-8")
 
       - name: Commit regression updates
         shell: bash
