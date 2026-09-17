@@ -1,4 +1,10 @@
-/* Full-page front-matter artwork such as maps and family trees. */
+/* Full-page front-matter artwork such as maps and family trees.
+ *
+ * This is intentionally separate from ordinary .folio-illustration content.
+ * A selected image page in Reader preview is the only child of main.book, so
+ * it may own the complete reader viewport instead of inheriting the prose
+ * column's 34em measure and padding.
+ */
 section.image-page {
   margin: 0 !important;
   padding: 0 !important;
@@ -24,10 +30,10 @@ section.image-page > p {
 section.image-page img.full-page-image {
   display: block;
   width: 100%;
-  height: auto;
-  max-width: 100%;
-  max-height: 100vh;
-  margin: 0 auto;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
   object-position: center;
   break-inside: avoid;
   page-break-inside: avoid;
@@ -39,6 +45,57 @@ section.image-page img.full-page-image.fit-contain {
 
 section.image-page img.full-page-image.fit-cover {
   object-fit: cover;
+}
+
+/* Reader preview renders only the selected section. Do not let an image page
+ * inherit body margins or main.book's prose measure: that was the source of
+ * the white card-inside-a-card layout and the horizontal scrollbar. */
+@media screen {
+  body.book-formatter:has(main.book > section.image-page:only-child) {
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.book-formatter:has(main.book > section.image-page:only-child) > main.book {
+    box-sizing: border-box !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  main.book > section.image-page:only-child {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+  }
+
+  main.book > section.image-page:only-child > p {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    overflow: hidden !important;
+  }
+
+  main.book > section.image-page:only-child img.full-page-image {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+  }
 }
 
 @media print {
@@ -68,5 +125,6 @@ section.image-page img.full-page-image.fit-cover {
     height: 100%;
     max-width: none;
     max-height: none;
+    margin: 0;
   }
 }
