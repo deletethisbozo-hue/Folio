@@ -49,8 +49,9 @@ jobs:
         run: node --import tsx scripts/v207-controls-preview.ts
 
       - name: Upload screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Folio-2.0.7-Control-Preview
           path: build/qa-v207-controls/*.png
-          if-no-files-found: error
+          if-no-files-found: warn
