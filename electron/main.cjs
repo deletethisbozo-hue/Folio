@@ -142,6 +142,7 @@ async function startFolio() {
     minHeight: 650,
     show: false,
     autoHideMenuBar: true,
+    icon: path.join(appRoot, "assets", "folio-icon.png"),
     backgroundColor: "#efefed",
     webPreferences: {
       contextIsolation: true,

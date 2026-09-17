@@ -452,3 +452,17 @@ span.note {
   font-style: italic;
   text-align: center;
 }
+/* Folio 2.0.4 inline illustration crop metadata. Width and focal-point style
+ * are persisted by Pandoc attributes; these classes keep the semantic fallback
+ * stable in EPUB/readers that retain classes but sanitize part of inline style. */
+img.folio-illustration.folio-crop {
+  display: block;
+  object-fit: cover;
+  margin-left: auto;
+  margin-right: auto;
+}
+img.folio-illustration.folio-ratio-1-1 { aspect-ratio: 1 / 1; }
+img.folio-illustration.folio-ratio-4-3 { aspect-ratio: 4 / 3; }
+img.folio-illustration.folio-ratio-3-2 { aspect-ratio: 3 / 2; }
+img.folio-illustration.folio-ratio-2-3 { aspect-ratio: 2 / 3; }
+img.folio-illustration.folio-ratio-16-9 { aspect-ratio: 16 / 9; }

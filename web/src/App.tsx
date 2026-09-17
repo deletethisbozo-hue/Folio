@@ -473,7 +473,7 @@ export default function App({ initialProject = null }: { initialProject?: Projec
     const template = previewDocument.createElement("template");
     const theme = themes.find((item) => item.name === meta?.theme);
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
-    template.innerHTML = markdownToPreviewHtml(liveDraft, ornament);
+    template.innerHTML = markdownToPreviewHtml(liveDraft, ornament, (asset) => project ? `/api/projects/${encodeURIComponent(project.projectId)}/asset?path=${encodeURIComponent(asset)}` : asset);
     section.appendChild(template.content);
     livePreviewDraftRef.current = liveDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
@@ -753,43 +753,54 @@ export default function App({ initialProject = null }: { initialProject?: Projec
   }
 
   async function insertIllustration(file: File) {
-    if (!project || !document?.editable || selectedSection?.kind !== "frontmatter") return;
-    const editor = editorRef.current;
-    if (!editor) return;
+    if (!project || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter") return;
+    const targetSectionId = selectedSection.id;
+    if (!editorRef.current) return;
     setBusy(true); setError(null);
     try {
       const uploaded = await api.uploadIllustration(project.projectId, file);
-      const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Illustration";
+      if (selectedRef.current !== targetSectionId) throw new Error("The illustration target changed while the image was uploading. Select the front-matter page and insert it again.");
+      const editor = editorRef.current;
+      if (!editor) throw new Error("The front-matter editor is still loading. Try inserting the illustration again.");
+      const alt = "Illustration";
       const figure = window.document.createElement("figure");
       figure.className = "editor-illustration";
       figure.setAttribute("data-folio-illustration", "true");
+      figure.dataset.folioScale = "100";
+      figure.dataset.folioCrop = "false";
+      figure.dataset.folioRatio = "4-3";
+      figure.dataset.folioX = "50";
+      figure.dataset.folioY = "50";
       figure.contentEditable = "false";
       const image = window.document.createElement("img");
       image.src = uploaded.url;
       image.alt = alt;
       image.dataset.folioAsset = uploaded.asset;
-      const caption = window.document.createElement("figcaption");
-      caption.textContent = alt;
       const remove = window.document.createElement("button");
       remove.type = "button";
       remove.className = "editor-illustration-remove";
       remove.setAttribute("aria-label", "Remove illustration");
       remove.title = "Remove illustration";
       remove.textContent = "×";
-      figure.append(image, caption, remove);
+      const controls = window.document.createElement("div");
+      controls.className = "editor-illustration-controls";
+      controls.contentEditable = "false";
+      controls.innerHTML = `<label><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="5" value="100"></label><button type="button" data-folio-control="crop" aria-pressed="false">Crop</button><select data-folio-control="ratio" aria-label="Crop ratio" disabled><option value="1-1">1:1</option><option value="4-3" selected>4:3</option><option value="3-2">3:2</option><option value="2-3">2:3</option><option value="16-9">16:9</option></select><label class="crop-axis"><span>X</span><input data-folio-control="x" type="range" min="0" max="100" step="5" value="50" disabled></label><label class="crop-axis"><span>Y</span><input data-folio-control="y" type="range" min="0" max="100" step="5" value="50" disabled></label>`;
+      figure.append(image,  controls, remove);
 
-      const savedRange = illustrationRangeRef.current;
-      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {
-        savedRange.deleteContents();
-        savedRange.insertNode(figure);
-      } else {
-        editor.appendChild(figure);
-      }
-      const spacer = window.document.createElement("p");
-      spacer.innerHTML = "<br>";
-      figure.after(spacer);
+      editor.replaceChildren(figure);
       illustrationRangeRef.current = null;
-      recordEditorDom();
+
+      // Commit the illustration synchronously from the live front-matter DOM.
+      // The generic editor input queue is deliberately lazy for huge chapters;
+      // using it for an uploaded image created a window where React could swap
+      // sections before the figure reached the draft. Image insertion is a
+      // discrete publishing action, so make the Markdown authoritative now.
+      const nextMarkdown = richTextToMarkdown(editor.innerHTML);
+      editor.dataset.markdown = nextMarkdown;
+      editorDomDirtyRef.current = false;
+      editorDomGenerationRef.current++;
+      recordDraft(nextMarkdown);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1502,7 +1513,7 @@ export default function App({ initialProject = null }: { initialProject?: Projec
 
   if (!project || !meta) return (
     <div className="folio-shell folio-empty-shell" data-ui-tone={uiTone}>
-      <div className="folio-windowbar empty-windowbar"><div className="windowbar-spacer"/><div className="folio-wordmark">Folio</div><div className="windowbar-spacer"/></div>
+      <div className="folio-windowbar empty-windowbar"><div className="windowbar-spacer"/><div className="folio-wordmark">folio</div><div className="windowbar-spacer"/></div>
       <main className="empty-state"><div className="empty-book-mark">F</div><h1>Folio</h1><p>Beautiful books, without the formatting fight.</p><div className="empty-actions"><button className="native-button primary" disabled={busy} onClick={() => void beginNewBook()}>{busy ? "Opening…" : "New Book…"}</button><button className="native-button" disabled={busy} onClick={() => void openFolder()}>Open Book…</button><button className="native-button" disabled={busy} onClick={() => void loadSample()}>Open Sample</button></div>{error && <div className="empty-error">{error}</div>}</main>
       {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
     </div>
@@ -1511,7 +1522,7 @@ export default function App({ initialProject = null }: { initialProject?: Projec
   return (
     <div className="folio-shell" data-ui-tone={uiTone}>
       <header className="folio-commandbar">
-        <div className="command-wordmark">Folio</div>
+        <div className="command-wordmark">folio</div>
         <nav aria-label="Application commands">
           <button data-command="book" onClick={() => setShowBookDetails(true)}>Book</button>
           <button data-command="add" onClick={() => setShowContent(true)}>Add</button>
@@ -1538,7 +1549,7 @@ export default function App({ initialProject = null }: { initialProject?: Projec
         <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
-          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
+          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
         </div>
@@ -1564,7 +1575,7 @@ export default function App({ initialProject = null }: { initialProject?: Projec
 }
 
 function CoverEditor(props: { projectId: string; hasCover: boolean; coverVersion: number; busy: boolean; onCover: (file: File) => void }) {
-  return <div className="cover-editor-panel"><div className="cover-editor-card"><div className="cover-editor-art">{props.hasCover ? <img src={`/api/projects/${props.projectId}/cover?v=${props.coverVersion}`} alt="Book cover"/> : <div className="cover-editor-empty"><strong>No cover yet</strong><span>Add the finished front-cover image for this book.</span></div>}</div><label className="native-button primary cover-upload-button">{props.hasCover ? "Replace Cover…" : "Add Cover…"}<input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onCover(file); event.currentTarget.value = ""; }}/></label><p className="cover-editor-copy">The cover is embedded in EPUB and Reading PDF exports. Print PDF remains an interior file for print-on-demand services.</p></div></div>;
+  return <div className="cover-editor-panel"><div className="cover-editor-card"><div className="cover-editor-art">{props.hasCover ? <img src={`/api/projects/${props.projectId}/cover?v=${props.coverVersion}`} alt="Book cover"/> : <div className="cover-editor-empty"><strong>No cover yet</strong><span>Add the finished front-cover image for this book.</span></div>}</div><label className="native-button primary cover-upload-button">{props.hasCover ? "Replace Cover" : "Add Cover"}<input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onCover(file); event.currentTarget.value = ""; }}/></label><p className="cover-editor-copy">The cover is embedded in EPUB and Reading PDF exports. Print PDF remains an interior file for print-on-demand services.</p></div></div>;
 }
 
 function DialogShell(props: { title: string; children: React.ReactNode; footer: React.ReactNode; onClose: () => void }) {
@@ -1602,7 +1613,7 @@ function ChapterHeading(props: { title: string; subtitle: string; index: number 
 function BookDetailsDialog(props: { meta: BookMeta; setMeta: (meta: BookMeta) => void; projectId: string; hasCover: boolean; coverVersion: number; onCover: (file: File) => void; busy: boolean; onClose: () => void; onSave: () => void }) {
   const { meta, setMeta } = props;
   const field = (label: string, key: keyof BookMeta, multiline = false) => <label className="dialog-field"><span>{label}</span>{multiline ? <textarea value={String(meta[key] ?? "")} onChange={(e) => setMeta({ ...meta, [key]: e.target.value })}/> : <input value={String(meta[key] ?? "")} onChange={(e) => setMeta({ ...meta, [key]: e.target.value })}/>}</label>;
-  return <DialogShell title="Book Details" onClose={props.onClose} footer={<><button className="native-button" onClick={props.onClose}>Cancel</button><button className="native-button primary" disabled={props.busy || !meta.title.trim()} onClick={props.onSave}>Save</button></>}><div className="book-details-layout"><div className="cover-field"><div className="cover-thumbnail">{props.hasCover ? <img src={`/api/projects/${props.projectId}/cover?v=${props.coverVersion}`} alt="Book cover"/> : <span>No cover</span>}</div><label className="native-button cover-button">{props.hasCover ? "Replace cover…" : "Add cover…"}<input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onCover(file); }}/></label><small>PNG or JPEG. Embedded in EPUB and used by exports.</small></div><div><div className="details-grid">{field("Title", "title")}{field("Subtitle", "subtitle")}{field("Author", "author")}{field("Series", "series")}{field("Book number", "series_index")}{field("Publisher", "publisher")}{field("Language", "language")}{field("ISBN", "isbn")}</div>{field("Copyright text", "copyright", true)}{field("Description", "description", true)}</div></div></DialogShell>;
+  return <DialogShell title="Book Details" onClose={props.onClose} footer={<><button className="native-button" onClick={props.onClose}>Cancel</button><button className="native-button primary" disabled={props.busy || !meta.title.trim()} onClick={props.onSave}>Save</button></>}><div className="book-details-layout"><div className="cover-field"><div className="cover-thumbnail">{props.hasCover ? <img src={`/api/projects/${props.projectId}/cover?v=${props.coverVersion}`} alt="Book cover"/> : <span>No cover</span>}</div><label className="native-button cover-button">{props.hasCover ? "Replace Cover" : "Add Cover"}<input type="file" accept="image/png,image/jpeg" disabled={props.busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) props.onCover(file); }}/></label><small>PNG or JPEG. Embedded in EPUB and used by exports.</small></div><div><div className="details-grid">{field("Title", "title")}{field("Subtitle", "subtitle")}{field("Author", "author")}{field("Series", "series")}{field("Book number", "series_index")}{field("Publisher", "publisher")}{field("Language", "language")}{field("ISBN", "isbn")}</div>{field("Copyright text", "copyright", true)}{field("Description", "description", true)}</div></div></DialogShell>;
 }
 
 function ContentDialog(props: { matterTypes: MatterType[]; title: string; setTitle: (title: string) => void; busy: boolean; onAddChapter: () => void; onAddMatter: (type: MatterType) => void; onAddImagePage: (file: File) => void; onClose: () => void }) {
