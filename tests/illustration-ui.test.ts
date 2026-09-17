@@ -44,7 +44,7 @@ try {
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
 
-  await page.click('[data-command="add"]');
+  await page.click('.library-add-section');
   await page.waitForSelector('.folio-dialog[aria-label="Add Content"]');
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".content-kind-group button")]

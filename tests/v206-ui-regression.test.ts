@@ -105,7 +105,7 @@ try {
 
   async function addFullPageImage() {
     const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, neutralImageLabel);
-    await page.click('[data-command="add"]');
+    await page.click('.library-add-section');
     await page.waitForSelector('.folio-dialog[aria-label="Add Content"] .content-image-kind');
     const uploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/image-page"), { timeout: 30000 });
     const [chooser] = await Promise.all([

@@ -13,7 +13,7 @@ const mock = await fs.readFile("web/src/mockup-ui.ts", "utf8");
 
 check("top command bar no longer duplicates Add", !app.includes('data-command="add"'));
 check("sidebar owns a real React Add Section control", app.includes('className="library-add-section"') && app.includes('className="library-add-section" onClick={() => setShowContent(true)}'));
-check("mockup runtime no longer proxies Add Section through a hidden top command", !mock.includes('[data-command="add"]') && !mock.includes('library.insertBefore(add, footer)'));
+check("mockup runtime no longer proxies Add Section through a hidden top command", !mock.includes('.library-add-section') && !mock.includes('library.insertBefore(add, footer)'));
 check("every customization category exposes an explicit Theme Default reset", app.includes('className="customize-reset-button"') && app.includes('Reset to Theme Default') && app.includes('const resetCategory = () =>'));
 check("Body size can return directly to Theme default", app.includes('value={ty.fontSize ?? ""}') && app.includes('<option value="">Theme default</option><option value="0.92em">Small</option>'));
 check("Body alignment can return directly to Theme default", app.includes('value={ty.bodyAlign ?? ""}') && app.includes('bodyAlign: (e.target.value || undefined)'));
