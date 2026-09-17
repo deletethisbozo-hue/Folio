@@ -47,8 +47,8 @@ function syncImagePageMode(): void {
       if (!editor.dataset.folioImagePageRuntimeLock) {
         editor.dataset.folioImagePageRuntimeLock = editor.getAttribute("contenteditable") === "true" ? "editable" : "readonly";
       }
-      editor.setAttribute("contenteditable", "false");
-      editor.setAttribute("aria-label", "Full-page image preview");
+      if (editor.getAttribute("contenteditable") !== "false") editor.setAttribute("contenteditable", "false");
+      if (editor.getAttribute("aria-label") !== "Full-page image preview") editor.setAttribute("aria-label", "Full-page image preview");
 
       const figure = editor.querySelector<HTMLElement>(".editor-illustration");
       if (figure) {
@@ -64,7 +64,9 @@ function syncImagePageMode(): void {
         }
       }
     } else if (editor.dataset.folioImagePageRuntimeLock) {
-      if (editor.dataset.folioImagePageRuntimeLock === "editable") editor.setAttribute("contenteditable", "true");
+      if (editor.dataset.folioImagePageRuntimeLock === "editable" && editor.getAttribute("contenteditable") !== "true") {
+        editor.setAttribute("contenteditable", "true");
+      }
       delete editor.dataset.folioImagePageRuntimeLock;
       if (editor.getAttribute("aria-label") === "Full-page image preview") editor.removeAttribute("aria-label");
       editor.querySelectorAll<HTMLElement>(".editor-full-page-art").forEach((figure) => {
