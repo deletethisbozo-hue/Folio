@@ -1,0 +1,209 @@
+/* Folio 2.0.5: one UI type system and one branding exception.
+ *
+ * Pelagiad is reserved for the Folio wordmark. Application chrome uses IBM
+ * Plex Sans consistently. Publishing content (manuscript and book preview)
+ * keeps the typography selected for the book and is intentionally excluded.
+ */
+
+:root,
+.start-shell,
+.folio-shell {
+  --folio-logo-font: "Pelagiad", Georgia, "Times New Roman", serif;
+  --folio-ui-font: "Folio IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+}
+
+/* Pelagiad is branding, not an alternate heading/button face. */
+.start-brand,
+.command-wordmark,
+.folio-wordmark,
+.recent-cover i {
+  font-family: var(--folio-logo-font) !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-synthesis: none !important;
+  letter-spacing: 0 !important;
+  text-transform: lowercase !important;
+}
+
+/* Start screen is application UI, so it follows the same family as the
+ * workspace. The brand selector above remains the only Pelagiad exception. */
+.start-shell,
+.start-shell :is(
+  button, input, select, textarea, label,
+  h1, h2, h3, p, span, strong, small,
+  .start-version, .start-kicker, .start-copy,
+  .recent-eyebrow, .recent-meta, .recent-time, .recent-path,
+  .start-modal, .start-field
+) {
+  font-family: var(--folio-ui-font) !important;
+}
+
+/* Application chrome uses one family. Do not include .manuscript-editor,
+ * rich-editor prose, or iframe book content here. */
+.folio-shell :is(
+  button, input, select, textarea, label,
+  .pane-label, .preview-pane-title,
+  .book-title, .book-author,
+  .contents-heading, .contents-row,
+  .topbar-title, .word-count, .save-indicator,
+  .section-index, .section-title, .section-title-button,
+  .section-subtitle-button, .section-title-input, .section-subtitle-input,
+  .section-move, .section-design, .section-delete,
+  .toolbar-text-button, .format-toolbar button, .scene-break-button span,
+  .editor-search, .readonly-note,
+  .preview-style-button, .device-toolbar, .device-label, .device-nav,
+  .generate-button, .generate-menu, .generate-status,
+  .folio-statusbar, .native-button,
+  .cover-editor-empty, .cover-editor-copy, .cover-toolbar-note,
+  .editor-illustration-controls,
+  .folio-dialog, .style-library, .style-library-title,
+  .dialog-field, .setting-label, .setting-control,
+  .preview-loading, .preview-error, .preview-empty, .cover-preview-empty
+) {
+  font-family: var(--folio-ui-font) !important;
+}
+
+/* Manuscript and Page Preview are peer labels. Keep every typographic metric
+ * identical so the two panes read as one product, not two stitched UIs. */
+.folio-shell[data-ui-tone] .pane-label,
+.folio-shell[data-ui-tone] .preview-pane-title {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 10px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+}
+
+/* Hierarchy comes from size and weight, not from unrelated typefaces. */
+.folio-shell[data-ui-tone] .book-title {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 15px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.01em !important;
+}
+
+.folio-shell[data-ui-tone] .section-index {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 11px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+}
+
+.folio-shell[data-ui-tone] .section-title,
+.folio-shell[data-ui-tone] .section-title-button,
+.folio-shell[data-ui-tone] .section-title-input {
+  font-family: var(--folio-ui-font) !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+}
+
+.folio-shell[data-ui-tone] .section-subtitle-button,
+.folio-shell[data-ui-tone] .section-subtitle-input {
+  font-family: var(--folio-ui-font) !important;
+  font-style: normal !important;
+  font-weight: 450 !important;
+}
+
+.folio-shell[data-ui-tone] .folio-dialog > header h2,
+.folio-shell[data-ui-tone] .style-library-title,
+.folio-shell[data-ui-tone] .cover-editor-empty strong {
+  font-family: var(--folio-ui-font) !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+}
+
+/* One button language. Replace Cover is secondary; Export is the publishing
+ * CTA. Both now share typography, height, radius and spacing. */
+.folio-shell[data-ui-tone] .native-button.primary.cover-upload-button,
+.folio-shell[data-ui-tone] .native-button.cover-button {
+  min-height: 32px !important;
+  padding: 0 13px !important;
+  border: 1px solid var(--studio-rule-strong) !important;
+  border-radius: 4px !important;
+  background: var(--studio-control) !important;
+  color: var(--studio-ink) !important;
+  box-shadow: none !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 11.5px !important;
+  font-style: normal !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+.folio-shell[data-ui-tone] .native-button.primary.cover-upload-button:hover,
+.folio-shell[data-ui-tone] .native-button.cover-button:hover {
+  border-color: var(--studio-accent) !important;
+  background: var(--studio-accent-soft) !important;
+}
+
+.folio-shell[data-ui-tone] .generate-button {
+  min-width: 92px !important;
+  height: 32px !important;
+  padding: 0 13px !important;
+  border: 1px solid var(--studio-accent) !important;
+  border-radius: 4px !important;
+  background: var(--studio-accent) !important;
+  color: #fffaf2 !important;
+  box-shadow: none !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 11.5px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .generate-button {
+  color: #1d1b18 !important;
+}
+
+.folio-shell[data-ui-tone] .generate-button:hover,
+.folio-shell[data-ui-tone] .generate-wrap:has(.generate-menu) .generate-button {
+  filter: brightness(.96);
+}
+
+/* Cover artwork is fixed media. In preview it fills the whole screen instead
+ * of being letterboxed inside a second paper-coloured rectangle. */
+.folio-shell[data-ui-tone] .reader-screen > .cover-preview-surface {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone] .reader-screen > .cover-preview-surface > img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* A device preview is one viewport, not a viewport nested inside another
+ * horizontally scrollable viewport. */
+.folio-shell[data-ui-tone] .reader-screen,
+.folio-shell[data-ui-tone] .preview-frame {
+  overflow: hidden !important;
+}
+
+.folio-shell[data-ui-tone] .preview-frame {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+}
