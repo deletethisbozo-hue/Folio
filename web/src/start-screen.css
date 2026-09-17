@@ -53,19 +53,6 @@
   align-items:start;
 }
 .start-intro{padding-top:4px}
-.start-mark{
-  width:54px;
-  height:68px;
-  border:1px solid var(--start-line-strong);
-  display:grid;
-  place-items:center;
-  margin-bottom:28px;
-  background:var(--start-panel);
-  box-shadow:0 7px 18px rgba(40,34,27,.08);
-  font-family:Georgia,"Times New Roman",serif;
-  font-size:31px;
-  font-weight:700;
-}
 .start-kicker,.recent-eyebrow,.start-modal-head p{
   margin:0 0 9px;
   color:var(--start-soft);

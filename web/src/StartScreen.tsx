@@ -113,12 +113,11 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
     <div className="start-shell" data-ui-tone={tone}>
       <div className="start-windowbar">
         <div className="start-brand">folio</div>
-        <div className="start-version">2.0.7</div>
+        <div className="start-version">2.0.8</div>
       </div>
 
       <main className="start-main">
         <section className="start-intro" aria-labelledby="start-title">
-          <div className="start-mark" aria-hidden="true">F</div>
           <p className="start-kicker">Book formatting studio</p>
           <h1 id="start-title">Your books,<br/>ready to continue.</h1>
           <p className="start-copy">Open a recent project without hunting through folders, or start something new.</p>

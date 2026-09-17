@@ -7,6 +7,19 @@
   max-height: 36px !important;
 }
 
+/* The wordmark is now a real button that returns to the dashboard. Keep the
+ * brand typography authoritative over generic button/chrome font rules. */
+.folio-shell[data-ui-tone] button.command-wordmark {
+  font-family: var(--folio-logo-font) !important;
+  font-size: var(--folio-wordmark-size) !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-synthesis: none !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: lowercase !important;
+}
+
 /* Cover belongs to the same left-aligned navigation rhythm as other front matter. */
 .folio-shell[data-ui-tone] .contents-row.cover-row {
   display: flex !important;

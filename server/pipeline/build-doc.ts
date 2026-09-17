@@ -107,9 +107,12 @@ export function assembleCleanMarkdown(book: Book): string {
       parts.push("\n");
       continue;
     }
-    parts.push(`# ${section.title}`);
-    if (section.subtitle) parts.push(`\n## ${section.subtitle}`);
-    parts.push("");
+    const isImagePage = section.className?.split(/\s+/).includes("image-page") ?? false;
+    if (!isImagePage) {
+      parts.push(`# ${section.title}`);
+      if (section.subtitle) parts.push(`\n## ${section.subtitle}`);
+      parts.push("");
+    }
     if (section.markdown.trim()) parts.push(section.markdown.trim());
     parts.push("");
   }

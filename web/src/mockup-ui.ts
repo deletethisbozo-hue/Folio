@@ -36,19 +36,6 @@ function syncMockupUi() {
     bookIdentity.append(button);
   }
 
-  const library = shell.querySelector<HTMLElement>(".library-pane");
-  const footer = shell.querySelector<HTMLElement>(".library-footer");
-  if (library && footer && !library.querySelector(".library-add-section")) {
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "library-add-section";
-    add.innerHTML = '<span aria-hidden="true">＋</span><span>Add Section</span>';
-    add.addEventListener("click", () => {
-      shell.querySelector<HTMLButtonElement>('[data-command="add"]')?.click();
-    });
-    library.insertBefore(add, footer);
-  }
-
   const rows = shell.querySelectorAll<HTMLElement>(".contents-list .contents-row:not(.chapter-row)");
   rows.forEach((row) => {
     if (row.querySelector(".folio-nav-icon")) return;
