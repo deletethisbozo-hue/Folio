@@ -9,6 +9,7 @@ function syncDuplicateLabels(root: ParentNode = document): void {
   const groups = new Map<string, HTMLElement[]>();
 
   for (const label of labels) {
+    if (label.dataset.folioImagePageLabel === "true") continue;
     const current = (label.textContent ?? "").trim();
     let original = label.dataset.folioOriginalLabel?.trim() ?? "";
     if (!original || (current !== original && !current.startsWith(`${original} · `))) {
@@ -30,6 +31,30 @@ function syncDuplicateLabels(root: ParentNode = document): void {
       label.dataset.folioDisambiguated = group.length > 1 ? "true" : "false";
     });
   }
+}
+
+function syncSelectedImagePageLabel(fullPage: boolean): void {
+  const marked = Array.from(document.querySelectorAll<HTMLElement>('[data-folio-image-page-label="true"]'));
+  for (const label of marked) {
+    const row = label.closest<HTMLElement>(".contents-row");
+    if (fullPage && row?.classList.contains("selected")) continue;
+    const original = label.dataset.folioImagePageOriginalLabel;
+    if (original !== undefined && label.textContent !== original) label.textContent = original;
+    delete label.dataset.folioImagePageLabel;
+    delete label.dataset.folioImagePageOriginalLabel;
+  }
+
+  if (!fullPage) return;
+  const row = document.querySelector<HTMLElement>(".contents-list .contents-row.selected:not(.cover-row)");
+  const label = row?.querySelector<HTMLElement>(".chapter-label")
+    ?? row?.querySelector<HTMLElement>(":scope > span:last-child");
+  if (!label) return;
+
+  if (label.dataset.folioImagePageOriginalLabel === undefined) {
+    label.dataset.folioImagePageOriginalLabel = label.textContent ?? "";
+  }
+  label.dataset.folioImagePageLabel = "true";
+  if (label.textContent !== "Full-page Image") label.textContent = "Full-page Image";
 }
 
 function setStyle(element: HTMLElement, property: string, value: string): void {
@@ -70,6 +95,9 @@ function repairPreviewImagePage(frame: HTMLIFrameElement): void {
   section.classList.add("image-page");
   image.classList.add("full-page-image", "fit-contain");
   image.classList.remove("fit-cover", "folio-crop");
+
+  // Fixed artwork never presents its source/YAML title as visible page content.
+  section.querySelectorAll<HTMLElement>(":scope > h1, :scope > header > h1, :scope > .chapter-title").forEach((heading) => heading.remove());
 
   makeFullPageSurface(doc.documentElement);
   makeFullPageSurface(doc.body);
@@ -119,10 +147,12 @@ function repairPreviewImagePage(frame: HTMLIFrameElement): void {
 
 function syncImagePageMode(): void {
   const panes = Array.from(document.querySelectorAll<HTMLElement>(".folio-shell .editor-pane"));
+  let selectedFullPage = false;
   for (const pane of panes) {
     const editor = pane.querySelector<HTMLElement>(".manuscript-editor.rich-editor");
     const markdown = editor?.dataset.markdown ?? "";
     const fullPage = Boolean(editor && isFullPageImageMarkdown(markdown));
+    selectedFullPage ||= fullPage;
 
     pane.classList.toggle("folio-image-page-mode", fullPage);
     editor?.classList.toggle("folio-image-page-editor", fullPage);
@@ -161,6 +191,9 @@ function syncImagePageMode(): void {
     }
   }
 
+  syncDuplicateLabels();
+  syncSelectedImagePageLabel(selectedFullPage);
+
   const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
   if (frame) {
     if (!frame.dataset.folioImagePageLoadHook) {
@@ -169,8 +202,6 @@ function syncImagePageMode(): void {
     }
     repairPreviewImagePage(frame);
   }
-
-  syncDuplicateLabels();
 }
 
 export function installImagePageUiRuntime(): void {
