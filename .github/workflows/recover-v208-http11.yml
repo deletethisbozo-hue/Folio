@@ -46,8 +46,9 @@ jobs:
           portable_size="$(stat -c%s "$portable")"
           sums_size="$(stat -c%s "$sums")"
 
-          grep -Eqi "^$setup_sha[[:space:]]+Folio-2\.0\.8-setup\.exe$" "$sums"
-          grep -Eqi "^$portable_sha[[:space:]]+Folio-2\.0\.8-portable\.exe$" "$sums"
+          tr -d '\r' < "$sums" > "$sums.normalized"
+          grep -Eqi "^$setup_sha[[:space:]]+Folio-2\.0\.8-setup\.exe$" "$sums.normalized"
+          grep -Eqi "^$portable_sha[[:space:]]+Folio-2\.0\.8-portable\.exe$" "$sums.normalized"
 
           {
             echo "SETUP=$setup"
