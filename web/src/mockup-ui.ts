@@ -47,18 +47,7 @@ function syncMockupUi() {
     row.prepend(icon);
   });
 
-  const titleWrap = shell.querySelector<HTMLElement>(".section-title-wrap:not(.cover-workspace-heading)");
   const selectedChapter = shell.querySelector<HTMLElement>(".contents-list .chapter-row.selected");
-  if (titleWrap && selectedChapter) {
-    const rawNumber = selectedChapter.querySelector<HTMLElement>(".chapter-number")?.textContent?.replace(/\D/g, "") ?? "";
-    let kicker = titleWrap.querySelector<HTMLElement>(".section-kicker");
-    if (!kicker) {
-      kicker = document.createElement("span");
-      kicker.className = "section-kicker";
-      titleWrap.prepend(kicker);
-    }
-    kicker.textContent = rawNumber ? `Chapter ${rawNumber}` : "Chapter";
-  }
 
   const status = shell.querySelector<HTMLElement>(".folio-statusbar");
   if (status) {
