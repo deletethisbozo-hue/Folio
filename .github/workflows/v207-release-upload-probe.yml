@@ -1,0 +1,71 @@
+name: Probe published release asset upload
+
+on:
+  push:
+    branches:
+      - ops/v207-release-upload-probe
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Create temporary published prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v2.0.7-upload-probe-${GITHUB_RUN_ID}"
+          printf 'PROBE_TAG=%s\n' "$tag" >> "$GITHUB_ENV"
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "16d57b5cb2b39293af9a5788686d7b18f5eef6ee" \
+            --title "Temporary Folio release upload probe" \
+            --notes "Temporary automated upload probe; safe to delete." \
+            --prerelease
+          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.id')"
+          printf 'PROBE_RELEASE_ID=%s\n' "$release_id" >> "$GITHUB_ENV"
+          echo "probe release id: $release_id"
+
+      - name: Upload tiny asset to published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'folio-v2.0.7-release-upload-probe\n' > probe.txt
+          set +e
+          curl --http1.1 -L \
+            --fail-with-body --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: text/plain" \
+            -H "Expect:" \
+            --data-binary "@probe.txt" \
+            -w '\nhttp=%{http_code} uploaded=%{size_upload} downloaded=%{size_download} total=%{time_total}s\n' \
+            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$PROBE_RELEASE_ID/assets?name=probe.txt" \
+            -o response.json
+          code=$?
+          set -e
+          echo "curl exit: $code"
+          [ -f response.json ] && cat response.json || true
+          test "$code" = "0"
+          jq -e '.name == "probe.txt" and .state == "uploaded"' response.json >/dev/null
+
+      - name: Cleanup temporary probe release
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [ -n "${PROBE_RELEASE_ID:-}" ]; then
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$PROBE_RELEASE_ID"
+          fi
+          if [ -n "${PROBE_TAG:-}" ]; then
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$PROBE_TAG"
+          fi
+          exit 0
