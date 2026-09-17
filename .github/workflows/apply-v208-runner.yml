@@ -16,22 +16,23 @@ jobs:
         with:
           ref: fix/v2.0.8-ui-style-image-export
           fetch-depth: 0
-      - name: Apply embedded patch script once
-        shell: python
+      - name: Apply product patch once
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
           import textwrap
           app = Path('web/src/App.tsx').read_text(encoding='utf-8')
           if 'data-command="add"' not in app and 'Reset to Theme Default' in app:
               print('v2.0.8 patch already applied')
               raise SystemExit(0)
-          workflow = Path('.github/workflows/apply-v208-fixes.yml').read_text(encoding='utf-8')
+          source = Path('scripts/v208-patch-source.txt').read_text(encoding='utf-8')
           anchor = '      - name: Apply product and regression fixes\n        shell: python\n        run: |\n'
-          if anchor not in workflow:
+          if anchor not in source:
               raise SystemExit('embedded patch anchor missing')
-          script = workflow.split(anchor, 1)[1].split('      - name: Typecheck before commit\n', 1)[0]
-          script = textwrap.dedent(script)
-          exec(compile(script, 'embedded-v208-patch.py', 'exec'))
+          script = source.split(anchor, 1)[1].split('      - name: Typecheck before commit\n', 1)[0]
+          exec(compile(textwrap.dedent(script), 'embedded-v208-patch.py', 'exec'))
+          PY
       - name: Typecheck
         run: npm ci && npm run typecheck
       - name: Commit product patch if changed
