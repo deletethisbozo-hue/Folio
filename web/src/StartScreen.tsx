@@ -174,7 +174,6 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
             </div>
           ) : (
             <div className="recent-empty">
-              <div className="recent-empty-mark" aria-hidden="true">F</div>
               <h3>No recent books yet</h3>
               <p>Books you open in Folio will appear here automatically.</p>
               <button className="start-button" disabled={busy !== null} onClick={() => void chooseExisting()}>Open your first book…</button>
