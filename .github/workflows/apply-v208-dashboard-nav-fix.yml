@@ -1,0 +1,96 @@
+name: Apply v2.0.8 dashboard navigation fix
+
+on:
+  push:
+    branches:
+      - fix/v2.0.8-ui-style-image-export
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v2.0.8-ui-style-image-export
+          fetch-depth: 0
+      - name: Apply product patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f"missing expected fragment: {label}")
+              if text.count(old) != 1:
+                  raise SystemExit(f"expected one fragment for {label}, found {text.count(old)}")
+              return text.replace(old, new, 1)
+
+          app_path = Path("web/src/App.tsx")
+          app = app_path.read_text(encoding="utf-8")
+          already = 'data-command="new-project"' in app and 'aria-label="Back to dashboard"' in app
+          if not already:
+              app = replace_once(app, 'export default function App({ initialProject = null }: { initialProject?: ProjectSummary | null } = {}) {', 'export default function App({ initialProject = null, onDashboard }: { initialProject?: ProjectSummary | null; onDashboard?: () => void } = {}) {', 'App props')
+              marker = "  async function createNewBook() {\n    if (!newBookForm.path.trim()) return;\n    setBusy(true); setError(null);\n    try {\n      adopt(await api.newBook(newBookForm.path, newBookForm.title, newBookForm.author));\n      setShowNewBook(false);\n      setShowBookDetails(true);\n    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }\n    finally { setBusy(false); }\n  }\n"
+              dashboard = "\n  async function returnToDashboard() {\n    if (!(await saveCurrent())) return;\n    setBusy(true); setError(null);\n    try {\n      if (project && meta) await persistAppearance(project.projectId, meta, typography);\n      await sectionSaveQueueRef.current.flush();\n      await appearanceSaveQueueRef.current.flush();\n      onDashboard?.();\n    } catch (e) {\n      setError(e instanceof Error ? e.message : String(e));\n    } finally {\n      setBusy(false);\n    }\n  }\n"
+              app = replace_once(app, marker, marker + dashboard, 'dashboard handler')
+              old_top = "        <div className=\"command-wordmark\">folio</div>\n        <nav aria-label=\"Application commands\">\n          <button data-command=\"book\" onClick={() => setShowBookDetails(true)}>Book</button>\n          <button data-command=\"design\" onClick={() => setShowStyle(true)}>Design</button>\n        </nav>"
+              new_top = "        <button type=\"button\" className=\"command-wordmark\" aria-label=\"Back to dashboard\" title=\"Back to dashboard\" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>\n        <nav aria-label=\"Application commands\">\n          <button data-command=\"book\" onClick={() => setShowBookDetails(true)}>Book</button>\n          <button data-command=\"design\" onClick={() => setShowStyle(true)}>Design</button>\n          <button data-command=\"new-project\" disabled={busy} onClick={() => void beginNewBook()}>New Project</button>\n        </nav>"
+              app = replace_once(app, old_top, new_top, 'masthead navigation')
+              old_dialog = "      {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}\n      {error && <button className=\"global-error\" onClick={() => setError(null)} title=\"Dismiss\">{error}</button>}"
+              new_dialog = "      {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}\n      {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}\n      {error && <button className=\"global-error\" onClick={() => setError(null)} title=\"Dismiss\">{error}</button>}"
+              app = replace_once(app, old_dialog, new_dialog, 'new project dialog')
+              app_path.write_text(app, encoding="utf-8")
+
+              main_path = Path("web/src/main.tsx")
+              main = main_path.read_text(encoding="utf-8")
+              sample_marker = "  async function openSample() {\n    const summary = await api.loadSample();\n    const url = new URL(window.location.href);\n    url.searchParams.delete(\"book\");\n    url.searchParams.set(\"sample\", \"1\");\n    window.history.replaceState(window.history.state, \"\", url);\n    adoptProject(summary);\n  }\n"
+              dashboard_root = "\n  function showDashboard() {\n    const url = new URL(window.location.href);\n    url.searchParams.delete(\"book\");\n    url.searchParams.delete(\"sample\");\n    window.history.replaceState(window.history.state, \"\", url);\n    setWorkspaceProject(null);\n    setWorkspaceOpen(false);\n  }\n"
+              main = replace_once(main, sample_marker, sample_marker + dashboard_root, 'root dashboard handler')
+              main = replace_once(main, "  return workspaceOpen && workspaceProject\n    ? <App initialProject={workspaceProject} />\n    : <StartScreen onOpenPath={openPath} onOpenProject={adoptProject} onOpenSample={openSample} />;", "  return workspaceOpen && workspaceProject\n    ? <App initialProject={workspaceProject} onDashboard={showDashboard} />\n    : <StartScreen onOpenPath={openPath} onOpenProject={adoptProject} onOpenSample={openSample} />;", 'root App wiring')
+              main_path.write_text(main, encoding="utf-8")
+
+              start_path = Path("web/src/StartScreen.tsx")
+              start = start_path.read_text(encoding="utf-8")
+              start = replace_once(start, '          <div className="start-mark" aria-hidden="true">F</div>\n', '', 'dashboard F mark')
+              start_path.write_text(start, encoding="utf-8")
+
+              css_path = Path("web/src/editorial-studio.css")
+              css = css_path.read_text(encoding="utf-8")
+              css = replace_once(css, "  padding: 0 18px;\n  border-right: 1px solid var(--studio-rule);\n  color: var(--studio-ink);", "  padding: 0 18px;\n  border: 0;\n  border-right: 1px solid var(--studio-rule);\n  background: transparent;\n  color: var(--studio-ink);\n  text-align: left;\n  cursor: pointer;", 'wordmark button reset')
+              css = replace_once(css, "  letter-spacing: -.015em;\n}\n\n.folio-shell[data-ui-tone] .folio-commandbar nav {", "  letter-spacing: -.015em;\n}\n\n.folio-shell[data-ui-tone] .command-wordmark:hover:not(:disabled) {\n  color: var(--studio-accent);\n  background: color-mix(in srgb, var(--studio-accent) 5%, transparent);\n}\n\n.folio-shell[data-ui-tone] .command-wordmark:disabled {\n  cursor: default;\n  opacity: .65;\n}\n\n.folio-shell[data-ui-tone] .folio-commandbar nav {", 'wordmark hover')
+              css_path.write_text(css, encoding="utf-8")
+
+              start_css_path = Path("web/src/start-screen.css")
+              start_css = start_css_path.read_text(encoding="utf-8")
+              start_css = start_css.replace(".start-mark{\n  width:54px;\n  height:68px;\n  border:1px solid var(--start-line-strong);\n  display:grid;\n  place-items:center;\n  margin-bottom:28px;\n  background:var(--start-panel);\n  box-shadow:0 7px 18px rgba(40,34,27,.08);\n  font-family:Georgia,\"Times New Roman\",serif;\n  font-size:31px;\n  font-weight:700;\n}\n", "", 1)
+              start_css_path.write_text(start_css, encoding="utf-8")
+
+              test_path = Path("tests/v208-regression.test.ts")
+              test = test_path.read_text(encoding="utf-8")
+              test = test.replace('const mock = await fs.readFile("web/src/mockup-ui.ts", "utf8");\n', 'const mock = await fs.readFile("web/src/mockup-ui.ts", "utf8");\nconst main = await fs.readFile("web/src/main.tsx", "utf8");\nconst start = await fs.readFile("web/src/StartScreen.tsx", "utf8");\n', 1)
+              anchor = 'check("top command bar no longer duplicates Add", !app.includes(\'data-command="add"\'));\n'
+              extra = 'check("workspace top bar offers New Project", app.includes(\'data-command="new-project"\') && app.includes(\'>New Project</button>\'));\ncheck("workspace wordmark returns to dashboard", app.includes(\'aria-label="Back to dashboard"\') && main.includes(\'onDashboard={showDashboard}\'));\ncheck("workspace New Project opens the existing creation dialog", app.includes(\'showNewBook && <NewBookDialog\'));\ncheck("dashboard no longer renders the redundant standalone F mark", !start.includes(\'className="start-mark"\'));\n'
+              test = replace_once(test, anchor, anchor + extra, 'v208 navigation assertions')
+              test_path.write_text(test, encoding="utf-8")
+
+          Path(".github/workflows/apply-v208-dashboard-nav.yml").unlink(missing_ok=True)
+          Path(".github/workflows/apply-v208-dashboard-nav-fix.yml").unlink(missing_ok=True)
+          Path("scripts/.v208-dashboard-trigger").unlink(missing_ok=True)
+      - name: Typecheck
+        run: npm ci --no-audit --no-fund && npm run typecheck
+      - name: Commit patch if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add workspace New Project and dashboard navigation"
+          git push origin HEAD:fix/v2.0.8-ui-style-image-export
