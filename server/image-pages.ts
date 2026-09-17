@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import yaml from "js-yaml";
 import type { BookMeta } from "./pipeline/types.ts";
-import { addMatter } from "./matter.ts";
+import { addMatter, readConfig } from "./matter.ts";
 import { atomicWriteUtf8 } from "./atomic-write.ts";
 
 export type ImagePageFit = "contain" | "cover";
@@ -39,12 +40,47 @@ function markdownAlt(value: string): string {
   return value.replace(/([\\\]])/g, "\\$1");
 }
 
+async function existingImagePageTitles(bookDir: string): Promise<Set<string>> {
+  const cfg = await readConfig(bookDir) as { frontmatter?: string[] } | null;
+  const entries = Array.isArray(cfg?.frontmatter) ? cfg.frontmatter : [];
+  const titles = new Set<string>();
+
+  for (const entry of entries) {
+    try {
+      const file = path.join(bookDir, ...String(entry).replace(/\\/g, "/").split("/"));
+      const raw = await fs.readFile(file, "utf8");
+      const frontmatter = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+      if (!frontmatter) continue;
+      const data = (yaml.load(frontmatter[1]) ?? {}) as Record<string, unknown>;
+      const classes = String(data.class ?? "").split(/\s+/).filter(Boolean);
+      if (!classes.includes("image-page")) continue;
+      const title = String(data.title ?? "").trim();
+      if (title) titles.add(title.toLocaleLowerCase());
+    } catch {
+      // A stale config entry should not prevent the user from adding artwork.
+    }
+  }
+
+  return titles;
+}
+
+async function uniqueImagePageTitle(bookDir: string, requested: string): Promise<string> {
+  const titles = await existingImagePageTitles(bookDir);
+  if (!titles.has(requested.toLocaleLowerCase())) return requested;
+  let index = 2;
+  while (titles.has(`${requested} ${index}`.toLocaleLowerCase())) index += 1;
+  return `${requested} ${index}`;
+}
+
 /**
  * Add a dedicated image page to front matter.
  *
  * The image is copied into book/assets and the structural page itself is still a
  * normal front-matter Markdown file, so it participates in ordering, preview,
  * EPUB and print without introducing a second private document model.
+ *
+ * Full-page artwork is always contain-fit. Older callers can still pass `cover`
+ * for API compatibility, but Folio never crops maps, family trees or fixed art.
  */
 export async function addFullPageImage(
   bookDir: string,
@@ -52,9 +88,9 @@ export async function addFullPageImage(
   options: AddImagePageOptions,
 ): Promise<{ entry: string; asset: string }> {
   const ext = safeExt(options.filename);
-  const title = options.title?.trim() || "Map";
-  const alt = options.alt?.trim() || title;
-  const fit: ImagePageFit = options.fit === "cover" ? "cover" : "contain";
+  const requestedTitle = options.title?.trim() || "Map";
+  const title = await uniqueImagePageTitle(bookDir, requestedTitle);
+  const alt = options.alt?.trim() || requestedTitle;
 
   const assetsDir = path.join(bookDir, "assets");
   await fs.mkdir(assetsDir, { recursive: true });
@@ -78,7 +114,7 @@ export async function addFullPageImage(
       "showTitle: false",
       "---",
       "",
-      `![${markdownAlt(alt)}](${asset}){.full-page-image .fit-${fit}}`,
+      `![${markdownAlt(alt)}](${asset}){.full-page-image .fit-contain}`,
       "",
     ].join("\n");
     await atomicWriteUtf8(pagePath, content, "utf8");

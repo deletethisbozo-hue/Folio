@@ -8,7 +8,9 @@ const imageUpload = multer({
   limits: { fileSize: 40 * 1024 * 1024, files: 1 },
 });
 
-/** Register the Folio 2.0 full-page artwork endpoint. */
+/** Register the Folio full-page artwork endpoint. Fixed artwork is always
+ * contain-fit: maps, family trees and other page art may letterbox but are never
+ * cropped by the application. */
 export function registerImagePageApi(app: Express): void {
   app.post("/api/projects/:id/image-page", imageUpload.single("image"), async (req: Request, res: Response) => {
     try {
@@ -18,13 +20,12 @@ export function registerImagePageApi(app: Express): void {
 
       const { book } = await loadProject(req.params.id);
       const dir = await writableBookDir(req.params.id);
-      const fit = req.body?.fit === "cover" ? "cover" : "contain";
       const result = await addFullPageImage(dir, book.meta, {
         filename: file.originalname,
         buffer: file.buffer,
         title: typeof req.body?.title === "string" ? req.body.title : undefined,
         alt: typeof req.body?.alt === "string" ? req.body.alt : undefined,
-        fit,
+        fit: "contain",
       });
       res.json({ ok: true, ...result });
     } catch (error) {

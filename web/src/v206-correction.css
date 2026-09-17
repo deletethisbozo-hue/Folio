@@ -1,0 +1,300 @@
+/* Folio 2.0.6: final UI type system, fixed-media behaviour, and image-page workspace. */
+
+:root,
+.start-shell,
+.folio-shell {
+  --folio-logo-font: "Folio Pelagiad Exact";
+  --folio-ui-font: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif;
+}
+
+/* One application type family. Book/manuscript typography remains explicitly
+ * controlled by the editor and theme CSS and is not replaced here. */
+.start-shell,
+.folio-shell {
+  font-family: var(--folio-ui-font) !important;
+}
+
+.start-shell :is(
+  button, input, select, textarea, label,
+  h1, h2, h3, p, strong, small,
+  .start-version, .start-kicker, .start-copy,
+  .recent-eyebrow, .recent-meta, .recent-time, .recent-path,
+  .start-modal, .start-field
+),
+.folio-shell :is(
+  button, input, select, textarea, label,
+  .pane-label, .preview-pane-title,
+  .book-title, .book-author,
+  .contents-heading, .contents-row,
+  .topbar-title, .word-count, .save-indicator,
+  .section-index, .section-title, .section-title-button,
+  .section-title-input, .section-subtitle-button, .section-subtitle-input,
+  .section-move, .section-design, .section-delete,
+  .toolbar-text-button, .format-toolbar button, .scene-break-button span,
+  .editor-search, .readonly-note,
+  .preview-style-button, .device-toolbar, .device-label, .device-nav,
+  .generate-button, .generate-menu, .generate-status,
+  .folio-statusbar, .native-button,
+  .cover-editor-empty, .cover-editor-copy, .cover-toolbar-note,
+  .editor-illustration-controls,
+  .folio-dialog, .folio-dialog h1, .folio-dialog h2, .folio-dialog h3,
+  .style-library, .style-library-title, .customize-panel, .customize-panel h3,
+  .dialog-field, .setting-label, .setting-control,
+  .preview-loading, .preview-error, .preview-empty, .cover-preview-empty
+) {
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+}
+
+/* Book prose/editor copy keeps a manuscript face. */
+.folio-shell .manuscript-editor:not(.folio-image-page-editor),
+.folio-shell .manuscript-editor:not(.folio-image-page-editor) :is(p, blockquote, li, h1, h2, h3, em, strong, b, i, u) {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* Pelagiad is branding only. These selectors deliberately outrank the legacy
+ * chrome layers instead of relying on a low-specificity variable assignment. */
+.start-shell .start-brand,
+.start-shell .recent-cover i,
+.folio-shell .command-wordmark,
+.folio-shell .folio-wordmark {
+  font-family: "Folio Pelagiad Exact" !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-synthesis: none !important;
+  letter-spacing: 0 !important;
+  text-transform: lowercase !important;
+}
+
+/* Peer pane labels must be typographically identical. */
+.folio-shell[data-ui-tone] .pane-label,
+.folio-shell[data-ui-tone] .preview-pane-title {
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font-size: 10.5px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  letter-spacing: .115em !important;
+  text-transform: uppercase !important;
+}
+
+.folio-shell[data-ui-tone] .contents-heading {
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  letter-spacing: .10em !important;
+  text-transform: uppercase !important;
+}
+
+.folio-shell[data-ui-tone] .section-title,
+.folio-shell[data-ui-tone] .section-title-button,
+.folio-shell[data-ui-tone] .section-title-input,
+.folio-shell[data-ui-tone] .book-title,
+.folio-shell[data-ui-tone] .folio-dialog > header h2,
+.folio-shell[data-ui-tone] .style-library-title {
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+}
+
+.folio-shell[data-ui-tone] .section-subtitle-button,
+.folio-shell[data-ui-tone] .section-subtitle-input {
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 450 !important;
+}
+
+/* Shared chrome rhythm. */
+.folio-shell[data-ui-tone] .library-toolbar,
+.folio-shell[data-ui-tone] .editor-topbar,
+.folio-shell[data-ui-tone] .preview-topbar {
+  height: 44px;
+  min-height: 44px;
+  background: var(--studio-chrome);
+  border-bottom: 1px solid var(--studio-rule);
+}
+
+/* Export belongs to desktop chrome, not to a brown web CTA. */
+.folio-shell[data-ui-tone] .generate-button {
+  min-width: 104px !important;
+  height: 36px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  border: 1px solid var(--studio-rule-strong) !important;
+  border-radius: 3px !important;
+  background: var(--studio-control) !important;
+  color: var(--studio-ink) !important;
+  box-shadow: 0 1px 2px rgba(30, 26, 22, .08) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  letter-spacing: .01em !important;
+}
+
+.folio-shell[data-ui-tone] .generate-button::after {
+  content: "▾" !important;
+  color: var(--studio-muted) !important;
+  font: 600 10px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  transform: none !important;
+}
+
+.folio-shell[data-ui-tone] .generate-button:hover,
+.folio-shell[data-ui-tone] .generate-wrap:has(.generate-menu) .generate-button {
+  border-color: var(--studio-accent) !important;
+  background: var(--studio-accent-soft) !important;
+  filter: none !important;
+}
+
+/* Replace Cover is a real secondary action, sized and styled like the rest of
+ * the desktop controls instead of a tiny browser label. */
+.folio-shell[data-ui-tone] .native-button.primary.cover-upload-button,
+.folio-shell[data-ui-tone] .native-button.cover-button,
+.folio-shell[data-ui-tone] .cover-upload-button,
+.folio-shell[data-ui-tone] .cover-button {
+  min-height: 36px !important;
+  padding: 0 17px !important;
+  border: 1px solid var(--studio-rule-strong) !important;
+  border-radius: 3px !important;
+  background: var(--studio-surface) !important;
+  color: var(--studio-ink) !important;
+  box-shadow: 0 1px 2px rgba(30, 26, 22, .07) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  letter-spacing: .01em !important;
+}
+
+.folio-shell[data-ui-tone] .cover-upload-button:hover,
+.folio-shell[data-ui-tone] .cover-button:hover {
+  border-color: var(--studio-accent) !important;
+  background: var(--studio-accent-soft) !important;
+}
+
+/* Covers are fixed artwork. Maximise them, never crop them. If the device and
+ * cover ratios differ, the unused screen area becomes a deliberate dark bar. */
+.folio-shell[data-ui-tone] .reader-screen > .cover-preview-surface {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  background: #151515 !important;
+}
+
+.folio-shell[data-ui-tone] .reader-screen > .cover-preview-surface > img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Dedicated full-page artwork workspace. No prose canvas, no subtitle field,
+ * no formatting toolbar, no crop controls, no floating remove-X. */
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .format-toolbar {
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .section-titlebar {
+  height: 58px !important;
+  min-height: 58px !important;
+  padding: 0 22px !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .section-index,
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .section-subtitle-button,
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .section-subtitle-input {
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .section-title-wrap {
+  display: block !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .editor-paper {
+  background: #fff !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .manuscript-editor.folio-image-page-editor {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  scrollbar-gutter: auto !important;
+  cursor: default !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .editor-full-page-art {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .editor-full-page-art > img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  background: #fff !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .editor-full-page-art .editor-illustration-controls,
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .editor-full-page-art .editor-illustration-remove {
+  display: none !important;
+}
+
+/* Ordinary inline illustrations remain editable/croppable but should sit on a
+ * clean white presentation surface rather than a beige prototype card. */
+.folio-shell[data-ui-tone] .editor-illustration:not(.editor-full-page-art) {
+  background: #fff !important;
+}
+
+/* The preview iframe is one viewport; nested horizontal scrolling is never a
+ * valid layout state for covers or fixed artwork. */
+.folio-shell[data-ui-tone] .reader-screen,
+.folio-shell[data-ui-tone] .preview-frame {
+  overflow: hidden !important;
+}
