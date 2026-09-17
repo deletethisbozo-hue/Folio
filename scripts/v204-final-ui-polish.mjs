@@ -1,0 +1,58 @@
+import fs from 'node:fs';
+
+const read = (p) => fs.readFileSync(p, 'utf8');
+const write = (p, s) => fs.writeFileSync(p, s);
+function replaceRequired(path, from, to, label) {
+  const source = read(path);
+  if (!source.includes(from)) throw new Error(`Missing ${label} anchor in ${path}`);
+  write(path, source.replace(from, to));
+}
+
+// Illustration pages are image-only. Do not expose a source filename as a
+// caption or create an editable spacer paragraph around the image.
+let app = read('web/src/App.tsx');
+app = app.replace(
+  '      const alt = file.name.replace(/\\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Illustration";',
+  '      const alt = "Illustration";',
+);
+app = app.replace(
+  '      const caption = window.document.createElement("figcaption");\n      caption.textContent = alt;\n',
+  '',
+);
+app = app.replace(
+  '      figure.append(image, caption, remove);',
+  '      figure.append(image, remove);',
+);
+const insertionBlock = `      const savedRange = illustrationRangeRef.current;\n      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {\n        savedRange.deleteContents();\n        savedRange.insertNode(figure);\n      } else {\n        editor.appendChild(figure);\n      }\n      const spacer = window.document.createElement("p");\n      spacer.innerHTML = "<br>";\n      figure.after(spacer);`;
+if (!app.includes(insertionBlock)) throw new Error('Missing illustration insertion block in App.tsx');
+app = app.replace(
+  insertionBlock,
+  '      editor.replaceChildren(figure);',
+);
+write('web/src/App.tsx', app);
+
+// Existing manuscripts may still carry an alt value for accessibility, but it
+// must never be rendered as visible page text. Remove all generated captions
+// from both editor hydration and Page Preview HTML.
+let rich = read('web/src/rich-text.ts');
+rich = rich.replaceAll('<figcaption>${escapeHtml(alt)}</figcaption>', '');
+write('web/src/rich-text.ts', rich);
+
+// Focused regression checks: user-visible upload must not leak the filename or
+// any figcaption into the editor or live iframe preview.
+for (const path of ['tests/illustration-ui.test.ts', 'tests/illustration-preview-ui.test.ts']) {
+  let test = read(path);
+  const marker = '  await page.waitForSelector(".editor-illustration img", { timeout: 12000 });';
+  if (test.includes(marker) && !test.includes('filename/caption leaked')) {
+    test = test.replace(marker, `${marker}\n  const leakedCaption = await page.evaluate(() => Boolean(document.querySelector('.editor-illustration figcaption')) || /illustration[-_ ]?fixture/i.test(document.querySelector('.rich-editor')?.textContent ?? ''));\n  if (leakedCaption) throw new Error('Illustration filename/caption leaked into the page');`);
+  }
+  if (path.endsWith('illustration-preview-ui.test.ts')) {
+    const previewMarker = '  const previewImage = await waitForPreviewImage(page);';
+    if (test.includes(previewMarker) && !test.includes('previewCaption')) {
+      test = test.replace(previewMarker, `${previewMarker}\n  const previewCaption = await page.evaluate(() => {\n    const frame = document.querySelector('iframe.preview-frame');\n    const doc = frame?.contentDocument;\n    return Boolean(doc?.querySelector('figcaption')) || /illustration[-_ ]?fixture/i.test(doc?.body?.textContent ?? '');\n  });\n  if (previewCaption) throw new Error('Illustration caption leaked into Page Preview');`);
+    }
+  }
+  write(path, test);
+}
+
+console.log('Applied final 2.0.4 UI typography and image-only illustration-page polish.');
