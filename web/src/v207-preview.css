@@ -1,0 +1,107 @@
+/* Folio 2.0.7 preview: controls must belong to the existing Editorial Studio chrome. */
+
+/* Export follows the same quiet control language as the device selector. */
+.folio-shell[data-ui-tone] .generate-button {
+  box-sizing: border-box !important;
+  min-width: 88px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 11px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  border: 1px solid var(--studio-preview-rule) !important;
+  border-radius: 4px !important;
+  background: var(--studio-preview-control) !important;
+  color: var(--studio-preview-ink) !important;
+  box-shadow: none !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 11.5px !important;
+  font-style: normal !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: .005em !important;
+  vertical-align: middle !important;
+}
+
+.folio-shell[data-ui-tone] .generate-button::after {
+  content: "▾" !important;
+  margin: 0 !important;
+  color: var(--studio-preview-muted) !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 9px !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  transform: translateY(-.5px) !important;
+}
+
+.folio-shell[data-ui-tone] .generate-button:hover,
+.folio-shell[data-ui-tone] .generate-wrap:has(.generate-menu) .generate-button {
+  border-color: var(--studio-rule-strong) !important;
+  background: var(--studio-preview-hover) !important;
+  color: var(--studio-ink) !important;
+  filter: none !important;
+}
+
+.folio-shell[data-ui-tone] .generate-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--studio-accent) 38%, transparent) !important;
+  outline-offset: 2px !important;
+}
+
+/* Replace Cover is the same control family, just a secondary action on canvas. */
+.folio-shell[data-ui-tone] .native-button.primary.cover-upload-button,
+.folio-shell[data-ui-tone] .native-button.cover-button,
+.folio-shell[data-ui-tone] .cover-upload-button,
+.folio-shell[data-ui-tone] .cover-button {
+  box-sizing: border-box !important;
+  width: auto !important;
+  min-width: 116px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  border: 1px solid var(--studio-rule-strong) !important;
+  border-radius: 4px !important;
+  background: var(--studio-control) !important;
+  color: var(--studio-ink) !important;
+  box-shadow: none !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 11.5px !important;
+  font-style: normal !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: .005em !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  cursor: pointer !important;
+}
+
+.folio-shell[data-ui-tone] .cover-upload-button:hover,
+.folio-shell[data-ui-tone] .cover-button:hover {
+  border-color: var(--studio-accent) !important;
+  background: var(--studio-accent-soft) !important;
+  color: var(--studio-ink) !important;
+}
+
+.folio-shell[data-ui-tone] .cover-upload-button:focus-within,
+.folio-shell[data-ui-tone] .cover-button:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--studio-accent) 38%, transparent) !important;
+  outline-offset: 2px !important;
+}
+
+/* A full-page illustration is artwork, not a chapter with a visible filename. */
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .section-title-wrap {
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .section-titlebar {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 14px !important;
+  justify-content: flex-end !important;
+}
