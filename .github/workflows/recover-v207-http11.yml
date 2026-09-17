@@ -12,10 +12,9 @@ permissions:
 jobs:
   recover:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 55
     env:
       SOURCE_RUN: "35247596282"
-      PREVIOUS_RECOVERY_RUN: "35250826861"
       RECOVERY_RELEASE_ID: "390905988"
       TAG: "v2.0.7"
       TARGET_SHA: "16d57b5cb2b39293af9a5788686d7b18f5eef6ee"
@@ -23,21 +22,6 @@ jobs:
       EXPECTED_PORTABLE_SHA: "2233b26a7e4c930a7fa71cab104130ed832e592b8b647173e47d350be10dde00"
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Wait for previous recovery run to stop
-        shell: bash
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 120); do
-            status="$(gh run view "$PREVIOUS_RECOVERY_RUN" --repo "$GITHUB_REPOSITORY" --json status --jq '.status')"
-            echo "previous recovery status: $status"
-            if [ "$status" = "completed" ]; then
-              exit 0
-            fi
-            sleep 15
-          done
-          echo "Previous recovery run did not stop within 30 minutes" >&2
-          exit 1
-
       - name: Download already-qualified Windows artifact
         shell: bash
         run: |
@@ -59,10 +43,6 @@ jobs:
 
           actual_setup="$(sha256sum "$setup" | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')"
           actual_portable="$(sha256sum "$portable" | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')"
-
-          echo "setup sha256: $actual_setup"
-          echo "portable sha256: $actual_portable"
-
           test "$actual_setup" = "$EXPECTED_SETUP_SHA"
           test "$actual_portable" = "$EXPECTED_PORTABLE_SHA"
           test "$(stat -c%s "$setup")" = "372564687"
@@ -70,10 +50,11 @@ jobs:
           grep -qi "$EXPECTED_SETUP_SHA" "$sums"
           grep -qi "$EXPECTED_PORTABLE_SHA" "$sums"
 
-          printf 'SETUP=%s\nPORTABLE=%s\nSUMS=%s\nSETUP_SHA=%s\nPORTABLE_SHA=%s\n' \
-            "$setup" "$portable" "$sums" "$actual_setup" "$actual_portable" >> "$GITHUB_ENV"
+          printf 'SETUP=%s\nPORTABLE=%s\nSUMS=%s\n' "$setup" "$portable" "$sums" >> "$GITHUB_ENV"
+          echo "setup sha256: $actual_setup"
+          echo "portable sha256: $actual_portable"
 
-      - name: Validate exact recovery draft
+      - name: Validate release and expose it as prerelease
         shell: bash
         run: |
           set -euo pipefail
@@ -81,45 +62,75 @@ jobs:
           jq -e --arg tag "$TAG" --arg target "$TARGET_SHA" '
             .tag_name == $tag and
             .target_commitish == $target and
-            .draft == true and
-            .prerelease == false and
-            .name == "Folio 2.0.7 for Windows"
+            .name == "Folio 2.0.7 for Windows" and
+            ((.draft == true and .prerelease == false) or (.draft == false and .prerelease == true))
           ' release.json >/dev/null
 
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists unexpectedly before publication" >&2
-            exit 1
+          if jq -e '.draft == true' release.json >/dev/null; then
+            echo "Publishing recovery release temporarily as prerelease"
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID" \
+              -F draft=false -F prerelease=true >/dev/null
           fi
 
-      - name: Clear incomplete recovery assets
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > prerelease.json
+          jq -e --arg target "$TARGET_SHA" '
+            .draft == false and
+            .prerelease == true and
+            .target_commitish == $target and
+            .id == 390905988
+          ' prerelease.json >/dev/null
+
+      - name: Clean stale incomplete assets but keep valid uploads
         shell: bash
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets" > assets-before.json
-          jq -r '.[] | .id' assets-before.json | while read -r asset_id; do
+          jq -r '.[] | select(.state != "uploaded") | .id' assets-before.json | while read -r asset_id; do
             [ -n "$asset_id" ] || continue
-            echo "Deleting stale recovery asset $asset_id"
+            echo "Deleting incomplete asset $asset_id"
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
           done
 
-          count="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets" --jq 'length')"
-          test "$count" = "0"
-
-      - name: Upload verified assets over HTTP1.1
+      - name: Upload missing verified assets to published prerelease
         shell: bash
         run: |
           set -euo pipefail
 
+          uploaded_ok() {
+            local name="$1"
+            local expected_size="$2"
+            gh api "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets" \
+              --jq ".[] | select(.name == \"$name\" and .state == \"uploaded\" and .size == $expected_size) | .id" | grep -q .
+          }
+
+          poll_uploaded() {
+            local name="$1"
+            local expected_size="$2"
+            for i in $(seq 1 48); do
+              if uploaded_ok "$name" "$expected_size"; then
+                echo "$name is uploaded"
+                return 0
+              fi
+              echo "Waiting for $name to finish server-side ($i/48)"
+              sleep 10
+            done
+            return 1
+          }
+
           upload_asset() {
             local file="$1"
             local content_type="$2"
+            local expected_size="$3"
             local name
-            local response
             name="$(basename "$file")"
-            response="response-${name}.json"
+
+            if uploaded_ok "$name" "$expected_size"; then
+              echo "$name already uploaded; keeping it"
+              return 0
+            fi
 
             for attempt in 1 2 3; do
-              echo "Uploading $name over HTTP/1.1, attempt $attempt/3"
+              echo "Uploading $name to published prerelease, attempt $attempt/3"
 
               existing_ids="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets" --jq ".[] | select(.name == \"$name\") | .id" || true)"
               if [ -n "$existing_ids" ]; then
@@ -128,11 +139,11 @@ jobs:
                 done <<< "$existing_ids"
               fi
 
-              rm -f "$response"
-              if curl --http1.1 \
+              rm -f "response-$name.json"
+              set +e
+              curl --http1.1 -L \
                 --fail-with-body --silent --show-error \
                 --connect-timeout 30 --max-time 900 \
-                --retry 1 --retry-all-errors --retry-delay 3 \
                 -X POST \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
@@ -140,29 +151,35 @@ jobs:
                 -H "Content-Type: $content_type" \
                 -H "Expect:" \
                 --data-binary "@$file" \
+                -w '\nhttp=%{http_code} uploaded=%{size_upload} downloaded=%{size_download} total=%{time_total}s\n' \
                 "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets?name=$name" \
-                -o "$response"; then
-                if jq -e --arg name "$name" '.name == $name and .state == "uploaded"' "$response" >/dev/null; then
-                  echo "Uploaded $name successfully"
-                  jq '{name,state,size,digest,browser_download_url}' "$response"
-                  return 0
-                fi
+                -o "response-$name.json"
+              curl_code=$?
+              set -e
+
+              echo "curl exit for $name: $curl_code"
+              [ -f "response-$name.json" ] && cat "response-$name.json" || true
+
+              if uploaded_ok "$name" "$expected_size"; then
+                return 0
               fi
 
-              echo "Upload failed for $name on attempt $attempt" >&2
-              [ -f "$response" ] && cat "$response" >&2 || true
-              sleep $((attempt * 7))
+              if poll_uploaded "$name" "$expected_size"; then
+                return 0
+              fi
+
+              echo "$name did not become uploaded after attempt $attempt" >&2
             done
 
-            echo "Giving up on $name after 3 HTTP/1.1 attempts" >&2
+            echo "Giving up on $name after 3 attempts" >&2
             return 1
           }
 
-          upload_asset "$SUMS" "text/plain"
-          upload_asset "$PORTABLE" "application/x-msdownload"
-          upload_asset "$SETUP" "application/x-msdownload"
+          upload_asset "$SUMS" "text/plain" 181
+          upload_asset "$PORTABLE" "application/x-msdownload" 372330472
+          upload_asset "$SETUP" "application/x-msdownload" 372564687
 
-      - name: Verify uploaded release assets and publish
+      - name: Verify assets and promote Folio 2.0.7 to stable
         shell: bash
         run: |
           set -euo pipefail
@@ -176,10 +193,15 @@ jobs:
 
           setup_size="$(jq -r '.[] | select(.name == "Folio-2.0.7-setup.exe") | .size' assets-final.json)"
           portable_size="$(jq -r '.[] | select(.name == "Folio-2.0.7-portable.exe") | .size' assets-final.json)"
+          setup_digest="$(jq -r '.[] | select(.name == "Folio-2.0.7-setup.exe") | .digest' assets-final.json)"
+          portable_digest="$(jq -r '.[] | select(.name == "Folio-2.0.7-portable.exe") | .digest' assets-final.json)"
+
           test "$setup_size" = "372564687"
           test "$portable_size" = "372330472"
+          test "$setup_digest" = "sha256:$EXPECTED_SETUP_SHA"
+          test "$portable_digest" = "sha256:$EXPECTED_PORTABLE_SHA"
 
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID" -F draft=false >/dev/null
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID" -F prerelease=false >/dev/null
 
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > published.json
           jq -e --arg target "$TARGET_SHA" '
@@ -190,4 +212,4 @@ jobs:
             all(.assets[]; .state == "uploaded")
           ' published.json >/dev/null
 
-          jq '{tag_name,target_commitish,draft,published_at,html_url,assets:[.assets[]|{name,state,size,digest,browser_download_url}]}' published.json
+          jq '{tag_name,target_commitish,draft,prerelease,published_at,html_url,assets:[.assets[]|{name,state,size,digest,browser_download_url}]}' published.json
