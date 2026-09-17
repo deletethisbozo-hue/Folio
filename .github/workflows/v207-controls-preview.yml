@@ -45,8 +45,11 @@ jobs:
       - name: Build Folio
         run: npm run build
 
-      - name: Capture real Folio controls in context
+      - name: Verify mockup UI and core functionality
         run: node --import tsx scripts/v207-controls-preview.ts
+
+      - name: Capture fully rendered mockup workspace
+        run: node --import tsx scripts/v207-final-screenshot.ts
 
       - name: Upload screenshots
         if: always()
