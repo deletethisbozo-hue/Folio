@@ -54,7 +54,9 @@ function syncSelectedImagePageLabel(fullPage: boolean): void {
     label.dataset.folioImagePageOriginalLabel = label.textContent ?? "";
   }
   label.dataset.folioImagePageLabel = "true";
-  if (label.textContent !== "Full-page Image") label.textContent = "Full-page Image";
+  const original = (label.dataset.folioImagePageOriginalLabel ?? "").trim();
+  const neutralLabel = /^Full-page Image(?: \d+)?$/i.test(original) ? original : "Full-page Image";
+  if (label.textContent !== neutralLabel) label.textContent = neutralLabel;
 }
 
 function setStyle(element: HTMLElement, property: string, value: string): void {
