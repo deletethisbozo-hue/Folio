@@ -1,0 +1,97 @@
+name: Recover Folio 2.0.7 Release
+
+on:
+  push:
+    branches:
+      - release/v2.0.7-recover-upload
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SOURCE_RUN: "35247596282"
+      STALE_RELEASE_ID: "390892314"
+      TAG: "v2.0.7"
+      TARGET_SHA: "16d57b5cb2b39293af9a5788686d7b18f5eef6ee"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Cancel stalled publisher and wait for it to stop
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run cancel "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY"
+          status=""
+          for i in $(seq 1 36); do
+            status="$(gh run view "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --json status --jq '.status')"
+            echo "source run status: $status"
+            if [ "$status" = "completed" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ "$status" != "completed" ]; then
+            echo "Source release run did not stop in time" >&2
+            exit 1
+          fi
+
+      - name: Download already-qualified Windows artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovered
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "Folio-2.0.7-Windows" --dir recovered
+          find recovered -type f -maxdepth 6 -printf '%p %s bytes\n' | sort
+
+      - name: Verify recovered binaries against sha256.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          setup="$(find recovered -type f -name 'Folio-2.0.7-setup.exe' -print -quit)"
+          portable="$(find recovered -type f -name 'Folio-2.0.7-portable.exe' -print -quit)"
+          sums="$(find recovered -type f -name 'sha256.txt' -print -quit)"
+          test -n "$setup" && test -s "$setup"
+          test -n "$portable" && test -s "$portable"
+          test -n "$sums" && test -s "$sums"
+          expected_setup="$(awk '$2 == "Folio-2.0.7-setup.exe" {print tolower($1)}' "$sums")"
+          expected_portable="$(awk '$2 == "Folio-2.0.7-portable.exe" {print tolower($1)}' "$sums")"
+          actual_setup="$(sha256sum "$setup" | awk '{print tolower($1)}')"
+          actual_portable="$(sha256sum "$portable" | awk '{print tolower($1)}')"
+          test -n "$expected_setup" && test "$actual_setup" = "$expected_setup"
+          test -n "$expected_portable" && test "$actual_portable" = "$expected_portable"
+          printf 'SETUP=%s\nPORTABLE=%s\nSUMS=%s\n' "$setup" "$portable" "$sums" >> "$GITHUB_ENV"
+          echo "setup sha256: $actual_setup"
+          echo "portable sha256: $actual_portable"
+
+      - name: Remove only the stalled draft release
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/releases/$STALE_RELEASE_ID" --jq '.tag_name + " " + (.draft|tostring)' 2>/dev/null || true)"
+          echo "stale release: ${current:-missing}"
+          if [ -n "$current" ]; then
+            test "$current" = "$TAG true"
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$STALE_RELEASE_ID"
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "Unexpected tag $TAG exists after deleting the stale draft" >&2
+            exit 1
+          fi
+
+      - name: Publish recovered immutable Folio 2.0.7 release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            "$SETUP" \
+            "$PORTABLE" \
+            "$SUMS" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "Folio 2.0.7 for Windows" \
+            --notes "Folio 2.0.7 is a professional UI and artwork-presentation release. The Folio wordmark uses the supplied Pelagiad face at a larger, consistent size on the start screen and workspace, while application chrome uses Source Sans 3. The command bar, manuscript navigator, editor canvas, device preview, status bar, Export and Replace Cover controls now follow one coherent desktop system. Cover and Full-page Image artwork uses contain-fit without destructive cropping; Full-page Image filenames are no longer shown as visible titles. The sidebar gains functional Add Section and book-details controls without introducing dead UI, Cover alignment is corrected, and the chapter header is tightened to return more space to the manuscript. The release is gated by typecheck, the full formatter/UI suite, Windows browser interaction smoke, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease,url,assets
