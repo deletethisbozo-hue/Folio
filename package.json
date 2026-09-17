@@ -74,7 +74,8 @@
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
       "package.json",
-      "assets/folio-icon.png"
+      "assets/folio-icon.png",
+      "assets/folio.ico"
     ],
     "extraResources": [
       {
@@ -112,7 +113,7 @@
     ],
     "win": {
       "executableName": "Folio",
-      "icon": "assets/folio-icon.png",
+      "icon": "assets/folio.ico",
       "target": [
         "nsis",
         "portable"
@@ -124,7 +125,10 @@
       "allowToChangeInstallationDirectory": true,
       "artifactName": "Folio-${version}-setup.exe",
       "shortcutName": "Folio",
-      "uninstallDisplayName": "Folio"
+      "uninstallDisplayName": "Folio",
+      "installerIcon": "assets/folio.ico",
+      "uninstallerIcon": "assets/folio.ico",
+      "installerHeaderIcon": "assets/folio.ico"
     },
     "portable": {
       "artifactName": "Folio-${version}-portable.exe"
