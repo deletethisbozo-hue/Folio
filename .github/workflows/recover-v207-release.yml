@@ -12,7 +12,7 @@ permissions:
 jobs:
   recover:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       SOURCE_RUN: "35247596282"
       STALE_RELEASE_ID: "390892314"
@@ -74,27 +74,62 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          current="$(gh api "repos/$GITHUB_REPOSITORY/releases/$STALE_RELEASE_ID" --jq '.tag_name + " " + (.draft|tostring)' 2>/dev/null || true)"
+          current=""
+          if gh api "repos/$GITHUB_REPOSITORY/releases/$STALE_RELEASE_ID" > stale-release.json 2>/dev/null; then
+            current="$(jq -r '.tag_name + " " + (.draft|tostring)' stale-release.json)"
+          fi
           echo "stale release: ${current:-missing}"
           if [ -n "$current" ]; then
             test "$current" = "$TAG true"
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$STALE_RELEASE_ID"
           fi
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
-            echo "Unexpected tag $TAG exists after deleting the stale draft" >&2
+            echo "Unexpected tag $TAG exists before recovery publication" >&2
             exit 1
           fi
 
-      - name: Publish recovered immutable Folio 2.0.7 release
+      - name: Publish recovered Folio 2.0.7 release safely
         shell: bash
         run: |
           set -euo pipefail
+
+          notes="Folio 2.0.7 is a professional UI and artwork-presentation release. The Folio wordmark uses the supplied Pelagiad face at a larger, consistent size on the start screen and workspace, while application chrome uses Source Sans 3. The command bar, manuscript navigator, editor canvas, device preview, status bar, Export and Replace Cover controls now follow one coherent desktop system. Cover and Full-page Image artwork uses contain-fit without destructive cropping; Full-page Image filenames are no longer shown as visible titles. The sidebar gains functional Add Section and book-details controls without introducing dead UI, Cover alignment is corrected, and the chapter header is tightened to return more space to the manuscript. The release is gated by typecheck, the full formatter/UI suite, Windows browser interaction smoke, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+
           gh release create "$TAG" \
-            "$SETUP" \
-            "$PORTABLE" \
-            "$SUMS" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
             --title "Folio 2.0.7 for Windows" \
-            --notes "Folio 2.0.7 is a professional UI and artwork-presentation release. The Folio wordmark uses the supplied Pelagiad face at a larger, consistent size on the start screen and workspace, while application chrome uses Source Sans 3. The command bar, manuscript navigator, editor canvas, device preview, status bar, Export and Replace Cover controls now follow one coherent desktop system. Cover and Full-page Image artwork uses contain-fit without destructive cropping; Full-page Image filenames are no longer shown as visible titles. The sidebar gains functional Add Section and book-details controls without introducing dead UI, Cover alignment is corrected, and the chapter header is tightened to return more space to the manuscript. The release is gated by typecheck, the full formatter/UI suite, Windows browser interaction smoke, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "$notes" \
+            --draft
+
+          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq ".[] | select(.tag_name == \"$TAG\" and .draft == true) | .id" | head -n 1)"
+          test -n "$release_id"
+          echo "recovery draft release id: $release_id"
+
+          upload_asset() {
+            local file="$1"
+            local name
+            name="$(basename "$file")"
+            for attempt in 1 2 3; do
+              echo "Uploading $name, attempt $attempt/3"
+              if timeout 300 gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber; then
+                echo "Uploaded $name"
+                return 0
+              fi
+              echo "Upload attempt $attempt failed for $name" >&2
+              sleep $((attempt * 5))
+            done
+            echo "Giving up uploading $name after 3 attempts" >&2
+            return 1
+          }
+
+          upload_asset "$SETUP"
+          upload_asset "$PORTABLE"
+          upload_asset "$SUMS"
+
+          asset_count="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" --jq 'map(select(.state == "uploaded")) | length')"
+          echo "fully uploaded assets: $asset_count"
+          test "$asset_count" = "3"
+
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" -F draft=false >/dev/null
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease,url,assets
