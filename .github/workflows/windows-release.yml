@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.0.6 version consistency
+      - name: Verify Folio 2.0.7 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.0.6") { throw "Windows release is scoped to Folio 2.0.6, found $version." }
+          if ($version -ne "2.0.7") { throw "Windows release is scoped to Folio 2.0.7, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -117,9 +117,6 @@ jobs:
             }
             if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged /api/health did not become ready with bundled Pandoc." }
 
-            # This browser smoke owns the semantic Print Preview check. It reads
-            # textContent from the actual packaged iframe after pagination, which
-            # is robust to Folio splitting hyphenation candidates into nested spans.
             node scripts\packaged-ui-smoke.mjs
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
@@ -157,8 +154,6 @@ jobs:
             $deleted = Invoke-RestMethod -Method Delete "$base/api/projects/$($sample.projectId)/sections/$renamedId"
             if (-not $deleted.ok) { throw "Packaged chapter delete failed." }
 
-            # Reload after structural mutations exactly as the UI does, then make
-            # sure the REST endpoint still returns a genuinely paginated document.
             $current = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/projects/$($sample.projectId)/reload"
             $currentChapter = $current.sections | Where-Object { $_.kind -eq "chapter" -and $_.title -eq $saved.title } | Select-Object -First 1
             if (-not $currentChapter) { throw "Packaged sample lost the originally edited chapter after structural mutations." }
@@ -222,4 +217,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.0.6 is a UI typography and fixed-artwork correction release. The supplied Pelagiad face is now enforced only for the Folio wordmark, while the rest of the application chrome uses one Source Sans UI family with identical Manuscript/Page Preview metrics. Replace Cover and Export are rebuilt as coherent desktop controls. Covers and Full-page Images now use contain-fit and are never cropped; mismatched aspect ratios are deliberately letterboxed. Full-page maps use a dedicated white workspace with no prose toolbar, crop controls, beige card or floating remove button, and the Reader keeps the same white contain-fit presentation without horizontal scrolling. Repeated image-page titles are uniquely named and existing duplicates are visibly disambiguated. The release is gated by typecheck, 422 formatter/UI/browser regression checks on Linux, the complete Windows suite, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 2.0.7 is a professional UI and artwork-presentation release. The Folio wordmark uses the supplied Pelagiad face at a larger, consistent size on the start screen and workspace, while application chrome uses Source Sans 3. The command bar, manuscript navigator, editor canvas, device preview, status bar, Export and Replace Cover controls now follow one coherent desktop system. Cover and Full-page Image artwork uses contain-fit without destructive cropping; Full-page Image filenames are no longer shown as visible titles. The sidebar gains functional Add Section and book-details controls without introducing dead UI, Cover alignment is corrected, and the chapter header is tightened to return more space to the manuscript. The release is gated by typecheck, the full formatter/UI suite, Windows browser interaction smoke, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
