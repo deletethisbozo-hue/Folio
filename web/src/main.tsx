@@ -20,6 +20,7 @@ import "./v203-polish.css";
 import "./v204-polish.css";
 import "./v205-coherence.css";
 import "./v206-correction.css";
+import "./v207-preview.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
