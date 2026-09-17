@@ -27,6 +27,22 @@ try {
   await page.setViewport({ width: 1536, height: 864, deviceScaleFactor: 1 });
   await page.goto(base, { waitUntil: "networkidle0" });
 
+  await page.waitForSelector(".start-shell .start-brand");
+  const startBrand = await page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>(".start-shell .start-brand");
+    if (!el) throw new Error("Start-screen Folio wordmark is missing");
+    const style = getComputedStyle(el);
+    return {
+      fontSize: style.fontSize,
+      fontFamily: style.fontFamily,
+      lineHeight: style.lineHeight,
+      text: (el.textContent ?? "").trim(),
+      width: el.getBoundingClientRect().width,
+      height: el.getBoundingClientRect().height,
+    };
+  });
+  await page.screenshot({ path: path.join(qa, "start-wordmark.png") });
+
   await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((node) => node.textContent?.includes("Open Sample"));
     if (!button) throw new Error("Open Sample is missing");
@@ -34,6 +50,32 @@ try {
   });
   await page.waitForSelector(".folio-shell:not(.folio-empty-shell)");
   await page.waitForSelector(".contents-row.cover-row");
+  await page.waitForSelector(".folio-shell .command-wordmark");
+
+  const workspaceBrand = await page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>(".folio-shell .command-wordmark");
+    if (!el) throw new Error("Workspace Folio wordmark is missing");
+    const style = getComputedStyle(el);
+    return {
+      fontSize: style.fontSize,
+      fontFamily: style.fontFamily,
+      lineHeight: style.lineHeight,
+      text: (el.textContent ?? "").trim(),
+      width: el.getBoundingClientRect().width,
+      height: el.getBoundingClientRect().height,
+    };
+  });
+  await page.screenshot({ path: path.join(qa, "workspace-wordmark.png") });
+
+  for (const [name, brand] of [["start", startBrand], ["workspace", workspaceBrand]] as const) {
+    if (brand.fontSize !== "27px") throw new Error(`${name} wordmark font-size is ${brand.fontSize}, expected 27px`);
+    if (!/Folio Pelagiad Exact/i.test(brand.fontFamily)) throw new Error(`${name} wordmark is not Pelagiad: ${brand.fontFamily}`);
+    if (brand.lineHeight !== "27px") throw new Error(`${name} wordmark line-height is ${brand.lineHeight}, expected 27px`);
+    if (brand.text.toLowerCase() !== "folio") throw new Error(`${name} wordmark text is ${brand.text}`);
+  }
+  if (startBrand.fontSize !== workspaceBrand.fontSize || startBrand.lineHeight !== workspaceBrand.lineHeight) {
+    throw new Error(`Folio wordmark jumps between screens: ${JSON.stringify({ startBrand, workspaceBrand })}`);
+  }
 
   await page.click(".contents-row.cover-row");
   await page.waitForSelector(".cover-editor-card .cover-editor-art img");
@@ -69,8 +111,6 @@ try {
     };
   });
 
-  // Save the real application state before assertions, so any future gate fail
-  // still leaves a useful visual artifact for review.
   await page.screenshot({ path: path.join(qa, "cover-controls.png") });
 
   for (const [name, metrics] of Object.entries(controls)) {
@@ -84,8 +124,6 @@ try {
     if (metrics.boxShadow !== "none") throw new Error(`${name} unexpectedly has a shadow: ${metrics.boxShadow}`);
   }
 
-  // Also verify that a newly added full-page image never exposes its source
-  // filename as a visible heading or selected contents label.
   await page.click('[data-command="add"]');
   await page.waitForSelector('.content-image-input[type="file"]');
   const imageInput = await page.$('.content-image-input[type="file"]');
@@ -117,7 +155,7 @@ try {
   if (imagePage.selectedLabel !== "Full-page Image") throw new Error(`Image-page label exposes a filename: ${imagePage.selectedLabel}`);
   if (imagePage.previewHeading) throw new Error(`Image-page preview exposes a title: ${imagePage.previewHeading}`);
 
-  console.log(JSON.stringify({ controls, imagePage }, null, 2));
+  console.log(JSON.stringify({ startBrand, workspaceBrand, controls, imagePage }, null, 2));
 } finally {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
