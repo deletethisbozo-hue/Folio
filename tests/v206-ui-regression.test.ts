@@ -26,6 +26,7 @@ await new Promise((resolve) => server.once("listening", resolve));
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
 const mapFixture = path.join(os.tmpdir(), `Folio V206 Map ${Date.now()}.png`);
+const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");
 const pixel = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAQAAABWESUoAAAADElEQVR42mNk+M8AAAICAQB7CY8fAAAAAElFTkSuQmCC",
   "base64",
@@ -102,13 +103,18 @@ try {
   check("Replace Cover is a coherent desktop secondary action", coverState.buttonHeight >= 34 && coverState.buttonFont.includes("Folio Source Sans 3") && Number.parseFloat(coverState.buttonRadius) <= 4, JSON.stringify(coverState));
 
   async function addFullPageImage() {
+    const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, mapLabel);
     await page.click('[data-command="add"]');
     await page.waitForSelector('.folio-dialog[aria-label="Add Content"] .content-image-kind');
+    const uploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/image-page"), { timeout: 30000 });
     const [chooser] = await Promise.all([
       page.waitForFileChooser({ timeout: 12000 }),
       page.click(".content-image-kind"),
     ]);
     await chooser.accept([mapFixture]);
+    const response = await uploadResponse;
+    if (!response.ok()) throw new Error(`Full-page image upload failed: ${response.status()} ${await response.text()}`);
+    await page.waitForFunction((label, count) => [...document.querySelectorAll(".contents-list .contents-row:not(.cover-row)")].filter((row) => (row.textContent ?? "").includes(String(label))).length > Number(count), { timeout: 30000 }, mapLabel, beforeCount);
     await page.waitForFunction(() => Boolean(document.querySelector(".editor-pane.folio-image-page-mode") || document.querySelector(".global-error")), { timeout: 30000 });
     const error = await page.$eval("body", (body) => body.querySelector(".global-error")?.textContent ?? "");
     if (error) throw new Error(error);
@@ -161,7 +167,7 @@ try {
   check("Reader map preview is contain-fit on white with no horizontal scroll", previewImage.fit === "contain" && previewImage.imageBackground === "rgb(255, 255, 255)" && previewImage.bodyBackground === "rgb(255, 255, 255)" && previewImage.scrollWidth <= previewImage.clientWidth + 1, JSON.stringify(previewImage));
 
   await addFullPageImage();
-  const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => /Folio V206 Map/i.test(text)));
+  const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), mapLabel);
   check("repeated image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));
 } catch (error) {
   failed++;
