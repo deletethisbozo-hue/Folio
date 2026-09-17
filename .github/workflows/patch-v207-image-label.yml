@@ -22,20 +22,14 @@ jobs:
           from pathlib import Path
           p = Path("web/src/image-page-ui.ts")
           text = p.read_text(encoding="utf-8")
-          old = '''  if (label.dataset.folioImagePageOriginalLabel === undefined) {
-            label.dataset.folioImagePageOriginalLabel = label.textContent ?? "";
-          }
-          label.dataset.folioImagePageLabel = "true";
-          if (label.textContent !== "Full-page Image") label.textContent = "Full-page Image";'''
-          new = '''  if (label.dataset.folioImagePageOriginalLabel === undefined) {
-            label.dataset.folioImagePageOriginalLabel = label.textContent ?? "";
-          }
-          const original = (label.dataset.folioImagePageOriginalLabel ?? "").trim();
-          const neutralLabel = /^Full-page Image(?: \\d+)?$/i.test(original) ? original : "Full-page Image";
-          label.dataset.folioImagePageLabel = "true";
-          if (label.textContent !== neutralLabel) label.textContent = neutralLabel;'''
+          old = '  if (label.textContent !== "Full-page Image") label.textContent = "Full-page Image";'
+          new = "\n".join([
+              '  const original = (label.dataset.folioImagePageOriginalLabel ?? "").trim();',
+              '  const neutralLabel = /^Full-page Image(?: \\d+)?$/i.test(original) ? original : "Full-page Image";',
+              '  if (label.textContent !== neutralLabel) label.textContent = neutralLabel;',
+          ])
           if old not in text:
-              raise SystemExit("Expected image-page label block not found")
+              raise SystemExit("Expected Full-page Image overwrite line not found")
           p.write_text(text.replace(old, new, 1), encoding="utf-8")
       - name: Commit fix
         shell: bash
