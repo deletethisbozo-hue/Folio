@@ -1,4 +1,4 @@
-/* Final geometry normalization for the approved v2.0.7 mockup pass. */
+/* Final production geometry normalization for the approved Folio 2.0.7 UI. */
 .folio-shell[data-ui-tone] .device-label select,
 .folio-shell[data-ui-tone] .trim-select {
   box-sizing: border-box !important;
