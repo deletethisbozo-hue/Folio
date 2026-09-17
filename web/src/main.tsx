@@ -7,6 +7,7 @@ import type { ProjectSummary } from "./types";
 import { installPreviewRuntime } from "./preview-runtime";
 import { installRecentProjectTracking } from "./recent-projects";
 import { installIllustrationControls } from "./illustration-controls";
+import { installImagePageUiRuntime } from "./image-page-ui";
 import "./index.css";
 import "./preview-calibration.css";
 import "./editorial-studio.css";
@@ -17,12 +18,13 @@ import "./image-page-workspace.css";
 import "./ui-polish.css";
 import "./v203-polish.css";
 import "./v204-polish.css";
-import "./pelagiad-branding.css";
 import "./v205-coherence.css";
+import "./v206-correction.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
 installIllustrationControls();
+installImagePageUiRuntime();
 
 function FolioRoot() {
   const [workspaceProject, setWorkspaceProject] = useState<ProjectSummary | null>(null);
