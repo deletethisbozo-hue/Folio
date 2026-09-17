@@ -81,6 +81,8 @@ async function uniqueImagePageTitle(bookDir: string, requested: string): Promise
  *
  * Full-page artwork is always contain-fit. Older callers can still pass `cover`
  * for API compatibility, but Folio never crops maps, family trees or fixed art.
+ * The uploaded filename is deliberately not promoted into book-facing metadata:
+ * it remains a technical storage detail, not a visible page title.
  */
 export async function addFullPageImage(
   bookDir: string,
@@ -88,9 +90,9 @@ export async function addFullPageImage(
   options: AddImagePageOptions,
 ): Promise<{ entry: string; asset: string }> {
   const ext = safeExt(options.filename);
-  const requestedTitle = options.title?.trim() || "Map";
+  const requestedTitle = "Full-page Image";
   const title = await uniqueImagePageTitle(bookDir, requestedTitle);
-  const alt = options.alt?.trim() || requestedTitle;
+  const alt = options.alt?.trim() || "Full-page illustration";
 
   const assetsDir = path.join(bookDir, "assets");
   await fs.mkdir(assetsDir, { recursive: true });

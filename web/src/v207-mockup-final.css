@@ -1,0 +1,31 @@
+/* Final production geometry normalization for the approved Folio 2.0.7 UI. */
+.folio-shell[data-ui-tone] .device-label select,
+.folio-shell[data-ui-tone] .trim-select {
+  box-sizing: border-box !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+}
+
+/* Cover belongs to the same left-aligned navigation rhythm as other front matter. */
+.folio-shell[data-ui-tone] .contents-row.cover-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  text-align: left !important;
+}
+
+.folio-shell[data-ui-tone] .contents-row.cover-row > small {
+  margin-left: auto !important;
+}
+
+/* Keep the chapter identity clear without spending a sixth of the editor on it. */
+.folio-shell[data-ui-tone] .section-titlebar {
+  height: 90px !important;
+  min-height: 90px !important;
+}
+
+.folio-shell[data-ui-tone] .section-title-wrap {
+  padding-top: 15px !important;
+}

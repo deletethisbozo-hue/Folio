@@ -8,6 +8,7 @@ import { installPreviewRuntime } from "./preview-runtime";
 import { installRecentProjectTracking } from "./recent-projects";
 import { installIllustrationControls } from "./illustration-controls";
 import { installImagePageUiRuntime } from "./image-page-ui";
+import { installMockupUiRuntime } from "./mockup-ui";
 import "./index.css";
 import "./preview-calibration.css";
 import "./editorial-studio.css";
@@ -20,11 +21,15 @@ import "./v203-polish.css";
 import "./v204-polish.css";
 import "./v205-coherence.css";
 import "./v206-correction.css";
+import "./v207-preview.css";
+import "./v207-mockup.css";
+import "./v207-mockup-final.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
 installIllustrationControls();
 installImagePageUiRuntime();
+installMockupUiRuntime();
 
 function FolioRoot() {
   const [workspaceProject, setWorkspaceProject] = useState<ProjectSummary | null>(null);

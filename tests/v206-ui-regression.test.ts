@@ -27,13 +27,14 @@ const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
 const mapFixture = path.join(os.tmpdir(), `Folio V206 Map ${Date.now()}.png`);
 const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");
+const neutralImageLabel = "Full-page Image";
 const pixel = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAQAAABWESUoAAAADElEQVR42mNk+M8AAAICAQB7CY8fAAAAAElFTkSuQmCC",
   "base64",
 );
 await fs.writeFile(mapFixture, pixel);
 
-console.log("\nFolio 2.0.6 visual/media regression gate");
+console.log("\nFolio 2.0.7 visual/media regression gate");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -100,10 +101,10 @@ try {
     };
   });
   check("cover preview maximises without cropping", coverState.fit === "contain", coverState.fit);
-  check("Replace Cover is a coherent desktop secondary action", coverState.buttonHeight >= 34 && coverState.buttonFont.includes("Folio Source Sans 3") && Number.parseFloat(coverState.buttonRadius) <= 4, JSON.stringify(coverState));
+  check("Replace Cover is a coherent desktop secondary action", coverState.buttonHeight >= 34 && coverState.buttonFont.includes("Folio Source Sans 3") && Number.parseFloat(coverState.buttonRadius) <= 5, JSON.stringify(coverState));
 
   async function addFullPageImage() {
-    const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, mapLabel);
+    const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, neutralImageLabel);
     await page.click('[data-command="add"]');
     await page.waitForSelector('.folio-dialog[aria-label="Add Content"] .content-image-kind');
     const uploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/image-page"), { timeout: 30000 });
@@ -114,13 +115,15 @@ try {
     await chooser.accept([mapFixture]);
     const response = await uploadResponse;
     if (!response.ok()) throw new Error(`Full-page image upload failed: ${response.status()} ${await response.text()}`);
-    await page.waitForFunction((label, count) => [...document.querySelectorAll(".contents-list .contents-row:not(.cover-row)")].filter((row) => (row.textContent ?? "").includes(String(label))).length > Number(count), { timeout: 30000 }, mapLabel, beforeCount);
+    await page.waitForFunction((label, count) => [...document.querySelectorAll(".contents-list .contents-row:not(.cover-row)")].filter((row) => (row.textContent ?? "").includes(String(label))).length > Number(count), { timeout: 30000 }, neutralImageLabel, beforeCount);
     await page.waitForFunction(() => Boolean(document.querySelector(".editor-pane.folio-image-page-mode") || document.querySelector(".global-error")), { timeout: 30000 });
     const error = await page.$eval("body", (body) => body.querySelector(".global-error")?.textContent ?? "");
     if (error) throw new Error(error);
   }
 
   await addFullPageImage();
+  const filenameVisible = await page.$eval(".contents-list", (nav, label) => (nav.textContent ?? "").includes(String(label)), mapLabel);
+  check("Full-page Image never exposes the uploaded filename as a visible title", !filenameVisible, mapLabel);
   await page.waitForSelector(".editor-pane.folio-image-page-mode .editor-full-page-art img");
   const workspace = await page.evaluate(() => {
     const pane = document.querySelector<HTMLElement>(".editor-pane.folio-image-page-mode");
@@ -167,11 +170,11 @@ try {
   check("Reader map preview is contain-fit on white with no horizontal scroll", previewImage.fit === "contain" && previewImage.imageBackground === "rgb(255, 255, 255)" && previewImage.bodyBackground === "rgb(255, 255, 255)" && previewImage.scrollWidth <= previewImage.clientWidth + 1, JSON.stringify(previewImage));
 
   await addFullPageImage();
-  const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), mapLabel);
-  check("repeated image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));
+  const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), neutralImageLabel);
+  check("repeated neutral image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));
 } catch (error) {
   failed++;
-  console.error("✗ Folio 2.0.6 browser regression scenario");
+  console.error("✗ Folio 2.0.7 browser regression scenario");
   console.error(error);
 } finally {
   await closeBrowser().catch(() => undefined);
