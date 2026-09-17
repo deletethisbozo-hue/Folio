@@ -129,7 +129,7 @@
 }
 
 /* Write mode ------------------------------------------------------------- */
-.folio-shell[data-workspace-mode="write"] {
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"] {
   grid-template-columns: var(--folio-sidebar-width) minmax(0, 1fr) !important;
   grid-template-rows: var(--folio-masthead-height) minmax(0, 1fr) 38px !important;
   grid-template-areas:
@@ -138,7 +138,7 @@
     "status status" !important;
 }
 
-.folio-shell[data-workspace-mode="write"][data-split-view="true"] {
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
   grid-template-columns: var(--folio-sidebar-width) minmax(0, 1fr) minmax(0, 1fr) !important;
   grid-template-areas:
     "command command command"
@@ -421,7 +421,7 @@
 }
 
 @media (max-width: 1250px) {
-  .folio-shell[data-workspace-mode="write"][data-split-view="true"] {
+  .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
     grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) !important;
   }
   .folio-shell[data-workspace-mode="write"][data-split-view="true"] .manuscript-editor,
