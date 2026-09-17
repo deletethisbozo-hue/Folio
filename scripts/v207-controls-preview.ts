@@ -98,19 +98,40 @@ try {
     const exportButton = document.querySelector<HTMLElement>(".generate-button");
     const device = document.querySelector<HTMLSelectElement>(".device-label select");
     if (!replace || !exportButton || !device) throw new Error("Control system is incomplete");
-    const collect = (el: HTMLElement) => {
-      const style = getComputedStyle(el);
-      return {
-        height: el.getBoundingClientRect().height,
-        display: style.display,
-        alignItems: style.alignItems,
-        justifyContent: style.justifyContent,
-        fontFamily: style.fontFamily,
-        fontSize: style.fontSize,
-        borderRadius: style.borderRadius,
-      };
+
+    const replaceStyle = getComputedStyle(replace);
+    const exportStyle = getComputedStyle(exportButton);
+    const deviceStyle = getComputedStyle(device);
+
+    return {
+      replace: {
+        height: replace.getBoundingClientRect().height,
+        display: replaceStyle.display,
+        alignItems: replaceStyle.alignItems,
+        justifyContent: replaceStyle.justifyContent,
+        fontFamily: replaceStyle.fontFamily,
+        fontSize: replaceStyle.fontSize,
+        borderRadius: replaceStyle.borderRadius,
+      },
+      exportButton: {
+        height: exportButton.getBoundingClientRect().height,
+        display: exportStyle.display,
+        alignItems: exportStyle.alignItems,
+        justifyContent: exportStyle.justifyContent,
+        fontFamily: exportStyle.fontFamily,
+        fontSize: exportStyle.fontSize,
+        borderRadius: exportStyle.borderRadius,
+      },
+      device: {
+        height: device.getBoundingClientRect().height,
+        display: deviceStyle.display,
+        alignItems: deviceStyle.alignItems,
+        justifyContent: deviceStyle.justifyContent,
+        fontFamily: deviceStyle.fontFamily,
+        fontSize: deviceStyle.fontSize,
+        borderRadius: deviceStyle.borderRadius,
+      },
     };
-    return { replace: collect(replace), exportButton: collect(exportButton), device: collect(device) };
   });
 
   await page.screenshot({ path: path.join(qa, "cover-controls.png") });
