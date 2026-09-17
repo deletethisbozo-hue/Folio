@@ -1,0 +1,99 @@
+name: Patch Folio 2.0.7 regression expectations
+
+on:
+  push:
+    branches: [fix/v2.0.7-cover-button-image-title]
+    paths:
+      - .github/workflows/patch-v207-regressions.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v2.0.7-cover-button-image-title
+      - name: Update v2.0.7 product semantics and regression expectations
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              actual = text.count(old)
+              if actual < count:
+                  raise SystemExit(f'{path}: expected at least {count} occurrence(s) of {old!r}, found {actual}')
+              text = text.replace(old, new, count)
+              p.write_text(text, encoding='utf-8')
+
+          # Preserve caller-supplied semantic alt text, while the visible page title
+          # remains the neutral Full-page Image label and never the uploaded filename.
+          replace(
+              'server/image-pages.ts',
+              '  const alt = "Full-page illustration";',
+              '  const alt = options.alt?.trim() || "Full-page illustration";',
+          )
+
+          # The approved 2.0.7 navigator intentionally uses 5px selected-row radii.
+          replace(
+              'tests/ui-runtime.test.ts',
+              '        selected.borderRadius === "0px" && shell.bottom <= innerHeight + 1,',
+              '        selected.borderRadius === "5px" && shell.bottom <= innerHeight + 1,',
+          )
+          replace(
+              'tests/ui-runtime.test.ts',
+              'check("1.0.7 keeps a legible professional preview beside the manuscript", studioGeometry.ok, JSON.stringify(studioGeometry));',
+              'check("2.0.7 keeps a legible professional preview beside the manuscript", studioGeometry.ok, JSON.stringify(studioGeometry));',
+          )
+
+          # v2.0.7 uses the coherent 5px control radius and deliberately hides the
+          # uploaded filename, so image-page discovery must use the neutral label.
+          replace(
+              'tests/v206-ui-regression.test.ts',
+              'console.log("\\nFolio 2.0.6 visual/media regression gate");',
+              'console.log("\\nFolio 2.0.7 visual/media regression gate");',
+          )
+          replace(
+              'tests/v206-ui-regression.test.ts',
+              'Number.parseFloat(coverState.buttonRadius) <= 4',
+              'Number.parseFloat(coverState.buttonRadius) <= 5',
+          )
+          replace(
+              'tests/v206-ui-regression.test.ts',
+              'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");',
+              'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");\\nconst neutralImageLabel = "Full-page Image";',
+          )
+          replace(
+              'tests/v206-ui-regression.test.ts',
+              'mapLabel);',
+              'neutralImageLabel);',
+              2,
+          )
+          replace(
+              'tests/v206-ui-regression.test.ts',
+              '  await addFullPageImage();\\n  await page.waitForSelector(".editor-pane.folio-image-page-mode .editor-full-page-art img");',
+              '  await addFullPageImage();\\n  const filenameVisible = await page.$eval(".contents-list", (nav, label) => (nav.textContent ?? "").includes(String(label)), mapLabel);\\n  check("Full-page Image never exposes the uploaded filename as a visible title", !filenameVisible, mapLabel);\\n  await page.waitForSelector(".editor-pane.folio-image-page-mode .editor-full-page-art img");',
+          )
+          replace(
+              'tests/v206-ui-regression.test.ts',
+              'mapLabel);\\n  check("repeated image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
+              'neutralImageLabel);\\n  check("repeated neutral image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
+          )
+          replace(
+              'tests/v206-ui-regression.test.ts',
+              'console.error("✗ Folio 2.0.6 browser regression scenario");',
+              'console.error("✗ Folio 2.0.7 browser regression scenario");',
+          )
+
+      - name: Commit regression updates
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/image-pages.ts tests/ui-runtime.test.ts tests/v206-ui-regression.test.ts
+          git commit -m "Align regression gates with v2.0.7 UI and image semantics"
+          git push origin HEAD:fix/v2.0.7-cover-button-image-title
