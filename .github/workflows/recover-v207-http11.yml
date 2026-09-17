@@ -19,6 +19,8 @@ jobs:
       RECOVERY_RELEASE_ID: "390905988"
       TAG: "v2.0.7"
       TARGET_SHA: "16d57b5cb2b39293af9a5788686d7b18f5eef6ee"
+      EXPECTED_SETUP_SHA: "17c2401fb9a52419e8b6c0b8805698c62e2e547f67d387b79fb32f42461566b7"
+      EXPECTED_PORTABLE_SHA: "2233b26a7e4c930a7fa71cab104130ed832e592b8b647173e47d350be10dde00"
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Wait for previous recovery run to stop
@@ -55,21 +57,21 @@ jobs:
           test -n "$portable" && test -s "$portable"
           test -n "$sums" && test -s "$sums"
 
-          expected_setup="$(awk '$2 == "Folio-2.0.7-setup.exe" {print tolower($1)}' "$sums")"
-          expected_portable="$(awk '$2 == "Folio-2.0.7-portable.exe" {print tolower($1)}' "$sums")"
-          actual_setup="$(sha256sum "$setup" | awk '{print tolower($1)}')"
-          actual_portable="$(sha256sum "$portable" | awk '{print tolower($1)}')"
-
-          test "$actual_setup" = "$expected_setup"
-          test "$actual_portable" = "$expected_portable"
-          test "$(stat -c%s "$setup")" = "372564687"
-          test "$(stat -c%s "$portable")" = "372330472"
-
-          printf 'SETUP=%s\nPORTABLE=%s\nSUMS=%s\nSETUP_SHA=%s\nPORTABLE_SHA=%s\n' \
-            "$setup" "$portable" "$sums" "$actual_setup" "$actual_portable" >> "$GITHUB_ENV"
+          actual_setup="$(sha256sum "$setup" | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')"
+          actual_portable="$(sha256sum "$portable" | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')"
 
           echo "setup sha256: $actual_setup"
           echo "portable sha256: $actual_portable"
+
+          test "$actual_setup" = "$EXPECTED_SETUP_SHA"
+          test "$actual_portable" = "$EXPECTED_PORTABLE_SHA"
+          test "$(stat -c%s "$setup")" = "372564687"
+          test "$(stat -c%s "$portable")" = "372330472"
+          grep -qi "$EXPECTED_SETUP_SHA" "$sums"
+          grep -qi "$EXPECTED_PORTABLE_SHA" "$sums"
+
+          printf 'SETUP=%s\nPORTABLE=%s\nSUMS=%s\nSETUP_SHA=%s\nPORTABLE_SHA=%s\n' \
+            "$setup" "$portable" "$sums" "$actual_setup" "$actual_portable" >> "$GITHUB_ENV"
 
       - name: Validate exact recovery draft
         shell: bash
