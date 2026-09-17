@@ -14,10 +14,12 @@ import { composePreviewDocument } from "./compositor";
 import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
+import WritingSplitPane from "./WritingSplitPane";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type UiTone = "ivory" | "midnight";
+type WorkspaceMode = "write" | "format";
 type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Paragraph After Break" | "Body" | "Scene Break" | "Header & Footer" | "Title Page";
 
 const styleCategories: StyleCategory[] = [
@@ -117,6 +119,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewDraft, setPreviewDraft] = useState("");
   const [pastePreparing, setPastePreparing] = useState(false);
   const [uiTone, setUiTone] = useState<UiTone>(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => window.localStorage.getItem("folio-workspace-mode") === "write" ? "write" : "format");
+  const [splitView, setSplitView] = useState(false);
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +155,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const editorSyncTimerRef = useRef<number | null>(null);
   const sectionSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
+  const splitFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);
   const draftWordCountCacheRef = useRef<{ text: string; count: number }>({ text: "", count: 0 });
@@ -210,6 +215,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
   }, [selectedId]);
   useEffect(() => { window.localStorage.setItem("folio-ui-tone", uiTone); }, [uiTone]);
+  useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
   useEffect(() => {
     if (draft.length < 35_000) { setPreviewDraft(draft); return; }
     const delay = draft.length > 250_000 ? 460 : draft.length > 100_000 ? 300 : 150;
@@ -260,6 +266,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const coverSelected = selectedId === COVER_ID;
   const previewProfile = getPreviewProfile(previewMode);
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
+  const writingOrnament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
   const draftWords = useMemo(() => {
     const cached = draftWordCountCacheRef.current;
     if (draft === cached.text) return cached.count;
