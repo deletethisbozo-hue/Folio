@@ -112,8 +112,8 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
   return (
     <div className="start-shell" data-ui-tone={tone}>
       <div className="start-windowbar">
-        <div className="start-brand">Folio</div>
-        <div className="start-version">2.0.3</div>
+        <div className="start-brand">folio</div>
+        <div className="start-version">2.0.4</div>
       </div>
 
       <main className="start-main">
@@ -147,7 +147,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
             <div className="recent-list">
               {recent.map((item) => (
                 <button key={item.folder} className="recent-row" disabled={busy !== null} onClick={() => void openRecent(item.folder)} title={item.folder}>
-                  <span className="recent-cover" aria-hidden="true"><b>{projectMonogram(item)}</b><i>Folio</i></span>
+                  <span className="recent-cover" aria-hidden="true"><b>{projectMonogram(item)}</b><i>folio</i></span>
                   <span className="recent-meta">
                     <strong>{item.title}</strong>
                     <span className="recent-author">{item.author}</span>

@@ -1,0 +1,157 @@
+/* Folio 2.0.4: preview media, cover controls and publishing actions. */
+
+/* The 2.0.3 button inherited the accent-filled .primary rule because its
+ * selector was more specific than the cover override. Keep cover replacement
+ * visually quiet and editorial rather than looking like a brown prototype slab. */
+.folio-shell[data-ui-tone] .native-button.primary.cover-upload-button,
+.folio-shell[data-ui-tone] .native-button.cover-button {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--studio-rule-strong) !important;
+  border-radius: 5px;
+  background: var(--studio-surface) !important;
+  color: var(--studio-ink) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.55);
+  font: 600 12.5px/1 Georgia, "Times New Roman", serif;
+  letter-spacing: -.01em;
+}
+
+.folio-shell[data-ui-tone] .native-button.primary.cover-upload-button:hover,
+.folio-shell[data-ui-tone] .native-button.cover-button:hover {
+  border-color: var(--studio-accent) !important;
+  background: var(--studio-accent-soft) !important;
+}
+
+/* Export should read as the publishing action, not as a tiny browser form
+ * control. The Folio face stays because this is intentionally bold UI. */
+.folio-shell[data-ui-tone] .generate-button {
+  height: 34px;
+  min-width: 96px;
+  padding: 0 14px;
+  gap: 9px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 5px;
+  background: var(--studio-surface);
+  color: var(--studio-ink);
+  box-shadow: 0 1px 0 rgba(255,255,255,.55);
+  font-family: var(--folio-ui-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -.015em;
+}
+
+.folio-shell[data-ui-tone] .generate-button::after {
+  font-size: 12px;
+  transform: translateY(-1px);
+}
+
+.folio-shell[data-ui-tone] .generate-button:hover,
+.folio-shell[data-ui-tone] .generate-wrap:has(.generate-menu) .generate-button {
+  border-color: var(--studio-accent);
+  background: var(--studio-accent-soft);
+}
+
+/* A cover is a single fixed artwork, not reflowable prose. Give every device
+ * the exact same contain-fit contract, edge to edge inside its screen. */
+.folio-shell[data-ui-tone] .reader-screen > .cover-preview-surface {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  background: #f7f3e9;
+}
+
+.folio-shell[data-ui-tone] .cover-preview-surface img,
+.folio-shell[data-ui-tone] .cover-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+  background: #f7f3e9;
+  box-shadow: none;
+}
+
+/* Inline front-matter illustrations are real layout objects. */
+.folio-shell[data-ui-tone] .editor-illustration {
+  max-width: 100%;
+  min-width: 25%;
+  margin: 24px auto;
+  transition: width 120ms ease;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration > img {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-controls {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) auto auto minmax(86px, .65fr) minmax(86px, .65fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--studio-rule);
+  color: var(--studio-muted);
+  font: 10px/1.2 "Segoe UI", sans-serif;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-controls label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-controls label > span {
+  flex: 0 0 auto;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-controls input[type="range"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-controls button,
+.folio-shell[data-ui-tone] .editor-illustration-controls select {
+  height: 27px;
+  border: 1px solid var(--studio-rule-strong);
+  border-radius: 4px;
+  background: var(--studio-control);
+  color: var(--studio-ink);
+  font-size: 10px;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-controls button[aria-pressed="true"] {
+  border-color: var(--studio-accent);
+  background: var(--studio-accent-soft);
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-controls :disabled {
+  opacity: .38;
+}
+
+.folio-illustration-preview {
+  display: block;
+  max-width: 100%;
+  margin: 1.4em auto;
+  text-align: center;
+}
+
+.folio-illustration-preview > img {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 1180px) {
+  .folio-shell[data-ui-tone] .editor-illustration-controls {
+    grid-template-columns: 1fr auto auto;
+  }
+  .folio-shell[data-ui-tone] .editor-illustration-controls .crop-axis {
+    grid-column: span 1;
+  }
+}

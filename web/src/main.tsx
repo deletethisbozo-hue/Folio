@@ -6,6 +6,7 @@ import { api } from "./api";
 import type { ProjectSummary } from "./types";
 import { installPreviewRuntime } from "./preview-runtime";
 import { installRecentProjectTracking } from "./recent-projects";
+import { installIllustrationControls } from "./illustration-controls";
 import "./index.css";
 import "./preview-calibration.css";
 import "./editorial-studio.css";
@@ -15,9 +16,12 @@ import "./cover-workspace.css";
 import "./image-page-workspace.css";
 import "./ui-polish.css";
 import "./v203-polish.css";
+import "./v204-polish.css";
+import "./pelagiad-branding.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
+installIllustrationControls();
 
 function FolioRoot() {
   const [workspaceProject, setWorkspaceProject] = useState<ProjectSummary | null>(null);
