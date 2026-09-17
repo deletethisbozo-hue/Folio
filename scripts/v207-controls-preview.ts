@@ -52,30 +52,42 @@ try {
   await page.waitForSelector(".contents-row.cover-row");
   await page.waitForSelector(".folio-shell .command-wordmark");
 
-  const workspaceBrand = await page.evaluate(() => {
-    const el = document.querySelector<HTMLElement>(".folio-shell .command-wordmark");
-    if (!el) throw new Error("Workspace Folio wordmark is missing");
-    const style = getComputedStyle(el);
+  const workspace = await page.evaluate(() => {
+    const brand = document.querySelector<HTMLElement>(".folio-shell .command-wordmark");
+    const command = document.querySelector<HTMLElement>(".folio-commandbar");
+    const library = document.querySelector<HTMLElement>(".library-pane");
+    const preview = document.querySelector<HTMLElement>(".preview-pane");
+    const frontHeading = document.querySelector<HTMLElement>(".contents-list");
+    if (!brand || !command || !library || !preview || !frontHeading) throw new Error("Premium workspace geometry is incomplete");
+    const brandStyle = getComputedStyle(brand);
+    const contentsBefore = getComputedStyle(frontHeading, "::before");
     return {
-      fontSize: style.fontSize,
-      fontFamily: style.fontFamily,
-      lineHeight: style.lineHeight,
-      text: (el.textContent ?? "").trim(),
-      width: el.getBoundingClientRect().width,
-      height: el.getBoundingClientRect().height,
+      brand: {
+        fontSize: brandStyle.fontSize,
+        fontFamily: brandStyle.fontFamily,
+        lineHeight: brandStyle.lineHeight,
+        text: (brand.textContent ?? "").trim(),
+      },
+      commandHeight: command.getBoundingClientRect().height,
+      libraryWidth: library.getBoundingClientRect().width,
+      previewWidth: preview.getBoundingClientRect().width,
+      frontMatterLabel: contentsBefore.content,
     };
   });
+
+  await page.screenshot({ path: path.join(qa, "premium-workspace.png") });
   await page.screenshot({ path: path.join(qa, "workspace-wordmark.png") });
 
-  for (const [name, brand] of [["start", startBrand], ["workspace", workspaceBrand]] as const) {
+  for (const [name, brand] of [["start", startBrand], ["workspace", workspace.brand]] as const) {
     if (brand.fontSize !== "30px") throw new Error(`${name} wordmark font-size is ${brand.fontSize}, expected 30px`);
     if (!/Folio Pelagiad Exact/i.test(brand.fontFamily)) throw new Error(`${name} wordmark is not Pelagiad: ${brand.fontFamily}`);
     if (brand.lineHeight !== "30px") throw new Error(`${name} wordmark line-height is ${brand.lineHeight}, expected 30px`);
     if (brand.text.toLowerCase() !== "folio") throw new Error(`${name} wordmark text is ${brand.text}`);
   }
-  if (startBrand.fontSize !== workspaceBrand.fontSize || startBrand.lineHeight !== workspaceBrand.lineHeight) {
-    throw new Error(`Folio wordmark jumps between screens: ${JSON.stringify({ startBrand, workspaceBrand })}`);
-  }
+  if (Math.abs(workspace.commandHeight - 60) > .6) throw new Error(`Command bar is ${workspace.commandHeight}px, expected 60px`);
+  if (Math.abs(workspace.libraryWidth - 242) > .6) throw new Error(`Sidebar is ${workspace.libraryWidth}px, expected 242px`);
+  if (workspace.previewWidth < 430) throw new Error(`Preview pane is too narrow: ${workspace.previewWidth}px`);
+  if (!/FRONT MATTER/i.test(workspace.frontMatterLabel)) throw new Error(`Front matter hierarchy is missing: ${workspace.frontMatterLabel}`);
 
   await page.click(".contents-row.cover-row");
   await page.waitForSelector(".cover-editor-card .cover-editor-art img");
@@ -84,44 +96,35 @@ try {
   const controls = await page.evaluate(() => {
     const replace = document.querySelector<HTMLElement>(".cover-upload-button");
     const exportButton = document.querySelector<HTMLElement>(".generate-button");
-    if (!replace || !exportButton) throw new Error("Control buttons are missing");
-    const replaceStyle = getComputedStyle(replace);
-    const exportStyle = getComputedStyle(exportButton);
-    return {
-      replace: {
-        height: replace.getBoundingClientRect().height,
-        display: replaceStyle.display,
-        alignItems: replaceStyle.alignItems,
-        justifyContent: replaceStyle.justifyContent,
-        fontFamily: replaceStyle.fontFamily,
-        fontSize: replaceStyle.fontSize,
-        borderRadius: replaceStyle.borderRadius,
-        boxShadow: replaceStyle.boxShadow,
-      },
-      exportButton: {
-        height: exportButton.getBoundingClientRect().height,
-        display: exportStyle.display,
-        alignItems: exportStyle.alignItems,
-        justifyContent: exportStyle.justifyContent,
-        fontFamily: exportStyle.fontFamily,
-        fontSize: exportStyle.fontSize,
-        borderRadius: exportStyle.borderRadius,
-        boxShadow: exportStyle.boxShadow,
-      },
+    const device = document.querySelector<HTMLSelectElement>(".device-label select");
+    if (!replace || !exportButton || !device) throw new Error("Control system is incomplete");
+    const collect = (el: HTMLElement) => {
+      const style = getComputedStyle(el);
+      return {
+        height: el.getBoundingClientRect().height,
+        display: style.display,
+        alignItems: style.alignItems,
+        justifyContent: style.justifyContent,
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        borderRadius: style.borderRadius,
+      };
     };
+    return { replace: collect(replace), exportButton: collect(exportButton), device: collect(device) };
   });
 
   await page.screenshot({ path: path.join(qa, "cover-controls.png") });
 
   for (const [name, metrics] of Object.entries(controls)) {
-    if (Math.abs(metrics.height - 28) > 0.6) throw new Error(`${name} height is ${metrics.height}, expected 28px`);
+    if (Math.abs(metrics.height - 38) > 0.6) throw new Error(`${name} height is ${metrics.height}, expected 38px`);
+    if (!/Source Sans 3/i.test(metrics.fontFamily)) throw new Error(`${name} does not use Source Sans 3: ${metrics.fontFamily}`);
+    if (metrics.borderRadius !== "6px") throw new Error(`${name} radius is ${metrics.borderRadius}, expected 6px`);
+  }
+  for (const [name, metrics] of Object.entries({ replace: controls.replace, exportButton: controls.exportButton })) {
     if (!/^(?:inline-)?flex$/.test(metrics.display)) throw new Error(`${name} is not flex-based: ${metrics.display}`);
     if (metrics.alignItems !== "center" || metrics.justifyContent !== "center") {
       throw new Error(`${name} is not centered: ${JSON.stringify(metrics)}`);
     }
-    if (!/Source Sans 3/i.test(metrics.fontFamily)) throw new Error(`${name} does not use Source Sans 3: ${metrics.fontFamily}`);
-    if (metrics.borderRadius !== "2px") throw new Error(`${name} radius is ${metrics.borderRadius}, expected 2px`);
-    if (metrics.boxShadow !== "none") throw new Error(`${name} unexpectedly has a shadow: ${metrics.boxShadow}`);
   }
 
   await page.click('[data-command="add"]');
@@ -155,7 +158,7 @@ try {
   if (imagePage.selectedLabel !== "Full-page Image") throw new Error(`Image-page label exposes a filename: ${imagePage.selectedLabel}`);
   if (imagePage.previewHeading) throw new Error(`Image-page preview exposes a title: ${imagePage.previewHeading}`);
 
-  console.log(JSON.stringify({ startBrand, workspaceBrand, controls, imagePage }, null, 2));
+  console.log(JSON.stringify({ startBrand, workspace, controls, imagePage }, null, 2));
 } finally {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
