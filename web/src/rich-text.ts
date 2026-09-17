@@ -67,6 +67,28 @@ function wrapInline(marker: string, value: string): string {
   return text ? leading + marker + text + marker + trailing : value;
 }
 
+function sanitizeCssColor(value: string | null | undefined): string | null {
+  const clean = (value ?? "").trim().toLowerCase();
+  if (!clean) return null;
+  if (/^#[0-9a-f]{3,8}$/i.test(clean)) return clean;
+  if (/^rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?(?:\s*,\s*[\d.]+%?)?\s*\)$/i.test(clean)) return clean;
+  if (/^hsla?\(\s*[\d.]+(?:deg)?\s*,\s*[\d.]+%\s*,\s*[\d.]+%(?:\s*,\s*[\d.]+%?)?\s*\)$/i.test(clean)) return clean;
+  if (/^[a-z]{3,20}$/i.test(clean)) return clean;
+  return null;
+}
+
+function styleColor(style: string, property: "color" | "background-color"): string | null {
+  const declarations = style.split(";").map((part) => part.trim()).filter(Boolean);
+  for (const declaration of declarations) {
+    const colon = declaration.indexOf(":");
+    if (colon < 0) continue;
+    const key = declaration.slice(0, colon).trim().toLowerCase();
+    if (key !== property) continue;
+    return sanitizeCssColor(declaration.slice(colon + 1));
+  }
+  return null;
+}
+
 function renderList(element: Element, ordered: boolean, depth = 0): string {
   const rows: string[] = [];
   let number = 1;
@@ -138,6 +160,16 @@ function renderNode(node: Node): string {
   if (tag === "EM" || tag === "I") return wrapInline("*", children(element));
   if (tag === "U") return children(element).trim() ? `<u>${children(element).trim()}</u>` : "";
   if (tag === "S" || tag === "STRIKE" || tag === "DEL") return wrapInline("~~", children(element));
+  if (tag === "FONT") {
+    const value = children(element);
+    const color = sanitizeCssColor(element.getAttribute("color"));
+    return color && value.trim() ? `<span style="color:${color}">${value}</span>` : value;
+  }
+  if (tag === "MARK") {
+    const value = children(element);
+    const background = styleColor(element.getAttribute("style") ?? "", "background-color") ?? "#fff2a8";
+    return value.trim() ? `<mark style="background-color:${background}">${value}</mark>` : value;
+  }
   if (tag === "SUP") return children(element).trim() ? `<sup>${children(element).trim()}</sup>` : "";
   if (tag === "SUB") return children(element).trim() ? `<sub>${children(element).trim()}</sub>` : "";
   if (tag === "A") {
@@ -161,6 +193,10 @@ function renderNode(node: Node): string {
   if (/font-weight\s*:\s*(?:bold|[6-9]00)/i.test(style)) value = wrapInline("**", value);
   if (/font-style\s*:\s*italic/i.test(style)) value = wrapInline("*", value);
   if (/text-decoration(?:-line)?\s*:[^;]*underline/i.test(style) && value.trim()) value = `<u>${value.trim()}</u>`;
+  const foreground = styleColor(style, "color");
+  const background = styleColor(style, "background-color");
+  if (foreground && value.trim()) value = `<span style="color:${foreground}">${value}</span>`;
+  if (background && value.trim()) value = `<mark style="background-color:${background}">${value}</mark>`;
   return blockTags.has(tag) ? value.trim() + "\n\n" : value;
 }
 
@@ -250,6 +286,8 @@ function inlineMarkdown(value: string): string {
   html = html.replace(/~~([^~\n]+)~~/g, "<s>$1</s>");
   html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
   html = html.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/gi, "<u>$1</u>");
+  html = html.replace(/&lt;span style=&quot;color:([#(),.%\sa-z0-9-]+)&quot;&gt;([\s\S]*?)&lt;\/span&gt;/gi, '<span style="color:$1">$2</span>');
+  html = html.replace(/&lt;mark style=&quot;background-color:([#(),.%\sa-z0-9-]+)&quot;&gt;([\s\S]*?)&lt;\/mark&gt;/gi, '<mark style="background-color:$1">$2</mark>');
   return html.replace(/  \n/g, "<br>");
 }
 
