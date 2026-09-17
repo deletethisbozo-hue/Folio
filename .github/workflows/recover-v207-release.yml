@@ -20,20 +20,23 @@ jobs:
       TARGET_SHA: "16d57b5cb2b39293af9a5788686d7b18f5eef6ee"
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Cancel stalled publisher and wait for it to stop
+      - name: Ensure stalled publisher has stopped
         shell: bash
         run: |
           set -euo pipefail
-          gh run cancel "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY"
-          status=""
-          for i in $(seq 1 36); do
-            status="$(gh run view "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --json status --jq '.status')"
-            echo "source run status: $status"
-            if [ "$status" = "completed" ]; then
-              break
-            fi
-            sleep 5
-          done
+          status="$(gh run view "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --json status --jq '.status')"
+          echo "source run status: $status"
+          if [ "$status" != "completed" ]; then
+            gh run cancel "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY"
+            for i in $(seq 1 36); do
+              status="$(gh run view "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --json status --jq '.status')"
+              echo "source run status: $status"
+              if [ "$status" = "completed" ]; then
+                break
+              fi
+              sleep 5
+            done
+          fi
           if [ "$status" != "completed" ]; then
             echo "Source release run did not stop in time" >&2
             exit 1
@@ -45,7 +48,7 @@ jobs:
           set -euo pipefail
           mkdir -p recovered
           gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "Folio-2.0.7-Windows" --dir recovered
-          find recovered -type f -maxdepth 6 -printf '%p %s bytes\n' | sort
+          find recovered -maxdepth 6 -type f -printf '%p %s bytes\n' | sort
 
       - name: Verify recovered binaries against sha256.txt
         shell: bash
