@@ -157,10 +157,6 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
     setSelectedId(nextId);
   }
 
-  async function close() {
-    if (await flush()) props.onClose();
-  }
-
   return <section className="writing-split-pane" aria-label="Split writing editor">
     <header className="writing-split-header">
       <div className="writing-split-title">
@@ -175,7 +171,6 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
       </div>
       <div className="writing-split-status">
         <span>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span>
-        <button type="button" onClick={() => void close()}>Close split</button>
       </div>
     </header>
 
