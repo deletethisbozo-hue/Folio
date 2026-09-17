@@ -166,7 +166,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
                         event.preventDefault();
                         event.stopPropagation();
                         setRecent(forgetRecentProject(item.folder));
-                        void api.forgetRecentProject(folder).catch(() => {});
+                        void api.forgetRecentProject(item.folder).catch(() => {});
                       }
                     }}
                   >×</span>
