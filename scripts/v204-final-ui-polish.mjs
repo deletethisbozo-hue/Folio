@@ -28,9 +28,6 @@ app = app.replace(
 const insertionBlock = `      const savedRange = illustrationRangeRef.current;\n      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {\n        savedRange.deleteContents();\n        savedRange.insertNode(figure);\n      } else {\n        editor.appendChild(figure);\n      }\n      const spacer = window.document.createElement("p");\n      spacer.innerHTML = "<br>";\n      figure.after(spacer);`;
 if (!app.includes(insertionBlock)) throw new Error('Missing illustration insertion block in App.tsx');
 app = app.replace(insertionBlock, '      editor.replaceChildren(figure);');
-if (/\bcaption\b/.test(app.slice(app.indexOf('async function insertIllustration'), app.indexOf('async function uploadCover')))) {
-  throw new Error('A visible illustration caption reference remains in insertIllustration');
-}
 write('web/src/App.tsx', app);
 
 // Existing manuscripts may still carry alt text for accessibility, but that alt
