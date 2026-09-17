@@ -28,15 +28,11 @@ jobs:
                   raise SystemExit(f"{path}: expected fragment not found: {old!r}")
               p.write_text(text.replace(old, new, 1), encoding="utf-8")
 
-          # Keep caller-supplied semantic alt text, but never derive a visible title
-          # from the uploaded filename.
           replace_once(
               "server/image-pages.ts",
               '  const alt = "Full-page illustration";',
               '  const alt = options.alt?.trim() || "Full-page illustration";',
           )
-
-          # The approved 2.0.7 navigator uses a 5px selected-row radius.
           replace_once(
               "tests/ui-runtime.test.ts",
               '        selected.borderRadius === "0px" && shell.bottom <= innerHeight + 1,',
@@ -50,42 +46,16 @@ jobs:
 
           p = Path("tests/v206-ui-regression.test.ts")
           text = p.read_text(encoding="utf-8")
-
           replacements = [
-              (
-                  'console.log("\\nFolio 2.0.6 visual/media regression gate");',
-                  'console.log("\\nFolio 2.0.7 visual/media regression gate");',
-              ),
-              (
-                  'Number.parseFloat(coverState.buttonRadius) <= 4',
-                  'Number.parseFloat(coverState.buttonRadius) <= 5',
-              ),
-              (
-                  'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");',
-                  'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");\nconst neutralImageLabel = "Full-page Image";',
-              ),
-              (
-                  'const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, mapLabel);',
-                  'const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, neutralImageLabel);',
-              ),
-              (
-                  '}, { timeout: 30000 }, mapLabel, beforeCount);',
-                  '}, { timeout: 30000 }, neutralImageLabel, beforeCount);',
-              ),
-              (
-                  'const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), mapLabel);',
-                  'const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), neutralImageLabel);',
-              ),
-              (
-                  'check("repeated image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
-                  'check("repeated neutral image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));',
-              ),
-              (
-                  'console.error("✗ Folio 2.0.6 browser regression scenario");',
-                  'console.error("✗ Folio 2.0.7 browser regression scenario");',
-              ),
+              ('console.log("\\nFolio 2.0.6 visual/media regression gate");', 'console.log("\\nFolio 2.0.7 visual/media regression gate");'),
+              ('Number.parseFloat(coverState.buttonRadius) <= 4', 'Number.parseFloat(coverState.buttonRadius) <= 5'),
+              ('const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");', 'const mapLabel = path.basename(mapFixture, ".png").replace(/[-_]+/g, " ");\nconst neutralImageLabel = "Full-page Image";'),
+              ('const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, mapLabel);', 'const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, neutralImageLabel);'),
+              ('mapLabel, beforeCount);', 'neutralImageLabel, beforeCount);'),
+              ('const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), mapLabel);', 'const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), neutralImageLabel);'),
+              ('check("repeated image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));', 'check("repeated neutral image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));'),
+              ('console.error("✗ Folio 2.0.6 browser regression scenario");', 'console.error("✗ Folio 2.0.7 browser regression scenario");'),
           ]
-
           for old, new in replacements:
               if old not in text:
                   raise SystemExit(f"tests/v206-ui-regression.test.ts: expected fragment not found: {old!r}")
@@ -99,7 +69,6 @@ jobs:
               '  check("Full-page Image never exposes the uploaded filename as a visible title", !filenameVisible, mapLabel);',
           ])
           text = text.replace(first_add, first_add + "\n" + filename_assertion, 1)
-
           p.write_text(text, encoding="utf-8")
 
       - name: Commit regression updates
