@@ -15,12 +15,12 @@ jobs:
     timeout-minutes: 40
     env:
       SOURCE_RUN: "35247596282"
-      STALE_RELEASE_ID: "390892314"
+      RECOVERY_RELEASE_ID: "390905988"
       TAG: "v2.0.7"
       TARGET_SHA: "16d57b5cb2b39293af9a5788686d7b18f5eef6ee"
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Ensure stalled publisher has stopped
+      - name: Ensure source qualification run has stopped
         shell: bash
         run: |
           set -euo pipefail
@@ -37,10 +37,7 @@ jobs:
               sleep 5
             done
           fi
-          if [ "$status" != "completed" ]; then
-            echo "Source release run did not stop in time" >&2
-            exit 1
-          fi
+          test "$status" = "completed"
 
       - name: Download already-qualified Windows artifact
         shell: bash
@@ -70,55 +67,65 @@ jobs:
           echo "setup sha256: $actual_setup"
           echo "portable sha256: $actual_portable"
 
-      - name: Remove only the stalled draft release
+      - name: Validate exact recovery draft
         shell: bash
         run: |
           set -euo pipefail
-          current=""
-          if gh api "repos/$GITHUB_REPOSITORY/releases/$STALE_RELEASE_ID" > stale-release.json 2>/dev/null; then
-            current="$(jq -r '.tag_name + " " + (.draft|tostring)' stale-release.json)"
-          fi
-          echo "stale release: ${current:-missing}"
-          if [ -n "$current" ]; then
-            test "$current" = "$TAG true"
-            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$STALE_RELEASE_ID"
-          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID" > recovery-release.json
+          jq -e --arg tag "$TAG" --arg target "$TARGET_SHA" '
+            .tag_name == $tag and
+            .target_commitish == $target and
+            .draft == true and
+            .prerelease == false and
+            .name == "Folio 2.0.7 for Windows"
+          ' recovery-release.json >/dev/null
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
-            echo "Unexpected tag $TAG exists before recovery publication" >&2
+            echo "Unexpected immutable tag $TAG already exists before publishing the recovery draft" >&2
             exit 1
           fi
 
-      - name: Publish recovered Folio 2.0.7 release safely
+      - name: Upload verified assets directly and publish draft
         shell: bash
         run: |
           set -euo pipefail
-
-          notes="Folio 2.0.7 is a professional UI and artwork-presentation release. The Folio wordmark uses the supplied Pelagiad face at a larger, consistent size on the start screen and workspace, while application chrome uses Source Sans 3. The command bar, manuscript navigator, editor canvas, device preview, status bar, Export and Replace Cover controls now follow one coherent desktop system. Cover and Full-page Image artwork uses contain-fit without destructive cropping; Full-page Image filenames are no longer shown as visible titles. The sidebar gains functional Add Section and book-details controls without introducing dead UI, Cover alignment is corrected, and the chapter header is tightened to return more space to the manuscript. The release is gated by typecheck, the full formatter/UI suite, Windows browser interaction smoke, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
-
-          gh release create "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$TARGET_SHA" \
-            --title "Folio 2.0.7 for Windows" \
-            --notes "$notes" \
-            --draft
-
-          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq ".[] | select(.tag_name == \"$TAG\" and .draft == true) | .id" | head -n 1)"
-          test -n "$release_id"
-          echo "recovery draft release id: $release_id"
 
           upload_asset() {
             local file="$1"
             local name
             name="$(basename "$file")"
+
             for attempt in 1 2 3; do
               echo "Uploading $name, attempt $attempt/3"
-              if timeout 300 gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber; then
-                echo "Uploaded $name"
-                return 0
+
+              existing_ids="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets" --jq ".[] | select(.name == \"$name\") | .id" || true)"
+              if [ -n "$existing_ids" ]; then
+                while read -r asset_id; do
+                  [ -n "$asset_id" ] && gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+                done <<< "$existing_ids"
               fi
+
+              rm -f upload-response.json
+              if curl --fail-with-body --silent --show-error \
+                --connect-timeout 20 --max-time 300 \
+                -X POST \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary "@$file" \
+                "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets?name=$name" \
+                -o upload-response.json; then
+                if jq -e --arg name "$name" '.name == $name and .state == "uploaded"' upload-response.json >/dev/null; then
+                  echo "Uploaded $name"
+                  return 0
+                fi
+              fi
+
               echo "Upload attempt $attempt failed for $name" >&2
+              [ -f upload-response.json ] && cat upload-response.json >&2 || true
               sleep $((attempt * 5))
             done
+
             echo "Giving up uploading $name after 3 attempts" >&2
             return 1
           }
@@ -127,9 +134,21 @@ jobs:
           upload_asset "$PORTABLE"
           upload_asset "$SUMS"
 
-          asset_count="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" --jq 'map(select(.state == "uploaded")) | length')"
-          echo "fully uploaded assets: $asset_count"
-          test "$asset_count" = "3"
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID/assets" > release-assets.json
+          jq -e '
+            length == 3 and
+            all(.state == "uploaded") and
+            ([.[].name] | sort) == (["Folio-2.0.7-portable.exe", "Folio-2.0.7-setup.exe", "sha256.txt"] | sort)
+          ' release-assets.json >/dev/null
 
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" -F draft=false >/dev/null
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease,url,assets
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RECOVERY_RELEASE_ID" -F draft=false >/dev/null
+
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > published-release.json
+          jq -e --arg target "$TARGET_SHA" '
+            .draft == false and
+            .prerelease == false and
+            .target_commitish == $target and
+            (.assets | length) == 3 and
+            all(.assets[]; .state == "uploaded")
+          ' published-release.json >/dev/null
+          jq '{tag_name, target_commitish, draft, published_at, html_url, assets: [.assets[] | {name, state, size, digest, browser_download_url}]}' published-release.json
