@@ -92,7 +92,7 @@ export async function addFullPageImage(
   const ext = safeExt(options.filename);
   const requestedTitle = "Full-page Image";
   const title = await uniqueImagePageTitle(bookDir, requestedTitle);
-  const alt = "Full-page illustration";
+  const alt = options.alt?.trim() || "Full-page illustration";
 
   const assetsDir = path.join(bookDir, "assets");
   await fs.mkdir(assetsDir, { recursive: true });
