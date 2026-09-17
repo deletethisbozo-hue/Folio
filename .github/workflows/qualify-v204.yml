@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   qualify:
+    if: github.event.head_commit.message != 'Folio 2.0.4: fix preview media and UI polish'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -49,6 +50,10 @@ jobs:
           node scripts/v204-illustration-commit-fix.mjs
           node scripts/v204-illustration-observer-fix.mjs
           node scripts/v204-illustration-userflow-test.mjs
+      - name: Apply final branding and UI polish
+        run: |
+          node scripts/v204-pelagiad-branding.mjs
+          node scripts/v204-final-ui-polish.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Build web for focused browser checks
@@ -63,7 +68,7 @@ jobs:
         run: npm run build
       - name: Commit qualified patch
         run: |
-          rm -f scripts/apply-v204.mjs scripts/apply-v204-fixed.mjs scripts/v204-followup.mjs scripts/v204-upload-diagnostic.mjs scripts/apply-v204-followup.mjs scripts/v204-frontmatter-race-fix.mjs scripts/v204-illustration-commit-fix.mjs scripts/v204-illustration-observer-fix.mjs scripts/v204-illustration-userflow-test.mjs .github/workflows/qualify-v204.yml
+          rm -f scripts/apply-v204.mjs scripts/apply-v204-fixed.mjs scripts/v204-followup.mjs scripts/v204-upload-diagnostic.mjs scripts/apply-v204-followup.mjs scripts/v204-frontmatter-race-fix.mjs scripts/v204-illustration-commit-fix.mjs scripts/v204-illustration-observer-fix.mjs scripts/v204-illustration-userflow-test.mjs scripts/v204-pelagiad-branding.mjs scripts/v204-final-ui-polish.mjs
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
