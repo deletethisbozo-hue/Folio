@@ -171,7 +171,7 @@ try {
 
   await addFullPageImage();
   const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), neutralImageLabel);
-  check("repeated neutral image-page titles are visibly disambiguated", labels.length >= 2 && new Set(labels).size === labels.length, labels.join(" | "));
+  check("repeated Full-page Image entries stay neutral and filename-free", labels.length >= 2 && labels.every((label) => label === neutralImageLabel), labels.join(" | "));
 } catch (error) {
   failed++;
   console.error("✗ Folio 2.0.7 browser regression scenario");
