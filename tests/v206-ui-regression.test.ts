@@ -48,11 +48,15 @@ try {
   await page.waitForFunction(() => document.fonts.check('16px "Folio Pelagiad Exact"') && document.fonts.check('12px "Folio Source Sans 3"'));
 
   const typography = await page.evaluate(() => {
-    const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
-    const manuscript = style(".pane-label");
-    const preview = style(".preview-pane-title");
-    const exportButton = style(".generate-button");
-    const wordmark = style(".command-wordmark");
+    const manuscriptElement = document.querySelector(".pane-label");
+    const previewElement = document.querySelector(".preview-pane-title");
+    const exportElement = document.querySelector(".generate-button");
+    const wordmarkElement = document.querySelector(".command-wordmark");
+    if (!manuscriptElement || !previewElement || !exportElement || !wordmarkElement) throw new Error("Core UI typography elements missing");
+    const manuscript = getComputedStyle(manuscriptElement);
+    const preview = getComputedStyle(previewElement);
+    const exportButton = getComputedStyle(exportElement);
+    const wordmark = getComputedStyle(wordmarkElement);
     return {
       logoFont: wordmark.fontFamily,
       logoTransform: wordmark.textTransform,
@@ -70,6 +74,7 @@ try {
     };
   });
   check("Folio wordmark uses the exact Pelagiad family", typography.logoFont.includes("Folio Pelagiad Exact"), typography.logoFont);
+  check("Folio wordmark keeps its dedicated branding treatment", typography.logoTransform === "capitalize", typography.logoTransform);
   check("application chrome uses the single Source Sans UI family", typography.manuscriptFont.includes("Folio Source Sans 3") && typography.previewFont.includes("Folio Source Sans 3") && typography.exportFont.includes("Folio Source Sans 3"));
   check("Manuscript and Page Preview have identical type metrics", typography.manuscriptFont === typography.previewFont && typography.manuscriptSize === typography.previewSize && typography.manuscriptWeight === typography.previewWeight && typography.manuscriptTracking === typography.previewTracking);
   check("Export is a full desktop control rather than the old tiny CTA", typography.exportHeight >= 34 && typography.exportBackground !== "rgb(164, 113, 72)", `${typography.exportHeight}px / ${typography.exportBackground}`);
@@ -81,8 +86,9 @@ try {
   });
   await page.waitForSelector(".cover-preview-surface img");
   const coverState = await page.evaluate(() => {
-    const preview = document.querySelector<HTMLImageElement>(".cover-preview-surface img")!;
-    const button = document.querySelector<HTMLElement>(".cover-upload-button")!;
+    const preview = document.querySelector<HTMLImageElement>(".cover-preview-surface img");
+    const button = document.querySelector<HTMLElement>(".cover-upload-button");
+    if (!preview || !button) throw new Error("Cover preview or Replace Cover control missing");
     const previewStyle = getComputedStyle(preview);
     const buttonStyle = getComputedStyle(button);
     return {
@@ -111,12 +117,13 @@ try {
   await addFullPageImage();
   await page.waitForSelector(".editor-pane.folio-image-page-mode .editor-full-page-art img");
   const workspace = await page.evaluate(() => {
-    const pane = document.querySelector<HTMLElement>(".editor-pane.folio-image-page-mode")!;
-    const toolbar = pane.querySelector<HTMLElement>(".format-toolbar")!;
-    const paper = pane.querySelector<HTMLElement>(".editor-paper")!;
-    const editor = pane.querySelector<HTMLElement>(".folio-image-page-editor")!;
-    const figure = pane.querySelector<HTMLElement>(".editor-full-page-art")!;
-    const image = figure.querySelector<HTMLImageElement>("img")!;
+    const pane = document.querySelector<HTMLElement>(".editor-pane.folio-image-page-mode");
+    const toolbar = pane?.querySelector<HTMLElement>(".format-toolbar");
+    const paper = pane?.querySelector<HTMLElement>(".editor-paper");
+    const editor = pane?.querySelector<HTMLElement>(".folio-image-page-editor");
+    const figure = pane?.querySelector<HTMLElement>(".editor-full-page-art");
+    const image = figure?.querySelector<HTMLImageElement>("img");
+    if (!pane || !toolbar || !paper || !editor || !figure || !image) throw new Error("Dedicated image-page workspace is incomplete");
     const controls = figure.querySelector<HTMLElement>(".editor-illustration-controls");
     const remove = figure.querySelector<HTMLElement>(".editor-illustration-remove");
     return {
@@ -140,18 +147,18 @@ try {
     return Boolean(frame?.contentDocument?.querySelector("section.image-page img.full-page-image"));
   }, { timeout: 30000 });
   const previewImage = await page.$eval("iframe", (frame) => {
-    const doc = frame.contentDocument!;
-    const image = doc.querySelector<HTMLImageElement>("section.image-page img.full-page-image")!;
-    const body = doc.body;
+    const doc = frame.contentDocument;
+    const image = doc?.querySelector<HTMLImageElement>("section.image-page img.full-page-image");
+    if (!doc || !image) throw new Error("Reader full-page image missing");
     return {
       fit: getComputedStyle(image).objectFit,
       imageBackground: getComputedStyle(image).backgroundColor,
-      bodyBackground: getComputedStyle(body).backgroundColor,
+      bodyBackground: getComputedStyle(doc.body).backgroundColor,
       scrollWidth: doc.documentElement.scrollWidth,
       clientWidth: doc.documentElement.clientWidth,
     };
   });
-  check("Reader map preview is contain-fit on white with no horizontal scroll", previewImage.fit === "contain" && previewImage.bodyBackground === "rgb(255, 255, 255)" && previewImage.scrollWidth <= previewImage.clientWidth + 1, JSON.stringify(previewImage));
+  check("Reader map preview is contain-fit on white with no horizontal scroll", previewImage.fit === "contain" && previewImage.imageBackground === "rgb(255, 255, 255)" && previewImage.bodyBackground === "rgb(255, 255, 255)" && previewImage.scrollWidth <= previewImage.clientWidth + 1, JSON.stringify(previewImage));
 
   await addFullPageImage();
   const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => /Folio V206 Map/i.test(text)));
