@@ -311,7 +311,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [project?.projectId, selectedId, sectionRevision, document?.id]);
 
   useEffect(() => {
-    if (!project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode === "print") return;
+    if (workspaceMode === "write" || !project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode === "print") return;
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
@@ -331,10 +331,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       }
     }, 40);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode === "print", selectedId, document?.id, document?.subtitle]);
+  }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", selectedId, document?.id, document?.subtitle]);
 
   useEffect(() => {
-    if (!project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode !== "print") return;
+    if (workspaceMode === "write" || !project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode !== "print") return;
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
@@ -354,7 +354,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       }
     }, previewDraft.length > 250_000 ? 650 : 220);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
+  }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
   function commitPreviewHtml(html: string, representedDraft: string): void {
     const identity = `${project?.projectId ?? ""}:${selectedId ?? ""}:${previewMode}`;
@@ -395,7 +395,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     // Generated title/copyright pages already have authoritative Pandoc HTML.
     // Re-rendering their internal markup as Markdown exposed literal <p> tags
     // and could add chapter-only typography such as drop caps.
-    if (previewMode === "print" || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || !document.editable) return "none";
+    if (workspaceMode === "write" || previewMode === "print" || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || !document.editable) return "none";
     const previewDocument = previewRef.current?.contentDocument;
     if (!previewDocument) return "none";
     // The editor model is authoritative. previewDraft is deliberately debounced
@@ -497,7 +497,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
+  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -524,9 +524,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   // its layout even when switching profiles produces byte-identical srcDoc and
   // React therefore has no reason to reload the iframe.
   useEffect(() => {
+    if (workspaceMode === "write") return;
     const frame = window.requestAnimationFrame(() => onPreviewLoad(undefined, true));
     return () => window.cancelAnimationFrame(frame);
-  }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
+  }, [workspaceMode, previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
