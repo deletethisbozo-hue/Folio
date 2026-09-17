@@ -91,10 +91,24 @@
   display: flex;
   align-items: center;
   padding: 0 18px;
+  border: 0;
   border-right: 1px solid var(--studio-rule);
+  background: transparent;
   color: var(--studio-ink);
+  text-align: left;
+  cursor: pointer;
   font: 600 15px/1 Georgia, "Times New Roman", serif;
   letter-spacing: -.015em;
+}
+
+.folio-shell[data-ui-tone] .command-wordmark:hover:not(:disabled) {
+  color: var(--studio-accent);
+  background: color-mix(in srgb, var(--studio-accent) 5%, transparent);
+}
+
+.folio-shell[data-ui-tone] .command-wordmark:disabled {
+  cursor: default;
+  opacity: .65;
 }
 
 .folio-shell[data-ui-tone] .folio-commandbar nav {

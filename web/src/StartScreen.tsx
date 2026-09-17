@@ -118,7 +118,6 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
 
       <main className="start-main">
         <section className="start-intro" aria-labelledby="start-title">
-          <div className="start-mark" aria-hidden="true">F</div>
           <p className="start-kicker">Book formatting studio</p>
           <h1 id="start-title">Your books,<br/>ready to continue.</h1>
           <p className="start-copy">Open a recent project without hunting through folders, or start something new.</p>

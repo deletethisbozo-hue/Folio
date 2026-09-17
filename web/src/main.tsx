@@ -56,6 +56,15 @@ function FolioRoot() {
     adoptProject(summary);
   }
 
+  function showDashboard() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("book");
+    url.searchParams.delete("sample");
+    window.history.replaceState(window.history.state, "", url);
+    setWorkspaceProject(null);
+    setWorkspaceOpen(false);
+  }
+
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const book = params.get("book")?.trim();
@@ -64,7 +73,7 @@ function FolioRoot() {
   }, []);
 
   return workspaceOpen && workspaceProject
-    ? <App initialProject={workspaceProject} />
+    ? <App initialProject={workspaceProject} onDashboard={showDashboard} />
     : <StartScreen onOpenPath={openPath} onOpenProject={adoptProject} onOpenSample={openSample} />;
 }
 

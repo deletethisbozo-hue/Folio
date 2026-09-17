@@ -10,8 +10,14 @@ const check = (label: string, ok: boolean) => {
 console.log("\nFolio 2.0.8 UI/style regression contract");
 const app = await fs.readFile("web/src/App.tsx", "utf8");
 const mock = await fs.readFile("web/src/mockup-ui.ts", "utf8");
+const main = await fs.readFile("web/src/main.tsx", "utf8");
+const start = await fs.readFile("web/src/StartScreen.tsx", "utf8");
 
 check("top command bar no longer duplicates Add", !app.includes('data-command="add"'));
+check("workspace top bar offers New Project", app.includes('data-command="new-project"') && app.includes('>New Project</button>'));
+check("workspace wordmark returns to dashboard", app.includes('aria-label="Back to dashboard"') && main.includes('onDashboard={showDashboard}'));
+check("workspace New Project opens the existing creation dialog", app.includes('showNewBook && <NewBookDialog'));
+check("dashboard no longer renders the redundant standalone F mark", !start.includes('className="start-mark"'));
 check("sidebar owns a real React Add Section control", app.includes('className="library-add-section"') && app.includes('className="library-add-section" onClick={() => setShowContent(true)}'));
 check("mockup runtime no longer proxies Add Section through a hidden top command", !mock.includes('.library-add-section') && !mock.includes('library.insertBefore(add, footer)'));
 check("every customization category exposes an explicit Theme Default reset", app.includes('className="customize-reset-button"') && app.includes('Reset to Theme Default') && app.includes('const resetCategory = () =>'));

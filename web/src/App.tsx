@@ -97,7 +97,7 @@ function applyDraftDropcap(section: Element, enabled: boolean): void {
   }
 }
 
-export default function App({ initialProject = null }: { initialProject?: ProjectSummary | null } = {}) {
+export default function App({ initialProject = null, onDashboard }: { initialProject?: ProjectSummary | null; onDashboard?: () => void } = {}) {
   const initialSection = initialProject?.sections.find((section) => section.kind === "chapter") ?? initialProject?.sections[0] ?? null;
   const [themes, setThemes] = useState<Theme[]>([]);
   const [matterTypes, setMatterTypes] = useState<MatterType[]>([]);
@@ -579,6 +579,21 @@ export default function App({ initialProject = null }: { initialProject?: Projec
       setShowBookDetails(true);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
+  }
+
+  async function returnToDashboard() {
+    if (!(await saveCurrent())) return;
+    setBusy(true); setError(null);
+    try {
+      if (project && meta) await persistAppearance(project.projectId, meta, typography);
+      await sectionSaveQueueRef.current.flush();
+      await appearanceSaveQueueRef.current.flush();
+      onDashboard?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function addChapter() {
@@ -1522,10 +1537,11 @@ export default function App({ initialProject = null }: { initialProject?: Projec
   return (
     <div className="folio-shell" data-ui-tone={uiTone}>
       <header className="folio-commandbar">
-        <div className="command-wordmark">folio</div>
+        <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
           <button data-command="book" onClick={() => setShowBookDetails(true)}>Book</button>
           <button data-command="design" onClick={() => setShowStyle(true)}>Design</button>
+          <button data-command="new-project" disabled={busy} onClick={() => void beginNewBook()}>New Project</button>
         </nav>
         <button className="tone-toggle" onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")} aria-label={uiTone === "ivory" ? "Use Midnight Editorial" : "Use Ivory and Ink"}>{uiTone === "ivory" ? "Midnight" : "Ivory"}</button>
       </header>
@@ -1569,6 +1585,7 @@ export default function App({ initialProject = null }: { initialProject?: Projec
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
+      {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
       {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}
     </div>
   );
