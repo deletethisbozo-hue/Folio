@@ -2,4 +2,7 @@
 .folio-shell[data-ui-tone] .device-label select,
 .folio-shell[data-ui-tone] .trim-select {
   box-sizing: border-box !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
 }
