@@ -21,7 +21,6 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import textwrap
           app = Path('web/src/App.tsx').read_text(encoding='utf-8')
           if 'data-command="add"' not in app and 'Reset to Theme Default' in app:
               print('v2.0.8 patch already applied')
@@ -30,8 +29,9 @@ jobs:
           anchor = '      - name: Apply product and regression fixes\n        shell: python\n        run: |\n'
           if anchor not in source:
               raise SystemExit('embedded patch anchor missing')
-          script = source.split(anchor, 1)[1].split('      - name: Typecheck before commit\n', 1)[0]
-          exec(compile(textwrap.dedent(script), 'embedded-v208-patch.py', 'exec'))
+          embedded = source.split(anchor, 1)[1].split('      - name: Typecheck before commit\n', 1)[0]
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in embedded.splitlines())
+          exec(compile(script, 'embedded-v208-patch.py', 'exec'))
           PY
       - name: Typecheck
         run: npm ci && npm run typecheck
