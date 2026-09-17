@@ -5,10 +5,18 @@
  * keeps the typography selected for the book and is intentionally excluded.
  */
 
+@font-face {
+  font-family: "Folio Pelagiad Exact";
+  src: url("./assets/Pelagiad.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
 :root,
 .start-shell,
 .folio-shell {
-  --folio-logo-font: "Pelagiad", Georgia, "Times New Roman", serif;
+  --folio-logo-font: "Folio Pelagiad Exact", "Pelagiad", Georgia, "Times New Roman", serif;
   --folio-ui-font: "Folio IBM Plex Sans", "Segoe UI", Arial, sans-serif;
 }
 
