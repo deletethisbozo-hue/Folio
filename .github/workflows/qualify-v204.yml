@@ -67,6 +67,9 @@ jobs:
         run: npm run build
       - name: Commit qualified patch
         run: |
+          # windows-release.yml is updated manually through the GitHub connector after
+          # qualification; the Actions token does not have workflow-file write access.
+          git checkout -- .github/workflows/windows-release.yml
           rm -f scripts/apply-v204.mjs scripts/apply-v204-fixed.mjs scripts/v204-followup.mjs scripts/v204-upload-diagnostic.mjs scripts/apply-v204-followup.mjs scripts/v204-frontmatter-race-fix.mjs scripts/v204-illustration-commit-fix.mjs scripts/v204-illustration-observer-fix.mjs scripts/v204-illustration-userflow-test.mjs scripts/v204-pelagiad-branding.mjs scripts/v204-final-ui-polish.mjs
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
