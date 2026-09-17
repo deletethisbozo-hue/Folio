@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.0.7 version consistency
+      - name: Verify Folio 2.0.8 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.0.7") { throw "Windows release is scoped to Folio 2.0.7, found $version." }
+          if ($version -ne "2.0.8") { throw "Windows release is scoped to Folio 2.0.8, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -217,4 +217,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.0.7 is a professional UI and artwork-presentation release. The Folio wordmark uses the supplied Pelagiad face at a larger, consistent size on the start screen and workspace, while application chrome uses Source Sans 3. The command bar, manuscript navigator, editor canvas, device preview, status bar, Export and Replace Cover controls now follow one coherent desktop system. Cover and Full-page Image artwork uses contain-fit without destructive cropping; Full-page Image filenames are no longer shown as visible titles. The sidebar gains functional Add Section and book-details controls without introducing dead UI, Cover alignment is corrected, and the chapter header is tightened to return more space to the manuscript. The release is gated by typecheck, the full formatter/UI suite, Windows browser interaction smoke, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 2.0.8 is a workflow and publishing-correctness patch. The duplicate top-bar Add control is removed in favor of the real sidebar Add Section action; the workspace now exposes New Project, and the Folio wordmark returns safely to the dashboard after flushing document and appearance saves. The dashboard no longer shows the redundant standalone F mark. Every style-customization category can return to Theme Default, including dropdowns, checkboxes, sliders and grouped overrides. Full-page Image filenames and legacy image-page titles are suppressed across the UI, preview and exported HTML/EPUB/PDF paths, while image pages remain out of the TOC and keep their heading hidden. The clickable Folio wordmark retains the exact Pelagiad branding face. The release is gated by typecheck, the full formatter/UI suite, real browser navigation tests, image-page export regressions, Windows visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
