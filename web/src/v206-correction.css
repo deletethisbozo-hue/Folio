@@ -14,7 +14,13 @@
   font-family: var(--folio-ui-font) !important;
 }
 
-.start-shell :is(button, input, select, textarea, label, h1, h2, h3, p, span, strong, small),
+.start-shell :is(
+  button, input, select, textarea, label,
+  h1, h2, h3, p, strong, small,
+  .start-version, .start-kicker, .start-copy,
+  .recent-eyebrow, .recent-meta, .recent-time, .recent-path,
+  .start-modal, .start-field
+),
 .folio-shell :is(
   button, input, select, textarea, label,
   .pane-label, .preview-pane-title,
@@ -36,7 +42,7 @@
   .dialog-field, .setting-label, .setting-control,
   .preview-loading, .preview-error, .preview-empty, .cover-preview-empty
 ) {
-  font-family: var(--folio-ui-font) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
 }
 
 /* Book prose/editor copy keeps a manuscript face. */
@@ -45,24 +51,24 @@
   font-family: Georgia, "Times New Roman", serif;
 }
 
-/* Pelagiad is branding only, and this exact bundled TTF is the only family used
- * by the Folio wordmark. */
-.start-brand,
-.command-wordmark,
-.folio-wordmark,
-.recent-cover i {
-  font-family: var(--folio-logo-font) !important;
+/* Pelagiad is branding only. These selectors deliberately outrank the legacy
+ * chrome layers instead of relying on a low-specificity variable assignment. */
+.start-shell .start-brand,
+.start-shell .recent-cover i,
+.folio-shell .command-wordmark,
+.folio-shell .folio-wordmark {
+  font-family: "Folio Pelagiad Exact" !important;
   font-style: normal !important;
   font-weight: 400 !important;
   font-synthesis: none !important;
   letter-spacing: 0 !important;
-  text-transform: capitalize !important;
+  text-transform: lowercase !important;
 }
 
 /* Peer pane labels must be typographically identical. */
 .folio-shell[data-ui-tone] .pane-label,
 .folio-shell[data-ui-tone] .preview-pane-title {
-  font-family: var(--folio-ui-font) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
   font-size: 10.5px !important;
   font-style: normal !important;
   font-weight: 650 !important;
@@ -72,6 +78,7 @@
 }
 
 .folio-shell[data-ui-tone] .contents-heading {
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
   font-style: normal !important;
   font-weight: 650 !important;
   letter-spacing: .10em !important;
@@ -84,14 +91,14 @@
 .folio-shell[data-ui-tone] .book-title,
 .folio-shell[data-ui-tone] .folio-dialog > header h2,
 .folio-shell[data-ui-tone] .style-library-title {
-  font-family: var(--folio-ui-font) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
   font-style: normal !important;
   font-weight: 650 !important;
 }
 
 .folio-shell[data-ui-tone] .section-subtitle-button,
 .folio-shell[data-ui-tone] .section-subtitle-input {
-  font-family: var(--folio-ui-font) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
   font-style: normal !important;
   font-weight: 450 !important;
 }
@@ -120,7 +127,7 @@
   background: var(--studio-control) !important;
   color: var(--studio-ink) !important;
   box-shadow: 0 1px 2px rgba(30, 26, 22, .08) !important;
-  font-family: var(--folio-ui-font) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
   font-size: 12px !important;
   font-style: normal !important;
   font-weight: 650 !important;
@@ -131,7 +138,7 @@
 .folio-shell[data-ui-tone] .generate-button::after {
   content: "▾" !important;
   color: var(--studio-muted) !important;
-  font: 600 10px/1 var(--folio-ui-font) !important;
+  font: 600 10px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
   transform: none !important;
 }
 
@@ -155,7 +162,7 @@
   background: var(--studio-surface) !important;
   color: var(--studio-ink) !important;
   box-shadow: 0 1px 2px rgba(30, 26, 22, .07) !important;
-  font-family: var(--folio-ui-font) !important;
+  font-family: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
   font-size: 12px !important;
   font-style: normal !important;
   font-weight: 650 !important;
@@ -226,6 +233,7 @@
 }
 
 .folio-shell[data-ui-tone] .editor-pane.folio-image-page-mode .manuscript-editor.folio-image-page-editor {
+  box-sizing: border-box !important;
   width: 100% !important;
   height: 100% !important;
   max-width: none !important;
@@ -237,6 +245,7 @@
   background: #fff !important;
   box-shadow: none !important;
   overflow: hidden !important;
+  scrollbar-gutter: auto !important;
   cursor: default !important;
 }
 
