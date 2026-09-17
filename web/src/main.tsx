@@ -18,6 +18,7 @@ import "./ui-polish.css";
 import "./v203-polish.css";
 import "./v204-polish.css";
 import "./pelagiad-branding.css";
+import "./v205-coherence.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
