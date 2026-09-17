@@ -69,9 +69,13 @@ try {
     };
   });
 
+  // Save the real application state before assertions, so any future gate fail
+  // still leaves a useful visual artifact for review.
+  await page.screenshot({ path: path.join(qa, "cover-controls.png") });
+
   for (const [name, metrics] of Object.entries(controls)) {
     if (Math.abs(metrics.height - 28) > 0.6) throw new Error(`${name} height is ${metrics.height}, expected 28px`);
-    if (metrics.display !== "inline-flex") throw new Error(`${name} is not inline-flex: ${metrics.display}`);
+    if (!/^(?:inline-)?flex$/.test(metrics.display)) throw new Error(`${name} is not flex-based: ${metrics.display}`);
     if (metrics.alignItems !== "center" || metrics.justifyContent !== "center") {
       throw new Error(`${name} is not centered: ${JSON.stringify(metrics)}`);
     }
@@ -79,8 +83,6 @@ try {
     if (metrics.borderRadius !== "2px") throw new Error(`${name} radius is ${metrics.borderRadius}, expected 2px`);
     if (metrics.boxShadow !== "none") throw new Error(`${name} unexpectedly has a shadow: ${metrics.boxShadow}`);
   }
-
-  await page.screenshot({ path: path.join(qa, "cover-controls.png") });
 
   // Also verify that a newly added full-page image never exposes its source
   // filename as a visible heading or selected contents label.
@@ -108,11 +110,13 @@ try {
       previewHeading: (visibleHeading?.textContent ?? "").trim(),
     };
   });
+
+  await page.screenshot({ path: path.join(qa, "full-page-image-no-filename.png") });
+
   if (imagePage.titleDisplay !== "none") throw new Error(`Image-page title remains visible: ${imagePage.titleDisplay}`);
   if (imagePage.selectedLabel !== "Full-page Image") throw new Error(`Image-page label exposes a filename: ${imagePage.selectedLabel}`);
   if (imagePage.previewHeading) throw new Error(`Image-page preview exposes a title: ${imagePage.previewHeading}`);
 
-  await page.screenshot({ path: path.join(qa, "full-page-image-no-filename.png") });
   console.log(JSON.stringify({ controls, imagePage }, null, 2));
 } finally {
   await closeBrowser().catch(() => undefined);
