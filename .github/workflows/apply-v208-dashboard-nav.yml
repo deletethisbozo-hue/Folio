@@ -1,0 +1,291 @@
+name: Apply v2.0.8 dashboard navigation
+
+on:
+  push:
+    branches:
+      - fix/v2.0.8-ui-style-image-export
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v2.0.8-ui-style-image-export
+          fetch-depth: 0
+      - name: Apply navigation and dashboard cleanup
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f'missing expected fragment: {label}')
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected one fragment for {label}, found {text.count(old)}')
+              return text.replace(old, new, 1)
+
+          app_path = Path('web/src/App.tsx')
+          app = app_path.read_text(encoding='utf-8')
+          app = replace_once(
+              app,
+              'export default function App({ initialProject = null }: { initialProject?: ProjectSummary | null } = {}) {',
+              'export default function App({ initialProject = null, onDashboard }: { initialProject?: ProjectSummary | null; onDashboard?: () => void } = {}) {',
+              'App dashboard callback prop',
+          )
+          marker = '''  async function createNewBook() {
+    if (!newBookForm.path.trim()) return;
+    setBusy(true); setError(null);
+    try {
+      adopt(await api.newBook(newBookForm.path, newBookForm.title, newBookForm.author));
+      setShowNewBook(false);
+      setShowBookDetails(true);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+'''
+          replacement = marker + '''
+  async function returnToDashboard() {
+    if (!(await saveCurrent())) return;
+    setBusy(true); setError(null);
+    try {
+      if (project && meta) await persistAppearance(project.projectId, meta, typography);
+      await sectionSaveQueueRef.current.flush();
+      await appearanceSaveQueueRef.current.flush();
+      onDashboard?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+'''
+          app = replace_once(app, marker, replacement, 'dashboard save-and-return handler')
+          app = replace_once(
+              app,
+              '''        <div className="command-wordmark">folio</div>
+        <nav aria-label="Application commands">
+          <button data-command="book" onClick={() => setShowBookDetails(true)}>Book</button>
+          <button data-command="design" onClick={() => setShowStyle(true)}>Design</button>
+        </nav>''',
+              '''        <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
+        <nav aria-label="Application commands">
+          <button data-command="book" onClick={() => setShowBookDetails(true)}>Book</button>
+          <button data-command="design" onClick={() => setShowStyle(true)}>Design</button>
+          <button data-command="new-project" disabled={busy} onClick={() => void beginNewBook()}>New Project</button>
+        </nav>''',
+              'workspace masthead navigation',
+          )
+          app = replace_once(
+              app,
+              '''      {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
+      {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}''',
+              '''      {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
+      {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
+      {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}''',
+              'New Project dialog wiring',
+          )
+          app_path.write_text(app, encoding='utf-8')
+
+          main_path = Path('web/src/main.tsx')
+          main = main_path.read_text(encoding='utf-8')
+          main = replace_once(
+              main,
+              '''  async function openSample() {
+    const summary = await api.loadSample();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("book");
+    url.searchParams.set("sample", "1");
+    window.history.replaceState(window.history.state, "", url);
+    adoptProject(summary);
+  }
+''',
+              '''  async function openSample() {
+    const summary = await api.loadSample();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("book");
+    url.searchParams.set("sample", "1");
+    window.history.replaceState(window.history.state, "", url);
+    adoptProject(summary);
+  }
+
+  function showDashboard() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("book");
+    url.searchParams.delete("sample");
+    window.history.replaceState(window.history.state, "", url);
+    setWorkspaceProject(null);
+    setWorkspaceOpen(false);
+  }
+''',
+              'root dashboard handler',
+          )
+          main = replace_once(
+              main,
+              '''  return workspaceOpen && workspaceProject
+    ? <App initialProject={workspaceProject} />
+    : <StartScreen onOpenPath={openPath} onOpenProject={adoptProject} onOpenSample={openSample} />;''',
+              '''  return workspaceOpen && workspaceProject
+    ? <App initialProject={workspaceProject} onDashboard={showDashboard} />
+    : <StartScreen onOpenPath={openPath} onOpenProject={adoptProject} onOpenSample={openSample} />;''',
+              'App dashboard prop wiring',
+          )
+          main_path.write_text(main, encoding='utf-8')
+
+          start_path = Path('web/src/StartScreen.tsx')
+          start = start_path.read_text(encoding='utf-8')
+          start = replace_once(
+              start,
+              '          <div className="start-mark" aria-hidden="true">F</div>\n',
+              '',
+              'redundant dashboard F mark',
+          )
+          start_path.write_text(start, encoding='utf-8')
+
+          css_path = Path('web/src/editorial-studio.css')
+          css = css_path.read_text(encoding='utf-8')
+          css = replace_once(
+              css,
+              '''  padding: 0 18px;
+  border-right: 1px solid var(--studio-rule);
+  color: var(--studio-ink);''',
+              '''  padding: 0 18px;
+  border: 0;
+  border-right: 1px solid var(--studio-rule);
+  background: transparent;
+  color: var(--studio-ink);
+  text-align: left;
+  cursor: pointer;''',
+              'clickable wordmark button reset',
+          )
+          css = replace_once(
+              css,
+              '''  letter-spacing: -.015em;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav {''',
+              '''  letter-spacing: -.015em;
+}
+
+.folio-shell[data-ui-tone] .command-wordmark:hover:not(:disabled) {
+  color: var(--studio-accent);
+  background: color-mix(in srgb, var(--studio-accent) 5%, transparent);
+}
+
+.folio-shell[data-ui-tone] .command-wordmark:disabled {
+  cursor: default;
+  opacity: .65;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav {''',
+              'wordmark home hover state',
+          )
+          css_path.write_text(css, encoding='utf-8')
+
+          start_css_path = Path('web/src/start-screen.css')
+          start_css = start_css_path.read_text(encoding='utf-8')
+          old = '''.start-mark{
+  width:54px;
+  height:68px;
+  border:1px solid var(--start-line-strong);
+  display:grid;
+  place-items:center;
+  margin-bottom:28px;
+  background:var(--start-panel);
+  box-shadow:0 7px 18px rgba(40,34,27,.08);
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:31px;
+  font-weight:700;
+}
+'''
+          if old in start_css:
+              start_css = start_css.replace(old, '', 1)
+          start_css_path.write_text(start_css, encoding='utf-8')
+
+          test_path = Path('tests/v208-regression.test.ts')
+          test = test_path.read_text(encoding='utf-8')
+          if 'const start = await fs.readFile("web/src/StartScreen.tsx", "utf8");' not in test:
+              test = test.replace(
+                  'const mock = await fs.readFile("web/src/mockup-ui.ts", "utf8");\n',
+                  'const mock = await fs.readFile("web/src/mockup-ui.ts", "utf8");\nconst main = await fs.readFile("web/src/main.tsx", "utf8");\nconst start = await fs.readFile("web/src/StartScreen.tsx", "utf8");\n',
+                  1,
+              )
+          insert = '''check("workspace top bar offers New Project instead of duplicate Add", app.includes('data-command="new-project"') && app.includes('>New Project</button>') && !app.includes('data-command="add"'));
+check("workspace wordmark is the single dashboard return control", app.includes('aria-label="Back to dashboard"') && app.includes('void returnToDashboard()') && main.includes('onDashboard={showDashboard}'));
+check("workspace New Project opens the existing creation dialog", app.includes('showNewBook && <NewBookDialog') && app.includes('void beginNewBook()'));
+check("dashboard no longer renders the redundant standalone F mark", !start.includes('className="start-mark"'));
+'''
+          anchor = 'check("top command bar no longer duplicates Add", !app.includes(\'data-command="add"\'));\n'
+          if insert not in test:
+              test = test.replace(anchor, anchor + insert, 1)
+          test_path.write_text(test, encoding='utf-8')
+
+          browser_test = '''import express from "express";
+import path from "node:path";
+import type { AddressInfo } from "node:net";
+import { registerApi } from "../server/api.ts";
+import { registerEditorApi } from "../server/editor-api.ts";
+import { closeBrowser, getBrowser } from "../server/pipeline/render-pdf.ts";
+import { ROOT } from "../server/pipeline/paths.ts";
+
+let pass = 0;
+let fail = 0;
+const check = (label: string, ok: boolean, detail = "") => { console.log(`  ${ok ? "✓" : "✗"} ${label}${detail ? ` — ${detail}` : ""}`); ok ? pass++ : fail++; };
+
+const app = express();
+app.use(express.json({ limit: "5mb" }));
+registerApi(app);
+registerEditorApi(app);
+app.use(express.static(path.join(ROOT, "web", "dist")));
+app.get("*", (_req, res) => res.sendFile(path.join(ROOT, "web", "dist", "index.html")));
+const server = app.listen(0, "127.0.0.1");
+await new Promise((resolve) => server.once("listening", resolve));
+const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
+
+console.log("\\nFolio v2.0.8 dashboard navigation");
+try {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  page.setDefaultTimeout(20000);
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.goto(base, { waitUntil: "networkidle0" });
+  check("dashboard does not show the redundant standalone F mark", (await page.$(".start-mark")) === null);
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.includes("Open Sample"));
+    if (!button) throw new Error("Open Sample button is missing");
+    button.click();
+  });
+  await page.waitForSelector('.rich-editor[contenteditable="true"]');
+  check("workspace exposes New Project in the masthead", Boolean(await page.$('[data-command="new-project"]')));
+  check("workspace wordmark exposes dashboard navigation", await page.$eval('.command-wordmark', (node) => node.getAttribute('aria-label') === 'Back to dashboard'));
+  await page.click('.command-wordmark');
+  await page.waitForSelector('.start-shell');
+  check("clicking folio returns from a project to the dashboard", Boolean(await page.$('.start-shell')));
+} catch (error) {
+  fail++;
+  console.error("  ✗ browser dashboard navigation scenario", error);
+} finally {
+  await closeBrowser().catch(() => undefined);
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+}
+console.log(`\\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);
+'''
+          Path('tests/v208-dashboard-navigation.test.ts').write_text(browser_test, encoding='utf-8')
+
+          # The selector updater did its job; do not keep temporary patch workflows.
+          Path('.github/workflows/fix-v208-test-selectors.yml').unlink(missing_ok=True)
+      - name: Install and typecheck
+        run: npm ci --no-audit --no-fund && npm run typecheck
+      - name: Commit product changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add workspace New Project and dashboard navigation"
+          git push origin HEAD:fix/v2.0.8-ui-style-image-export
