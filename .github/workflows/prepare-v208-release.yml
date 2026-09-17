@@ -1,4 +1,4 @@
-name: Prepare Folio 2.0.8 release metadata
+name: Prepare Folio 2.0.8 package metadata
 
 on:
   push:
@@ -22,41 +22,25 @@ jobs:
           node-version: 22.23.2
       - name: Bump package metadata
         run: npm version 2.0.8 --no-git-tag-version
-      - name: Update visible version and Windows release contract
+      - name: Update visible version
         shell: python
         run: |
           from pathlib import Path
-
           start = Path('web/src/StartScreen.tsx')
           text = start.read_text(encoding='utf-8')
           if '<div className="start-version">2.0.7</div>' not in text:
               raise SystemExit('expected StartScreen 2.0.7 marker not found')
           start.write_text(text.replace('<div className="start-version">2.0.7</div>', '<div className="start-version">2.0.8</div>', 1), encoding='utf-8')
-
-          release = Path('.github/workflows/windows-release.yml')
-          text = release.read_text(encoding='utf-8')
-          if 'Verify Folio 2.0.7 version consistency' not in text:
-              raise SystemExit('expected Windows 2.0.7 release contract not found')
-          text = text.replace('Verify Folio 2.0.7 version consistency', 'Verify Folio 2.0.8 version consistency', 1)
-          text = text.replace('if ($version -ne "2.0.7") { throw "Windows release is scoped to Folio 2.0.7, found $version." }', 'if ($version -ne "2.0.8") { throw "Windows release is scoped to Folio 2.0.8, found $version." }', 1)
-          old_notes = 'Folio 2.0.7 is a professional UI and artwork-presentation release. The Folio wordmark uses the supplied Pelagiad face at a larger, consistent size on the start screen and workspace, while application chrome uses Source Sans 3. The command bar, manuscript navigator, editor canvas, device preview, status bar, Export and Replace Cover controls now follow one coherent desktop system. Cover and Full-page Image artwork uses contain-fit without destructive cropping; Full-page Image filenames are no longer shown as visible titles. The sidebar gains functional Add Section and book-details controls without introducing dead UI, Cover alignment is corrected, and the chapter header is tightened to return more space to the manuscript. The release is gated by typecheck, the full formatter/UI suite, Windows browser interaction smoke, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing.'
-          new_notes = 'Folio 2.0.8 is a workflow and publishing-correctness patch. The duplicate top-bar Add control is removed in favor of the real sidebar Add Section action; the workspace now exposes New Project, and the Folio wordmark returns safely to the dashboard after flushing document and appearance saves. The dashboard no longer shows the redundant standalone F mark. Every style-customization category can return to Theme Default, including dropdowns, checkboxes, sliders and grouped overrides. Full-page Image filenames and legacy image-page titles are suppressed across the UI, preview and exported HTML/EPUB/PDF paths, while image pages remain out of the TOC and keep their heading hidden. The clickable Folio wordmark retains the exact Pelagiad branding face. The release is gated by typecheck, the full formatter/UI suite, real browser navigation tests, image-page export regressions, Windows visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing.'
-          if old_notes not in text:
-              raise SystemExit('expected 2.0.7 release notes not found')
-          release.write_text(text.replace(old_notes, new_notes, 1), encoding='utf-8')
-
-          Path('.github/workflows/prepare-v208-release.yml').unlink()
-      - name: Verify version contract
+      - name: Verify package version contract
         run: |
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!=='2.0.8'||l.version!=='2.0.8'||l.packages[''].version!=='2.0.8') throw new Error('2.0.8 package version mismatch')"
           grep -q '>2.0.8</div>' web/src/StartScreen.tsx
-          grep -q 'Verify Folio 2.0.8 version consistency' .github/workflows/windows-release.yml
-      - name: Commit release metadata
+      - name: Commit package metadata
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Prepare Folio 2.0.8 release"
+          git add package.json package-lock.json web/src/StartScreen.tsx
+          git commit -m "Bump Folio to 2.0.8"
           git push origin HEAD:fix/v2.0.8-ui-style-image-export
