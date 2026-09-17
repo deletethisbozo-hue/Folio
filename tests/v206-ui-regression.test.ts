@@ -74,9 +74,9 @@ try {
     };
   });
   check("Folio wordmark uses the exact Pelagiad family", typography.logoFont.includes("Folio Pelagiad Exact"), typography.logoFont);
-  check("Folio wordmark keeps its dedicated branding treatment", typography.logoTransform === "capitalize", typography.logoTransform);
-  check("application chrome uses the single Source Sans UI family", typography.manuscriptFont.includes("Folio Source Sans 3") && typography.previewFont.includes("Folio Source Sans 3") && typography.exportFont.includes("Folio Source Sans 3"));
-  check("Manuscript and Page Preview have identical type metrics", typography.manuscriptFont === typography.previewFont && typography.manuscriptSize === typography.previewSize && typography.manuscriptWeight === typography.previewWeight && typography.manuscriptTracking === typography.previewTracking);
+  check("Folio wordmark keeps its lowercase branding treatment", typography.logoTransform === "lowercase", typography.logoTransform);
+  check("application chrome uses the single Source Sans UI family", typography.manuscriptFont.includes("Folio Source Sans 3") && typography.previewFont.includes("Folio Source Sans 3") && typography.exportFont.includes("Folio Source Sans 3"), `${typography.manuscriptFont} | ${typography.previewFont} | ${typography.exportFont}`);
+  check("Manuscript and Page Preview have identical type metrics", typography.manuscriptFont === typography.previewFont && typography.manuscriptSize === typography.previewSize && typography.manuscriptWeight === typography.previewWeight && typography.manuscriptTracking === typography.previewTracking, JSON.stringify(typography));
   check("Export is a full desktop control rather than the old tiny CTA", typography.exportHeight >= 34 && typography.exportBackground !== "rgb(164, 113, 72)", `${typography.exportHeight}px / ${typography.exportBackground}`);
 
   await page.evaluate(() => {
