@@ -113,24 +113,29 @@ try {
     }
     if (nodes.length < 2) throw new Error("Split editor has insufficient text to format");
 
-    const selectPart = (node: Text, start: number, length: number) => {
-      const range = document.createRange();
-      const safeStart = Math.min(start, Math.max(0, node.length - 2));
-      const safeEnd = Math.min(node.length, safeStart + length);
-      range.setStart(node, safeStart);
-      range.setEnd(node, safeEnd);
-      const selection = window.getSelection()!;
-      selection.removeAllRanges();
-      selection.addRange(range);
-    };
+    const highlightRange = document.createRange();
+    const highlightStart = Math.min(1, Math.max(0, nodes[0].length - 2));
+    const highlightEnd = Math.min(nodes[0].length, highlightStart + Math.min(48, nodes[0].length - 1));
+    highlightRange.setStart(nodes[0], highlightStart);
+    highlightRange.setEnd(nodes[0], highlightEnd);
+    const highlightSelection = window.getSelection()!;
+    highlightSelection.removeAllRanges();
+    highlightSelection.addRange(highlightRange);
 
-    selectPart(nodes[0], 1, Math.min(48, nodes[0].length - 1));
     const highlight = document.querySelector<HTMLInputElement>(".writing-split-toolbar .writing-highlight-control input");
     if (!highlight) throw new Error("Highlight control missing");
     highlight.value = "#d8f2d0";
     highlight.dispatchEvent(new Event("change", { bubbles: true }));
 
-    selectPart(nodes[1], 1, Math.min(44, nodes[1].length - 1));
+    const colorRange = document.createRange();
+    const colorStart = Math.min(1, Math.max(0, nodes[1].length - 2));
+    const colorEnd = Math.min(nodes[1].length, colorStart + Math.min(44, nodes[1].length - 1));
+    colorRange.setStart(nodes[1], colorStart);
+    colorRange.setEnd(nodes[1], colorEnd);
+    const colorSelection = window.getSelection()!;
+    colorSelection.removeAllRanges();
+    colorSelection.addRange(colorRange);
+
     const color = document.querySelector<HTMLInputElement>(".writing-split-toolbar .writing-color-control:not(.writing-highlight-control) input");
     if (!color) throw new Error("Text color control missing");
     color.value = "#b42318";
