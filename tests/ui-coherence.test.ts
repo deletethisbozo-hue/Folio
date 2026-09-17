@@ -15,8 +15,9 @@ test("the coherence layer is loaded after the older branding and polish layers",
   assert.ok(coherence > branding, "v205 coherence overrides must load last");
 });
 
-test("Pelagiad is reserved for Folio wordmarks", () => {
-  assert.match(css, /--folio-logo-font:\s*"Pelagiad"/);
+test("exact Pelagiad asset is reserved for Folio wordmarks", () => {
+  assert.match(css, /@font-face\s*\{[\s\S]*font-family:\s*"Folio Pelagiad Exact"[\s\S]*src:\s*url\("\.\/assets\/Pelagiad\.ttf"\)/);
+  assert.match(css, /--folio-logo-font:\s*"Folio Pelagiad Exact",\s*"Pelagiad"/);
   assert.match(css, /\.start-brand,[\s\S]*\.command-wordmark,[\s\S]*\.folio-wordmark/);
   assert.match(css, /\.start-brand,[\s\S]*?font-family:\s*var\(--folio-logo-font\)\s*!important/);
 
