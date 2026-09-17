@@ -1,5 +1,26 @@
 /* Folio 2.0.7 preview: controls must belong to the existing Editorial Studio chrome. */
 
+/* One branding scale across the start screen and the editor shell. The wordmark
+ * must not jump in size when a book opens. */
+:root,
+.start-shell,
+.folio-shell {
+  --folio-wordmark-size: 27px;
+}
+
+.start-shell .start-brand,
+.folio-shell .command-wordmark,
+.folio-shell .folio-wordmark {
+  font-family: var(--folio-logo-font) !important;
+  font-size: var(--folio-wordmark-size) !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-synthesis: none !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: lowercase !important;
+}
+
 /* Export uses the same quiet geometry as the device selector below it. */
 .folio-shell[data-ui-tone] .generate-button {
   box-sizing: border-box !important;
