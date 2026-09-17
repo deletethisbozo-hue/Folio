@@ -904,10 +904,18 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     } catch (e) { setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); }
   }
 
+  async function flushSplitEditor(): Promise<boolean> {
+    const flush = splitFlushRef.current;
+    return flush ? flush() : true;
+  }
+
   async function saveCurrent(): Promise<boolean> {
-    if (!document?.editable || !project || !selectedId) return true;
+    if (!document?.editable || !project || !selectedId) return flushSplitEditor();
     await flushEditorDom();
-    if (draftRef.current === document.markdown) { setDirty(false); return true; }
+    if (draftRef.current === document.markdown) {
+      setDirty(false);
+      return flushSplitEditor();
+    }
     const sectionId = selectedId;
     const value = draftRef.current;
     setSaveState("saving");
@@ -916,7 +924,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (selectedRef.current === sectionId && draftRef.current === value && !editorDomDirtyRef.current) {
         setDocument(saved); setDirty(false); setSaveState("saved");
       }
-      return true;
+      return flushSplitEditor();
     } catch (e) {
       setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); return false;
     }
