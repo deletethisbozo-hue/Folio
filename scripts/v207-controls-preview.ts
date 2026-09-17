@@ -68,9 +68,9 @@ try {
   await page.screenshot({ path: path.join(qa, "workspace-wordmark.png") });
 
   for (const [name, brand] of [["start", startBrand], ["workspace", workspaceBrand]] as const) {
-    if (brand.fontSize !== "27px") throw new Error(`${name} wordmark font-size is ${brand.fontSize}, expected 27px`);
+    if (brand.fontSize !== "30px") throw new Error(`${name} wordmark font-size is ${brand.fontSize}, expected 30px`);
     if (!/Folio Pelagiad Exact/i.test(brand.fontFamily)) throw new Error(`${name} wordmark is not Pelagiad: ${brand.fontFamily}`);
-    if (brand.lineHeight !== "27px") throw new Error(`${name} wordmark line-height is ${brand.lineHeight}, expected 27px`);
+    if (brand.lineHeight !== "30px") throw new Error(`${name} wordmark line-height is ${brand.lineHeight}, expected 30px`);
     if (brand.text.toLowerCase() !== "folio") throw new Error(`${name} wordmark text is ${brand.text}`);
   }
   if (startBrand.fontSize !== workspaceBrand.fontSize || startBrand.lineHeight !== workspaceBrand.lineHeight) {
