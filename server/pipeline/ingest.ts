@@ -161,8 +161,14 @@ async function sectionFromFile(
   const parsed = matter(raw);
   const fm = parsed.data as Record<string, unknown>;
   const fromBody = extractTitle(parsed.content);
-  const title =
+  const storedTitle =
     (typeof fm.title === "string" && fm.title) || fromBody.title || path.basename(filePath, path.extname(filePath));
+  const className = typeof fm.class === "string" ? fm.class : slugify(storedTitle);
+  const isImagePage = className.split(/\s+/).includes("image-page");
+  // A full-page illustration title is structural metadata only. Older Folio
+  // builds could persist the uploaded filename here; normalize it on ingest so
+  // legacy projects cannot leak that filename back into UI or any export.
+  const title = isImagePage ? "Full-page Image" : storedTitle;
   const body = fromBody.title ? fromBody.body : parsed.content;
   // Chapter subtitle: an explicit `subtitle:` in frontmatter wins; otherwise a
   // leading "## …" line under the title. The leading H2 is stripped either way.
@@ -174,9 +180,9 @@ async function sectionFromFile(
     title,
     subtitle,
     kind,
-    className: typeof fm.class === "string" ? fm.class : slugify(title),
-    toc: typeof fm.toc === "boolean" ? fm.toc : defaults.toc,
-    showTitle: typeof fm.showTitle === "boolean" ? fm.showTitle : defaults.showTitle,
+    className,
+    toc: isImagePage ? false : typeof fm.toc === "boolean" ? fm.toc : defaults.toc,
+    showTitle: isImagePage ? false : typeof fm.showTitle === "boolean" ? fm.showTitle : defaults.showTitle,
     markdown: ex.body.trim(),
     sourcePath: filePath,
   };

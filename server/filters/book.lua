@@ -225,6 +225,10 @@ function Pandoc(doc)
   local reflow = false
   for _, b in ipairs(doc.blocks) do
     if b.t == "Header" and b.level == 1 then
+      -- Image-page headings are structural anchors only. Clear their inline
+      -- text for every Pandoc target so a legacy filename/title cannot render
+      -- in HTML, EPUB, PDF or DOCX even if a reader ignores hide-title CSS.
+      if has_class(b, "image-page") then b.content = {} end
       awaiting = dropcap and has_class(b, "chapter")
       reflow = has_class(b, "chapter") or has_class(b, "backmatter")
       table.insert(out, b)
