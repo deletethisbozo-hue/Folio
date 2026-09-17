@@ -1252,7 +1252,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     });
   }
 
-  function applyInlineFormat(command: "bold" | "italic" | "underline", placeholder: string) {
+  function applyInlineFormat(command: "bold" | "italic" | "underline" | "strikeThrough", placeholder: string) {
     const el = editorRef.current;
     if (!el || !document?.editable) return;
     el.focus();
@@ -1262,6 +1262,23 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       window.document.execCommand("insertText", false, placeholder);
       window.document.execCommand(command, false);
     } else window.document.execCommand(command, false);
+    requestAnimationFrame(recordEditorDom);
+  }
+
+  function applyWritingColor(command: "foreColor" | "hiliteColor", value: string) {
+    const el = editorRef.current;
+    if (!el || !document?.editable) return;
+    el.focus();
+    window.document.execCommand("styleWithCSS", false, "true");
+    window.document.execCommand(command, false, value);
+    requestAnimationFrame(recordEditorDom);
+  }
+
+  function clearInlineFormatting() {
+    const el = editorRef.current;
+    if (!el || !document?.editable) return;
+    el.focus();
+    window.document.execCommand("removeFormat", false);
     requestAnimationFrame(recordEditorDom);
   }
 
