@@ -9,11 +9,10 @@ permissions:
 
 concurrency:
   group: qualify-folio-v204
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   qualify:
-    if: github.event.head_commit.message != 'Folio 2.0.4: fix preview media and UI polish'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -72,5 +71,5 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
-          git commit -m "Folio 2.0.4: fix preview media and UI polish"
+          git commit -m "Folio 2.0.4: fix preview media and UI polish [skip ci]"
           git push origin HEAD:fix/v2.0.4-preview-media-polish-stage
