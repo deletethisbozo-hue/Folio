@@ -32,6 +32,91 @@ function syncDuplicateLabels(root: ParentNode = document): void {
   }
 }
 
+function setStyle(element: HTMLElement, property: string, value: string): void {
+  if (element.style.getPropertyValue(property) !== value) element.style.setProperty(property, value, "important");
+}
+
+function makeFullPageSurface(element: HTMLElement): void {
+  setStyle(element, "box-sizing", "border-box");
+  setStyle(element, "width", "100%");
+  setStyle(element, "height", "100%");
+  setStyle(element, "min-width", "0");
+  setStyle(element, "min-height", "0");
+  setStyle(element, "max-width", "none");
+  setStyle(element, "max-height", "none");
+  setStyle(element, "margin", "0");
+  setStyle(element, "padding", "0");
+  setStyle(element, "border", "0");
+  setStyle(element, "background", "#fff");
+  setStyle(element, "overflow", "hidden");
+}
+
+const previewObservers = new WeakMap<Document, MutationObserver>();
+
+function repairPreviewImagePage(frame: HTMLIFrameElement): void {
+  const editor = document.querySelector<HTMLElement>(".editor-pane.folio-image-page-mode .folio-image-page-editor");
+  if (!editor || !isFullPageImageMarkdown(editor.dataset.markdown ?? "")) return;
+
+  const doc = frame.contentDocument;
+  if (!doc?.documentElement || !doc.body) return;
+
+  const section = doc.querySelector<HTMLElement>("main.book > section.image-page")
+    ?? doc.querySelector<HTMLElement>("main.book > section.level1, main.book > section.frontmatter");
+  if (!section) return;
+
+  const image = section.querySelector<HTMLImageElement>("img.full-page-image, img[data-folio-asset], img");
+  if (!image) return;
+
+  section.classList.add("image-page");
+  image.classList.add("full-page-image", "fit-contain");
+  image.classList.remove("fit-cover", "folio-crop");
+
+  makeFullPageSurface(doc.documentElement);
+  makeFullPageSurface(doc.body);
+  const main = doc.querySelector<HTMLElement>("main.book");
+  if (main) makeFullPageSurface(main);
+  makeFullPageSurface(section);
+
+  const paragraph = image.closest<HTMLElement>("p");
+  if (paragraph && section.contains(paragraph)) makeFullPageSurface(paragraph);
+
+  const wrapper = image.closest<HTMLElement>("figure, .folio-illustration-preview, .editor-illustration");
+  if (wrapper && section.contains(wrapper)) {
+    wrapper.classList.add("folio-full-page-preview-art");
+    makeFullPageSurface(wrapper);
+    setStyle(wrapper, "display", "grid");
+    setStyle(wrapper, "place-items", "center");
+  }
+
+  setStyle(image, "display", "block");
+  setStyle(image, "box-sizing", "border-box");
+  setStyle(image, "width", "100%");
+  setStyle(image, "height", "100%");
+  setStyle(image, "min-width", "0");
+  setStyle(image, "min-height", "0");
+  setStyle(image, "max-width", "100%");
+  setStyle(image, "max-height", "100%");
+  setStyle(image, "margin", "0");
+  setStyle(image, "padding", "0");
+  setStyle(image, "object-fit", "contain");
+  setStyle(image, "object-position", "50% 50%");
+  setStyle(image, "background", "#fff");
+
+  if (!previewObservers.has(doc)) {
+    let queued = false;
+    const observer = new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        repairPreviewImagePage(frame);
+      });
+    });
+    observer.observe(section, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "src"] });
+    previewObservers.set(doc, observer);
+  }
+}
+
 function syncImagePageMode(): void {
   const panes = Array.from(document.querySelectorAll<HTMLElement>(".folio-shell .editor-pane"));
   for (const pane of panes) {
@@ -74,6 +159,15 @@ function syncImagePageMode(): void {
         delete figure.dataset.folioFullPage;
       });
     }
+  }
+
+  const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+  if (frame) {
+    if (!frame.dataset.folioImagePageLoadHook) {
+      frame.dataset.folioImagePageLoadHook = "true";
+      frame.addEventListener("load", () => requestAnimationFrame(() => repairPreviewImagePage(frame)));
+    }
+    repairPreviewImagePage(frame);
   }
 
   syncDuplicateLabels();
