@@ -46,6 +46,7 @@ jobs:
           node scripts/v204-upload-diagnostic.mjs
           node scripts/apply-v204-followup.mjs
           node scripts/v204-frontmatter-race-fix.mjs
+          node scripts/v204-illustration-userflow-test.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Build web for focused browser checks
@@ -60,7 +61,7 @@ jobs:
         run: npm run build
       - name: Commit qualified patch
         run: |
-          rm -f scripts/apply-v204.mjs scripts/apply-v204-fixed.mjs scripts/v204-followup.mjs scripts/v204-upload-diagnostic.mjs scripts/apply-v204-followup.mjs scripts/v204-frontmatter-race-fix.mjs .github/workflows/qualify-v204.yml
+          rm -f scripts/apply-v204.mjs scripts/apply-v204-fixed.mjs scripts/v204-followup.mjs scripts/v204-upload-diagnostic.mjs scripts/apply-v204-followup.mjs scripts/v204-frontmatter-race-fix.mjs scripts/v204-illustration-userflow-test.mjs .github/workflows/qualify-v204.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
