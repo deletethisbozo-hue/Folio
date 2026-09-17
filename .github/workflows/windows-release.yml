@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.0.3 version consistency
+      - name: Verify Folio 2.0.4 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.0.3") { throw "Windows release is scoped to Folio 2.0.3, found $version." }
+          if ($version -ne "2.0.4") { throw "Windows release is scoped to Folio 2.0.4, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -222,4 +222,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.0.3 is a visual and front-matter quality release. The studio has a stronger hierarchy and a clearly branded Folio wordmark, cover controls are cleaned up, and cover artwork is shown with the same complete contain-fit treatment across every preview profile. Editable front matter can now insert, persist, reload and remove PNG/JPEG illustrations as real book assets instead of dropping images during rich-text conversion. The release remains gated by typecheck, the complete formatter/UI suite on Linux and Windows, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 2.0.4 is a preview, media, print-preview and UI-polish release. It carries the qualified 2.0.4 fixes for front-matter illustrations and image controls, preview rendering, full-page media handling, branding/UI polish and export-path behavior. The release is gated by typecheck, the complete formatter/UI suite on Linux and Windows, visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
