@@ -2,14 +2,9 @@ import fs from 'node:fs';
 
 const read = (p) => fs.readFileSync(p, 'utf8');
 const write = (p, s) => fs.writeFileSync(p, s);
-function replaceRequired(path, from, to, label) {
-  const source = read(path);
-  if (!source.includes(from)) throw new Error(`Missing ${label} anchor in ${path}`);
-  write(path, source.replace(from, to));
-}
 
-// Illustration pages are image-only. Do not expose a source filename as a
-// caption or create an editable spacer paragraph around the image.
+// Illustration pages are image-only. Do not expose the source filename as a
+// caption and do not retain prose around the inserted image.
 let app = read('web/src/App.tsx');
 app = app.replace(
   '      const alt = file.name.replace(/\\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Illustration";',
@@ -19,27 +14,34 @@ app = app.replace(
   '      const caption = window.document.createElement("figcaption");\n      caption.textContent = alt;\n',
   '',
 );
+// The crop/scale patch has already wrapped the image in a viewport and added its
+// controls by the time this script runs, so remove the caption from that final
+// DOM shape rather than from the old pre-patch append call.
+app = app.replace(
+  '      figure.append(viewport, caption, controlsPanel, remove);',
+  '      figure.append(viewport, controlsPanel, remove);',
+);
 app = app.replace(
   '      figure.append(image, caption, remove);',
   '      figure.append(image, remove);',
 );
 const insertionBlock = `      const savedRange = illustrationRangeRef.current;\n      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {\n        savedRange.deleteContents();\n        savedRange.insertNode(figure);\n      } else {\n        editor.appendChild(figure);\n      }\n      const spacer = window.document.createElement("p");\n      spacer.innerHTML = "<br>";\n      figure.after(spacer);`;
 if (!app.includes(insertionBlock)) throw new Error('Missing illustration insertion block in App.tsx');
-app = app.replace(
-  insertionBlock,
-  '      editor.replaceChildren(figure);',
-);
+app = app.replace(insertionBlock, '      editor.replaceChildren(figure);');
+if (/\bcaption\b/.test(app.slice(app.indexOf('async function insertIllustration'), app.indexOf('async function uploadCover')))) {
+  throw new Error('A visible illustration caption reference remains in insertIllustration');
+}
 write('web/src/App.tsx', app);
 
-// Existing manuscripts may still carry an alt value for accessibility, but it
-// must never be rendered as visible page text. Remove all generated captions
-// from both editor hydration and Page Preview HTML.
+// Existing manuscripts may still carry alt text for accessibility, but that alt
+// text must not become visible typography. Remove generated figcaptions from the
+// helper used by both editor hydration and Page Preview.
 let rich = read('web/src/rich-text.ts');
 rich = rich.replaceAll('<figcaption>${escapeHtml(alt)}</figcaption>', '');
 write('web/src/rich-text.ts', rich);
 
-// Focused regression checks: user-visible upload must not leak the filename or
-// any figcaption into the editor or live iframe preview.
+// Focused regression checks: the real upload flow must not leak a source
+// filename/caption into either the editor page or the device iframe.
 for (const path of ['tests/illustration-ui.test.ts', 'tests/illustration-preview-ui.test.ts']) {
   let test = read(path);
   const marker = '  await page.waitForSelector(".editor-illustration img", { timeout: 12000 });';
