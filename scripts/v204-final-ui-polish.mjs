@@ -6,28 +6,24 @@ const write = (p, s) => fs.writeFileSync(p, s);
 // Illustration pages are image-only. Do not expose the source filename as a
 // caption and do not retain prose around the inserted image.
 let app = read('web/src/App.tsx');
-app = app.replace(
+const insertStart = app.indexOf('  async function insertIllustration(file: File) {');
+const insertEnd = app.indexOf('  async function uploadCover(file: File) {', insertStart);
+if (insertStart < 0 || insertEnd < 0) throw new Error('Cannot locate insertIllustration in App.tsx');
+let insert = app.slice(insertStart, insertEnd);
+insert = insert.replace(
   '      const alt = file.name.replace(/\\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Illustration";',
   '      const alt = "Illustration";',
 );
-app = app.replace(
-  '      const caption = window.document.createElement("figcaption");\n      caption.textContent = alt;\n',
-  '',
-);
-// The crop/scale patch has already wrapped the image in a viewport and added its
-// controls by the time this script runs, so remove the caption from that final
-// DOM shape rather than from the old pre-patch append call.
-app = app.replace(
-  '      figure.append(viewport, caption, controlsPanel, remove);',
-  '      figure.append(viewport, controlsPanel, remove);',
-);
-app = app.replace(
-  '      figure.append(image, caption, remove);',
-  '      figure.append(image, remove);',
-);
+// Handle both the original DOM and the crop/scale-transformed DOM. The latter
+// can rearrange the append call before this finalizer runs.
+insert = insert.replace(/\n\s*const caption = window\.document\.createElement\("figcaption"\);\n\s*caption\.textContent = alt;/g, '');
+insert = insert.replace(/,\s*caption\s*,/g, ', ');
+insert = insert.replace(/\bcaption\s*,\s*/g, '');
+insert = insert.replace(/,\s*caption\b/g, '');
 const insertionBlock = `      const savedRange = illustrationRangeRef.current;\n      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {\n        savedRange.deleteContents();\n        savedRange.insertNode(figure);\n      } else {\n        editor.appendChild(figure);\n      }\n      const spacer = window.document.createElement("p");\n      spacer.innerHTML = "<br>";\n      figure.after(spacer);`;
-if (!app.includes(insertionBlock)) throw new Error('Missing illustration insertion block in App.tsx');
-app = app.replace(insertionBlock, '      editor.replaceChildren(figure);');
+if (!insert.includes(insertionBlock)) throw new Error('Missing illustration insertion block in App.tsx');
+insert = insert.replace(insertionBlock, '      editor.replaceChildren(figure);');
+app = app.slice(0, insertStart) + insert + app.slice(insertEnd);
 write('web/src/App.tsx', app);
 
 // Existing manuscripts may still carry alt text for accessibility, but that alt
