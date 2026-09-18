@@ -130,6 +130,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(() => window.localStorage.getItem("folio-spellcheck-enabled") !== "false");
+  const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,6 +228,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { window.localStorage.setItem("folio-ui-tone", uiTone); }, [uiTone]);
   useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
+  useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
   useEffect(() => {
     if (!focusMode) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -572,12 +574,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     });
   }
 
-  async function openFolder(folderPath?: string) {
+  async function openFolder(projectPath?: string) {
     if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
-      const selected = folderPath ?? (await api.pickFolder(project?.folder ?? undefined)).path;
-      if (selected) adopt(await api.openFolder(selected));
+      const selected = projectPath ?? (await api.pickProjectFile("open", project?.projectFile ?? undefined)).path;
+      if (!selected) return;
+      const previousId = project?.projectId ?? null;
+      const summary = await api.openProjectFile(selected);
+      if (previousId && previousId !== summary.projectId) await api.closeProject(previousId);
+      adopt(summary);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -585,7 +591,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   async function loadSample() {
     if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
-    try { adopt(await api.loadSample()); }
+    try {
+      const previousId = project?.projectId ?? null;
+      const summary = await api.loadSample();
+      if (previousId && previousId !== summary.projectId) await api.closeProject(previousId);
+      adopt(summary);
+    }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -594,9 +605,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
-      const selected = (await api.pickFolder()).path;
+      const selected = (await api.pickProjectFile("save", undefined, "Untitled.folio")).path;
       if (!selected) return;
-      const guessed = selected.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Untitled";
+      const filename = selected.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Untitled.folio";
+      const guessed = filename.replace(/\.folio$/i, "") || "Untitled";
       setNewBookForm({ path: selected, title: guessed, author: "" });
       setShowNewBook(true);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -607,7 +619,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (!newBookForm.path.trim()) return;
     setBusy(true); setError(null);
     try {
-      adopt(await api.newBook(newBookForm.path, newBookForm.title, newBookForm.author));
+      const previousId = project?.projectId ?? null;
+      const summary = await api.newBook(newBookForm.path, newBookForm.title, newBookForm.author);
+      if (previousId && previousId !== summary.projectId) await api.closeProject(previousId);
+      adopt(summary);
       setShowNewBook(false);
       setShowBookDetails(true);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -621,6 +636,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (project && meta) await persistAppearance(project.projectId, meta, typography);
       await sectionSaveQueueRef.current.flush();
       await appearanceSaveQueueRef.current.flush();
+      if (project) await api.closeProject(project.projectId);
       onDashboard?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -983,6 +999,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         if (project && meta) await persistAppearance(project.projectId, meta, typography);
         await sectionSaveQueueRef.current.flush();
         await appearanceSaveQueueRef.current.flush();
+        if (project) await api.flushProject(project.projectId);
         return true;
       } catch (e) {
         setSaveState("error"); setError(e instanceof Error ? e.message : String(e));
@@ -1594,11 +1611,20 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     } catch (e) { setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); }
   }
 
+  async function chooseExportDirectory(): Promise<void> {
+    try {
+      const selected = (await api.pickFolder(exportDirectory || undefined)).path;
+      if (selected) setExportDirectory(selected);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function runExport(label: string, format: string, preset?: string, force = false): Promise<void> {
     if (!project || !meta || !(await saveCurrent())) return;
     setExportState({ busy: label, result: null, error: null });
     try {
-      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: format === "print" ? printOptions : undefined, force });
+      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: format === "print" ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined });
       if (result.needsConfirm) {
         if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) return runExport(label, format, preset, true);
         setExportState({ busy: null, result: null, error: null }); return;
@@ -1690,7 +1716,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
-      {showSettings && <SettingsDialog spellcheckEnabled={spellcheckEnabled} setSpellcheckEnabled={setSpellcheckEnabled} onClose={() => setShowSettings(false)}/>}
+      {showSettings && <SettingsDialog spellcheckEnabled={spellcheckEnabled} setSpellcheckEnabled={setSpellcheckEnabled} exportDirectory={exportDirectory} onChooseExportDirectory={() => void chooseExportDirectory()} onResetExportDirectory={() => setExportDirectory("")} onClose={() => setShowSettings(false)}/>}
       {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
       {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}
     </div>
@@ -1705,20 +1731,37 @@ function DialogShell(props: { title: string; children: React.ReactNode; footer: 
   return <div className="dialog-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}><section className="folio-dialog" role="dialog" aria-modal="true" aria-label={props.title}><header><h2>{props.title}</h2><button onClick={props.onClose} aria-label="Close">×</button></header><div className="dialog-body">{props.children}</div><footer>{props.footer}</footer></section></div>;
 }
 
-function SettingsDialog(props: { spellcheckEnabled: boolean; setSpellcheckEnabled: (enabled: boolean) => void; onClose: () => void }) {
+function SettingsDialog(props: {
+  spellcheckEnabled: boolean;
+  setSpellcheckEnabled: (enabled: boolean) => void;
+  exportDirectory: string;
+  onChooseExportDirectory: () => void;
+  onResetExportDirectory: () => void;
+  onClose: () => void;
+}) {
   return <DialogShell title="Settings" onClose={props.onClose} footer={<button className="native-button primary" onClick={props.onClose}>Done</button>}>
     <div className="settings-list">
       <label className="settings-row">
         <span className="settings-copy"><strong>Spellcheck</strong><small>Underline suspected spelling errors while writing. This setting applies to the main editor and Split View.</small></span>
         <input type="checkbox" checked={props.spellcheckEnabled} onChange={(event) => props.setSpellcheckEnabled(event.target.checked)} aria-label="Enable spellcheck"/>
       </label>
+      <div className="settings-row export-location-row">
+        <span className="settings-copy">
+          <strong>Export location</strong>
+          <small>{props.exportDirectory || "Default: an Exports folder next to the current .folio project."}</small>
+        </span>
+        <span className="settings-actions">
+          {props.exportDirectory && <button type="button" className="native-button" onClick={props.onResetExportDirectory}>Reset</button>}
+          <button type="button" className="native-button" onClick={props.onChooseExportDirectory}>Choose folder…</button>
+        </span>
+      </div>
     </div>
   </DialogShell>;
 }
 
 function NewBookDialog(props: { value: { path: string; title: string; author: string }; setValue: (value: { path: string; title: string; author: string }) => void; busy: boolean; onCancel: () => void; onCreate: () => void }) {
   const { value, setValue } = props;
-  return <DialogShell title="New Book" onClose={props.onCancel} footer={<><button className="native-button" onClick={props.onCancel}>Cancel</button><button className="native-button primary" disabled={props.busy || !value.title.trim()} onClick={props.onCreate}>Create Book</button></>}><label className="dialog-field"><span>Title</span><input autoFocus value={value.title} onChange={(e) => setValue({ ...value, title: e.target.value })}/></label><label className="dialog-field"><span>Author</span><input value={value.author} placeholder="Author name" onChange={(e) => setValue({ ...value, author: e.target.value })}/></label><label className="dialog-field"><span>Folder</span><input value={value.path} readOnly/></label></DialogShell>;
+  return <DialogShell title="New Book" onClose={props.onCancel} footer={<><button className="native-button" onClick={props.onCancel}>Cancel</button><button className="native-button primary" disabled={props.busy || !value.title.trim()} onClick={props.onCreate}>Create Book</button></>}><label className="dialog-field"><span>Title</span><input autoFocus value={value.title} onChange={(e) => setValue({ ...value, title: e.target.value })}/></label><label className="dialog-field"><span>Author</span><input value={value.author} placeholder="Author name" onChange={(e) => setValue({ ...value, author: e.target.value })}/></label><label className="dialog-field"><span>Project file</span><input value={value.path} readOnly/></label></DialogShell>;
 }
 
 function ChapterHeading(props: { title: string; subtitle: string; index: number | null; editable: boolean; busy: boolean; onTitle: (title: string) => void; onSubtitle: (subtitle: string) => void }) {
