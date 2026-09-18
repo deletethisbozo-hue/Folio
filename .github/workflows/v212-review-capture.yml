@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: folio-v212-review-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   capture:
     runs-on: windows-2025
