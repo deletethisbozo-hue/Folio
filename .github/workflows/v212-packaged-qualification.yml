@@ -75,6 +75,20 @@ jobs:
       - name: Build packaged candidate
         run: npx electron-builder --win nsis portable --x64 --publish never
 
+      - name: Verify packaged Electron SQLite runtime
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          $electron = (Resolve-Path "release\win-unpacked\Folio.exe").Path
+          $env:ELECTRON_RUN_AS_NODE = "1"
+          try {
+            & $electron -e "const {DatabaseSync}=require('node:sqlite'); const db=new DatabaseSync(':memory:'); db.exec('create table t(x)'); db.close(); console.log('PACKAGED SQLITE OK')"
+            if ($LASTEXITCODE -ne 0) { throw "Packaged Electron runtime cannot use node:sqlite." }
+          }
+          finally {
+            Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+          }
+
       - name: Smoke portable .folio lifecycle
         timeout-minutes: 6
         shell: pwsh
@@ -86,10 +100,20 @@ jobs:
           $process = Start-Process -FilePath $exe -PassThru
           try {
             $health = $null
-            for ($i = 0; $i -lt 160; $i++) {
-              try { $health = Invoke-RestMethod "http://127.0.0.1:43137/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            for ($i = 0; $i -lt 80; $i++) {
+              if ($process.HasExited) {
+                throw "Portable Folio exited before /api/health became ready (exit code $($process.ExitCode))."
+              }
+              try {
+                $health = Invoke-RestMethod "http://127.0.0.1:43137/api/health" -TimeoutSec 1
+                break
+              } catch {
+                Start-Sleep -Milliseconds 250
+              }
             }
-            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Portable packaged Folio did not become healthy." }
+            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) {
+              throw "Portable packaged Folio stayed alive but /api/health never became ready."
+            }
 
             node scripts\v212-packaged-project-smoke.mjs roundtrip
             if ($LASTEXITCODE -ne 0) { throw "Portable .folio project smoke failed." }
@@ -137,7 +161,8 @@ jobs:
           try {
             $health = $null
             for ($i = 0; $i -lt 160; $i++) {
-              try { $health = Invoke-RestMethod "http://127.0.0.1:43147/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+              if ($process.HasExited) { throw "Installed Folio exited before direct .folio startup became healthy (exit code $($process.ExitCode))." }
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43147/api/health" -TimeoutSec 1; break } catch { Start-Sleep -Milliseconds 250 }
             }
             if (-not $health -or -not $health.ok) { throw "Installed Folio did not start from a .folio argument." }
 
@@ -187,7 +212,7 @@ jobs:
           try {
             $health = $null
             for ($i = 0; $i -lt 160; $i++) {
-              try { $health = Invoke-RestMethod "http://127.0.0.1:43157/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43157/api/health" -TimeoutSec 1; break } catch { Start-Sleep -Milliseconds 250 }
             }
             if (-not $health -or -not $health.ok) { throw "Windows shell association did not launch Folio for the .folio file." }
 
