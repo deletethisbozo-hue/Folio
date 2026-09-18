@@ -32,6 +32,10 @@ try {
   await page.goto(base, { waitUntil: "networkidle0" });
 
   await page.waitForSelector(".start-shell .start-brand");
+  const dashboardActions = await page.$eval(".start-actions button", (buttons) => buttons.map((button) => button.textContent?.trim() ?? ""));
+  for (const expected of ["New Book", "Open Book…", "Import Folder…", "Open Sample"]) {
+    if (!dashboardActions.includes(expected)) throw new Error(`Dashboard project-file action missing: ${expected} — ${dashboardActions.join(" | ")}`);
+  }
   await settle();
   await page.screenshot({ path: path.join(qa, "01-dashboard.png") });
 
@@ -97,6 +101,15 @@ try {
     settings.click();
   });
   await page.waitForSelector('[role="dialog"][aria-label="Settings"]');
+  const settingsContract = await page.evaluate(() => {
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-label="Settings"]');
+    const choose = [...(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((button) => button.textContent?.trim() === "Choose folder…");
+    const copy = dialog?.textContent ?? "";
+    return { hasChoose: Boolean(choose), hasDefaultExportCopy: copy.includes("Exports folder next to the current .folio project") };
+  });
+  if (!settingsContract.hasChoose || !settingsContract.hasDefaultExportCopy) {
+    throw new Error(`Export location setting missing or unclear: ${JSON.stringify(settingsContract)}`);
+  }
   const initialSpellcheck = await page.$eval<HTMLInputElement>('input[aria-label="Enable spellcheck"]', (input) => input.checked);
   if (!initialSpellcheck) throw new Error("Spellcheck should default to enabled");
   await page.click('input[aria-label="Enable spellcheck"]');
