@@ -9,6 +9,12 @@ const debugPort = process.env.FOLIO_E2E_DEBUG_PORT || "43138";
 const appPort = process.env.FOLIO_E2E_PORT || "43137";
 const apiBase = `http://127.0.0.1:${appPort}`;
 
+const watchdog = setTimeout(() => {
+  console.error("[packaged-smoke] global watchdog expired after 210 seconds");
+  process.exit(124);
+}, 210_000);
+watchdog.unref();
+
 async function connect() {
   let lastError;
   for (let attempt = 0; attempt < 120; attempt++) {
@@ -80,6 +86,7 @@ try {
       throw new Error("Installed Folio opened the project but its persisted manuscript text is missing.");
     }
     console.log("Installed Folio startup from a .folio argument passed.");
+    clearTimeout(watchdog);
     process.exit(0);
   }
 
@@ -98,6 +105,7 @@ try {
       projectFile,
     );
     console.log("Installed Folio second-instance .folio handoff passed.");
+    clearTimeout(watchdog);
     process.exit(0);
   }
 
@@ -175,4 +183,5 @@ try {
   browser.disconnect();
 }
 
+clearTimeout(watchdog);
 if (mode === "roundtrip") process.exit(0);
