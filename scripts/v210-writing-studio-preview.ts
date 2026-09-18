@@ -32,7 +32,9 @@ try {
   await page.goto(base, { waitUntil: "networkidle0" });
 
   await page.waitForSelector(".start-shell .start-brand");
-  const dashboardActions = await page.$eval(".start-actions button", (buttons) => buttons.map((button) => button.textContent?.trim() ?? ""));
+  const dashboardActions = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLButtonElement>(".start-actions button")].map((button) => button.textContent?.trim() ?? ""),
+  );
   for (const expected of ["New Book", "Open Book…", "Import Folder…", "Open Sample"]) {
     if (!dashboardActions.includes(expected)) throw new Error(`Dashboard project-file action missing: ${expected} — ${dashboardActions.join(" | ")}`);
   }
