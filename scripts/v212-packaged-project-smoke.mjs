@@ -81,6 +81,24 @@ try {
     process.exit(0);
   }
 
+  if (mode === "verify-second-instance") {
+    const exe = process.env.FOLIO_SMOKE_EXE;
+    const projectFile = process.env.FOLIO_SECOND_PROJECT;
+    if (!exe || !projectFile) throw new Error("FOLIO_SMOKE_EXE and FOLIO_SECOND_PROJECT are required.");
+
+    const child = spawn(exe, [projectFile], { detached: true, stdio: "ignore", windowsHide: true });
+    child.unref();
+
+    await page.waitForFunction(
+      (expected) => new URL(window.location.href).searchParams.get("book") === expected
+        && (document.querySelector(".rich-editor")?.dataset.markdown || "").includes("SECOND INSTANCE PROJECT MARKER"),
+      { timeout: 25000 },
+      projectFile,
+    );
+    console.log("Installed Folio second-instance .folio handoff passed.");
+    process.exit(0);
+  }
+
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "folio-v212-packaged-"));
   const projectFile = path.join(root, "Packaged Project.folio");
   const secondProjectFile = path.join(root, "Second Instance.folio");
@@ -135,18 +153,6 @@ try {
   });
   await request("POST", `/api/projects/${second.projectId}/flush`, {});
   await request("POST", `/api/projects/${second.projectId}/close`, {});
-
-  const exe = process.env.FOLIO_SMOKE_EXE;
-  if (!exe) throw new Error("FOLIO_SMOKE_EXE is required for second-instance QA.");
-  const child = spawn(exe, [secondProjectFile], { detached: true, stdio: "ignore", windowsHide: true });
-  child.unref();
-
-  await page.waitForFunction(
-    (expected) => new URL(window.location.href).searchParams.get("book") === expected
-      && (document.querySelector(".rich-editor")?.dataset.markdown || "").includes("SECOND INSTANCE PROJECT MARKER"),
-    { timeout: 20000 },
-    secondProjectFile,
-  );
 
   const result = { projectFile, secondProjectFile, exportDir };
   await fs.writeFile(path.join(root, "result.json"), JSON.stringify(result, null, 2));
