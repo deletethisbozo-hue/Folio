@@ -58,6 +58,7 @@ try {
   const watcher = watchFolioProject(projectFile, extracted);
   await fs.writeFile(path.join(extracted, "chapters", "01.md"), "# Chapter One\n\nEdited inside Folio.\n", "utf8");
   await fs.writeFile(path.join(extracted, "chapters", "02.md"), "# Chapter Two\n\nSecond chapter.\n", "utf8");
+  await fs.writeFile(path.join(extracted, "chapters", ".01.md.123.fake.folio-tmp"), "transient atomic write", "utf8");
   await fs.rm(path.join(extracted, "assets", "map.png"));
   await watcher.flush();
   await watcher.close();
@@ -65,6 +66,10 @@ try {
   await extractFolioProject(projectFile, reopened);
   check("persists changed manuscript text after flush", (await fs.readFile(path.join(reopened, "chapters", "01.md"), "utf8")).includes("Edited inside Folio."));
   check("persists newly created project files", (await fs.readFile(path.join(reopened, "chapters", "02.md"), "utf8")).includes("Second chapter."));
+  let transientTempMissing = false;
+  try { await fs.access(path.join(reopened, "chapters", ".01.md.123.fake.folio-tmp")); }
+  catch { transientTempMissing = true; }
+  check("never persists atomic .folio-tmp working files", transientTempMissing);
   let removedAssetMissing = false;
   try { await fs.access(path.join(reopened, "assets", "map.png")); }
   catch { removedAssetMissing = true; }
