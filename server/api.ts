@@ -10,6 +10,7 @@ import {
   createProjectAtFolioPath,
   importFolderAsFolioProject,
   createSampleProject,
+  closeProject,
   flushProjectContainer,
   hasProject,
   loadProject,
@@ -284,6 +285,13 @@ export function registerApi(app: Express): void {
   app.post("/api/projects/:id/flush", (req: Request, res: Response) =>
     wrap(res, async () => {
       await flushProjectContainer(req.params.id);
+      res.json({ ok: true });
+    }),
+  );
+
+  app.post("/api/projects/:id/close", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      await closeProject(req.params.id);
       res.json({ ok: true });
     }),
   );
