@@ -82,8 +82,9 @@ jobs:
           $electron = (Resolve-Path "release\win-unpacked\Folio.exe").Path
           $env:ELECTRON_RUN_AS_NODE = "1"
           try {
-            & $electron -e "const {DatabaseSync}=require('node:sqlite'); const db=new DatabaseSync(':memory:'); db.exec('create table t(x)'); db.close(); console.log('PACKAGED SQLITE OK')"
-            if ($LASTEXITCODE -ne 0) { throw "Packaged Electron runtime cannot use node:sqlite." }
+            $sqliteProbe = (& $electron -e "const {DatabaseSync}=require('node:sqlite'); const db=new DatabaseSync(':memory:'); db.exec('create table t(x)'); db.close(); console.log('PACKAGED SQLITE OK')" 2>&1 | Out-String)
+            $sqliteProbe
+            if ($sqliteProbe -notmatch "PACKAGED SQLITE OK") { throw "Packaged Electron runtime cannot use node:sqlite." }
           }
           finally {
             Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
