@@ -174,3 +174,5 @@ try {
 } finally {
   browser.disconnect();
 }
+
+if (mode === "roundtrip") process.exit(0);
