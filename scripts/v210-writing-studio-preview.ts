@@ -1,0 +1,170 @@
+import express from "express";
+import path from "node:path";
+import type { AddressInfo } from "node:net";
+import { promises as fs } from "node:fs";
+import { registerApi } from "../server/api.ts";
+import { registerEditorApi } from "../server/editor-api.ts";
+import { closeBrowser, getBrowser } from "../server/pipeline/render-pdf.ts";
+import { ROOT } from "../server/pipeline/paths.ts";
+
+const qa = path.join(ROOT, "build", "qa-v210-writing-studio");
+await fs.mkdir(qa, { recursive: true });
+
+const app = express();
+app.use(express.json({ limit: "5mb" }));
+registerApi(app);
+registerEditorApi(app);
+app.use(express.static(path.join(ROOT, "web", "dist")));
+app.get("*", (_request, response) => response.sendFile(path.join(ROOT, "web", "dist", "index.html")));
+const server = app.listen(0, "127.0.0.1");
+await new Promise((resolve) => server.once("listening", resolve));
+const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+async function settle(ms = 250) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+try {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  page.setDefaultTimeout(40_000);
+  await page.setViewport({ width: 1536, height: 1024, deviceScaleFactor: 1 });
+  await page.goto(base, { waitUntil: "networkidle0" });
+
+  await page.waitForSelector(".start-shell .start-brand");
+  await settle();
+  await page.screenshot({ path: path.join(qa, "01-dashboard.png") });
+
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>("button")]
+      .find((node) => node.textContent?.includes("Open Sample"));
+    if (!button) throw new Error("Open Sample missing");
+    button.click();
+  });
+
+  await page.waitForSelector('.folio-shell[data-workspace-mode="format"]');
+  await page.waitForSelector(".command-wordmark");
+  await page.waitForSelector(".manuscript-editor");
+
+  const geometry = await page.evaluate(() => {
+    const startSize = getComputedStyle(document.querySelector(".command-wordmark")!).fontSize;
+    const wordmark = document.querySelector<HTMLElement>(".command-wordmark")!;
+    const command = document.querySelector<HTMLElement>(".folio-commandbar")!;
+    const wordRect = wordmark.getBoundingClientRect();
+    const commandRect = command.getBoundingClientRect();
+    return {
+      startSize,
+      wordTop: Math.round(wordRect.top),
+      wordHeight: Math.round(wordRect.height),
+      commandTop: Math.round(commandRect.top),
+      commandHeight: Math.round(commandRect.height),
+      kicker: Boolean(document.querySelector(".section-kicker")),
+    };
+  });
+  if (geometry.wordTop !== geometry.commandTop || geometry.wordHeight !== geometry.commandHeight) {
+    throw new Error(`Wordmark masthead geometry drifted: ${JSON.stringify(geometry)}`);
+  }
+  if (geometry.commandHeight !== 64) throw new Error(`Expected 64px masthead, got ${geometry.commandHeight}`);
+  if (geometry.kicker) throw new Error("Duplicate Chapter N kicker is still present");
+
+  await page.waitForSelector(".preview-frame");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+    const text = frame?.contentDocument?.body?.innerText?.replace(/\s+/g, " ").trim() ?? "";
+    const loading = document.querySelector<HTMLElement>(".preview-loading");
+    const loadingVisible = Boolean(loading && getComputedStyle(loading).display !== "none" && getComputedStyle(loading).visibility !== "hidden");
+    return text.length > 120 && !loadingVisible;
+  });
+  await settle(350);
+  await page.screenshot({ path: path.join(qa, "02-format.png") });
+
+  await page.evaluate(() => {
+    const write = [...document.querySelectorAll<HTMLButtonElement>(".workspace-mode-switch button")]
+      .find((button) => button.textContent?.trim() === "Write");
+    if (!write) throw new Error("Write mode button missing");
+    write.click();
+  });
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="false"]');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".preview-pane")!).display === "none");
+  await settle(300);
+  await page.screenshot({ path: path.join(qa, "03-write-single.png") });
+
+  await page.evaluate(() => {
+    if (document.querySelector(".folio-commandbar .workspace-split-button")) {
+      throw new Error("Split is still exposed as a workspace-level mode control");
+    }
+    const split = document.querySelector<HTMLButtonElement>(".format-toolbar .editor-split-toggle");
+    if (!split) throw new Error("Editor split layout control missing");
+    if (split.getAttribute("aria-label") !== "Split editor") throw new Error("Split editor control label drifted");
+    split.click();
+  });
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="true"] .writing-split-pane');
+  await page.waitForSelector(".writing-split-editor[contenteditable='true']");
+  await page.waitForFunction(() => (document.querySelector(".writing-split-editor")?.textContent?.trim().length ?? 0) > 80);
+
+  // Exercise the real rich formatting controls before the screenshot. This is
+  // not decorative QA: the resulting HTML must survive the editor conversion.
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".writing-split-editor");
+    if (!editor) throw new Error("Split editor missing");
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (node.data.trim().length > 18) nodes.push(node);
+      if (nodes.length >= 2) break;
+    }
+    if (nodes.length < 2) throw new Error("Split editor has insufficient text to format");
+
+    const highlightRange = document.createRange();
+    const highlightStart = Math.min(1, Math.max(0, nodes[0].length - 2));
+    const highlightEnd = Math.min(nodes[0].length, highlightStart + Math.min(48, nodes[0].length - 1));
+    highlightRange.setStart(nodes[0], highlightStart);
+    highlightRange.setEnd(nodes[0], highlightEnd);
+    const highlightSelection = window.getSelection()!;
+    highlightSelection.removeAllRanges();
+    highlightSelection.addRange(highlightRange);
+
+    const highlight = document.querySelector<HTMLInputElement>(".writing-split-toolbar .writing-highlight-control input");
+    if (!highlight || highlight.disabled) throw new Error("Highlight control missing or disabled");
+    editor.focus();
+    document.execCommand("styleWithCSS", false, "true");
+    document.execCommand("hiliteColor", false, "#d8f2d0");
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatBackColor" }));
+
+    const colorRange = document.createRange();
+    const colorStart = Math.min(1, Math.max(0, nodes[1].length - 2));
+    const colorEnd = Math.min(nodes[1].length, colorStart + Math.min(44, nodes[1].length - 1));
+    colorRange.setStart(nodes[1], colorStart);
+    colorRange.setEnd(nodes[1], colorEnd);
+    const colorSelection = window.getSelection()!;
+    colorSelection.removeAllRanges();
+    colorSelection.addRange(colorRange);
+
+    const color = document.querySelector<HTMLInputElement>(".writing-split-toolbar .writing-color-control:not(.writing-highlight-control) input");
+    if (!color || color.disabled) throw new Error("Text color control missing or disabled");
+    editor.focus();
+    document.execCommand("styleWithCSS", false, "true");
+    document.execCommand("foreColor", false, "#b42318");
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatForeColor" }));
+  });
+
+  await settle(900);
+  const richState = await page.evaluate(() => {
+    const editor = document.querySelector(".writing-split-editor");
+    return {
+      colored: Boolean(editor?.querySelector('[style*="color"]')),
+      highlighted: Boolean(editor?.querySelector('[style*="background-color"]')),
+      previewHidden: getComputedStyle(document.querySelector(".preview-pane")!).display === "none",
+      panes: document.querySelectorAll(".manuscript-editor, .writing-split-editor").length,
+    };
+  });
+  if (!richState.colored || !richState.highlighted || !richState.previewHidden || richState.panes < 2) {
+    throw new Error(`Write split QA failed: ${JSON.stringify(richState)}`);
+  }
+
+  await page.screenshot({ path: path.join(qa, "04-write-split.png") });
+} finally {
+  await closeBrowser().catch(() => undefined);
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+}

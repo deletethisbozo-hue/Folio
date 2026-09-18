@@ -14,10 +14,12 @@ import { composePreviewDocument } from "./compositor";
 import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
+import WritingSplitPane from "./WritingSplitPane";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type UiTone = "ivory" | "midnight";
+type WorkspaceMode = "write" | "format";
 type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Paragraph After Break" | "Body" | "Scene Break" | "Header & Footer" | "Title Page";
 
 const styleCategories: StyleCategory[] = [
@@ -38,7 +40,7 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "previous" | "next";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "previous" | "next";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
@@ -50,6 +52,7 @@ function UiIcon({ name }: { name: UiIconName }) {
     undo: <><path d="M9 7 4 12l5 5"/><path d="M5 12h8a6 6 0 0 1 6 6"/></>,
     redo: <><path d="m15 7 5 5-5 5"/><path d="M19 12h-8a6 6 0 0 0-6 6"/></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
+    split: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M12 5v14"/></>,
     previous: <path d="m15 18-6-6 6-6"/>,
     next: <path d="m9 18 6-6-6-6"/>,
   };
@@ -117,6 +120,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewDraft, setPreviewDraft] = useState("");
   const [pastePreparing, setPastePreparing] = useState(false);
   const [uiTone, setUiTone] = useState<UiTone>(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => window.localStorage.getItem("folio-workspace-mode") === "write" ? "write" : "format");
+  const [splitView, setSplitView] = useState(false);
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +156,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const editorSyncTimerRef = useRef<number | null>(null);
   const sectionSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
+  const splitFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);
   const draftWordCountCacheRef = useRef<{ text: string; count: number }>({ text: "", count: 0 });
@@ -210,6 +216,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
   }, [selectedId]);
   useEffect(() => { window.localStorage.setItem("folio-ui-tone", uiTone); }, [uiTone]);
+  useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
   useEffect(() => {
     if (draft.length < 35_000) { setPreviewDraft(draft); return; }
     const delay = draft.length > 250_000 ? 460 : draft.length > 100_000 ? 300 : 150;
@@ -260,6 +267,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const coverSelected = selectedId === COVER_ID;
   const previewProfile = getPreviewProfile(previewMode);
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
+  const writingOrnament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
   const draftWords = useMemo(() => {
     const cached = draftWordCountCacheRef.current;
     if (draft === cached.text) return cached.count;
@@ -304,7 +312,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [project?.projectId, selectedId, sectionRevision, document?.id]);
 
   useEffect(() => {
-    if (!project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode === "print") return;
+    if (workspaceMode === "write" || !project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode === "print") return;
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
@@ -324,10 +332,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       }
     }, 40);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode === "print", selectedId, document?.id, document?.subtitle]);
+  }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", selectedId, document?.id, document?.subtitle]);
 
   useEffect(() => {
-    if (!project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode !== "print") return;
+    if (workspaceMode === "write" || !project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode !== "print") return;
     let cancelled = false;
     const controller = new AbortController();
     setPreviewLoading(true);
@@ -347,7 +355,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       }
     }, previewDraft.length > 250_000 ? 650 : 220);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
+  }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
   function commitPreviewHtml(html: string, representedDraft: string): void {
     const identity = `${project?.projectId ?? ""}:${selectedId ?? ""}:${previewMode}`;
@@ -388,7 +396,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     // Generated title/copyright pages already have authoritative Pandoc HTML.
     // Re-rendering their internal markup as Markdown exposed literal <p> tags
     // and could add chapter-only typography such as drop caps.
-    if (previewMode === "print" || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || !document.editable) return "none";
+    if (workspaceMode === "write" || previewMode === "print" || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || !document.editable) return "none";
     const previewDocument = previewRef.current?.contentDocument;
     if (!previewDocument) return "none";
     // The editor model is authoritative. previewDraft is deliberately debounced
@@ -490,7 +498,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
+  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -517,9 +525,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   // its layout even when switching profiles produces byte-identical srcDoc and
   // React therefore has no reason to reload the iframe.
   useEffect(() => {
+    if (workspaceMode === "write") return;
     const frame = window.requestAnimationFrame(() => onPreviewLoad(undefined, true));
     return () => window.cancelAnimationFrame(frame);
-  }, [previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
+  }, [workspaceMode, previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string) {
@@ -896,10 +905,35 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     } catch (e) { setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); }
   }
 
+  async function flushSplitEditor(): Promise<boolean> {
+    const flush = splitFlushRef.current;
+    return flush ? flush() : true;
+  }
+
+  async function changeWorkspaceMode(next: WorkspaceMode) {
+    if (next === workspaceMode) return;
+    if (next === "format" && splitView) {
+      if (!(await flushSplitEditor())) return;
+      setSplitView(false);
+    }
+    setWorkspaceMode(next);
+  }
+
+  async function toggleSplitView() {
+    if (splitView) {
+      if (await flushSplitEditor()) setSplitView(false);
+      return;
+    }
+    setSplitView(true);
+  }
+
   async function saveCurrent(): Promise<boolean> {
-    if (!document?.editable || !project || !selectedId) return true;
+    if (!document?.editable || !project || !selectedId) return flushSplitEditor();
     await flushEditorDom();
-    if (draftRef.current === document.markdown) { setDirty(false); return true; }
+    if (draftRef.current === document.markdown) {
+      setDirty(false);
+      return flushSplitEditor();
+    }
     const sectionId = selectedId;
     const value = draftRef.current;
     setSaveState("saving");
@@ -908,7 +942,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (selectedRef.current === sectionId && draftRef.current === value && !editorDomDirtyRef.current) {
         setDocument(saved); setDirty(false); setSaveState("saved");
       }
-      return true;
+      return flushSplitEditor();
     } catch (e) {
       setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); return false;
     }
@@ -1236,7 +1270,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     });
   }
 
-  function applyInlineFormat(command: "bold" | "italic" | "underline", placeholder: string) {
+  function applyInlineFormat(command: "bold" | "italic" | "underline" | "strikeThrough", placeholder: string) {
     const el = editorRef.current;
     if (!el || !document?.editable) return;
     el.focus();
@@ -1246,6 +1280,23 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       window.document.execCommand("insertText", false, placeholder);
       window.document.execCommand(command, false);
     } else window.document.execCommand(command, false);
+    requestAnimationFrame(recordEditorDom);
+  }
+
+  function applyWritingColor(command: "foreColor" | "hiliteColor", value: string) {
+    const el = editorRef.current;
+    if (!el || !document?.editable) return;
+    el.focus();
+    window.document.execCommand("styleWithCSS", false, "true");
+    window.document.execCommand(command, false, value);
+    requestAnimationFrame(recordEditorDom);
+  }
+
+  function clearInlineFormatting() {
+    const el = editorRef.current;
+    if (!el || !document?.editable) return;
+    el.focus();
+    window.document.execCommand("removeFormat", false);
     requestAnimationFrame(recordEditorDom);
   }
 
@@ -1535,13 +1586,18 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   );
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
           <button data-command="book" onClick={() => setShowBookDetails(true)}>Book</button>
           <button data-command="design" onClick={() => setShowStyle(true)}>Design</button>
           <button data-command="new-project" disabled={busy} onClick={() => void beginNewBook()}>New Project</button>
+          <span className="workspace-command-spacer"/>
+          <span className="workspace-mode-switch" role="group" aria-label="Workspace mode">
+            <button type="button" className={workspaceMode === "write" ? "active" : ""} aria-pressed={workspaceMode === "write"} onClick={() => void changeWorkspaceMode("write")}>Write</button>
+            <button type="button" className={workspaceMode === "format" ? "active" : ""} aria-pressed={workspaceMode === "format"} onClick={() => void changeWorkspaceMode("format")}>Format</button>
+          </span>
         </nav>
         <button className="tone-toggle" onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")} aria-label={uiTone === "ivory" ? "Use Midnight Editorial" : "Use Ivory and Ink"}>{uiTone === "ivory" ? "Midnight" : "Ivory"}</button>
       </header>
@@ -1565,12 +1621,22 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
-          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button><button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
+          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
+          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button></>}
         </div>
         <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
       </section>
+
+      {splitView && <WritingSplitPane
+        project={project}
+        primarySectionId={selectedId}
+        ornament={writingOrnament}
+        onClose={() => setSplitView(false)}
+        onError={(message) => setError(message)}
+        onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
+      />}
 
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>}</div></div>}</div></div>
@@ -1578,7 +1644,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{coverSelected ? (project.hasCover ? <div className="cover-preview-surface"><img src={`/api/projects/${project.projectId}/cover?v=${coverVersion}`} alt={`${meta.title} cover`}/></div> : <div className="cover-preview-empty"><strong>No cover yet</strong><span>Add a PNG or JPEG from the Cover workspace.</span></div>) : selectedId ? <iframe key={`${project.projectId}:${selectedId}:${previewMode === "print" ? "print" : "reader"}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
-      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
+      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{workspaceMode === "write" ? (splitView ? "Write · Split" : "Write") : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
         <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>

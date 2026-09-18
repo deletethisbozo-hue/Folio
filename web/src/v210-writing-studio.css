@@ -1,0 +1,447 @@
+/* Folio 2.1 writing studio.
+ * Loaded last. It fixes shared masthead geometry and adds a real Write mode
+ * without changing the existing Format workspace.
+ */
+
+:root,
+.start-shell,
+.folio-shell {
+  --folio-masthead-height: 64px;
+  --folio-sidebar-width: 255px;
+}
+
+/* One logo, one position. The workspace wordmark is a button, so generic
+ * button height rules must never shrink its border to a short floating line. */
+.start-windowbar {
+  height: var(--folio-masthead-height) !important;
+  min-height: var(--folio-masthead-height) !important;
+  padding: 0 28px !important;
+}
+
+.start-shell .start-brand {
+  height: var(--folio-masthead-height) !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar {
+  height: var(--folio-masthead-height) !important;
+  min-height: var(--folio-masthead-height) !important;
+  grid-template-columns: var(--folio-sidebar-width) minmax(0, 1fr) auto !important;
+}
+
+.folio-shell[data-ui-tone] button.command-wordmark {
+  box-sizing: border-box !important;
+  width: var(--folio-sidebar-width) !important;
+  min-width: var(--folio-sidebar-width) !important;
+  height: var(--folio-masthead-height) !important;
+  min-height: var(--folio-masthead-height) !important;
+  max-height: var(--folio-masthead-height) !important;
+  align-self: stretch !important;
+  margin: 0 !important;
+  padding: 0 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  border: 0 !important;
+  border-right: 1px solid var(--mockup-rule, var(--studio-rule)) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+  text-align: left !important;
+  appearance: none !important;
+}
+
+/* The numeric chapter label beside the title is sufficient. */
+.folio-shell .section-kicker {
+  display: none !important;
+}
+
+/* Command bar mode switch ------------------------------------------------ */
+.folio-shell[data-ui-tone] .folio-commandbar nav {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.workspace-command-spacer {
+  flex: 1 1 auto;
+  min-width: 16px;
+}
+
+.workspace-mode-switch {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  margin: 0 8px 0 14px;
+  border: 1px solid var(--mockup-rule, var(--studio-rule));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--mockup-canvas, var(--studio-bg)) 70%, transparent);
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav .workspace-mode-switch button {
+  height: 28px !important;
+  min-width: 64px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: var(--mockup-muted, var(--studio-muted)) !important;
+  font-size: 11.5px !important;
+  font-weight: 620 !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav .workspace-mode-switch button::after {
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav .workspace-mode-switch button.active {
+  background: var(--mockup-paper, var(--studio-paper)) !important;
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+  box-shadow: 0 1px 3px rgba(25, 21, 18, .09) !important;
+}
+
+
+/* Write mode ------------------------------------------------------------- */
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"] {
+  grid-template-columns: var(--folio-sidebar-width) minmax(0, 1fr) !important;
+  grid-template-rows: var(--folio-masthead-height) minmax(0, 1fr) 38px !important;
+  grid-template-areas:
+    "command command"
+    "library editor"
+    "status status" !important;
+}
+
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
+  grid-template-columns: var(--folio-sidebar-width) minmax(0, 1fr) minmax(0, 1fr) !important;
+  grid-template-areas:
+    "command command command"
+    "library editor split"
+    "status status status" !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .preview-pane {
+  display: none !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .editor-pane {
+  grid-area: editor !important;
+  border-right: 0 !important;
+  background: var(--mockup-canvas, var(--studio-editor-canvas)) !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-split-view="true"] .editor-pane {
+  border-right: 1px solid var(--mockup-rule, var(--studio-rule)) !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .editor-topbar {
+  height: 34px !important;
+  min-height: 34px !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .section-titlebar {
+  height: 82px !important;
+  min-height: 82px !important;
+  padding-inline: 30px !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .section-title-wrap {
+  padding-top: 0 !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .section-title,
+.folio-shell[data-workspace-mode="write"] .section-title-button,
+.folio-shell[data-workspace-mode="write"] .section-title-input {
+  font-size: 23px !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .format-toolbar {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 20px !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .editor-layout-rule {
+  width: 1px;
+  height: 20px;
+  margin: 0 5px 0 8px;
+  flex: 0 0 auto;
+  background: var(--mockup-rule, var(--studio-rule));
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle {
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: var(--mockup-muted, var(--studio-muted)) !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle:hover {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle.active {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle .ui-icon {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .editor-paper {
+  background: var(--mockup-canvas, var(--studio-editor-canvas)) !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .manuscript-editor {
+  width: min(980px, calc(100% - 96px)) !important;
+  height: calc(100% - 44px) !important;
+  margin: 22px auto !important;
+  padding: 48px 70px 90px !important;
+  border: 1px solid var(--mockup-rule, var(--studio-rule)) !important;
+  border-radius: 2px !important;
+  background: var(--mockup-paper, var(--studio-paper)) !important;
+  box-shadow: 0 2px 12px rgba(28, 24, 19, .05) !important;
+  font-size: 16px !important;
+  line-height: 1.72 !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-split-view="true"] .manuscript-editor {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 38px 34px 72px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Rich writing controls -------------------------------------------------- */
+.writing-color-control {
+  position: relative;
+  width: 30px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 5px;
+  color: var(--mockup-muted, var(--studio-muted));
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.writing-color-control:hover {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft));
+  color: var(--mockup-ink, var(--studio-ink));
+}
+
+.writing-color-control > span {
+  position: relative;
+  z-index: 1;
+  font: 650 12px/1 var(--folio-ui-font);
+  pointer-events: none;
+}
+
+.writing-color-control input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.writing-color-control::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 5px;
+  height: 3px;
+  border-radius: 2px;
+  background: #b42318;
+}
+
+.writing-highlight-control::after {
+  background: #a8dda0;
+}
+
+.format-toolbar .writing-clear-format {
+  min-width: 44px !important;
+  font-size: 10.5px !important;
+}
+
+/* Split editor ----------------------------------------------------------- */
+.writing-split-pane {
+  grid-area: split;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--mockup-canvas, var(--studio-editor-canvas));
+}
+
+.folio-shell[data-workspace-mode="format"] .writing-split-pane {
+  display: none;
+}
+
+.writing-split-header {
+  height: 82px;
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px 0 22px;
+  border-bottom: 1px solid var(--mockup-rule, var(--studio-rule));
+  background: var(--mockup-paper, var(--studio-paper));
+}
+
+.writing-split-title {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.writing-split-title > span {
+  color: var(--mockup-faint, var(--studio-faint));
+  font: 650 9px/1 var(--folio-ui-font);
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.writing-split-title select {
+  min-width: 180px;
+  max-width: min(320px, 38vw);
+  height: 30px;
+  padding: 0 28px 0 9px;
+  border: 1px solid var(--mockup-rule-strong, var(--studio-rule-strong));
+  border-radius: 5px;
+  background: var(--mockup-control, var(--studio-control));
+  color: var(--mockup-ink, var(--studio-ink));
+  font: 600 12px/1 var(--folio-ui-font);
+}
+
+.writing-split-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--mockup-muted, var(--studio-muted));
+  font: 500 10px/1 var(--folio-ui-font);
+}
+
+.writing-split-status button {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--mockup-rule, var(--studio-rule));
+  border-radius: 5px;
+  background: transparent;
+  color: var(--mockup-muted, var(--studio-muted));
+  font: 600 10.5px/1 var(--folio-ui-font);
+}
+
+.writing-split-status button:hover {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft));
+  color: var(--mockup-ink, var(--studio-ink));
+}
+
+.writing-split-toolbar {
+  height: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--mockup-rule, var(--studio-rule));
+  background: var(--mockup-chrome, var(--studio-chrome));
+}
+
+.writing-split-toolbar button {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--mockup-muted, var(--studio-muted));
+  font: 500 11.5px/1 var(--folio-ui-font);
+}
+
+.writing-split-toolbar button:hover:not(:disabled) {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft));
+  color: var(--mockup-ink, var(--studio-ink));
+}
+
+.writing-split-toolbar .writing-clear-format {
+  min-width: 44px;
+  font-size: 10.5px;
+}
+
+.writing-toolbar-rule {
+  width: 1px;
+  height: 20px;
+  margin: 0 5px;
+  background: var(--mockup-rule, var(--studio-rule));
+}
+
+.writing-split-paper {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--mockup-paper, var(--studio-paper));
+}
+
+.writing-split-editor {
+  width: 100%;
+  height: 100%;
+  padding: 38px 34px 72px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  outline: 0;
+  background: var(--mockup-paper, var(--studio-paper));
+  color: var(--mockup-ink, var(--studio-ink));
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.72;
+  scrollbar-gutter: stable;
+}
+
+.writing-split-editor p {
+  margin: 0 0 .82em;
+}
+
+.writing-split-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--mockup-faint, var(--studio-faint));
+}
+
+.writing-split-loading {
+  padding: 30px 34px;
+  color: var(--mockup-muted, var(--studio-muted));
+  font: 12px/1.5 var(--folio-ui-font);
+}
+
+@media (max-width: 1250px) {
+  .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
+    grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+  .folio-shell[data-workspace-mode="write"][data-split-view="true"] .manuscript-editor,
+  .writing-split-editor {
+    padding-inline: 26px !important;
+  }
+}

@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.0.8 version consistency
+      - name: Verify Folio 2.1.0 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.0.8") { throw "Windows release is scoped to Folio 2.0.8, found $version." }
+          if ($version -ne "2.1.0") { throw "Windows release is scoped to Folio 2.1.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -92,6 +92,9 @@ jobs:
 
       - name: Build web and server
         run: npm run build
+
+      - name: Writing Studio interaction and screenshot QA
+        run: node --import tsx scripts/v210-writing-studio-preview.ts
 
       - name: Capture visual and typesetting QA on Windows
         run: node --import tsx scripts/v107-visual-qa.ts
@@ -196,6 +199,7 @@ jobs:
             release/sha256.txt
             build/qa-v107/*
             build/qa-print-matrix/*
+            build/qa-v210-writing-studio/*
           if-no-files-found: error
 
       - name: Publish immutable GitHub Release
@@ -217,4 +221,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.0.8 is a workflow and publishing-correctness patch. The duplicate top-bar Add control is removed in favor of the real sidebar Add Section action; the workspace now exposes New Project, and the Folio wordmark returns safely to the dashboard after flushing document and appearance saves. The dashboard no longer shows the redundant standalone F mark. Every style-customization category can return to Theme Default, including dropdowns, checkboxes, sliders and grouped overrides. Full-page Image filenames and legacy image-page titles are suppressed across the UI, preview and exported HTML/EPUB/PDF paths, while image pages remain out of the TOC and keep their heading hidden. The clickable Folio wordmark retains the exact Pelagiad branding face. The release is gated by typecheck, the full formatter/UI suite, real browser navigation tests, image-page export regressions, Windows visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 2.1.0 adds a dedicated Writing Studio while preserving the existing book-formatting workspace. Write and Format are now the two top-level workspace modes; the optional two-pane editor is correctly treated as a Write layout control instead of a third mode. Write mode adds a full-width manuscript canvas, an independently editable secondary chapter pane, autosave-safe split editing, text colour, highlighting, strikethrough and clear-format controls. The shared masthead geometry and Folio wordmark are aligned across the dashboard and workspace, and the redundant chapter kicker is removed. The release is gated by typecheck, the full formatter/UI suite, Writing Studio browser interaction tests and screenshots, Windows visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
