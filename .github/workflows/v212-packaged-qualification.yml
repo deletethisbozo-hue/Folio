@@ -72,8 +72,41 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Build packaged candidate
-        run: npx electron-builder --win nsis portable --x64 --publish never
+      - name: Build unpacked packaged candidate
+        run: npx electron-builder --win --x64 --dir --publish never
+
+      - name: Diagnose unpacked packaged startup
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $env:FOLIO_E2E_PORT = "43133"
+          $env:FOLIO_E2E_DEBUG_PORT = "43134"
+          $env:ELECTRON_ENABLE_LOGGING = "1"
+          $exe = (Resolve-Path "release\win-unpacked\Folio.exe").Path
+          $stdout = Join-Path $env:RUNNER_TEMP "folio-unpacked-stdout.log"
+          $stderr = Join-Path $env:RUNNER_TEMP "folio-unpacked-stderr.log"
+          $process = Start-Process -FilePath $exe -ArgumentList @("--enable-logging=stderr") -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 60; $i++) {
+              if ($process.HasExited) { break }
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43133/api/health" -TimeoutSec 1; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok) {
+              Write-Host "=== unpacked stdout ==="
+              if (Test-Path $stdout) { Get-Content $stdout -Raw }
+              Write-Host "=== unpacked stderr ==="
+              if (Test-Path $stderr) { Get-Content $stderr -Raw }
+              if ($process.HasExited) { throw "Unpacked packaged Folio exited before health (exit code $($process.ExitCode))." }
+              throw "Unpacked packaged Folio stayed alive but /api/health never became ready."
+            }
+            if (-not $health.pandoc.ok) { throw "Unpacked packaged Folio started without bundled Pandoc." }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            Remove-Item Env:ELECTRON_ENABLE_LOGGING -ErrorAction SilentlyContinue
+          }
 
       - name: Verify packaged Electron SQLite runtime
         timeout-minutes: 2
@@ -89,6 +122,9 @@ jobs:
           finally {
             Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
           }
+
+      - name: Build installer and portable candidate
+        run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Smoke portable .folio lifecycle
         timeout-minutes: 6
