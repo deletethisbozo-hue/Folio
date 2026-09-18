@@ -6,7 +6,11 @@ import type { BookMeta, PresetName } from "./pipeline/types.ts";
 import {
   createProjectFromFiles,
   createProjectFromFolderPath,
+  createProjectFromFolioFile,
+  createProjectAtFolioPath,
+  importFolderAsFolioProject,
   createSampleProject,
+  flushProjectContainer,
   hasProject,
   loadProject,
   projectInfo,
@@ -22,7 +26,7 @@ import { renderMarkdown } from "./pipeline/render-markdown.ts";
 import { renderPdf } from "./pipeline/render-pdf.ts";
 import { validateEpub } from "./validate/epubcheck.ts";
 import { slugify } from "./pipeline/util.ts";
-import { pickFolder } from "./pick-folder.ts";
+import { pickFolder, pickFolioProjectFile } from "./pick-folder.ts";
 import { renderPrintPdf, renderPrintPreviewHtml } from "./pipeline/render-print.ts";
 import { TRIMS, LAYOUTS, DEFAULT_PRINT, type PrintOptions } from "./print.ts";
 import {
@@ -88,6 +92,7 @@ async function buildSummary(projectId: string, overrides?: Partial<BookMeta>) {
     typography: book.typography ?? {},
     source: info.source,
     folder: info.folder,
+    projectFile: info.projectFile,
     editable: info.editable,
     config,
     bluesOutput,
@@ -209,7 +214,40 @@ export function registerApi(app: Express): void {
     }),
   );
 
-  // Open a real folder on disk by path (no copy — edits flow straight through).
+  app.post("/api/pick-project-file", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const mode = req.body?.mode === "save" ? "save" : "open";
+      const initial = typeof req.body?.initial === "string" ? req.body.initial : undefined;
+      const suggestedName = typeof req.body?.suggestedName === "string" ? req.body.suggestedName : undefined;
+      res.json({ path: await pickFolioProjectFile(mode, initial, suggestedName) });
+    }),
+  );
+
+  app.post("/api/projects/open-file", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const projectPath = String(req.body?.path ?? "").trim();
+      if (!projectPath) throw new Error("No .folio project path provided.");
+      const id = await createProjectFromFolioFile(projectPath);
+      const summary = await buildSummary(id);
+      if (summary.projectFile) await rememberRecentProject(summary.projectFile, summary.meta.title, summary.meta.author);
+      res.json(summary);
+    }),
+  );
+
+  app.post("/api/projects/import-folder", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const folder = String(req.body?.folder ?? "").trim();
+      const projectPath = String(req.body?.path ?? "").trim();
+      if (!folder) throw new Error("No source folder provided.");
+      if (!projectPath) throw new Error("No destination .folio path provided.");
+      const id = await importFolderAsFolioProject(folder, projectPath);
+      const summary = await buildSummary(id);
+      if (summary.projectFile) await rememberRecentProject(summary.projectFile, summary.meta.title, summary.meta.author);
+      res.json(summary);
+    }),
+  );
+
+  // Legacy direct-folder opening remains available for compatibility and migration tests.
   app.post("/api/projects/open-folder", (req: Request, res: Response) =>
     wrap(res, async () => {
       const folder = String(req.body?.path ?? "").trim();
@@ -221,31 +259,36 @@ export function registerApi(app: Express): void {
     }),
   );
 
-  // Create a complete starter book in a user-selected folder.
+  // Create a complete starter book inside a standalone .folio project file.
   app.post("/api/projects/new", (req: Request, res: Response) =>
     wrap(res, async () => {
-      const folder = String(req.body?.path ?? "").trim();
-      if (!folder) throw new Error("No folder path provided.");
-      const id = await createProjectFromFolderPath(folder);
+      const projectPath = String(req.body?.path ?? "").trim();
+      if (!projectPath) throw new Error("No .folio project path provided.");
+      const id = await createProjectAtFolioPath(projectPath);
       const dir = await writableBookDir(id);
-      const current = await fs.readdir(dir);
-      const bookFiles = current.filter((name) => /^(book\.ya?ml|.*\.md|chapters)$/i.test(name));
-      if (bookFiles.length) throw new Error("That folder already contains a book. Open it instead of creating over it.");
       const meta: BookMeta = {
-        title: String(req.body?.title ?? path.basename(dir)).trim() || "Untitled",
+        title: String(req.body?.title ?? path.basename(projectPath, path.extname(projectPath))).trim() || "Untitled",
         author: String(req.body?.author ?? "").trim() || "Unknown Author",
         language: String(req.body?.language ?? "en").trim() || "en",
         theme: "literary",
       };
       await saveMeta(dir, meta);
       await addChapter(dir, meta, String(req.body?.chapterTitle ?? "Chapter One"));
+      await flushProjectContainer(id);
       const summary = await buildSummary(id);
-      if (summary.folder) await rememberRecentProject(summary.folder, summary.meta.title, summary.meta.author);
+      if (summary.projectFile) await rememberRecentProject(summary.projectFile, summary.meta.title, summary.meta.author);
       res.json(summary);
     }),
   );
 
-  // Re-read the project from disk (after the user edits/swaps files).
+  app.post("/api/projects/:id/flush", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      await flushProjectContainer(req.params.id);
+      res.json({ ok: true });
+    }),
+  );
+
+  // Re-read the active project working copy.
   app.post("/api/projects/:id/reload", (req: Request, res: Response) =>
     wrap(res, async () => {
       if (!hasProject(req.params.id)) throw new Error("Project not found.");
