@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 export interface RecentProjectRecord {
-  folder: string;
+  path: string;
   title: string;
   author: string;
   lastOpened: number;
@@ -19,13 +19,14 @@ function storeDir(): string {
 }
 
 function storeFile(): string { return path.join(storeDir(), "recent-projects.json"); }
-function folderKey(folder: string): string { return folder.replace(/[\\/]+$/, "").toLocaleLowerCase(); }
+function pathKey(projectPath: string): string { return projectPath.replace(/[\\/]+$/, "").toLocaleLowerCase(); }
 
-function validRecord(value: unknown): value is RecentProjectRecord {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<RecentProjectRecord>;
-  return typeof item.folder === "string" && typeof item.title === "string" &&
-    typeof item.author === "string" && typeof item.lastOpened === "number";
+function normaliseRecord(value: unknown): RecentProjectRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Partial<RecentProjectRecord> & { folder?: unknown };
+  const projectPath = typeof item.path === "string" ? item.path : typeof item.folder === "string" ? item.folder : null;
+  if (!projectPath || typeof item.title !== "string" || typeof item.author !== "string" || typeof item.lastOpened !== "number") return null;
+  return { path: projectPath, title: item.title, author: item.author, lastOpened: item.lastOpened };
 }
 
 export async function readRecentProjects(): Promise<RecentProjectRecord[]> {
@@ -33,7 +34,7 @@ export async function readRecentProjects(): Promise<RecentProjectRecord[]> {
     const raw = await fs.readFile(storeFile(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(validRecord).sort((a, b) => b.lastOpened - a.lastOpened).slice(0, MAX_RECENT);
+    return parsed.map(normaliseRecord).filter((item): item is RecentProjectRecord => Boolean(item)).sort((a, b) => b.lastOpened - a.lastOpened).slice(0, MAX_RECENT);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     return [];
@@ -55,17 +56,17 @@ function serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
   return run;
 }
 
-export async function rememberRecentProject(folder: string, title: string, author: string, now = Date.now()): Promise<RecentProjectRecord[]> {
+export async function rememberRecentProject(projectPath: string, title: string, author: string, now = Date.now()): Promise<RecentProjectRecord[]> {
   return serializeMutation(async () => {
     const current = await readRecentProjects();
-    const key = folderKey(folder);
+    const key = pathKey(projectPath);
     const entry: RecentProjectRecord = {
-      folder,
+      path: projectPath,
       title: title.trim() || "Untitled",
       author: author.trim() || "Unknown Author",
       lastOpened: now,
     };
-    const next = [entry, ...current.filter((item) => folderKey(item.folder) !== key)]
+    const next = [entry, ...current.filter((item) => pathKey(item.path) !== key)]
       .sort((a, b) => b.lastOpened - a.lastOpened)
       .slice(0, MAX_RECENT);
     await writeRecentProjects(next);
@@ -73,10 +74,10 @@ export async function rememberRecentProject(folder: string, title: string, autho
   });
 }
 
-export async function forgetRecentProject(folder: string): Promise<RecentProjectRecord[]> {
+export async function forgetRecentProject(projectPath: string): Promise<RecentProjectRecord[]> {
   return serializeMutation(async () => {
-    const key = folderKey(folder);
-    const next = (await readRecentProjects()).filter((item) => folderKey(item.folder) !== key);
+    const key = pathKey(projectPath);
+    const next = (await readRecentProjects()).filter((item) => pathKey(item.path) !== key);
     await writeRecentProjects(next);
     return next;
   });
