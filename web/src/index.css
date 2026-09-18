@@ -332,6 +332,12 @@ button:disabled { cursor: default; opacity: .45; }
 .dialog-field input,.dialog-field textarea,.add-chapter-box input { width:100%; border:1px solid #c5c3bd; border-radius:4px; background:#fff; padding:5px 7px; font-size:10px; outline:none; }
 .dialog-field input:focus,.dialog-field textarea:focus,.add-chapter-box input:focus { border-color:#6c92bd; box-shadow:0 0 0 2px rgba(74,126,183,.14); }
 .dialog-field textarea { min-height:70px; resize:vertical; }
+.settings-list { display:grid; gap:10px; }
+.settings-row { display:flex; align-items:center; justify-content:space-between; gap:24px; min-height:58px; padding:10px 2px; cursor:pointer; }
+.settings-copy { display:grid; gap:5px; min-width:0; }
+.settings-copy strong { font-size:11px; font-weight:600; }
+.settings-copy small { max-width:430px; color:#77736c; font-size:9px; line-height:1.45; }
+.settings-row input[type="checkbox"] { width:16px; height:16px; flex:0 0 auto; accent-color:#8b684b; }
 .details-grid { display:grid; grid-template-columns:1fr 1fr; column-gap:18px; }
 .details-grid .dialog-field { grid-template-columns:88px minmax(0,1fr); }
 .book-details-layout { display:grid; grid-template-columns:120px minmax(0,1fr); gap:18px; }
