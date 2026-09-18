@@ -76,6 +76,7 @@ jobs:
         run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Smoke portable .folio lifecycle
+        timeout-minutes: 6
         shell: pwsh
         run: |
           $env:FOLIO_E2E_PORT = "43137"
@@ -101,6 +102,7 @@ jobs:
           }
 
       - name: Install NSIS candidate and verify .folio registration
+        timeout-minutes: 6
         shell: pwsh
         run: |
           $setup = (Resolve-Path "release\Folio-$env:FOLIO_VERSION-setup.exe").Path
@@ -124,6 +126,7 @@ jobs:
           $association
 
       - name: Open persisted project with installed Folio argument
+        timeout-minutes: 6
         shell: pwsh
         run: |
           $result = Get-Content (Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json") -Raw | ConvertFrom-Json
@@ -147,6 +150,7 @@ jobs:
           }
 
       - name: Hand off .folio to an already running installed Folio
+        timeout-minutes: 6
         shell: pwsh
         run: |
           $result = Get-Content (Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json") -Raw | ConvertFrom-Json
@@ -171,6 +175,7 @@ jobs:
           }
 
       - name: Open persisted project through Windows file association
+        timeout-minutes: 6
         shell: pwsh
         run: |
           $result = Get-Content (Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json") -Raw | ConvertFrom-Json
