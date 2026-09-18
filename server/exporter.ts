@@ -38,6 +38,7 @@ export interface PreparedExport {
 export interface PrepareOptions {
   out?: string; // --out override for the blues destination
   exportsOut?: string; // explicit destination for EPUB/PDF/DOCX/MD
+  slug?: string; // stable slug for .folio projects whose working dir is temporary
   date?: string; // pinned date, for tests
   newRound?: boolean; // --new-round
 }
@@ -48,7 +49,7 @@ export interface PrepareOptions {
  */
 export async function prepareExport(book: Book, bookDir: string, opts: PrepareOptions = {}): Promise<PreparedExport> {
   const sync = await syncVersion(book, bookDir);
-  const dest = await resolveDestinations(bookDir, opts.out, opts.exportsOut);
+  const dest = await resolveDestinations(bookDir, opts.out, opts.exportsOut, opts.slug);
   const round = opts.newRound ? bumpRound(sync.file) : null;
   return { sync, dest, date: opts.date ?? today(), round, bookDir };
 }
