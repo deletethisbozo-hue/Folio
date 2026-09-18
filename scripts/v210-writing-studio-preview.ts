@@ -84,10 +84,27 @@ try {
     if (!write) throw new Error("Write mode button missing");
     write.click();
   });
-  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="false"]');
-  await page.waitForFunction(() => getComputedStyle(document.querySelector(".preview-pane")!).display === "none");
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="false"][data-write-sidebar="closed"]');
+  await page.waitForFunction(() => {
+    const previewHidden = getComputedStyle(document.querySelector(".preview-pane")!).display === "none";
+    const sidebar = document.querySelector<HTMLElement>(".library-pane")!;
+    const sidebarHidden = getComputedStyle(sidebar).pointerEvents === "none";
+    return previewHidden && sidebarHidden;
+  });
   await settle(300);
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
+
+  await page.evaluate(() => {
+    const toggle = document.querySelector<HTMLButtonElement>(".write-sidebar-toggle");
+    if (!toggle) throw new Error("Write sidebar toggle missing");
+    toggle.click();
+  });
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"]');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector<HTMLElement>(".library-pane")!).pointerEvents !== "none");
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "03b-write-sidebar-open.png") });
+  await page.evaluate(() => document.querySelector<HTMLButtonElement>(".write-sidebar-toggle")?.click());
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-write-sidebar="closed"]');
 
   await page.evaluate(() => {
     if (document.querySelector(".folio-commandbar .workspace-split-button")) {
@@ -164,6 +181,24 @@ try {
   }
 
   await page.screenshot({ path: path.join(qa, "04-write-split.png") });
+
+  await page.evaluate(() => {
+    const focus = document.querySelector<HTMLButtonElement>(".format-toolbar .editor-focus-toggle");
+    if (!focus) throw new Error("Focus mode control missing");
+    focus.click();
+  });
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="true"][data-split-view="true"]');
+  await page.waitForFunction(() => {
+    const hidden = [".folio-commandbar", ".library-pane", ".folio-statusbar", ".editor-topbar", ".section-titlebar", ".format-toolbar", ".writing-split-header", ".writing-split-toolbar"]
+      .every((selector) => getComputedStyle(document.querySelector<HTMLElement>(selector)!).display === "none");
+    return hidden && document.querySelectorAll(".manuscript-editor, .writing-split-editor").length >= 2;
+  });
+  await settle(250);
+  await page.screenshot({ path: path.join(qa, "05-focus-split.png") });
+
+  await page.keyboard.press("Escape");
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="false"]');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector<HTMLElement>(".folio-commandbar")!).display !== "none");
 } finally {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
