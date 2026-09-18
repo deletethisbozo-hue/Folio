@@ -66,11 +66,12 @@ async function waitFor(predicate, timeout = 15000, interval = 100) {
   throw last instanceof Error ? last : new Error("Timed out waiting for packaged Folio state.");
 }
 
-const browser = await connect();
-try {
-  const page = await pageFor(browser);
+if (mode === "verify-startup-file" || mode === "verify-second-instance") {
+  const browser = await connect();
+  try {
+    const page = await pageFor(browser);
 
-  if (mode === "verify-startup-file") {
+    if (mode === "verify-startup-file") {
     const expected = path.resolve(process.env.FOLIO_EXPECT_PROJECT || "");
     if (!expected) throw new Error("FOLIO_EXPECT_PROJECT is required.");
     await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 20000 });
@@ -86,11 +87,11 @@ try {
       throw new Error("Installed Folio opened the project but its persisted manuscript text is missing.");
     }
     console.log("Installed Folio startup from a .folio argument passed.");
-    clearTimeout(watchdog);
-    process.exit(0);
-  }
+      clearTimeout(watchdog);
+      process.exit(0);
+    }
 
-  if (mode === "verify-second-instance") {
+    if (mode === "verify-second-instance") {
     const exe = process.env.FOLIO_SMOKE_EXE;
     const projectFile = process.env.FOLIO_SECOND_PROJECT;
     if (!exe || !projectFile) throw new Error("FOLIO_SMOKE_EXE and FOLIO_SECOND_PROJECT are required.");
@@ -104,12 +105,20 @@ try {
       { timeout: 25000 },
       projectFile,
     );
-    console.log("Installed Folio second-instance .folio handoff passed.");
-    clearTimeout(watchdog);
-    process.exit(0);
+      console.log("Installed Folio second-instance .folio handoff passed.");
+      clearTimeout(watchdog);
+      process.exit(0);
+    }
+  } finally {
+    browser.disconnect();
   }
+}
 
-  console.log("[packaged-smoke] roundtrip start");
+if (mode !== "roundtrip") {
+  throw new Error(`Unknown packaged smoke mode: ${mode}`);
+}
+
+console.log("[packaged-smoke] roundtrip start");
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "folio-v212-packaged-"));
   const projectFile = path.join(root, "Packaged Project.folio");
   const secondProjectFile = path.join(root, "Second Instance.folio");
@@ -179,9 +188,6 @@ try {
   }
   console.log(JSON.stringify(result));
   console.log("Packaged Folio .folio roundtrip and configured export passed.");
-} finally {
-  browser.disconnect();
-}
 
 clearTimeout(watchdog);
-if (mode === "roundtrip") process.exit(0);
+process.exit(0);
