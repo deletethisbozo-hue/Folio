@@ -72,6 +72,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Build web and server
+        run: npm run build
+
       - name: Build unpacked packaged candidate
         run: npx electron-builder --win --x64 --dir --publish never
 
