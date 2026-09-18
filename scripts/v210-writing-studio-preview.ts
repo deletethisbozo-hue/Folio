@@ -107,6 +107,8 @@ try {
       && editor?.spellcheck === false
       && window.localStorage.getItem("folio-spellcheck-enabled") === "false";
   });
+  await settle(120);
+  await page.screenshot({ path: path.join(qa, "03a-settings-spellcheck-off.png") });
   await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
 
