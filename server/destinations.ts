@@ -61,9 +61,13 @@ export function slugForFolder(bookDir: string): string {
   return slugify(base.replace(/^bk[-_ ]?\d+[_-]/i, ""));
 }
 
-export async function resolveDestinations(bookDir: string, outOverride?: string, exportsOverride?: string): Promise<DestinationConfig> {
+export async function resolveDestinations(bookDir: string, outOverride?: string, exportsOverride?: string, slugOverride?: string): Promise<DestinationConfig> {
   const cfg = ((await readConfig(bookDir)) ?? {}) as Record<string, unknown>;
-  const slug = typeof cfg.slug === "string" && cfg.slug.trim() ? slugify(cfg.slug) : slugForFolder(bookDir);
+  const slug = typeof cfg.slug === "string" && cfg.slug.trim()
+    ? slugify(cfg.slug)
+    : slugOverride && slugify(slugOverride)
+      ? slugify(slugOverride)
+      : slugForFolder(bookDir);
   const exportsRel = typeof cfg.exports_dir === "string" && cfg.exports_dir.trim() ? cfg.exports_dir : DEFAULT_EXPORTS_DIR;
   const bluesCfg = typeof cfg.blues_output === "string" && cfg.blues_output.trim() ? cfg.blues_output : null;
   return {
