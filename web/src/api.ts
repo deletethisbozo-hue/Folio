@@ -92,6 +92,9 @@ export const api = {
   flushProject: (projectId: string) =>
     fetch(`/api/projects/${projectId}/flush`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
 
+  closeProject: (projectId: string) =>
+    fetch(`/api/projects/${projectId}/close`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
+
   reload: (projectId: string) =>
     fetch(`/api/projects/${projectId}/reload`, { method: "POST" }).then((r) => json<ProjectSummary>(r)),
 
