@@ -460,8 +460,18 @@ export function registerApi(app: Express): void {
       const stem = slugify(book.meta.title) || "book";
       const info = projectInfo(req.params.id);
       const bookDir = info.onDisk ? info.folder : null;
+      const requestedOutputDir = typeof req.body?.outputDir === "string" && req.body.outputDir.trim()
+        ? req.body.outputDir.trim()
+        : undefined;
+      const defaultProjectOutputDir = info.projectFile
+        ? path.join(path.dirname(info.projectFile), "Exports")
+        : undefined;
+      const exportOutputDir = requestedOutputDir ?? defaultProjectOutputDir;
+      const projectSlug = info.projectFile
+        ? path.basename(info.projectFile, path.extname(info.projectFile))
+        : undefined;
 
-      /** Write to the book's own destination, or hand back bytes to download. */
+      /** Write to the configured destination, or hand back bytes to download. */
       const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}) => {
         if (!bookDir) {
           res.json({
@@ -474,7 +484,7 @@ export function registerApi(app: Express): void {
           });
           return;
         }
-        const prep = await prepareExport(book, bookDir);
+        const prep = await prepareExport(book, bookDir, { exportsOut: exportOutputDir, slug: projectSlug });
         const result = await finishExport(prep, type, data, {
           force: Boolean(req.body?.force),
           note: typeof req.body?.note === "string" ? req.body.note : undefined,
@@ -505,7 +515,7 @@ export function registerApi(app: Express): void {
             "A blues is written to your review folder, so it needs a book opened from a folder on disk — not a drag-and-dropped copy.",
           );
         }
-        const prep = await prepareExport(book, bookDir, { newRound: Boolean(req.body?.newRound) });
+        const prep = await prepareExport(book, bookDir, { newRound: Boolean(req.body?.newRound), slug: projectSlug });
         ensureRoundStarted(prep);
         const round = currentRound(prep);
         const warning = prep.round ? roundWarning(prep.round) : null;
@@ -515,7 +525,7 @@ export function registerApi(app: Express): void {
           date: prep.date,
           round: round.round,
           maxRounds: round.maxRounds,
-          sourceLabel: path.basename(bookDir),
+          sourceLabel: info.projectFile ? path.basename(info.projectFile, path.extname(info.projectFile)) : path.basename(bookDir),
           maxPages: Number.isFinite(pages) && pages > 0 ? Math.floor(pages) : undefined,
         });
         const result = await finishExport(prep, "blues", buffer, {
