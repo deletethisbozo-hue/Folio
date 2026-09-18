@@ -69,7 +69,7 @@ export interface ProjectSummary {
   bodyChars: number;
   fontFamilies: string[];
   typography: Typography;
-  source: "folio" | "legacy-folder" | "upload" | "sample";
+  source: "folio" | "folder" | "upload" | "sample";
   folder: string | null;
   projectFile: string | null;
   editable: boolean;
