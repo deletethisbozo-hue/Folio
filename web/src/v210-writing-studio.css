@@ -106,27 +106,6 @@
   box-shadow: 0 1px 3px rgba(25, 21, 18, .09) !important;
 }
 
-.folio-shell[data-ui-tone] .folio-commandbar nav .workspace-split-button {
-  height: 34px !important;
-  min-height: 34px !important;
-  margin-right: 8px !important;
-  padding: 0 12px !important;
-  border: 1px solid var(--mockup-rule, var(--studio-rule)) !important;
-  border-radius: 6px !important;
-  background: transparent !important;
-  color: var(--mockup-muted, var(--studio-muted)) !important;
-  font-size: 11.5px !important;
-  font-weight: 600 !important;
-}
-
-.folio-shell[data-ui-tone] .folio-commandbar nav .workspace-split-button::after {
-  display: none !important;
-}
-
-.folio-shell[data-ui-tone] .folio-commandbar nav .workspace-split-button:hover:not(:disabled) {
-  background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
-  color: var(--mockup-ink, var(--studio-ink)) !important;
-}
 
 /* Write mode ------------------------------------------------------------- */
 .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"] {
@@ -185,6 +164,43 @@
   height: 44px !important;
   min-height: 44px !important;
   padding: 0 20px !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .editor-layout-rule {
+  width: 1px;
+  height: 20px;
+  margin: 0 5px 0 8px;
+  flex: 0 0 auto;
+  background: var(--mockup-rule, var(--studio-rule));
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle {
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: var(--mockup-muted, var(--studio-muted)) !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle:hover {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle.active {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle .ui-icon {
+  width: 17px !important;
+  height: 17px !important;
 }
 
 .folio-shell[data-workspace-mode="write"] .editor-paper {
