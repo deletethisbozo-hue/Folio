@@ -136,6 +136,61 @@ try {
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-write-sidebar="closed"]');
 
   await page.evaluate(() => {
+    const toggle = document.querySelector<HTMLButtonElement>(".editor-typewriter-toggle");
+    if (!toggle) throw new Error("Typewriter mode control missing");
+    if (toggle.getAttribute("aria-pressed") !== "false") throw new Error("Typewriter mode should start disabled");
+    toggle.click();
+
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!editor) throw new Error("Primary manuscript editor missing for typewriter QA");
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let target: Text | null = null;
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (node.data.trim().length > 4) target = node;
+    }
+    if (!target) throw new Error("Typewriter QA could not find manuscript text");
+    editor.focus();
+    const selection = window.getSelection()!;
+    const range = document.createRange();
+    range.setStart(target, target.length);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "ArrowDown" }));
+  });
+  await page.waitForSelector('.folio-shell[data-typewriter-mode="true"] .manuscript-editor.typewriter-active');
+  await settle(180);
+  const primaryTypewriter = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const selection = window.getSelection()!;
+    if (!selection.focusNode || selection.focusNode.nodeType !== Node.TEXT_NODE) throw new Error("Primary typewriter selection lost");
+    const text = selection.focusNode as Text;
+    const offset = Math.min(selection.focusOffset, text.length);
+    const probe = document.createRange();
+    if (offset > 0) {
+      probe.setStart(text, offset - 1);
+      probe.setEnd(text, offset);
+    } else {
+      probe.setStart(text, 0);
+      probe.setEnd(text, Math.min(1, text.length));
+    }
+    const rects = Array.from(probe.getClientRects());
+    const caretRect = rects.at(-1) ?? probe.getBoundingClientRect();
+    const viewport = editor.getBoundingClientRect();
+    return {
+      delta: (caretRect.top + caretRect.height / 2) - (viewport.top + editor.clientHeight / 2),
+      scrollTop: editor.scrollTop,
+      spacer: editor.style.getPropertyValue("--folio-typewriter-spacer"),
+      pressed: document.querySelector<HTMLButtonElement>(".editor-typewriter-toggle")?.getAttribute("aria-pressed"),
+    };
+  });
+  if (Math.abs(primaryTypewriter.delta) > 38 || primaryTypewriter.scrollTop <= 0 || !primaryTypewriter.spacer || primaryTypewriter.pressed !== "true") {
+    throw new Error(`Primary typewriter caret is not centered: ${JSON.stringify(primaryTypewriter)}`);
+  }
+  await page.screenshot({ path: path.join(qa, "03c-write-typewriter.png") });
+
+  await page.evaluate(() => {
     if (document.querySelector(".folio-commandbar .workspace-split-button")) {
       throw new Error("Split is still exposed as a workspace-level mode control");
     }
@@ -145,8 +200,55 @@ try {
     split.click();
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="true"] .writing-split-pane');
-  await page.waitForSelector(".writing-split-editor[contenteditable='true']");
+  await page.waitForSelector(".writing-split-editor[contenteditable='true'].typewriter-active");
   await page.waitForFunction(() => (document.querySelector(".writing-split-editor")?.textContent?.trim().length ?? 0) > 80);
+
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".writing-split-editor");
+    if (!editor) throw new Error("Split editor missing for typewriter QA");
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let target: Text | null = null;
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (node.data.trim().length > 4) target = node;
+    }
+    if (!target) throw new Error("Split typewriter QA could not find text");
+    editor.focus();
+    const selection = window.getSelection()!;
+    const range = document.createRange();
+    range.setStart(target, target.length);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "ArrowDown" }));
+  });
+  await settle(180);
+  const splitTypewriterState = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".writing-split-editor")!;
+    const selection = window.getSelection()!;
+    if (!selection.focusNode || selection.focusNode.nodeType !== Node.TEXT_NODE) throw new Error("Split typewriter selection lost");
+    const text = selection.focusNode as Text;
+    const offset = Math.min(selection.focusOffset, text.length);
+    const probe = document.createRange();
+    if (offset > 0) {
+      probe.setStart(text, offset - 1);
+      probe.setEnd(text, offset);
+    } else {
+      probe.setStart(text, 0);
+      probe.setEnd(text, Math.min(1, text.length));
+    }
+    const rects = Array.from(probe.getClientRects());
+    const caretRect = rects.at(-1) ?? probe.getBoundingClientRect();
+    const viewport = editor.getBoundingClientRect();
+    return {
+      delta: (caretRect.top + caretRect.height / 2) - (viewport.top + editor.clientHeight / 2),
+      scrollTop: editor.scrollTop,
+      spacer: editor.style.getPropertyValue("--folio-typewriter-spacer"),
+    };
+  });
+  if (Math.abs(splitTypewriterState.delta) > 38 || splitTypewriterState.scrollTop <= 0 || !splitTypewriterState.spacer) {
+    throw new Error(`Split typewriter caret is not centered: ${JSON.stringify(splitTypewriterState)}`);
+  }
 
   // Exercise the real rich formatting controls before the screenshot. This is
   // not decorative QA: the resulting HTML must survive the editor conversion.
@@ -222,19 +324,28 @@ try {
       .every((selector) => getComputedStyle(document.querySelector<HTMLElement>(selector)!).display === "none");
     const controls = document.querySelector<HTMLElement>(".focus-layout-controls");
     const splitClose = document.querySelector<HTMLButtonElement>(".focus-split-close");
+    const typewriter = document.querySelector<HTMLButtonElement>(".focus-typewriter");
     const exit = document.querySelector<HTMLButtonElement>(".focus-exit");
     return hidden
       && Boolean(controls && getComputedStyle(controls).display !== "none")
       && splitClose?.getAttribute("aria-label") === "Close split editor"
+      && typewriter?.getAttribute("aria-pressed") === "true"
       && exit?.getAttribute("aria-label") === "Exit focus mode"
-      && document.querySelectorAll(".manuscript-editor, .writing-split-editor").length >= 2;
+      && document.querySelectorAll(".manuscript-editor.typewriter-active, .writing-split-editor.typewriter-active").length >= 2;
   });
   await settle(250);
   await page.screenshot({ path: path.join(qa, "05-focus-split.png") });
 
+  await page.click(".focus-typewriter");
+  await page.waitForSelector('.folio-shell[data-focus-mode="true"][data-typewriter-mode="false"]');
+  await page.waitForFunction(() => document.querySelectorAll(".typewriter-active").length === 0);
+  await page.click(".focus-typewriter");
+  await page.waitForSelector('.folio-shell[data-focus-mode="true"][data-typewriter-mode="true"]');
+  await page.waitForFunction(() => document.querySelectorAll(".manuscript-editor.typewriter-active, .writing-split-editor.typewriter-active").length >= 2);
+
   await page.click(".focus-split-close");
-  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="true"][data-split-view="false"]');
-  await page.waitForFunction(() => !document.querySelector(".writing-split-pane") && Boolean(document.querySelector(".manuscript-editor")));
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="true"][data-split-view="false"][data-typewriter-mode="true"]');
+  await page.waitForFunction(() => !document.querySelector(".writing-split-pane") && Boolean(document.querySelector(".manuscript-editor.typewriter-active")));
   await settle(220);
   await page.screenshot({ path: path.join(qa, "06-focus-single.png") });
 
