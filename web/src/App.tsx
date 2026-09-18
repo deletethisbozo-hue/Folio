@@ -40,7 +40,7 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "previous" | "next";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "sidebar" | "previous" | "next";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
@@ -54,6 +54,7 @@ function UiIcon({ name }: { name: UiIconName }) {
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
     split: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M12 5v14"/></>,
     focus: <><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/></>,
+    sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M8.5 5v14"/></>,
     previous: <path d="m15 18-6-6 6-6"/>,
     next: <path d="m9 18 6-6-6-6"/>,
   };
@@ -124,6 +125,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => window.localStorage.getItem("folio-workspace-mode") === "write" ? "write" : "format");
   const [splitView, setSplitView] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -930,6 +932,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       setSplitView(false);
     }
     if (next === "format" && focusMode) setFocusMode(false);
+    if (next === "format") setWriteSidebarOpen(true);
+    if (next === "write" && workspaceMode !== "write") setWriteSidebarOpen(false);
     setWorkspaceMode(next);
   }
 
@@ -1600,7 +1604,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   );
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
@@ -1631,7 +1635,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </aside>
 
       <section className="editor-pane">
-        <div className="editor-topbar"><div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div></div>
+        <div className="editor-topbar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}<div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div></div>
         <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
