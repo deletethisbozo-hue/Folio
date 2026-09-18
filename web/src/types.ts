@@ -71,7 +71,7 @@ export interface ProjectSummary {
   typography: Typography;
   source: "folio" | "folder" | "upload" | "sample";
   folder: string | null;
-  projectFile: string | null;
+  projectFile?: string | null;
   editable: boolean;
   config: BookConfig | null;
   bluesOutput: string | null;
