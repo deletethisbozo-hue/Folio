@@ -33,10 +33,12 @@ async function pageFor(browser) {
 }
 
 async function request(method, url, body) {
+  console.log(`[packaged-smoke] ${method} ${url}`);
   const response = await fetch(apiBase + url, {
     method,
     headers: body === undefined ? undefined : { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(20_000),
   });
   const parsed = await response.json();
   if (!response.ok) throw new Error(`${method} ${url} failed: ${response.status} ${JSON.stringify(parsed)}`);
@@ -99,11 +101,13 @@ try {
     process.exit(0);
   }
 
+  console.log("[packaged-smoke] roundtrip start");
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "folio-v212-packaged-"));
   const projectFile = path.join(root, "Packaged Project.folio");
   const secondProjectFile = path.join(root, "Second Instance.folio");
   const exportDir = path.join(root, "exports");
 
+  console.log("[packaged-smoke] create .folio");
   const created = await request("POST", "/api/projects/new", {
     path: projectFile,
     title: "Packaged Project",
@@ -116,12 +120,16 @@ try {
   if (!chapter) throw new Error("Packaged .folio project has no starter chapter.");
 
   const marker = "# Chapter One\n\nPACKAGED PROJECT ROUNDTRIP\n\nSaved inside one .folio file.\n";
+  console.log("[packaged-smoke] save manuscript");
   await request("PUT", `/api/projects/${created.projectId}/sections/${encodeURIComponent(chapter.id)}`, { markdown: marker });
+  console.log("[packaged-smoke] flush container");
   await request("POST", `/api/projects/${created.projectId}/flush`, {});
   const fileStat = await fs.stat(projectFile);
   if (!fileStat.isFile() || fileStat.size < 1000) throw new Error("Packaged project did not persist as one substantive .folio file.");
 
+  console.log("[packaged-smoke] close first working copy");
   await request("POST", `/api/projects/${created.projectId}/close`, {});
+  console.log("[packaged-smoke] reopen .folio");
   const reopened = await request("POST", "/api/projects/open-file", { path: projectFile });
   const reopenedChapter = reopened.sections.find((section) => section.kind === "chapter");
   const document = await request("GET", `/api/projects/${reopened.projectId}/sections/${encodeURIComponent(reopenedChapter.id)}`);
@@ -129,6 +137,7 @@ try {
     throw new Error("Packaged .folio manuscript did not survive close and reopen.");
   }
 
+  console.log("[packaged-smoke] export to configured directory");
   const exported = await request("POST", `/api/projects/${reopened.projectId}/export`, {
     format: "md",
     meta: reopened.meta,
@@ -142,6 +151,7 @@ try {
   if (exportStat.size < 50) throw new Error("Packaged configured export is unexpectedly empty.");
   await request("POST", `/api/projects/${reopened.projectId}/close`, {});
 
+  console.log("[packaged-smoke] create second .folio");
   const second = await request("POST", "/api/projects/new", {
     path: secondProjectFile,
     title: "Second Instance",
@@ -160,7 +170,7 @@ try {
     await fs.writeFile(process.env.FOLIO_SMOKE_RESULT, JSON.stringify(result, null, 2));
   }
   console.log(JSON.stringify(result));
-  console.log("Packaged Folio .folio roundtrip, configured export, and second-instance open passed.");
+  console.log("Packaged Folio .folio roundtrip and configured export passed.");
 } finally {
   browser.disconnect();
 }
