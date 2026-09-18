@@ -14,6 +14,7 @@ import { composePreviewDocument } from "./compositor";
 import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
+import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import WritingSplitPane from "./WritingSplitPane";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
@@ -40,7 +41,7 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "sidebar" | "previous" | "next";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "typewriter" | "sidebar" | "previous" | "next";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
@@ -54,6 +55,7 @@ function UiIcon({ name }: { name: UiIconName }) {
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
     split: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M12 5v14"/></>,
     focus: <><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/></>,
+    typewriter: <><path d="M5 6h14M12 6v11M8 17h8"/><path d="M4 12h3M17 12h3"/></>,
     sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M8.5 5v14"/></>,
     previous: <path d="m15 18-6-6 6-6"/>,
     next: <path d="m9 18 6-6-6-6"/>,
@@ -125,6 +127,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => window.localStorage.getItem("folio-workspace-mode") === "write" ? "write" : "format");
   const [splitView, setSplitView] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
@@ -231,6 +234,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [focusMode]);
+  useEffect(() => {
+    if (workspaceMode !== "write" || !typewriterMode) return;
+    scheduleTypewriterCaret(editorRef.current);
+  }, [workspaceMode, typewriterMode, focusMode, splitView, writeSidebarOpen, selectedId]);
   useEffect(() => {
     if (draft.length < 35_000) { setPreviewDraft(draft); return; }
     const delay = draft.length > 250_000 ? 460 : draft.length > 100_000 ? 300 : 150;
@@ -1504,6 +1511,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     editorDomGenerationRef.current++;
     if (draftRef.current.length < 35_000) void flushEditorDom();
     else scheduleEditorDomSync();
+    if (typewriterMode) scheduleTypewriterCaret(editor);
   }
 
   function recordDraft(next: string) {
@@ -1567,7 +1575,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       recordEditorDom();
       return;
     }
-    window.requestAnimationFrame(syncEditorClickToPreview);
+    window.requestAnimationFrame(() => {
+      syncEditorClickToPreview();
+      if (typewriterMode) centerTypewriterCaret(editorRef.current);
+    });
   }
 
   async function saveAppearance() {
@@ -1603,7 +1614,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   );
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
@@ -1641,23 +1652,25 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
-          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onClick={() => setFocusMode((value) => !value)}><UiIcon name="focus"/></button></>}
+          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => !value)}><UiIcon name="focus"/></button></>}
         </div>
-        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} onKeyUp={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
       </section>
 
       {splitView && <WritingSplitPane
         project={project}
         primarySectionId={selectedId}
         ornament={writingOrnament}
+        typewriterMode={typewriterMode}
         onClose={() => setSplitView(false)}
         onError={(message) => setError(message)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
       />}
 
       {workspaceMode === "write" && focusMode && <div className="focus-layout-controls" role="toolbar" aria-label="Focus layout controls">
-        {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onClick={() => void toggleSplitView()}><UiIcon name="split"/></button>}
-        <button type="button" className="focus-exit" aria-label="Exit focus mode" title="Exit focus mode (Esc)" onClick={() => setFocusMode(false)}><UiIcon name="focus"/></button>
+        {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button>}
+        <button type="button" className={`focus-typewriter ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button>
+        <button type="button" className="focus-exit" aria-label="Exit focus mode" title="Exit focus mode (Esc)" onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode(false)}><UiIcon name="focus"/></button>
       </div>}
 
       <section className="preview-pane">
