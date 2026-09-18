@@ -1,0 +1,196 @@
+name: Folio 2.1.2 packaged qualification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["fix/v2.1.2-write-sidebar-focus-controls"]
+    paths:
+      - ".github/workflows/v212-packaged-qualification.yml"
+      - "electron/**"
+      - "web/**"
+      - "server/**"
+      - "scripts/v212-packaged-project-smoke.mjs"
+      - "themes/**"
+      - "templates/**"
+      - "assets/**"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-v212-packaged-qualification
+  cancel-in-progress: true
+
+jobs:
+  packaged-windows:
+    runs-on: windows-2025
+    timeout-minutes: 75
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+
+    steps:
+      - name: Check out review branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Read candidate version
+        shell: pwsh
+        run: |
+          $version = (node -p "require('./package.json').version").Trim()
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
+          if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
+          "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Download pinned Pandoc 3.11
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable missing." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+
+      - name: Install Chromium runtime
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build packaged candidate
+        run: npx electron-builder --win nsis portable --x64 --publish never
+
+      - name: Smoke portable .folio lifecycle
+        shell: pwsh
+        run: |
+          $env:FOLIO_E2E_PORT = "43137"
+          $env:FOLIO_E2E_DEBUG_PORT = "43138"
+          $env:FOLIO_SMOKE_RESULT = Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json"
+          $exe = (Resolve-Path "release\Folio-$env:FOLIO_VERSION-portable.exe").Path
+          $env:FOLIO_SMOKE_EXE = $exe
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 160; $i++) {
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43137/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Portable packaged Folio did not become healthy." }
+
+            node scripts\v212-packaged-project-smoke.mjs roundtrip
+            if ($LASTEXITCODE -ne 0) { throw "Portable .folio project smoke failed." }
+
+            if (-not (Test-Path $env:FOLIO_SMOKE_RESULT)) { throw "Packaged smoke did not persist its project paths." }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Install NSIS candidate and verify .folio registration
+        shell: pwsh
+        run: |
+          $setup = (Resolve-Path "release\Folio-$env:FOLIO_VERSION-setup.exe").Path
+          $installDir = Join-Path $env:RUNNER_TEMP "FolioInstalled"
+          if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
+          $installer = Start-Process -FilePath $setup -ArgumentList @("/S", "/D=$installDir") -PassThru -Wait
+          if ($installer.ExitCode -ne 0) { throw "NSIS installer exited with $($installer.ExitCode)." }
+
+          $installedExe = Join-Path $installDir "Folio.exe"
+          if (-not (Test-Path $installedExe)) {
+            $candidate = Get-ChildItem $installDir -Filter Folio.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $candidate) { throw "Installed Folio.exe was not found." }
+            $installedExe = $candidate.FullName
+          }
+          "FOLIO_INSTALLED_EXE=$installedExe" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+          $association = reg query "HKCR\.folio" /s 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0 -or $association -notmatch "(?i)folio") {
+            throw "Installer did not register a usable .folio association. Registry output: $association"
+          }
+          $association
+
+      - name: Open persisted project with installed Folio argument
+        shell: pwsh
+        run: |
+          $result = Get-Content (Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json") -Raw | ConvertFrom-Json
+          $env:FOLIO_E2E_PORT = "43147"
+          $env:FOLIO_E2E_DEBUG_PORT = "43148"
+          $env:FOLIO_EXPECT_PROJECT = $result.projectFile
+          $process = Start-Process -FilePath $env:FOLIO_INSTALLED_EXE -ArgumentList @($result.projectFile) -PassThru
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 160; $i++) {
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43147/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok) { throw "Installed Folio did not start from a .folio argument." }
+
+            node scripts\v212-packaged-project-smoke.mjs verify-startup-file
+            if ($LASTEXITCODE -ne 0) { throw "Installed Folio failed direct .folio startup verification." }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Open persisted project through Windows file association
+        shell: pwsh
+        run: |
+          $result = Get-Content (Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json") -Raw | ConvertFrom-Json
+          $env:FOLIO_E2E_PORT = "43157"
+          $env:FOLIO_E2E_DEBUG_PORT = "43158"
+          $env:FOLIO_EXPECT_PROJECT = $result.projectFile
+
+          Start-Process -FilePath $result.projectFile
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 160; $i++) {
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43157/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok) { throw "Windows shell association did not launch Folio for the .folio file." }
+
+            node scripts\v212-packaged-project-smoke.mjs verify-startup-file
+            if ($LASTEXITCODE -ne 0) { throw "Windows .folio association launched Folio but the requested project was not opened." }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+          }
+
+      - name: Hash packaged qualification binaries
+        shell: pwsh
+        run: |
+          $required = @(
+            "release\Folio-$env:FOLIO_VERSION-setup.exe",
+            "release\Folio-$env:FOLIO_VERSION-portable.exe"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing packaged qualification asset: $file" }
+            if ((Get-Item $file).Length -lt 1MB) { throw "Packaged qualification asset is unexpectedly small: $file" }
+          }
+          Get-FileHash $required -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content -Encoding ascii release\v212-packaged-sha256.txt
+
+      - name: Upload packaged qualification artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-2.1.2-Packaged-Qualification
+          path: |
+            release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
+            release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
+            release/v212-packaged-sha256.txt
+          if-no-files-found: error
