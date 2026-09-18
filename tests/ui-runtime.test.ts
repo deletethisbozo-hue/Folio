@@ -7,6 +7,7 @@ import { registerApi } from "../server/api.ts";
 import { registerEditorApi } from "../server/editor-api.ts";
 import { closeBrowser, getBrowser } from "../server/pipeline/render-pdf.ts";
 import { ROOT } from "../server/pipeline/paths.ts";
+import { importFolderIntoFolioProject } from "../server/project-file.ts";
 
 let pass = 0;
 let fail = 0;
@@ -33,6 +34,8 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 const emptyBook = await fs.mkdtemp(path.join(os.tmpdir(), "folio-ui-empty-"));
+const emptyProjectFile = path.join(path.dirname(emptyBook), path.basename(emptyBook) + ".folio");
+await importFolderIntoFolioProject(emptyBook, emptyProjectFile);
 const coverFixture = path.join(os.tmpdir(), `folio-cover-${Date.now()}.png`);
 await fs.writeFile(coverFixture, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
 
@@ -40,13 +43,13 @@ console.log("\nFolio browser UI");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
-  let pickedFolder: string | null = null;
+  let pickedProjectFile: string | null = null;
   await page.setRequestInterception(true);
   page.on("request", (request) => {
-    if (pickedFolder && request.method() === "POST" && request.url().endsWith("/api/pick-folder")) {
-      const path = pickedFolder;
-      pickedFolder = null;
-      void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ path }) });
+    if (pickedProjectFile && request.method() === "POST" && request.url().endsWith("/api/pick-project-file")) {
+      const projectPath = pickedProjectFile;
+      pickedProjectFile = null;
+      void request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ path: projectPath }) });
     } else {
       void request.continue();
     }
@@ -837,11 +840,11 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
     .includes("DELETED CHAPTER PREVIEW MARKER")));
   check("deleted chapter text cannot remain in the preview", true);
 
-  pickedFolder = emptyBook;
+  pickedProjectFile = emptyProjectFile;
   await page.click('[title="Open another book"]');
-  await stage("open empty folder", () => page.waitForSelector(".empty-project-editor"));
-  check("opening a new project in the same app clears the previous manuscript and preview", !(await page.$("iframe")) && !(await page.$eval("body", (body) => body.innerText.includes("WHOLE BOOK FINAL MARKER"))));
-  check("an empty folder shows an actionable empty state instead of Loading section", true);
+  await stage("open empty .folio project", () => page.waitForSelector(".empty-project-editor"));
+  check("opening a new .folio project in the same app clears the previous manuscript and preview", !(await page.$("iframe")) && !(await page.$eval("body", (body) => body.innerText.includes("WHOLE BOOK FINAL MARKER"))));
+  check("an imported empty .folio project shows an actionable empty state instead of Loading section", true);
   await page.click('.library-add-section');
   await stage("empty folder Add Content", () => page.waitForSelector(".add-chapter-box input"));
   await page.click(".add-chapter-box input", { clickCount: 3 });
@@ -908,6 +911,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   await closeBrowser();
   server.close();
   await fs.rm(emptyBook, { recursive: true, force: true });
+  await fs.rm(emptyProjectFile, { force: true });
   await fs.rm(coverFixture, { force: true });
 }
 
