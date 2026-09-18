@@ -10,6 +10,10 @@ function normaliseRel(value: string): string {
   return value.replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
+function isTransientWorkingFile(name: string): boolean {
+  return name.endsWith(".folio-tmp");
+}
+
 function safeJoin(base: string, rel: string): string {
   const root = path.resolve(base);
   const target = path.resolve(root, rel);
@@ -72,13 +76,19 @@ async function listFiles(root: string): Promise<Array<{ rel: string; full: strin
     const entries = await fs.readdir(current, { withFileTypes: true });
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
+      if (isTransientWorkingFile(entry.name)) continue;
       const rel = normaliseRel(prefix ? `${prefix}/${entry.name}` : entry.name);
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) {
         await walk(full, rel);
       } else if (entry.isFile()) {
-        const stat = await fs.stat(full);
-        result.push({ rel, full, size: stat.size, mtime: stat.mtimeMs });
+        try {
+          const stat = await fs.stat(full);
+          result.push({ rel, full, size: stat.size, mtime: stat.mtimeMs });
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+          throw error;
+        }
       }
     }
   }
@@ -93,16 +103,25 @@ export async function syncDirectoryToFolioProject(projectFile: string, workingDi
   try {
     const currentRows = db.prepare("SELECT path, size, mtime FROM files").all() as Array<{ path: string; size: number; mtime: number }>;
     const current = new Map(currentRows.map((row) => [row.path, row]));
-    const incoming = new Set(files.map((entry) => entry.rel));
+    const incoming = new Set<string>();
     const upsert = db.prepare("INSERT OR REPLACE INTO files(path, data, size, mtime) VALUES (?, ?, ?, ?)");
     const remove = db.prepare("DELETE FROM files WHERE path = ?");
     db.exec("BEGIN IMMEDIATE");
     try {
       for (const entry of files) {
         const existing = current.get(entry.rel);
-        if (existing && Number(existing.size) === entry.size && Math.abs(Number(existing.mtime) - entry.mtime) < 0.01) continue;
-        const data = await fs.readFile(entry.full);
-        upsert.run(entry.rel, data, entry.size, entry.mtime);
+        if (existing && Number(existing.size) === entry.size && Math.abs(Number(existing.mtime) - entry.mtime) < 0.01) {
+          incoming.add(entry.rel);
+          continue;
+        }
+        try {
+          const data = await fs.readFile(entry.full);
+          incoming.add(entry.rel);
+          upsert.run(entry.rel, data, entry.size, entry.mtime);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+          throw error;
+        }
       }
       for (const row of currentRows) {
         if (!incoming.has(row.path)) remove.run(row.path);
