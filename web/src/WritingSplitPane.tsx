@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { markdownToEditorHtml, richTextToMarkdown, richTextToMarkdownCooperative } from "./rich-text";
+import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import type { ProjectSummary, SectionDocument } from "./types";
 
 type SplitSaveState = "idle" | "saving" | "saved" | "error";
@@ -9,6 +10,8 @@ type WritingSplitPaneProps = {
   project: ProjectSummary;
   primarySectionId: string | null;
   ornament: string;
+  typewriterMode: boolean;
+  spellcheckEnabled: boolean;
   onClose: () => void;
   onError: (message: string) => void;
   onRegisterFlush: (flush: (() => Promise<boolean>) | null) => void;
@@ -45,6 +48,11 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
   useEffect(() => {
     documentRef.current = document;
   }, [document]);
+
+  useEffect(() => {
+    if (!props.typewriterMode) return;
+    scheduleTypewriterCaret(editorRef.current);
+  }, [props.typewriterMode, selectedId, document?.id]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -140,6 +148,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
       saveTimerRef.current = null;
       void flush();
     }, 700);
+    if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current);
   }
 
   function runCommand(command: string, value?: string) {
@@ -199,12 +208,15 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
         ? document
           ? <div
               ref={editorRef}
-              className="writing-split-editor rich-editor"
+              className={`writing-split-editor rich-editor ${props.typewriterMode ? "typewriter-active" : ""}`}
               contentEditable={document.editable}
               suppressContentEditableWarning
-              spellCheck
+              spellCheck={props.spellcheckEnabled}
               data-placeholder="Start writing…"
               onInput={recordInput}
+              onClick={() => { if (props.typewriterMode) centerTypewriterCaret(editorRef.current); }}
+              onKeyUp={() => { if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current); }}
+              onFocus={() => { if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current); }}
               aria-label={`Edit ${document.title} in split view`}
             />
           : <div className="writing-split-loading">Loading section…</div>

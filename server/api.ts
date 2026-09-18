@@ -6,7 +6,12 @@ import type { BookMeta, PresetName } from "./pipeline/types.ts";
 import {
   createProjectFromFiles,
   createProjectFromFolderPath,
+  createProjectFromFolioFile,
+  createProjectAtFolioPath,
+  importFolderAsFolioProject,
   createSampleProject,
+  closeProject,
+  flushProjectContainer,
   hasProject,
   loadProject,
   projectInfo,
@@ -22,7 +27,7 @@ import { renderMarkdown } from "./pipeline/render-markdown.ts";
 import { renderPdf } from "./pipeline/render-pdf.ts";
 import { validateEpub } from "./validate/epubcheck.ts";
 import { slugify } from "./pipeline/util.ts";
-import { pickFolder } from "./pick-folder.ts";
+import { pickFolder, pickFolioProjectFile } from "./pick-folder.ts";
 import { renderPrintPdf, renderPrintPreviewHtml } from "./pipeline/render-print.ts";
 import { TRIMS, LAYOUTS, DEFAULT_PRINT, type PrintOptions } from "./print.ts";
 import {
@@ -88,6 +93,7 @@ async function buildSummary(projectId: string, overrides?: Partial<BookMeta>) {
     typography: book.typography ?? {},
     source: info.source,
     folder: info.folder,
+    projectFile: info.projectFile,
     editable: info.editable,
     config,
     bluesOutput,
@@ -173,9 +179,9 @@ export function registerApi(app: Express): void {
   );
   app.delete("/api/recent-projects", (req: Request, res: Response) =>
     wrap(res, async () => {
-      const folder = String(req.body?.folder ?? "").trim();
-      if (!folder) throw new Error("No recent-project folder provided.");
-      res.json(await forgetRecentProject(folder));
+      const projectPath = String(req.body?.path ?? req.body?.folder ?? "").trim();
+      if (!projectPath) throw new Error("No recent-project path provided.");
+      res.json(await forgetRecentProject(projectPath));
     }),
   );
 
@@ -209,7 +215,40 @@ export function registerApi(app: Express): void {
     }),
   );
 
-  // Open a real folder on disk by path (no copy — edits flow straight through).
+  app.post("/api/pick-project-file", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const mode = req.body?.mode === "save" ? "save" : "open";
+      const initial = typeof req.body?.initial === "string" ? req.body.initial : undefined;
+      const suggestedName = typeof req.body?.suggestedName === "string" ? req.body.suggestedName : undefined;
+      res.json({ path: await pickFolioProjectFile(mode, initial, suggestedName) });
+    }),
+  );
+
+  app.post("/api/projects/open-file", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const projectPath = String(req.body?.path ?? "").trim();
+      if (!projectPath) throw new Error("No .folio project path provided.");
+      const id = await createProjectFromFolioFile(projectPath);
+      const summary = await buildSummary(id);
+      if (summary.projectFile) await rememberRecentProject(summary.projectFile, summary.meta.title, summary.meta.author);
+      res.json(summary);
+    }),
+  );
+
+  app.post("/api/projects/import-folder", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const folder = String(req.body?.folder ?? "").trim();
+      const projectPath = String(req.body?.path ?? "").trim();
+      if (!folder) throw new Error("No source folder provided.");
+      if (!projectPath) throw new Error("No destination .folio path provided.");
+      const id = await importFolderAsFolioProject(folder, projectPath);
+      const summary = await buildSummary(id);
+      if (summary.projectFile) await rememberRecentProject(summary.projectFile, summary.meta.title, summary.meta.author);
+      res.json(summary);
+    }),
+  );
+
+  // Legacy direct-folder opening remains available for compatibility and migration tests.
   app.post("/api/projects/open-folder", (req: Request, res: Response) =>
     wrap(res, async () => {
       const folder = String(req.body?.path ?? "").trim();
@@ -221,31 +260,43 @@ export function registerApi(app: Express): void {
     }),
   );
 
-  // Create a complete starter book in a user-selected folder.
+  // Create a complete starter book inside a standalone .folio project file.
   app.post("/api/projects/new", (req: Request, res: Response) =>
     wrap(res, async () => {
-      const folder = String(req.body?.path ?? "").trim();
-      if (!folder) throw new Error("No folder path provided.");
-      const id = await createProjectFromFolderPath(folder);
+      const projectPath = String(req.body?.path ?? "").trim();
+      if (!projectPath) throw new Error("No .folio project path provided.");
+      const id = await createProjectAtFolioPath(projectPath);
       const dir = await writableBookDir(id);
-      const current = await fs.readdir(dir);
-      const bookFiles = current.filter((name) => /^(book\.ya?ml|.*\.md|chapters)$/i.test(name));
-      if (bookFiles.length) throw new Error("That folder already contains a book. Open it instead of creating over it.");
       const meta: BookMeta = {
-        title: String(req.body?.title ?? path.basename(dir)).trim() || "Untitled",
+        title: String(req.body?.title ?? path.basename(projectPath, path.extname(projectPath))).trim() || "Untitled",
         author: String(req.body?.author ?? "").trim() || "Unknown Author",
         language: String(req.body?.language ?? "en").trim() || "en",
         theme: "literary",
       };
       await saveMeta(dir, meta);
       await addChapter(dir, meta, String(req.body?.chapterTitle ?? "Chapter One"));
+      await flushProjectContainer(id);
       const summary = await buildSummary(id);
-      if (summary.folder) await rememberRecentProject(summary.folder, summary.meta.title, summary.meta.author);
+      if (summary.projectFile) await rememberRecentProject(summary.projectFile, summary.meta.title, summary.meta.author);
       res.json(summary);
     }),
   );
 
-  // Re-read the project from disk (after the user edits/swaps files).
+  app.post("/api/projects/:id/flush", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      await flushProjectContainer(req.params.id);
+      res.json({ ok: true });
+    }),
+  );
+
+  app.post("/api/projects/:id/close", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      await closeProject(req.params.id);
+      res.json({ ok: true });
+    }),
+  );
+
+  // Re-read the active project working copy.
   app.post("/api/projects/:id/reload", (req: Request, res: Response) =>
     wrap(res, async () => {
       if (!hasProject(req.params.id)) throw new Error("Project not found.");
@@ -417,8 +468,18 @@ export function registerApi(app: Express): void {
       const stem = slugify(book.meta.title) || "book";
       const info = projectInfo(req.params.id);
       const bookDir = info.onDisk ? info.folder : null;
+      const requestedOutputDir = typeof req.body?.outputDir === "string" && req.body.outputDir.trim()
+        ? req.body.outputDir.trim()
+        : undefined;
+      const defaultProjectOutputDir = info.projectFile
+        ? path.join(path.dirname(info.projectFile), "Exports")
+        : undefined;
+      const exportOutputDir = requestedOutputDir ?? defaultProjectOutputDir;
+      const projectSlug = info.projectFile
+        ? path.basename(info.projectFile, path.extname(info.projectFile))
+        : undefined;
 
-      /** Write to the book's own destination, or hand back bytes to download. */
+      /** Write to the configured destination, or hand back bytes to download. */
       const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}) => {
         if (!bookDir) {
           res.json({
@@ -431,7 +492,7 @@ export function registerApi(app: Express): void {
           });
           return;
         }
-        const prep = await prepareExport(book, bookDir);
+        const prep = await prepareExport(book, bookDir, { exportsOut: exportOutputDir, slug: projectSlug });
         const result = await finishExport(prep, type, data, {
           force: Boolean(req.body?.force),
           note: typeof req.body?.note === "string" ? req.body.note : undefined,
@@ -462,7 +523,7 @@ export function registerApi(app: Express): void {
             "A blues is written to your review folder, so it needs a book opened from a folder on disk — not a drag-and-dropped copy.",
           );
         }
-        const prep = await prepareExport(book, bookDir, { newRound: Boolean(req.body?.newRound) });
+        const prep = await prepareExport(book, bookDir, { newRound: Boolean(req.body?.newRound), slug: projectSlug });
         ensureRoundStarted(prep);
         const round = currentRound(prep);
         const warning = prep.round ? roundWarning(prep.round) : null;
@@ -472,7 +533,7 @@ export function registerApi(app: Express): void {
           date: prep.date,
           round: round.round,
           maxRounds: round.maxRounds,
-          sourceLabel: path.basename(bookDir),
+          sourceLabel: info.projectFile ? path.basename(info.projectFile, path.extname(info.projectFile)) : path.basename(bookDir),
           maxPages: Number.isFinite(pages) && pages > 0 ? Math.floor(pages) : undefined,
         });
         const result = await finishExport(prep, "blues", buffer, {

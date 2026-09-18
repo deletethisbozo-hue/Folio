@@ -44,7 +44,9 @@ function FolioRoot() {
   async function openPath(path: string) {
     const clean = path.trim();
     if (!clean) return;
-    const summary = await api.openFolder(clean);
+    const previousId = workspaceProject?.projectId ?? null;
+    const summary = await api.openProjectFile(clean);
+    if (previousId && previousId !== summary.projectId) await api.closeProject(previousId);
     adoptProject(summary);
   }
 
@@ -72,6 +74,23 @@ function FolioRoot() {
     if (book) void openPath(book).catch(() => {});
     else if (params.get("sample") === "1") void openSample().catch(() => {});
   }, []);
+
+  React.useEffect(() => {
+    const host = window as Window & { __folioOpenProjectFile?: (projectPath: string) => Promise<boolean> };
+    host.__folioOpenProjectFile = async (projectPath: string) => {
+      try {
+        await openPath(projectPath);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("sample");
+        url.searchParams.set("book", projectPath);
+        window.history.replaceState(window.history.state, "", url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    return () => { delete host.__folioOpenProjectFile; };
+  }, [workspaceProject?.projectId]);
 
   return workspaceOpen && workspaceProject
     ? <App initialProject={workspaceProject} onDashboard={showDashboard} />

@@ -850,6 +850,26 @@
   color: var(--studio-muted);
 }
 
+.folio-shell[data-ui-tone] .settings-copy strong {
+  color: var(--studio-ink);
+}
+
+.folio-shell[data-ui-tone] .settings-copy small {
+  color: var(--studio-muted);
+}
+
+.folio-shell[data-ui-tone] .settings-row {
+  border-bottom: 1px solid var(--studio-rule);
+}
+
+.folio-shell[data-ui-tone] .settings-row:last-child {
+  border-bottom: 0;
+}
+
+.folio-shell[data-ui-tone] .settings-row input[type="checkbox"] {
+  accent-color: var(--studio-accent);
+}
+
 .folio-shell[data-ui-tone] .dialog-field input,
 .folio-shell[data-ui-tone] .dialog-field textarea,
 .folio-shell[data-ui-tone] .dialog-field select,

@@ -118,6 +118,14 @@
   position: relative;
 }
 
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-write-sidebar="open"] {
+  grid-template-columns: var(--folio-sidebar-width) minmax(0, 1fr) !important;
+  grid-template-areas:
+    "command command"
+    "sidebar editor"
+    "status status" !important;
+}
+
 .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
   grid-template-areas:
@@ -126,30 +134,59 @@
     "status status" !important;
 }
 
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-write-sidebar="open"][data-split-view="true"] {
+  grid-template-columns: var(--folio-sidebar-width) minmax(0, 1fr) minmax(0, 1fr) !important;
+  grid-template-areas:
+    "command command command"
+    "sidebar editor split"
+    "status status status" !important;
+}
+
 .folio-shell[data-workspace-mode="write"] .preview-pane {
   display: none !important;
 }
 
-.folio-shell[data-workspace-mode="write"] .library-pane {
-  position: fixed !important;
-  z-index: 40 !important;
-  top: var(--folio-masthead-height) !important;
-  bottom: 38px !important;
-  left: 0 !important;
-  width: var(--folio-sidebar-width) !important;
-  min-width: var(--folio-sidebar-width) !important;
-  height: auto !important;
-  transform: translateX(calc(-100% - 12px));
-  opacity: 0;
-  pointer-events: none;
-  box-shadow: 10px 0 28px rgba(24, 20, 17, .12);
-  transition: transform 150ms ease, opacity 120ms ease;
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="closed"] .library-pane {
+  display: none !important;
 }
 
 .folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .library-pane {
-  transform: translateX(0);
-  opacity: 1;
-  pointer-events: auto;
+  grid-area: sidebar !important;
+  position: relative !important;
+  inset: auto !important;
+  z-index: 1 !important;
+  width: var(--folio-sidebar-width) !important;
+  min-width: var(--folio-sidebar-width) !important;
+  height: 100% !important;
+  transform: none !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .library-toolbar {
+  gap: 8px;
+}
+
+.folio-shell[data-workspace-mode="write"] .library-collapse-button {
+  margin-left: auto;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  color: var(--mockup-muted, var(--studio-muted));
+  font: 500 18px/1 var(--folio-ui-font);
+  cursor: pointer;
+}
+
+.folio-shell[data-workspace-mode="write"] .library-collapse-button:hover {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft));
+  color: var(--mockup-ink, var(--studio-ink));
 }
 
 .folio-shell[data-workspace-mode="write"] .editor-pane {
@@ -229,6 +266,7 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle {
   width: 32px !important;
   min-width: 32px !important;
@@ -244,14 +282,17 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle:hover,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle:hover,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle:hover,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle.active,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle.active,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle.active {
   background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
   color: var(--mockup-ink, var(--studio-ink)) !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle .ui-icon,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle .ui-icon,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle .ui-icon {
   width: 17px !important;
   height: 17px !important;
@@ -260,6 +301,21 @@
 .folio-shell[data-workspace-mode="write"] .editor-paper {
   background: var(--mockup-canvas, var(--studio-editor-canvas)) !important;
 }
+
+.folio-shell[data-workspace-mode="write"] .rich-editor.typewriter-active {
+  scroll-behavior: auto !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .rich-editor.typewriter-active:not(:empty)::before,
+.folio-shell[data-workspace-mode="write"] .rich-editor.typewriter-active:not(:empty)::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: var(--folio-typewriter-spacer, 0px);
+  pointer-events: none;
+  user-select: none;
+}
+
 
 .folio-shell[data-workspace-mode="write"] .manuscript-editor {
   width: min(980px, calc(100% - 96px)) !important;
@@ -286,6 +342,7 @@
 
 /* Focus mode: only the writing surface(s), nothing else. */
 .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-focus-mode="true"] {
+  grid-template-columns: minmax(0, 1fr) !important;
   grid-template-rows: minmax(0, 1fr) !important;
   grid-template-areas: "editor" !important;
 }
@@ -330,6 +387,47 @@
   padding-top: 48px !important;
 }
 
+
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls {
+  position: fixed;
+  z-index: 80;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--mockup-rule, var(--studio-rule)) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mockup-paper, var(--studio-paper)) 92%, transparent);
+  box-shadow: 0 5px 18px rgba(24, 20, 17, .12);
+  backdrop-filter: blur(8px);
+}
+
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  color: var(--mockup-muted, var(--studio-muted));
+  cursor: pointer;
+}
+
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls button:hover,
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls button.active {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft));
+  color: var(--mockup-ink, var(--studio-ink));
+}
+
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls .ui-icon {
+  width: 17px;
+  height: 17px;
+}
 /* Rich writing controls -------------------------------------------------- */
 .writing-color-control {
   position: relative;
@@ -537,10 +635,13 @@
 }
 
 @media (max-width: 1250px) {
-  .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-write-sidebar="open"] {
+    grid-template-columns: 230px minmax(0, 1fr) !important;
   }
-  .folio-shell[data-workspace-mode="write"] .library-pane {
+  .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-write-sidebar="open"][data-split-view="true"] {
+    grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+  .folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .library-pane {
     width: 230px !important;
     min-width: 230px !important;
   }

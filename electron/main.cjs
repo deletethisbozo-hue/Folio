@@ -9,6 +9,30 @@ let mainWindow = null;
 let closeArmed = false;
 let closeInProgress = false;
 
+function folioProjectFromArgv(argv) {
+  for (const value of argv || []) {
+    if (typeof value !== "string" || !/\.folio$/i.test(value)) continue;
+    const candidate = path.resolve(value);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+async function openProjectFileInRenderer(win, projectFile) {
+  if (!win || win.isDestroyed() || !projectFile) return false;
+  const escaped = JSON.stringify(projectFile);
+  return win.webContents.executeJavaScript(`(async () => {
+    const save = window.__folioPrepareClose;
+    if (typeof save === "function") {
+      const saved = await save();
+      if (saved === false) return false;
+    }
+    const open = window.__folioOpenProjectFile;
+    if (typeof open !== "function") return false;
+    return await open(${escaped});
+  })()`, true);
+}
+
 function firstMatchingFile(root, names) {
   if (!root || !fs.existsSync(root)) return null;
   const wanted = new Set(names.map((n) => n.toLowerCase()));
@@ -100,7 +124,7 @@ async function prepareRendererForClose(win) {
   return Promise.race([renderer, timeout]);
 }
 
-async function startFolio() {
+async function startFolio(initialProjectFile = null) {
   const requestedPort = Number(process.env.FOLIO_E2E_PORT || 0);
   const port = requestedPort > 0 ? requestedPort : await freePort();
   const appRoot = app.getAppPath();
@@ -126,11 +150,15 @@ async function startFolio() {
   }
 
   const serverEntry = path.join(appRoot, "dist-server", "server.mjs");
-  await import(pathToFileURL(serverEntry).href);
-
+  await Promise.race([
+    import(pathToFileURL(serverEntry).href),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out importing packaged Folio server after 20 seconds.")), 20_000)),
+  ]);
   const baseUrl = `http://127.0.0.1:${port}`;
-  await waitForServer(`${baseUrl}/api/health`);
-
+  await Promise.race([
+    waitForServer(`${baseUrl}/api/health`),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out waiting for packaged Folio /api/health after 20 seconds.")), 20_000)),
+  ]);
   Menu.setApplicationMenu(null);
   closeArmed = false;
   closeInProgress = false;
@@ -194,7 +222,10 @@ async function startFolio() {
     closeInProgress = false;
   });
 
-  await mainWindow.loadURL(baseUrl);
+  const initialUrl = initialProjectFile
+    ? `${baseUrl}/?book=${encodeURIComponent(initialProjectFile)}`
+    : baseUrl;
+  await mainWindow.loadURL(initialUrl);
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -205,16 +236,21 @@ if (process.env.FOLIO_E2E_DEBUG_PORT) {
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+  app.on("second-instance", (_event, argv) => {
+    const projectFile = folioProjectFromArgv(argv);
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    if (projectFile) {
+      void openProjectFileInRenderer(mainWindow, projectFile).catch((error) => {
+        dialog.showErrorBox("Folio could not open this project", error instanceof Error ? error.message : String(error));
+      });
     }
   });
 
   app.whenReady().then(() => {
     app.setAppUserModelId("com.folio.bookformatter");
-    return startFolio();
+    return startFolio(folioProjectFromArgv(process.argv));
   }).catch((error) => {
     dialog.showErrorBox(
       "Folio could not start",

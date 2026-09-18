@@ -33,25 +33,26 @@ function isTransientPreviewConnectionError(error: unknown): boolean {
 }
 
 export const api = {
+  health: () => fetch("/api/health").then((r) => json<{ ok: boolean; name: string; version: string }>(r)),
   themes: () => fetch("/api/themes").then((r) => json<Theme[]>(r)),
   presets: () => fetch("/api/presets").then((r) => json<Preset[]>(r)),
   matterTypes: () => fetch("/api/matter-types").then((r) => json<MatterType[]>(r)),
   trims: () => fetch("/api/trims").then((r) => json<Trim[]>(r)),
   printLayouts: () => fetch("/api/print-layouts").then((r) => json<PrintLayout[]>(r)),
   recentProjects: () => fetch("/api/recent-projects").then((r) => json<RecentProject[]>(r)),
-  forgetRecentProject: (folder: string) => fetch("/api/recent-projects", {
+  forgetRecentProject: (projectPath: string) => fetch("/api/recent-projects", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ folder }),
+    body: JSON.stringify({ path: projectPath }),
   }).then((r) => json<RecentProject[]>(r)),
 
   loadSample: () => fetch("/api/sample", { method: "POST" }).then((r) => json<ProjectSummary>(r)),
 
-  newBook: (folderPath: string, title: string, author: string) =>
+  newBook: (projectPath: string, title: string, author: string) =>
     fetch("/api/projects/new", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: folderPath, title, author }),
+      body: JSON.stringify({ path: projectPath, title, author }),
     }).then((r) => json<ProjectSummary>(r)),
 
   pickFolder: (initial?: string) =>
@@ -61,12 +62,39 @@ export const api = {
       body: JSON.stringify({ initial }),
     }).then((r) => json<{ path: string | null }>(r)),
 
+  pickProjectFile: (mode: "open" | "save", initial?: string, suggestedName?: string) =>
+    fetch("/api/pick-project-file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode, initial, suggestedName }),
+    }).then((r) => json<{ path: string | null }>(r)),
+
+  openProjectFile: (projectPath: string) =>
+    fetch("/api/projects/open-file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: projectPath }),
+    }).then((r) => json<ProjectSummary>(r)),
+
+  importFolder: (folderPath: string, projectPath: string) =>
+    fetch("/api/projects/import-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder: folderPath, path: projectPath }),
+    }).then((r) => json<ProjectSummary>(r)),
+
   openFolder: (folderPath: string) =>
     fetch("/api/projects/open-folder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: folderPath }),
     }).then((r) => json<ProjectSummary>(r)),
+
+  flushProject: (projectId: string) =>
+    fetch(`/api/projects/${projectId}/flush`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
+
+  closeProject: (projectId: string) =>
+    fetch(`/api/projects/${projectId}/close`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
 
   reload: (projectId: string) =>
     fetch(`/api/projects/${projectId}/reload`, { method: "POST" }).then((r) => json<ProjectSummary>(r)),
@@ -252,6 +280,7 @@ export const api = {
       newRound?: boolean;
       note?: string;
       force?: boolean;
+      outputDir?: string;
     },
   ) =>
     fetch(`/api/projects/${projectId}/export`, {

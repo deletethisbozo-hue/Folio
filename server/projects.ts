@@ -4,13 +4,20 @@ import { promises as fs } from "node:fs";
 import { loadBook } from "./pipeline/ingest.ts";
 import { makeTempDir, resolveAppResource } from "./pipeline/paths.ts";
 import type { Book, BookMeta } from "./pipeline/types.ts";
+import {
+  createEmptyFolioProject,
+  extractFolioProject,
+  importFolderIntoFolioProject,
+  watchFolioProject,
+  type FolioProjectWatcher,
+} from "./project-file.ts";
 
 export interface UploadedFile {
   relPath: string; // path relative to the dropped folder (or just a filename)
   buffer: Buffer;
 }
 
-export type ProjectSource = "folder" | "upload" | "sample";
+export type ProjectSource = "folio" | "folder" | "upload" | "sample";
 
 interface ProjectRecord {
   id: string;
@@ -20,6 +27,8 @@ interface ProjectRecord {
   onDisk: boolean; // true when inputPath is the user's real folder
   tempToClean: string | null; // temp dir to remove on cleanup (never the user's folder)
   copied: boolean; // sample has been copied to a writable temp dir
+  projectFile: string | null; // permanent .folio container for normal projects
+  watcher: FolioProjectWatcher | null;
 }
 
 export interface ProjectInfo {
@@ -27,6 +36,7 @@ export interface ProjectInfo {
   folder: string | null; // displayable path to the book folder
   onDisk: boolean;
   editable: boolean; // matter/scaffold operations are possible
+  projectFile: string | null;
 }
 
 const projects = new Map<string, ProjectRecord>();
@@ -88,11 +98,11 @@ export async function createProjectFromFiles(files: UploadedFile[]): Promise<str
 
   const id = crypto.randomUUID();
   const bookDir = (await isDir(inputPath)) ? inputPath : null;
-  projects.set(id, { id, inputPath, bookDir, source: "upload", onDisk: false, tempToClean: dir, copied: false });
+  projects.set(id, { id, inputPath, bookDir, source: "upload", onDisk: false, tempToClean: dir, copied: false, projectFile: null, watcher: null });
   return id;
 }
 
-/** Open a real folder on the user's disk directly (no copy). */
+/** Legacy direct-folder support kept for import/tests. New user projects are .folio files. */
 export async function createProjectFromFolderPath(folderPath: string): Promise<string> {
   const abs = path.resolve(folderPath.trim());
   if (!(await isDir(abs))) throw new Error(`Not a folder: ${abs}`);
@@ -105,15 +115,64 @@ export async function createProjectFromFolderPath(folderPath: string): Promise<s
     onDisk: true,
     tempToClean: null,
     copied: false,
+    projectFile: null,
+    watcher: null,
   });
   return id;
+}
+
+async function registerFolioWorkingCopy(projectFile: string, workingDir: string): Promise<string> {
+  const id = crypto.randomUUID();
+  const record: ProjectRecord = {
+    id,
+    inputPath: workingDir,
+    bookDir: workingDir,
+    source: "folio",
+    onDisk: true,
+    tempToClean: workingDir,
+    copied: false,
+    projectFile,
+    watcher: null,
+  };
+  record.watcher = watchFolioProject(projectFile, workingDir);
+  projects.set(id, record);
+  return id;
+}
+
+/** Open a permanent .folio project into a private writable working directory. */
+export async function createProjectFromFolioFile(projectPath: string): Promise<string> {
+  const file = path.resolve(projectPath.trim());
+  if (!file.toLocaleLowerCase().endsWith(".folio")) throw new Error("Folio projects must use the .folio extension.");
+  const work = await makeTempDir("folio-work-");
+  try {
+    await extractFolioProject(file, work);
+    return await registerFolioWorkingCopy(file, work);
+  } catch (error) {
+    await fs.rm(work, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
+}
+
+/** Create a new empty .folio container and register its private working copy. */
+export async function createProjectAtFolioPath(projectPath: string): Promise<string> {
+  const file = await createEmptyFolioProject(projectPath);
+  const work = await makeTempDir("folio-work-");
+  return registerFolioWorkingCopy(file, work);
+}
+
+/** Import a legacy book folder into a standalone .folio file without touching the source folder. */
+export async function importFolderAsFolioProject(folderPath: string, projectPath: string): Promise<string> {
+  const source = path.resolve(folderPath.trim());
+  if (!(await isDir(source))) throw new Error(`Not a folder: ${source}`);
+  const file = await importFolderIntoFolioProject(source, projectPath);
+  return createProjectFromFolioFile(file);
 }
 
 /** Register the bundled sample book as a project. */
 export function createSampleProject(): string {
   const id = crypto.randomUUID();
   const dir = resolveAppResource("samples", "clockwork-garden");
-  projects.set(id, { id, inputPath: dir, bookDir: dir, source: "sample", onDisk: false, tempToClean: null, copied: false });
+  projects.set(id, { id, inputPath: dir, bookDir: dir, source: "sample", onDisk: false, tempToClean: null, copied: false, projectFile: null, watcher: null });
   return id;
 }
 
@@ -129,6 +188,7 @@ export function projectInfo(id: string): ProjectInfo {
     folder: rec.bookDir,
     onDisk: rec.onDisk,
     editable: rec.bookDir !== null,
+    projectFile: rec.projectFile,
   };
 }
 
@@ -179,6 +239,22 @@ export async function writableBookDir(id: string): Promise<string> {
     await flight;
   }
   return rec.bookDir!;
+}
+
+/** Force any pending working-copy changes into the permanent .folio container. */
+export async function flushProjectContainer(id: string): Promise<void> {
+  const rec = projects.get(id);
+  if (!rec) throw new Error("Project not found.");
+  if (rec.watcher) await rec.watcher.flush();
+}
+
+/** Close and remove the private working copy for a project. */
+export async function closeProject(id: string): Promise<void> {
+  const rec = projects.get(id);
+  if (!rec) return;
+  if (rec.watcher) await rec.watcher.close();
+  projects.delete(id);
+  if (rec.tempToClean) await fs.rm(rec.tempToClean, { recursive: true, force: true }).catch(() => undefined);
 }
 
 /** Replace the cover image for a project. */

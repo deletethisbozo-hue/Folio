@@ -14,6 +14,7 @@ import { composePreviewDocument } from "./compositor";
 import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
+import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import WritingSplitPane from "./WritingSplitPane";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
@@ -40,7 +41,7 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "sidebar" | "previous" | "next";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "typewriter" | "sidebar" | "previous" | "next";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
@@ -54,6 +55,7 @@ function UiIcon({ name }: { name: UiIconName }) {
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
     split: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M12 5v14"/></>,
     focus: <><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/></>,
+    typewriter: <><path d="M5 6h14M12 6v11M8 17h8"/><path d="M4 12h3M17 12h3"/></>,
     sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M8.5 5v14"/></>,
     previous: <path d="m15 18-6-6 6-6"/>,
     next: <path d="m9 18 6-6-6-6"/>,
@@ -125,7 +127,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => window.localStorage.getItem("folio-workspace-mode") === "write" ? "write" : "format");
   const [splitView, setSplitView] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
+  const [spellcheckEnabled, setSpellcheckEnabled] = useState(() => window.localStorage.getItem("folio-spellcheck-enabled") !== "false");
+  const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,6 +138,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [showStyle, setShowStyle] = useState(false);
   const [showContent, setShowContent] = useState(false);
   const [showBookDetails, setShowBookDetails] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showNewBook, setShowNewBook] = useState(false);
   const [newBookForm, setNewBookForm] = useState({ path: "", title: "", author: "" });
   const [contentTitle, setContentTitle] = useState("New Chapter");
@@ -221,6 +227,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [selectedId]);
   useEffect(() => { window.localStorage.setItem("folio-ui-tone", uiTone); }, [uiTone]);
   useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
+  useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
+  useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
   useEffect(() => {
     if (!focusMode) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -231,6 +239,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [focusMode]);
+  useEffect(() => {
+    if (workspaceMode !== "write" || !typewriterMode) return;
+    scheduleTypewriterCaret(editorRef.current);
+  }, [workspaceMode, typewriterMode, focusMode, splitView, writeSidebarOpen, selectedId]);
   useEffect(() => {
     if (draft.length < 35_000) { setPreviewDraft(draft); return; }
     const delay = draft.length > 250_000 ? 460 : draft.length > 100_000 ? 300 : 150;
@@ -562,12 +574,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     });
   }
 
-  async function openFolder(folderPath?: string) {
+  async function openFolder(projectPath?: string) {
     if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
-      const selected = folderPath ?? (await api.pickFolder(project?.folder ?? undefined)).path;
-      if (selected) adopt(await api.openFolder(selected));
+      const selected = projectPath ?? (await api.pickProjectFile("open", project?.projectFile ?? undefined)).path;
+      if (!selected) return;
+      const previousId = project?.projectId ?? null;
+      const summary = await api.openProjectFile(selected);
+      if (previousId && previousId !== summary.projectId) await api.closeProject(previousId);
+      adopt(summary);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -575,7 +591,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   async function loadSample() {
     if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
-    try { adopt(await api.loadSample()); }
+    try {
+      const previousId = project?.projectId ?? null;
+      const summary = await api.loadSample();
+      if (previousId && previousId !== summary.projectId) await api.closeProject(previousId);
+      adopt(summary);
+    }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -584,9 +605,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (project && !(await saveCurrent())) return;
     setBusy(true); setError(null);
     try {
-      const selected = (await api.pickFolder()).path;
+      const selected = (await api.pickProjectFile("save", undefined, "Untitled.folio")).path;
       if (!selected) return;
-      const guessed = selected.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Untitled";
+      const filename = selected.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Untitled.folio";
+      const guessed = filename.replace(/\.folio$/i, "") || "Untitled";
       setNewBookForm({ path: selected, title: guessed, author: "" });
       setShowNewBook(true);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -597,7 +619,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (!newBookForm.path.trim()) return;
     setBusy(true); setError(null);
     try {
-      adopt(await api.newBook(newBookForm.path, newBookForm.title, newBookForm.author));
+      const previousId = project?.projectId ?? null;
+      const summary = await api.newBook(newBookForm.path, newBookForm.title, newBookForm.author);
+      if (previousId && previousId !== summary.projectId) await api.closeProject(previousId);
+      adopt(summary);
       setShowNewBook(false);
       setShowBookDetails(true);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -611,6 +636,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (project && meta) await persistAppearance(project.projectId, meta, typography);
       await sectionSaveQueueRef.current.flush();
       await appearanceSaveQueueRef.current.flush();
+      if (project) await api.closeProject(project.projectId);
       onDashboard?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -973,6 +999,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         if (project && meta) await persistAppearance(project.projectId, meta, typography);
         await sectionSaveQueueRef.current.flush();
         await appearanceSaveQueueRef.current.flush();
+        if (project) await api.flushProject(project.projectId);
         return true;
       } catch (e) {
         setSaveState("error"); setError(e instanceof Error ? e.message : String(e));
@@ -1504,6 +1531,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     editorDomGenerationRef.current++;
     if (draftRef.current.length < 35_000) void flushEditorDom();
     else scheduleEditorDomSync();
+    if (typewriterMode) scheduleTypewriterCaret(editor);
   }
 
   function recordDraft(next: string) {
@@ -1567,7 +1595,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       recordEditorDom();
       return;
     }
-    window.requestAnimationFrame(syncEditorClickToPreview);
+    window.requestAnimationFrame(() => {
+      syncEditorClickToPreview();
+      if (typewriterMode) centerTypewriterCaret(editorRef.current);
+    });
   }
 
   async function saveAppearance() {
@@ -1580,11 +1611,20 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     } catch (e) { setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); }
   }
 
+  async function chooseExportDirectory(): Promise<void> {
+    try {
+      const selected = (await api.pickFolder(exportDirectory || undefined)).path;
+      if (selected) setExportDirectory(selected);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function runExport(label: string, format: string, preset?: string, force = false): Promise<void> {
     if (!project || !meta || !(await saveCurrent())) return;
     setExportState({ busy: label, result: null, error: null });
     try {
-      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: format === "print" ? printOptions : undefined, force });
+      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: format === "print" ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined });
       if (result.needsConfirm) {
         if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) return runExport(label, format, preset, true);
         setExportState({ busy: null, result: null, error: null }); return;
@@ -1603,13 +1643,13 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   );
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
           <button data-command="book" onClick={() => setShowBookDetails(true)}>Book</button>
           <button data-command="design" onClick={() => setShowStyle(true)}>Design</button>
-          <button data-command="new-project" disabled={busy} onClick={() => void beginNewBook()}>New Project</button>
+          <button data-command="new-project" disabled={busy} onClick={() => void beginNewBook()}>New Project</button><button data-command="settings" onClick={() => setShowSettings(true)}>Settings</button>
           <span className="workspace-command-spacer"/>
           <span className="workspace-mode-switch" role="group" aria-label="Workspace mode">
             <button type="button" className={workspaceMode === "write" ? "active" : ""} aria-pressed={workspaceMode === "write"} onClick={() => void changeWorkspaceMode("write")}>Write</button>
@@ -1619,7 +1659,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <button className="tone-toggle" onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")} aria-label={uiTone === "ivory" ? "Use Midnight Editorial" : "Use Ivory and Ink"}>{uiTone === "ivory" ? "Midnight" : "Ivory"}</button>
       </header>
       <aside className="library-pane">
-        <div className="library-toolbar"><span className="pane-label">Manuscript</span></div>
+        <div className="library-toolbar"><span className="pane-label">Manuscript</span>{workspaceMode === "write" && !focusMode && <button type="button" className="library-collapse-button" aria-label="Hide manuscript sidebar" title="Hide manuscript sidebar" onClick={() => setWriteSidebarOpen(false)}>×</button>}</div>
         <div className="book-identity"><div className="book-title">{meta.title}</div><div className="book-author">{meta.author}</div></div>
         <nav className="contents-list" aria-label="Book contents">
           <button className={`contents-row cover-row ${coverSelected ? "selected" : ""}`} onClick={() => void selectSection(COVER_ID)}><span>Cover</span><small>{project.hasCover ? "" : "Add"}</small></button>
@@ -1641,19 +1681,27 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
-          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onClick={() => setFocusMode((value) => !value)}><UiIcon name="focus"/></button></>}
+          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => !value)}><UiIcon name="focus"/></button></>}
         </div>
-        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className="manuscript-editor rich-editor" contentEditable={document.editable} suppressContentEditableWarning spellCheck data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} onKeyUp={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
       </section>
 
       {splitView && <WritingSplitPane
         project={project}
         primarySectionId={selectedId}
         ornament={writingOrnament}
+        typewriterMode={typewriterMode}
+        spellcheckEnabled={spellcheckEnabled}
         onClose={() => setSplitView(false)}
         onError={(message) => setError(message)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
       />}
+
+      {workspaceMode === "write" && focusMode && <div className="focus-layout-controls" role="toolbar" aria-label="Focus layout controls">
+        {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button>}
+        <button type="button" className={`focus-typewriter ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button>
+        <button type="button" className="focus-exit" aria-label="Exit focus mode" title="Exit focus mode (Esc)" onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode(false)}><UiIcon name="focus"/></button>
+      </div>}
 
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>}</div></div>}</div></div>
@@ -1668,6 +1716,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
+      {showSettings && <SettingsDialog spellcheckEnabled={spellcheckEnabled} setSpellcheckEnabled={setSpellcheckEnabled} exportDirectory={exportDirectory} onChooseExportDirectory={() => void chooseExportDirectory()} onResetExportDirectory={() => setExportDirectory("")} onClose={() => setShowSettings(false)}/>}
       {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
       {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}
     </div>
@@ -1682,9 +1731,37 @@ function DialogShell(props: { title: string; children: React.ReactNode; footer: 
   return <div className="dialog-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}><section className="folio-dialog" role="dialog" aria-modal="true" aria-label={props.title}><header><h2>{props.title}</h2><button onClick={props.onClose} aria-label="Close">×</button></header><div className="dialog-body">{props.children}</div><footer>{props.footer}</footer></section></div>;
 }
 
+function SettingsDialog(props: {
+  spellcheckEnabled: boolean;
+  setSpellcheckEnabled: (enabled: boolean) => void;
+  exportDirectory: string;
+  onChooseExportDirectory: () => void;
+  onResetExportDirectory: () => void;
+  onClose: () => void;
+}) {
+  return <DialogShell title="Settings" onClose={props.onClose} footer={<button className="native-button primary" onClick={props.onClose}>Done</button>}>
+    <div className="settings-list">
+      <label className="settings-row">
+        <span className="settings-copy"><strong>Spellcheck</strong><small>Underline suspected spelling errors while writing. This setting applies to the main editor and Split View.</small></span>
+        <input type="checkbox" checked={props.spellcheckEnabled} onChange={(event) => props.setSpellcheckEnabled(event.target.checked)} aria-label="Enable spellcheck"/>
+      </label>
+      <div className="settings-row export-location-row">
+        <span className="settings-copy">
+          <strong>Export location</strong>
+          <small>{props.exportDirectory || "Default: an Exports folder next to the current .folio project."}</small>
+        </span>
+        <span className="settings-actions">
+          {props.exportDirectory && <button type="button" className="native-button" onClick={props.onResetExportDirectory}>Reset</button>}
+          <button type="button" className="native-button" onClick={props.onChooseExportDirectory}>Choose folder…</button>
+        </span>
+      </div>
+    </div>
+  </DialogShell>;
+}
+
 function NewBookDialog(props: { value: { path: string; title: string; author: string }; setValue: (value: { path: string; title: string; author: string }) => void; busy: boolean; onCancel: () => void; onCreate: () => void }) {
   const { value, setValue } = props;
-  return <DialogShell title="New Book" onClose={props.onCancel} footer={<><button className="native-button" onClick={props.onCancel}>Cancel</button><button className="native-button primary" disabled={props.busy || !value.title.trim()} onClick={props.onCreate}>Create Book</button></>}><label className="dialog-field"><span>Title</span><input autoFocus value={value.title} onChange={(e) => setValue({ ...value, title: e.target.value })}/></label><label className="dialog-field"><span>Author</span><input value={value.author} placeholder="Author name" onChange={(e) => setValue({ ...value, author: e.target.value })}/></label><label className="dialog-field"><span>Folder</span><input value={value.path} readOnly/></label></DialogShell>;
+  return <DialogShell title="New Book" onClose={props.onCancel} footer={<><button className="native-button" onClick={props.onCancel}>Cancel</button><button className="native-button primary" disabled={props.busy || !value.title.trim()} onClick={props.onCreate}>Create Book</button></>}><label className="dialog-field"><span>Title</span><input autoFocus value={value.title} onChange={(e) => setValue({ ...value, title: e.target.value })}/></label><label className="dialog-field"><span>Author</span><input value={value.author} placeholder="Author name" onChange={(e) => setValue({ ...value, author: e.target.value })}/></label><label className="dialog-field"><span>Project file</span><input value={value.path} readOnly/></label></DialogShell>;
 }
 
 function ChapterHeading(props: { title: string; subtitle: string; index: number | null; editable: boolean; busy: boolean; onTitle: (title: string) => void; onSubtitle: (subtitle: string) => void }) {
