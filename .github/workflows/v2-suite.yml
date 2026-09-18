@@ -1,6 +1,6 @@
-name: Folio 2.0 qualification
+name: Folio 2.x qualification
 
-# Full branch qualification gate for the 2.0 development line.
+# Full branch qualification gate for the active Folio 2.x development line.
 on:
   workflow_dispatch:
   push:
@@ -43,6 +43,7 @@ jobs:
     timeout-minutes: 35
     env:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,6 +54,8 @@ jobs:
         run: node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Install Chromium runtime
+        run: npx puppeteer browsers install chrome-headless-shell
       - name: Install pinned Pandoc 3.11
         shell: bash
         run: |
@@ -67,3 +70,5 @@ jobs:
         run: npm test
       - name: Build web and server
         run: npm run build
+      - name: Writing Studio interaction and screenshot QA
+        run: node --import tsx scripts/v210-writing-studio-preview.ts
