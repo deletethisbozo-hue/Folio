@@ -1619,7 +1619,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <button className="tone-toggle" onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")} aria-label={uiTone === "ivory" ? "Use Midnight Editorial" : "Use Ivory and Ink"}>{uiTone === "ivory" ? "Midnight" : "Ivory"}</button>
       </header>
       <aside className="library-pane">
-        <div className="library-toolbar"><span className="pane-label">Manuscript</span></div>
+        <div className="library-toolbar"><span className="pane-label">Manuscript</span>{workspaceMode === "write" && !focusMode && <button type="button" className="library-collapse-button" aria-label="Hide manuscript sidebar" title="Hide manuscript sidebar" onClick={() => setWriteSidebarOpen(false)}>×</button>}</div>
         <div className="book-identity"><div className="book-title">{meta.title}</div><div className="book-author">{meta.author}</div></div>
         <nav className="contents-list" aria-label="Book contents">
           <button className={`contents-row cover-row ${coverSelected ? "selected" : ""}`} onClick={() => void selectSection(COVER_ID)}><span>Cover</span><small>{project.hasCover ? "" : "Add"}</small></button>
@@ -1654,6 +1654,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onError={(message) => setError(message)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
       />}
+
+      {workspaceMode === "write" && focusMode && <div className="focus-layout-controls" role="toolbar" aria-label="Focus layout controls">
+        {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onClick={() => void toggleSplitView()}><UiIcon name="split"/></button>}
+        <button type="button" className="focus-exit" aria-label="Exit focus mode" title="Exit focus mode (Esc)" onClick={() => setFocusMode(false)}><UiIcon name="focus"/></button>
+      </div>}
 
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>}</div></div>}</div></div>
