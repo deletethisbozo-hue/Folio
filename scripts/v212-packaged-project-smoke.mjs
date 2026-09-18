@@ -148,8 +148,12 @@ try {
     secondProjectFile,
   );
 
-  await fs.writeFile(path.join(root, "result.json"), JSON.stringify({ projectFile, secondProjectFile, exportDir }, null, 2));
-  console.log(JSON.stringify({ projectFile, secondProjectFile, exportDir }));
+  const result = { projectFile, secondProjectFile, exportDir };
+  await fs.writeFile(path.join(root, "result.json"), JSON.stringify(result, null, 2));
+  if (process.env.FOLIO_SMOKE_RESULT) {
+    await fs.writeFile(process.env.FOLIO_SMOKE_RESULT, JSON.stringify(result, null, 2));
+  }
+  console.log(JSON.stringify(result));
   console.log("Packaged Folio .folio roundtrip, configured export, and second-instance open passed.");
 } finally {
   browser.disconnect();
