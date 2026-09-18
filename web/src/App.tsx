@@ -225,8 +225,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (!focusMode) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest(".editor-search")) return;
+      setShowSearch(false);
       setFocusMode(false);
     };
     window.addEventListener("keydown", onKeyDown);
