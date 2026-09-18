@@ -111,6 +111,15 @@
         "to": "chromium"
       }
     ],
+    "fileAssociations": [
+      {
+        "ext": "folio",
+        "name": "Folio Project",
+        "description": "Folio book project",
+        "role": "Editor",
+        "icon": "assets/folio.ico"
+      }
+    ],
     "win": {
       "executableName": "Folio",
       "icon": "assets/folio.ico",
