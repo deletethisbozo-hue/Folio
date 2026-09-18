@@ -150,10 +150,20 @@ async function startFolio(initialProjectFile = null) {
   }
 
   const serverEntry = path.join(appRoot, "dist-server", "server.mjs");
-  await import(pathToFileURL(serverEntry).href);
+  console.error("[folio-startup] importing server", serverEntry, "port", port, "packaged", app.isPackaged);
+  await Promise.race([
+    import(pathToFileURL(serverEntry).href),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out importing packaged Folio server after 20 seconds.")), 20_000)),
+  ]);
+  console.error("[folio-startup] server module imported");
 
   const baseUrl = `http://127.0.0.1:${port}`;
-  await waitForServer(`${baseUrl}/api/health`);
+  console.error("[folio-startup] waiting for health", `${baseUrl}/api/health`);
+  await Promise.race([
+    waitForServer(`${baseUrl}/api/health`),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out waiting for packaged Folio /api/health after 20 seconds.")), 20_000)),
+  ]);
+  console.error("[folio-startup] health ready");
 
   Menu.setApplicationMenu(null);
   closeArmed = false;
@@ -248,6 +258,7 @@ if (!gotLock) {
     app.setAppUserModelId("com.folio.bookformatter");
     return startFolio(folioProjectFromArgv(process.argv));
   }).catch((error) => {
+    console.error("[folio-startup] fatal", error instanceof Error ? error.stack || error.message : String(error));
     dialog.showErrorBox(
       "Folio could not start",
       `${error instanceof Error ? error.message : String(error)}\n\nTry downloading the Windows release again.`,
