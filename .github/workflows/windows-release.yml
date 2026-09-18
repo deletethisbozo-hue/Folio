@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.1.0 version consistency
+      - name: Verify Folio 2.1.1 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.1.0") { throw "Windows release is scoped to Folio 2.1.0, found $version." }
+          if ($version -ne "2.1.1") { throw "Windows release is scoped to Folio 2.1.1, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -221,4 +221,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.1.0 adds a dedicated Writing Studio while preserving the existing book-formatting workspace. Write and Format are now the two top-level workspace modes; the optional two-pane editor is correctly treated as a Write layout control instead of a third mode. Write mode adds a full-width manuscript canvas, an independently editable secondary chapter pane, autosave-safe split editing, text colour, highlighting, strikethrough and clear-format controls. The shared masthead geometry and Folio wordmark are aligned across the dashboard and workspace, and the redundant chapter kicker is removed. The release is gated by typecheck, the full formatter/UI suite, Writing Studio browser interaction tests and screenshots, Windows visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
+            --notes "Folio 2.1.1 refines the Writing Studio introduced in 2.1.0. Write mode now starts with the manuscript sidebar collapsed so the editor gets the full workspace, while a dedicated sidebar control can reveal the manuscript as an overlay without resizing the writing canvas. A new Focus mode hides all application chrome and leaves only the active editor, or both editors when Split View is enabled; Escape exits Focus mode. Split View remains an editor-layout control rather than a workspace mode. The release is gated by typecheck, the full formatter/UI suite, Writing Studio browser interaction tests and screenshots for collapsed/open sidebar, split editing and Focus mode, Windows visual/typesetting QA, the full Print PDF matrix, packaged executable smoke tests, EPUB/PDF/print export checks and SHA-256 hashing."
