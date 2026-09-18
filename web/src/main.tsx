@@ -44,7 +44,7 @@ function FolioRoot() {
   async function openPath(path: string) {
     const clean = path.trim();
     if (!clean) return;
-    const summary = await api.openFolder(clean);
+    const summary = await api.openProjectFile(clean);
     adoptProject(summary);
   }
 
