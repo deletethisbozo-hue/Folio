@@ -7,6 +7,7 @@ import { promises as fs } from "node:fs";
 import { registerApi } from "../server/api.ts";
 import { registerEditorApi } from "../server/editor-api.ts";
 import { ROOT, themeCss } from "../server/pipeline/paths.ts";
+import { extractFolioProject } from "../server/project-file.ts";
 
 let pass = 0;
 let fail = 0;
@@ -49,9 +50,9 @@ for (const theme of themes.body) {
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
 }
 
-const newBookDir = path.join(os.tmpdir(), "folio-new-" + crypto.randomUUID());
-await fs.mkdir(newBookDir, { recursive: true });
-const created = await post("/api/projects/new", { path: newBookDir, title: "Born Tied", author: "Folio Test" });
+const newBookRoot = await fs.mkdtemp(path.join(os.tmpdir(), "folio-new-"));
+const newBookFile = path.join(newBookRoot, "Born Tied.folio");
+const created = await post("/api/projects/new", { path: newBookFile, title: "Born Tied", author: "Folio Test" });
 check("new book creates metadata and a first chapter", created.status === 200 && created.body.meta.title === "Born Tied" && created.body.sections.some((item: any) => item.kind === "chapter"));
 const createdChapter = created.body.sections.find((item: any) => item.kind === "chapter");
 const createdDocument = await json("/api/projects/" + created.body.projectId + "/sections/" + encodeURIComponent(createdChapter.id));
@@ -77,7 +78,11 @@ const clearedSubtitle = await json(`/api/projects/${created.body.projectId}/sect
 check("chapter subtitle can be removed without changing its body", clearedSubtitle.status === 200 && clearedSubtitle.body.subtitle === undefined && clearedSubtitle.body.markdown === headingSafetyBody);
 const deletedChapter = await json(`/api/projects/${created.body.projectId}/sections/${encodeURIComponent(clearedSubtitle.body.id)}`, { method: "DELETE" });
 const afterDelete = await post(`/api/projects/${created.body.projectId}/reload`, {});
-check("chapter can be deleted without destroying its source", deletedChapter.status === 200 && afterDelete.body.sections.filter((item: any) => item.kind === "chapter").length === 1 && (await fs.readdir(path.join(newBookDir, ".folio-trash"))).length === 1);
+await post(`/api/projects/${created.body.projectId}/flush`, {});
+const deletedSnapshot = path.join(newBookRoot, "deleted-snapshot");
+await extractFolioProject(newBookFile, deletedSnapshot);
+const trashEntries = await fs.readdir(path.join(deletedSnapshot, ".folio-trash"));
+check("chapter can be deleted without destroying its source", deletedChapter.status === 200 && afterDelete.body.sections.filter((item: any) => item.kind === "chapter").length === 1 && trashEntries.length === 1);
 const coverForm = new FormData();
 coverForm.append("cover", new Blob([Buffer.from("89504e470d0a1a0a", "hex")], { type: "image/png" }), "folio-cover.png");
 const covered = await json(`/api/projects/${created.body.projectId}/cover`, { method: "POST", body: coverForm });
@@ -94,7 +99,8 @@ const removedBack = await json(`/api/projects/${created.body.projectId}/sections
 const afterMatterDelete = await post(`/api/projects/${created.body.projectId}/reload`, {});
 check("editable front matter can be deleted and unlisted", removedFront.status === 200 && !afterMatterDelete.body.sections.some((item: any) => item.title === "Dedication") && !afterMatterDelete.body.config.frontmatter.some((entry: string) => entry.includes("dedication")));
 check("editable back matter can be deleted and unlisted", removedBack.status === 200 && !afterMatterDelete.body.sections.some((item: any) => item.title === "About the Author") && !afterMatterDelete.body.config.backmatter.some((entry: string) => entry.includes("about-the-author")));
-await fs.rm(newBookDir, { recursive: true, force: true });
+await post(`/api/projects/${created.body.projectId}/close`, {});
+await fs.rm(newBookRoot, { recursive: true, force: true });
 
 const originalPath = path.join(ROOT, "samples", "clockwork-garden", "chapters", "01-the-letter.md");
 const original = await fs.readFile(originalPath, "utf8");
