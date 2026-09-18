@@ -538,7 +538,11 @@
 
 @media (max-width: 1250px) {
   .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
-    grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+  .folio-shell[data-workspace-mode="write"] .library-pane {
+    width: 230px !important;
+    min-width: 230px !important;
   }
   .folio-shell[data-workspace-mode="write"][data-split-view="true"] .manuscript-editor,
   .writing-split-editor {
