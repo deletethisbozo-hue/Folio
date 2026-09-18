@@ -33,6 +33,7 @@ function isTransientPreviewConnectionError(error: unknown): boolean {
 }
 
 export const api = {
+  health: () => fetch("/api/health").then((r) => json<{ ok: boolean; name: string; version: string }>(r)),
   themes: () => fetch("/api/themes").then((r) => json<Theme[]>(r)),
   presets: () => fetch("/api/presets").then((r) => json<Preset[]>(r)),
   matterTypes: () => fetch("/api/matter-types").then((r) => json<MatterType[]>(r)),
