@@ -189,6 +189,14 @@ jobs:
           }
           $association
 
+          $progId = (($association -split "\r?\n") | Where-Object { $_ -match "\(Default\).*REG_SZ" } | Select-Object -First 1) -replace "^.*REG_SZ\s+", ""
+          if (-not $progId) { throw "Could not resolve the .folio ProgID." }
+          $openCommand = reg query "HKCR\$progId\shell\open\command" /ve 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0 -or $openCommand -notmatch '"%1"') {
+            throw "The .folio open command must quote %1 so project paths with spaces work. Registry output: $openCommand"
+          }
+          $openCommand
+
       - name: Open persisted project with installed Folio argument
         timeout-minutes: 6
         shell: pwsh
@@ -197,7 +205,8 @@ jobs:
           $env:FOLIO_E2E_PORT = "43147"
           $env:FOLIO_E2E_DEBUG_PORT = "43148"
           $env:FOLIO_EXPECT_PROJECT = $result.projectFile
-          $process = Start-Process -FilePath $env:FOLIO_INSTALLED_EXE -ArgumentList @($result.projectFile) -PassThru
+          $quotedProject = '"{0}"' -f $result.projectFile
+          $process = Start-Process -FilePath $env:FOLIO_INSTALLED_EXE -ArgumentList $quotedProject -PassThru
           try {
             $health = $null
             for ($i = 0; $i -lt 160; $i++) {
