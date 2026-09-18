@@ -90,6 +90,26 @@ try {
     const sidebar = document.querySelector<HTMLElement>(".library-pane")!;
     return previewHidden && getComputedStyle(sidebar).display === "none";
   });
+
+  await page.evaluate(() => {
+    const settings = document.querySelector<HTMLButtonElement>('[data-command="settings"]');
+    if (!settings) throw new Error("Settings command missing");
+    settings.click();
+  });
+  await page.waitForSelector('[role="dialog"][aria-label="Settings"]');
+  const initialSpellcheck = await page.$eval<HTMLInputElement>('input[aria-label="Enable spellcheck"]', (input) => input.checked);
+  if (!initialSpellcheck) throw new Error("Spellcheck should default to enabled");
+  await page.click('input[aria-label="Enable spellcheck"]');
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Enable spellcheck"]');
+    return input?.checked === false
+      && editor?.spellcheck === false
+      && window.localStorage.getItem("folio-spellcheck-enabled") === "false";
+  });
+  await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
+
   await settle(300);
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
 
@@ -201,7 +221,10 @@ try {
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="true"] .writing-split-pane');
   await page.waitForSelector(".writing-split-editor[contenteditable='true'].typewriter-active");
-  await page.waitForFunction(() => (document.querySelector(".writing-split-editor")?.textContent?.trim().length ?? 0) > 80);
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".writing-split-editor");
+    return (editor?.textContent?.trim().length ?? 0) > 80 && editor?.spellcheck === false;
+  });
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".writing-split-editor");
