@@ -17,7 +17,7 @@ export interface UploadedFile {
   buffer: Buffer;
 }
 
-export type ProjectSource = "folio" | "legacy-folder" | "upload" | "sample";
+export type ProjectSource = "folio" | "folder" | "upload" | "sample";
 
 interface ProjectRecord {
   id: string;
@@ -111,7 +111,7 @@ export async function createProjectFromFolderPath(folderPath: string): Promise<s
     id,
     inputPath: abs,
     bookDir: abs,
-    source: "legacy-folder",
+    source: "folder",
     onDisk: true,
     tempToClean: null,
     copied: false,
