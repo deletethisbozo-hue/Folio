@@ -26,6 +26,7 @@ const ORDER = [
   "save-queue.test.ts",
   "project-file.test.ts",
   "project-file-api.test.ts",
+  "project-file-association.test.ts",
   "typesetting-language.test.ts",
   "ingestion.test.ts",
   "versioning.test.ts",
