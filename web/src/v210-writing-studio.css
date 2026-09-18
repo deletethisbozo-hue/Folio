@@ -266,6 +266,7 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle {
   width: 32px !important;
   min-width: 32px !important;
@@ -281,14 +282,17 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle:hover,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle:hover,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle:hover,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle.active,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle.active,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle.active {
   background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
   color: var(--mockup-ink, var(--studio-ink)) !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-split-toggle .ui-icon,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-typewriter-toggle .ui-icon,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-focus-toggle .ui-icon {
   width: 17px !important;
   height: 17px !important;
@@ -297,6 +301,21 @@
 .folio-shell[data-workspace-mode="write"] .editor-paper {
   background: var(--mockup-canvas, var(--studio-editor-canvas)) !important;
 }
+
+.folio-shell[data-workspace-mode="write"] .rich-editor.typewriter-active {
+  scroll-behavior: auto !important;
+}
+
+.folio-shell[data-workspace-mode="write"] .rich-editor.typewriter-active:not(:empty)::before,
+.folio-shell[data-workspace-mode="write"] .rich-editor.typewriter-active:not(:empty)::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: var(--folio-typewriter-spacer, 0px);
+  pointer-events: none;
+  user-select: none;
+}
+
 
 .folio-shell[data-workspace-mode="write"] .manuscript-editor {
   width: min(980px, calc(100% - 96px)) !important;
@@ -399,7 +418,8 @@
   cursor: pointer;
 }
 
-.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls button:hover {
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls button:hover,
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .focus-layout-controls button.active {
   background: var(--mockup-accent-soft, var(--studio-accent-soft));
   color: var(--mockup-ink, var(--studio-ink));
 }
