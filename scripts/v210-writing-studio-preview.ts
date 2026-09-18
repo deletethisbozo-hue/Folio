@@ -88,22 +88,51 @@ try {
   await page.waitForFunction(() => {
     const previewHidden = getComputedStyle(document.querySelector(".preview-pane")!).display === "none";
     const sidebar = document.querySelector<HTMLElement>(".library-pane")!;
-    const sidebarHidden = getComputedStyle(sidebar).pointerEvents === "none";
-    return previewHidden && sidebarHidden;
+    return previewHidden && getComputedStyle(sidebar).display === "none";
   });
   await settle(300);
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
 
+  const closedEditorLeft = await page.$eval(".editor-pane", (element) => element.getBoundingClientRect().left);
   await page.evaluate(() => {
     const toggle = document.querySelector<HTMLButtonElement>(".write-sidebar-toggle");
     if (!toggle) throw new Error("Write sidebar toggle missing");
     toggle.click();
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"]');
-  await page.waitForFunction(() => getComputedStyle(document.querySelector<HTMLElement>(".library-pane")!).pointerEvents !== "none");
+  const openSidebarGeometry = await page.evaluate(() => {
+    const sidebar = document.querySelector<HTMLElement>(".library-pane");
+    const editor = document.querySelector<HTMLElement>(".editor-pane");
+    const close = document.querySelector<HTMLButtonElement>(".library-collapse-button");
+    if (!sidebar || !editor || !close) throw new Error("Open Write sidebar is missing its layout or close control");
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    return {
+      sidebarDisplay: getComputedStyle(sidebar).display,
+      sidebarLeft: sidebarRect.left,
+      sidebarRight: sidebarRect.right,
+      editorLeft: editorRect.left,
+      closeLabel: close.getAttribute("aria-label"),
+    };
+  });
+  if (openSidebarGeometry.sidebarDisplay === "none"
+    || openSidebarGeometry.editorLeft <= closedEditorLeft + 100
+    || openSidebarGeometry.editorLeft < openSidebarGeometry.sidebarRight - 1
+    || openSidebarGeometry.closeLabel !== "Hide manuscript sidebar") {
+    throw new Error(`Write sidebar must push the editor and remain closable: ${JSON.stringify({ closedEditorLeft, ...openSidebarGeometry })}`);
+  }
   await settle(220);
   await page.screenshot({ path: path.join(qa, "03b-write-sidebar-open.png") });
-  await page.evaluate(() => document.querySelector<HTMLButtonElement>(".write-sidebar-toggle")?.click());
+
+  await page.click(".library-collapse-button");
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-write-sidebar="closed"]');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector<HTMLElement>(".library-pane")!).display === "none");
+
+  // The editor-side button must also remain a two-way toggle after the sidebar
+  // has been closed from inside the manuscript panel.
+  await page.click(".write-sidebar-toggle");
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"]');
+  await page.click(".write-sidebar-toggle");
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-write-sidebar="closed"]');
 
   await page.evaluate(() => {
@@ -191,14 +220,33 @@ try {
   await page.waitForFunction(() => {
     const hidden = [".folio-commandbar", ".library-pane", ".folio-statusbar", ".editor-topbar", ".section-titlebar", ".format-toolbar", ".writing-split-header", ".writing-split-toolbar"]
       .every((selector) => getComputedStyle(document.querySelector<HTMLElement>(selector)!).display === "none");
-    return hidden && document.querySelectorAll(".manuscript-editor, .writing-split-editor").length >= 2;
+    const controls = document.querySelector<HTMLElement>(".focus-layout-controls");
+    const splitClose = document.querySelector<HTMLButtonElement>(".focus-split-close");
+    const exit = document.querySelector<HTMLButtonElement>(".focus-exit");
+    return hidden
+      && Boolean(controls && getComputedStyle(controls).display !== "none")
+      && splitClose?.getAttribute("aria-label") === "Close split editor"
+      && exit?.getAttribute("aria-label") === "Exit focus mode"
+      && document.querySelectorAll(".manuscript-editor, .writing-split-editor").length >= 2;
   });
   await settle(250);
   await page.screenshot({ path: path.join(qa, "05-focus-split.png") });
 
+  await page.click(".focus-split-close");
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="true"][data-split-view="false"]');
+  await page.waitForFunction(() => !document.querySelector(".writing-split-pane") && Boolean(document.querySelector(".manuscript-editor")));
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "06-focus-single.png") });
+
+  await page.click(".focus-exit");
+  await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="false"][data-split-view="false"]');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector<HTMLElement>(".folio-commandbar")!).display !== "none");
+
+  // Escape remains the fast exit path too.
+  await page.click(".editor-focus-toggle");
+  await page.waitForSelector('.folio-shell[data-focus-mode="true"]');
   await page.keyboard.press("Escape");
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="false"]');
-  await page.waitForFunction(() => getComputedStyle(document.querySelector<HTMLElement>(".folio-commandbar")!).display !== "none");
 } finally {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
