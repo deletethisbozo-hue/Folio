@@ -38,6 +38,17 @@ try {
   for (const expected of ["New Book", "Open Book…", "Import Folder…", "Open Sample"]) {
     if (!dashboardActions.includes(expected)) throw new Error(`Dashboard project-file action missing: ${expected} — ${dashboardActions.join(" | ")}`);
   }
+  const dashboardVersion = await page.evaluate(async () => {
+    const response = await fetch("/api/health");
+    const health = await response.json() as { version?: string };
+    return {
+      label: document.querySelector(".start-version")?.textContent?.trim() ?? "",
+      server: health.version ?? "",
+    };
+  });
+  if (!dashboardVersion.label || dashboardVersion.label !== dashboardVersion.server) {
+    throw new Error(`Dashboard version must come from the running Folio build: ${JSON.stringify(dashboardVersion)}`);
+  }
   await settle();
   await page.screenshot({ path: path.join(qa, "01-dashboard.png") });
 
