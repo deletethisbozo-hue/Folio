@@ -33,6 +33,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
   const [recent, setRecent] = useState<RecentProject[]>(() => readRecentProjects());
   const [busy, setBusy] = useState<"open" | "new" | "create" | "import" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newBook, setNewBook] = useState({ path: "", title: "", author: "" });
   const tone = useMemo(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory", []);
@@ -42,6 +43,9 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
     api.recentProjects().then((items) => {
       if (!cancelled && items.length) setRecent(items);
     }).catch(() => { /* localStorage remains a same-session fallback */ });
+    api.health().then((health) => {
+      if (!cancelled) setVersion(health.version);
+    }).catch(() => { /* version label can remain blank if the server is unavailable */ });
     return () => { cancelled = true; };
   }, []);
 
@@ -133,7 +137,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
     <div className="start-shell" data-ui-tone={tone}>
       <div className="start-windowbar">
         <div className="start-brand">folio</div>
-        <div className="start-version">2.0.8</div>
+        <div className="start-version">{version}</div>
       </div>
 
       <main className="start-main">
@@ -143,7 +147,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
           <p className="start-copy">Open a recent Folio project file, start something new, or import one of the older folder-based books.</p>
           <div className="start-actions">
             <button className="start-button primary" disabled={busy !== null} onClick={() => void chooseNewLocation()}>
-              {busy === "new" ? "Choosing folder…" : "New Book"}
+              {busy === "new" ? "Choosing file…" : "New Book"}
             </button>
             <button className="start-button" disabled={busy !== null} onClick={() => void chooseExisting()}>
               {busy === "open" ? "Opening…" : "Open Book…"}
