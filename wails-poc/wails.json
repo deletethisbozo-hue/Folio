@@ -1,0 +1,18 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "FolioWailsBenchmark",
+  "outputfilename": "Folio-Wails-Benchmark",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "wailsjsdir": "./frontend/wailsjs",
+  "version": "2",
+  "info": {
+    "companyName": "Folio",
+    "productName": "Folio Wails Benchmark",
+    "productVersion": "2.1.2",
+    "copyright": "Folio contributors",
+    "comments": "Architecture benchmark only"
+  }
+}
