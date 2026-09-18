@@ -90,9 +90,12 @@ try {
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
 
   await page.evaluate(() => {
-    const split = [...document.querySelectorAll<HTMLButtonElement>(".workspace-split-button")]
-      .find((button) => button.textContent?.includes("Split"));
-    if (!split) throw new Error("Split button missing");
+    if (document.querySelector(".folio-commandbar .workspace-split-button")) {
+      throw new Error("Split is still exposed as a workspace-level mode control");
+    }
+    const split = document.querySelector<HTMLButtonElement>(".format-toolbar .editor-split-toggle");
+    if (!split) throw new Error("Editor split layout control missing");
+    if (split.getAttribute("aria-label") !== "Split editor") throw new Error("Split editor control label drifted");
     split.click();
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="true"] .writing-split-pane');
