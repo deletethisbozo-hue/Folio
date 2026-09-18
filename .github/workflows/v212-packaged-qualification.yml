@@ -82,7 +82,6 @@ jobs:
           $env:FOLIO_E2E_DEBUG_PORT = "43138"
           $env:FOLIO_SMOKE_RESULT = Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json"
           $exe = (Resolve-Path "release\Folio-$env:FOLIO_VERSION-portable.exe").Path
-          $env:FOLIO_SMOKE_EXE = $exe
           $process = Start-Process -FilePath $exe -PassThru
           try {
             $health = $null
@@ -141,6 +140,30 @@ jobs:
 
             node scripts\v212-packaged-project-smoke.mjs verify-startup-file
             if ($LASTEXITCODE -ne 0) { throw "Installed Folio failed direct .folio startup verification." }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Hand off .folio to an already running installed Folio
+        shell: pwsh
+        run: |
+          $result = Get-Content (Join-Path $env:RUNNER_TEMP "folio-v212-smoke.json") -Raw | ConvertFrom-Json
+          $env:FOLIO_E2E_PORT = "43167"
+          $env:FOLIO_E2E_DEBUG_PORT = "43168"
+          $env:FOLIO_SMOKE_EXE = $env:FOLIO_INSTALLED_EXE
+          $env:FOLIO_SECOND_PROJECT = $result.secondProjectFile
+          $process = Start-Process -FilePath $env:FOLIO_INSTALLED_EXE -PassThru
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 160; $i++) {
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43167/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok) { throw "Installed Folio did not become ready for second-instance handoff." }
+
+            node scripts\v212-packaged-project-smoke.mjs verify-second-instance
+            if ($LASTEXITCODE -ne 0) { throw "Installed Folio failed second-instance .folio handoff." }
           }
           finally {
             Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
