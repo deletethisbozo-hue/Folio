@@ -1,0 +1,260 @@
+name: Folio Wails decision benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["migration/wails"]
+    paths:
+      - "wails-poc/**"
+      - "web/**"
+      - ".github/workflows/wails-decision-benchmark.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-wails-decision-benchmark
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\benchmark\chromium
+
+    steps:
+      - name: Check out Folio
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: wails-poc/go.mod
+
+      - name: Install Folio dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build the exact current React frontend
+        run: npm run build:web
+
+      - name: Copy production React output into the Wails shell
+        shell: pwsh
+        run: |
+          Remove-Item wails-poc\frontend\dist -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force wails-poc\frontend\dist | Out-Null
+          Copy-Item web\dist\* wails-poc\frontend\dist -Recurse -Force
+
+      - name: Install Wails 2.16 and resolve Go modules
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          Push-Location wails-poc
+          go mod tidy
+          Pop-Location
+          wails version
+
+      - name: Build Wails shell with system WebView2 strategy
+        shell: pwsh
+        run: |
+          Push-Location wails-poc
+          wails build -clean -s -platform windows/amd64 -webview2 embed -o Folio-Wails-Benchmark.exe
+          Pop-Location
+          if (-not (Test-Path "wails-poc\build\bin\Folio-Wails-Benchmark.exe")) {
+            throw "Wails benchmark executable was not produced."
+          }
+
+      - name: Download official Electron 2.1.2 baseline
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force benchmark\electron | Out-Null
+          gh release download v2.1.2 --repo $env:GITHUB_REPOSITORY --pattern "Folio-2.1.2-portable.exe" --dir benchmark\electron
+          if (-not (Test-Path "benchmark\electron\Folio-2.1.2-portable.exe")) {
+            throw "Could not download the official Folio 2.1.2 portable baseline."
+          }
+
+      - name: Materialise current heavyweight runtime resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force benchmark\pandoc-unpack | Out-Null
+          $pandocUrl = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $pandocUrl -OutFile benchmark\pandoc.zip
+          $actual = (Get-FileHash benchmark\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") {
+            throw "Pandoc checksum mismatch: $actual"
+          }
+          Expand-Archive benchmark\pandoc.zip benchmark\pandoc-unpack -Force
+          npx puppeteer browsers install chrome-headless-shell
+
+      - name: Benchmark size, cold start and idle memory
+        timeout-minutes: 8
+        shell: pwsh
+        run: |
+          function DirBytes([string]$Path) {
+            if (-not (Test-Path $Path)) { return [int64]0 }
+            $item = Get-Item $Path
+            if (-not $item.PSIsContainer) { return [int64]$item.Length }
+            return [int64]((Get-ChildItem $Path -File -Recurse | Measure-Object Length -Sum).Sum)
+          }
+
+          function SnapshotIds {
+            return @(Get-Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+          }
+
+          function NewMatchingMemoryMB([int[]]$Before, [string]$Pattern) {
+            $bytes = 0L
+            Get-Process -ErrorAction SilentlyContinue |
+              Where-Object { $Before -notcontains $_.Id -and $_.Name -match $Pattern } |
+              ForEach-Object { $bytes += [int64]$_.WorkingSet64 }
+            return [math]::Round($bytes / 1MB, 1)
+          }
+
+          $electronExe = (Resolve-Path "benchmark\electron\Folio-2.1.2-portable.exe").Path
+          $wailsExe = (Resolve-Path "wails-poc\build\bin\Folio-Wails-Benchmark.exe").Path
+
+          # Electron baseline: wait until both the local server and renderer debug endpoint exist.
+          $electronBefore = SnapshotIds
+          $env:FOLIO_E2E_PORT = "43211"
+          $env:FOLIO_E2E_DEBUG_PORT = "43212"
+          $electronClock = [Diagnostics.Stopwatch]::StartNew()
+          $electronProcess = Start-Process -FilePath $electronExe -PassThru
+          $electronReady = $false
+          for ($i = 0; $i -lt 160; $i++) {
+            try {
+              $health = Invoke-RestMethod "http://127.0.0.1:43211/api/health" -TimeoutSec 1
+              $pages = Invoke-RestMethod "http://127.0.0.1:43212/json" -TimeoutSec 1
+              if ($health.ok -and ($pages | Where-Object { $_.url -match "43211" })) {
+                $electronReady = $true
+                break
+              }
+            } catch {}
+            Start-Sleep -Milliseconds 125
+          }
+          if (-not $electronReady) { throw "Electron baseline never became renderer-ready." }
+          $electronReadyMs = $electronClock.ElapsedMilliseconds
+          Start-Sleep -Seconds 3
+          $electronMemoryMB = NewMatchingMemoryMB $electronBefore "^(Folio|Folio-2\.1\.2-portable|chrome|chrome-headless-shell|msedgewebview2)$"
+          Get-Process -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match "^(Folio|Folio-2\.1\.2-portable|chrome-headless-shell)$" } |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+          Remove-Item Env:FOLIO_E2E_PORT -ErrorAction SilentlyContinue
+          Remove-Item Env:FOLIO_E2E_DEBUG_PORT -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+
+          # Wails shell: OnDomReady writes the marker from the native host.
+          $wailsBefore = SnapshotIds
+          $readyFile = Join-Path $env:RUNNER_TEMP "folio-wails-ready.txt"
+          Remove-Item $readyFile -Force -ErrorAction SilentlyContinue
+          $env:FOLIO_WAILS_READY_FILE = $readyFile
+          $wailsClock = [Diagnostics.Stopwatch]::StartNew()
+          $wailsProcess = Start-Process -FilePath $wailsExe -PassThru
+          for ($i = 0; $i -lt 160 -and -not (Test-Path $readyFile); $i++) {
+            if ($wailsProcess.HasExited) { throw "Wails shell exited before DOM ready." }
+            Start-Sleep -Milliseconds 125
+          }
+          if (-not (Test-Path $readyFile)) { throw "Wails shell never reached DOM ready." }
+          $wailsReadyMs = $wailsClock.ElapsedMilliseconds
+          Start-Sleep -Seconds 3
+          $wailsMemoryMB = NewMatchingMemoryMB $wailsBefore "^(Folio-Wails-Benchmark|msedgewebview2)$"
+          Get-Process -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match "^(Folio-Wails-Benchmark|msedgewebview2)$" -and $wailsBefore -notcontains $_.Id } |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+          Remove-Item Env:FOLIO_WAILS_READY_FILE -ErrorAction SilentlyContinue
+
+          $electronBytes = DirBytes $electronExe
+          $wailsBytes = DirBytes $wailsExe
+          $pandocRoot = Get-ChildItem benchmark\pandoc-unpack -Directory | Select-Object -First 1
+          $pandocBytes = if ($pandocRoot) { DirBytes $pandocRoot.FullName } else { DirBytes "benchmark\pandoc-unpack" }
+          $chromiumBytes = DirBytes $env:PUPPETEER_CACHE_DIR
+          $reactBytes = DirBytes "web\dist"
+
+          $wailsPandocBytes = $wailsBytes + $pandocBytes
+          $wailsLegacyPrintBytes = $wailsBytes + $pandocBytes + $chromiumBytes
+
+          $sizeReductionShell = [math]::Round((1 - ($wailsBytes / $electronBytes)) * 100, 1)
+          $sizeReductionPandoc = [math]::Round((1 - ($wailsPandocBytes / $electronBytes)) * 100, 1)
+          $sizeReductionLegacyPrint = [math]::Round((1 - ($wailsLegacyPrintBytes / $electronBytes)) * 100, 1)
+          $startupReduction = [math]::Round((1 - ($wailsReadyMs / $electronReadyMs)) * 100, 1)
+          $memoryReduction = if ($electronMemoryMB -gt 0) { [math]::Round((1 - ($wailsMemoryMB / $electronMemoryMB)) * 100, 1) } else { 0 }
+
+          # Phase-1 is only a potential gate. If this best-case shell cannot clear
+          # strong thresholds, a backend rewrite is not justified.
+          $potentialGate = ($sizeReductionPandoc -ge 65) -and (($startupReduction -ge 25) -or ($memoryReduction -ge 30))
+          $legacyChromiumGate = $sizeReductionLegacyPrint -ge 50
+
+          $result = [ordered]@{
+            electron = [ordered]@{
+              portableBytes = $electronBytes
+              readyMs = $electronReadyMs
+              idleMemoryMB = $electronMemoryMB
+            }
+            wails = [ordered]@{
+              shellBytes = $wailsBytes
+              shellPlusPandocBytes = $wailsPandocBytes
+              shellPlusPandocPlusCurrentChromiumBytes = $wailsLegacyPrintBytes
+              readyMs = $wailsReadyMs
+              idleMemoryMB = $wailsMemoryMB
+            }
+            resources = [ordered]@{
+              reactDistBytes = $reactBytes
+              pandocBytes = $pandocBytes
+              currentChromiumCacheBytes = $chromiumBytes
+            }
+            reductionsPercent = [ordered]@{
+              shellSize = $sizeReductionShell
+              shellPlusPandocSize = $sizeReductionPandoc
+              shellPlusLegacyPrintSize = $sizeReductionLegacyPrint
+              startup = $startupReduction
+              idleMemory = $memoryReduction
+            }
+            gates = [ordered]@{
+              phase1Potential = $potentialGate
+              stillWorthItIfCurrentChromiumRemains = $legacyChromiumGate
+            }
+          }
+
+          New-Item -ItemType Directory -Force benchmark\results | Out-Null
+          $result | ConvertTo-Json -Depth 8 | Set-Content benchmark\results\wails-decision.json -Encoding utf8
+
+          @"
+          # Folio Wails decision benchmark
+
+          | Metric | Electron 2.1.2 | Wails shell |
+          | --- | ---: | ---: |
+          | Distribution / shell size | $([math]::Round($electronBytes / 1MB, 1)) MB | $([math]::Round($wailsBytes / 1MB, 1)) MB |
+          | Cold renderer ready | $electronReadyMs ms | $wailsReadyMs ms |
+          | Idle process memory | $electronMemoryMB MB | $wailsMemoryMB MB |
+
+          Extra resources:
+          - React dist: $([math]::Round($reactBytes / 1MB, 1)) MB
+          - Pandoc: $([math]::Round($pandocBytes / 1MB, 1)) MB
+          - Current Puppeteer/Chromium cache: $([math]::Round($chromiumBytes / 1MB, 1)) MB
+          - Projected Wails + Pandoc: $([math]::Round($wailsPandocBytes / 1MB, 1)) MB ($sizeReductionPandoc% smaller than current portable)
+          - Projected Wails + Pandoc + current Chromium: $([math]::Round($wailsLegacyPrintBytes / 1MB, 1)) MB ($sizeReductionLegacyPrint% smaller)
+
+          Decision gates:
+          - Best-case migration potential: **$potentialGate**
+          - Still a major size win if bundled Chromium remains: **$legacyChromiumGate**
+
+          This is phase 1 only. Passing it authorises a small native .folio/backend prototype, not a full migration.
+          "@ | Add-Content $env:GITHUB_STEP_SUMMARY
+
+          Get-Content benchmark\results\wails-decision.json
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Wails-Decision-Benchmark
+          path: |
+            benchmark/results/wails-decision.json
+            wails-poc/build/bin/Folio-Wails-Benchmark.exe
+          if-no-files-found: error
