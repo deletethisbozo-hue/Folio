@@ -11,6 +11,7 @@ type WritingSplitPaneProps = {
   primarySectionId: string | null;
   ornament: string;
   typewriterMode: boolean;
+  spellcheckEnabled: boolean;
   onClose: () => void;
   onError: (message: string) => void;
   onRegisterFlush: (flush: (() => Promise<boolean>) | null) => void;
@@ -210,7 +211,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
               className={`writing-split-editor rich-editor ${props.typewriterMode ? "typewriter-active" : ""}`}
               contentEditable={document.editable}
               suppressContentEditableWarning
-              spellCheck
+              spellCheck={props.spellcheckEnabled}
               data-placeholder="Start writing…"
               onInput={recordInput}
               onClick={() => { if (props.typewriterMode) centerTypewriterCaret(editorRef.current); }}
