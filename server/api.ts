@@ -178,9 +178,9 @@ export function registerApi(app: Express): void {
   );
   app.delete("/api/recent-projects", (req: Request, res: Response) =>
     wrap(res, async () => {
-      const folder = String(req.body?.folder ?? "").trim();
-      if (!folder) throw new Error("No recent-project folder provided.");
-      res.json(await forgetRecentProject(folder));
+      const projectPath = String(req.body?.path ?? req.body?.folder ?? "").trim();
+      if (!projectPath) throw new Error("No recent-project path provided.");
+      res.json(await forgetRecentProject(projectPath));
     }),
   );
 
