@@ -1,0 +1,12 @@
+/* Event Horizon — cinematic space opera without neon-dashboard clichés. */
+body{font-family:"Folio Source Serif 4",Georgia,serif;line-height:1.52;color:#182434;background:#f5f7fa}
+main.book{counter-reset:event-horizon-chapter}
+section.chapter{counter-increment:event-horizon-chapter}
+section.chapter>h1{position:relative;text-align:center;margin:1.05em 0 2.55em;padding:1.05em .8em 1em;border-top:1px solid #6f8298;border-bottom:1px solid #6f8298;font-family:"Folio Barlow Condensed",Arial,sans-serif;font-size:2.05em;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#263c5a}
+section.chapter>h1::before{content:"ORBIT " counter(event-horizon-chapter,decimal-leading-zero);display:block;margin-bottom:1.15em;font-size:.34em;font-weight:700;letter-spacing:.38em;color:#72859a}
+section.chapter>h1::after{content:"○";position:absolute;left:50%;bottom:-.62em;transform:translateX(-50%);padding:0 .55em;background:#f5f7fa;font-family:"Folio Source Serif 4",serif;font-size:.42em;color:#425d78}
+.chapter-subtitle{margin:-2em 0 2.15em}.chapter-subtitle p{font-family:"Folio Source Sans 3",Arial,sans-serif;font-size:.78em;font-style:normal;letter-spacing:.16em;text-transform:uppercase;color:#60768f}
+.scene-break{font-family:"Folio Source Sans 3",sans-serif;letter-spacing:.45em;color:#536d87}.dropcap{font-family:"Folio Source Serif 4",serif;color:#263c5a}
+section.titlepage>h1{font-family:"Folio Barlow Condensed",sans-serif;font-size:2.6em;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#263c5a;border-top:1px solid #7890a7;border-bottom:1px solid #7890a7;padding:.6em 0}.tp-subtitle{font-family:"Folio Source Sans 3",sans-serif;font-style:normal;text-transform:uppercase;letter-spacing:.15em;color:#6b7f93}.tp-author{font-family:"Folio Source Sans 3",sans-serif;letter-spacing:.18em;text-transform:uppercase}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Folio Barlow Condensed",sans-serif;font-size:1.45em;font-weight:700;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid #91a0ad;padding-bottom:.55em}
+@media print{section.chapter>h1{margin-top:1.55in;background:#fff}section.chapter>h1::after{background:#fff}}
