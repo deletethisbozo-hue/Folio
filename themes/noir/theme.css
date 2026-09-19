@@ -1,0 +1,12 @@
+/* Noir — hard black title block, high contrast, zero coyness. */
+body{font-family:"Folio Libre Baskerville",Georgia,serif;line-height:1.52;color:#201f1d;background:#f7f3eb}
+main.book{counter-reset:noir-chapter}
+section.chapter{counter-increment:noir-chapter}
+section.chapter>h1{text-align:center;margin:1.25em 0 2.55em;padding:1.05em .8em .9em;background:#1d1d1d;color:#f8f4eb;font-family:"Folio Bodoni Moda",Georgia,serif;font-size:2.05em;font-weight:650;letter-spacing:.03em}
+section.chapter>h1::before{content:"CASE " counter(noir-chapter,upper-roman);display:block;margin-bottom:.8em;font-family:"Folio Barlow Condensed",sans-serif;font-size:.35em;font-weight:700;letter-spacing:.28em;color:#c9c4bb}
+section.chapter>h1::after{content:"◆";display:block;margin-top:.7em;font-size:.36em;color:#f0ece4}
+.chapter-subtitle{margin:-1.95em 0 2.1em}.chapter-subtitle p{font-size:.85em;font-style:italic;color:#605b55}
+.dropcap{font-family:"Folio Bodoni Moda",serif;color:#222;font-size:3.3em}.scene-break{font-family:"Folio Bodoni Moda",serif;font-size:1em;letter-spacing:.4em;color:#222}
+section.titlepage>h1{padding:.8em;background:#1d1d1d;color:#f8f4eb;font-family:"Folio Bodoni Moda",serif;font-size:2.65em;font-weight:650}.tp-subtitle{color:#5b5650}.tp-author{font-family:"Folio Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.18em}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;padding:.5em;background:#1d1d1d;color:#f8f4eb;font-family:"Folio Bodoni Moda",serif}
+@media print{section.chapter>h1{margin-top:1.45in}}

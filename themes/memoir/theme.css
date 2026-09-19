@@ -1,0 +1,12 @@
+/* Memoir — editorial nonfiction with a quiet photographic-caption grammar. */
+body{font-family:"Folio Source Serif 4",Georgia,serif;line-height:1.58;color:#293237;background:#fbfbf8}
+main.book{counter-reset:memoir-chapter}
+section.chapter{counter-increment:memoir-chapter}
+section.chapter>h1{position:relative;text-align:left;margin:1.9em 0 2.75em;padding:2.6em 0 .65em;border-bottom:1px solid #7f8c93;font-family:"Folio Source Serif 4",Georgia,serif;font-size:1.95em;font-weight:500;letter-spacing:-.01em;color:#3e4d55}
+section.chapter>h1::before{content:"MEMORY " counter(memoir-chapter,decimal-leading-zero);position:absolute;left:0;top:.15em;font-family:"Folio Source Sans 3",sans-serif;font-size:.31em;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#77868e}
+section.chapter>h1::after{content:"—";position:absolute;right:0;top:.05em;font-family:"Folio Source Sans 3",sans-serif;font-size:1.1em;font-weight:300;color:#a6b0b5}
+.chapter-subtitle{text-align:left;margin:-2.15em 0 2.3em}.chapter-subtitle p{text-align-last:left;text-align:left;font-size:.87em;font-style:italic;color:#6d7a80}
+.scene-break{text-align:left!important;text-align-last:left!important;font-family:"Folio Source Sans 3",sans-serif;font-size:.72em;letter-spacing:.28em;color:#75858d}
+section.titlepage{text-align:left}section.titlepage>h1{text-align:left;padding-top:1.4em;border-bottom:1px solid #7f8c93;font-family:"Folio Source Serif 4",serif;font-size:2.55em;font-weight:500;color:#3e4d55}.tp-subtitle,.tp-author,.tp-series,.tp-publisher{text-align:left;text-align-last:left}.tp-subtitle{font-style:normal;color:#718087}.tp-author{font-family:"Folio Source Sans 3",sans-serif;font-weight:600}
+section.frontmatter>h1,section.backmatter>h1{text-align:left;font-family:"Folio Source Serif 4",serif;font-size:1.35em;font-weight:500;color:#465761;border-bottom:1px solid #a7b0b5;padding-bottom:.4em}
+@media print{section.chapter>h1{margin-top:1.8in}}

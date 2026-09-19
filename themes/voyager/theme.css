@@ -1,0 +1,12 @@
+/* Voyager — adventure opener organized around a compass rose. */
+body{font-family:"Folio Vollkorn",Georgia,serif;line-height:1.5;color:#263638;background:#f6f3e9}
+main.book{counter-reset:voyager-chapter}
+section.chapter{counter-increment:voyager-chapter}
+section.chapter>h1{position:relative;text-align:center;margin:1.3em 0 2.7em;padding:4.4em .8em .8em;font-family:"Folio Barlow Condensed",Arial,sans-serif;font-size:1.95em;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#2f5962}
+section.chapter>h1::before{content:"N\A ◇\A S";white-space:pre;position:absolute;top:.15em;left:50%;transform:translateX(-50%);display:grid;place-items:center;width:3.55em;height:3.55em;border:2px solid #4d747c;border-radius:50%;font-family:"Folio Source Sans 3",sans-serif;font-size:.55em;font-weight:700;line-height:1.1;letter-spacing:.1em;color:#477078}
+section.chapter>h1::after{content:"W  ─  PASSAGE " counter(voyager-chapter,decimal-leading-zero) "  ─  E";display:block;margin-top:.9em;font-size:.31em;letter-spacing:.16em;color:#6b8589}
+.chapter-subtitle{margin:-2.05em 0 2.2em}.chapter-subtitle p{font-size:.84em;font-style:normal;color:#63797d}
+.scene-break{font-size:1em;letter-spacing:.5em;color:#4c737a}
+section.titlepage>h1{text-align:center;padding-top:1.5em;font-family:"Folio Barlow Condensed",sans-serif;font-size:2.65em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#2f5962}.tp-subtitle{font-style:normal;color:#6a7e81}.tp-author{font-family:"Folio Source Sans 3",sans-serif;text-transform:uppercase;letter-spacing:.15em}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Folio Barlow Condensed",sans-serif;font-weight:700;text-transform:uppercase;border-bottom:2px solid #5f7e84;padding-bottom:.4em}
+@media print{section.chapter>h1{margin-top:1.55in}}

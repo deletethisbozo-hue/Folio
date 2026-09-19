@@ -1,0 +1,12 @@
+/* Academia — marginalia, lecture numbering and an old-library column. */
+body{font-family:"Folio Libre Caslon Text",Georgia,serif;line-height:1.55;color:#302b26;background:#f4efe3}
+main.book{counter-reset:academia-chapter}
+section.chapter{counter-increment:academia-chapter}
+section.chapter>h1{position:relative;text-align:left;min-height:3.8em;margin:1.45em 0 2.7em;padding:.8em .5em .8em 5.4em;border-top:1px solid #756655;border-bottom:1px solid #756655;font-family:"Folio Cinzel",Georgia,serif;font-size:1.55em;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#493c32}
+section.chapter>h1::before{content:"LECTURE\A" counter(academia-chapter,upper-roman);white-space:pre;position:absolute;left:.55em;top:.55em;bottom:.55em;width:4.1em;display:flex;align-items:center;justify-content:center;border-right:3px double #756655;font-family:"Folio Libre Caslon Text",serif;font-size:.4em;font-weight:700;line-height:1.5;letter-spacing:.16em;color:#786958}
+section.chapter>h1::after{content:"§";position:absolute;right:.25em;bottom:.25em;font-family:"Folio Libre Caslon Text",serif;font-size:.62em;color:#8b7c69}
+.chapter-subtitle{text-align:left;margin:-2.15em 0 2.3em;padding-left:8.5em}.chapter-subtitle p{text-align-last:left;text-align:left;font-size:.85em;font-style:italic;color:#736659}
+.dropcap{font-family:"Folio Cinzel",serif;color:#493c32;font-size:3.1em}.scene-break{text-align:left!important;text-align-last:left!important;margin-left:5em;font-size:.9em;letter-spacing:.45em;color:#655546}
+section.titlepage>h1{text-align:left;padding:.8em .7em;border-top:3px double #665849;border-bottom:1px solid #817362;font-family:"Folio Cinzel",serif;font-size:2.25em;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#493c32}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{font-style:italic;color:#746556}.tp-author{font-variant:small-caps;letter-spacing:.15em}
+section.frontmatter>h1,section.backmatter>h1{text-align:left;padding-left:1em;border-left:4px double #665849;font-family:"Folio Cinzel",serif;font-size:1.2em;text-transform:uppercase}
+@media print{section.chapter>h1{margin-top:1.65in}}

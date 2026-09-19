@@ -1,0 +1,12 @@
+/* Afterglow — contemporary YA with a giant graphic chapter number. */
+body{font-family:"Folio Source Serif 4",Georgia,serif;line-height:1.62;color:#40383b;background:#fffafa}
+main.book{counter-reset:afterglow-chapter}
+section.chapter{counter-increment:afterglow-chapter}
+section.chapter>h1{position:relative;text-align:left;min-height:3.2em;margin:1.85em 0 2.75em;padding:1.6em .5em .5em 3.7em;font-family:"Folio Source Sans 3",Arial,sans-serif;font-size:1.9em;font-weight:550;letter-spacing:-.015em;color:#8c5360}
+section.chapter>h1::before{content:counter(afterglow-chapter,decimal-leading-zero);position:absolute;left:0;top:-.15em;font-size:3.25em;font-weight:800;line-height:1;letter-spacing:-.06em;color:#efd7dd}
+section.chapter>h1::after{content:"";display:block;width:100%;margin-top:.7em;border-bottom:2px solid #d99fac}
+.chapter-subtitle{text-align:left;margin:-2.15em 0 2.25em;padding-left:7em}.chapter-subtitle p{text-align-last:left;text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:.8em;font-style:normal;color:#8a6a72}
+.scene-break{text-align:left!important;text-align-last:left!important;margin-left:7em;font-size:1em;letter-spacing:.45em;color:#b76e80}
+section.titlepage>h1{text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:2.65em;font-weight:550;letter-spacing:-.02em;color:#8c5360;border-bottom:3px solid #d99fac;padding-bottom:.35em}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{font-style:normal;color:#9b7580}.tp-author{font-family:"Folio Source Sans 3",sans-serif;font-weight:650;letter-spacing:.08em}
+section.frontmatter>h1,section.backmatter>h1{text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-weight:550;color:#8c5360;border-bottom:2px solid #e2b8c1;padding-bottom:.35em}
+@media print{section.chapter>h1{margin-top:1.8in}}
