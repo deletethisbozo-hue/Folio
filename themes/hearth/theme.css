@@ -1,0 +1,12 @@
+/* Hearth — cozy fiction: warm, friendly and bookish without becoming whimsical clutter. */
+body{font-family:"Folio Newsreader",Georgia,serif;line-height:1.6;color:#3e352c;background:#fff8e9}
+main.book{counter-reset:hearth-chapter}
+section.chapter{counter-increment:hearth-chapter}
+section.chapter>h1{text-align:left;margin:1.55em 0 2.55em;font-family:"Folio Source Serif 4",Georgia,serif;font-size:1.85em;font-weight:650;color:#7a5438}
+section.chapter>h1::before{content:"Chapter " counter(hearth-chapter);display:block;margin-bottom:.8em;font-family:"Folio Source Sans 3",sans-serif;font-size:.36em;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:#aa835c}
+section.chapter>h1::after{content:"✦";display:block;margin-top:.65em;font-size:.42em;color:#bd8d54}
+.chapter-subtitle{text-align:left;margin:-2em 0 2.2em}.chapter-subtitle p{text-align:left;text-align-last:left;font-size:.9em;font-style:italic;color:#856c55}
+.scene-break{text-align:center!important;font-size:1em;letter-spacing:.32em;color:#9e7349}
+section.titlepage>h1{text-align:left;font-family:"Folio Source Serif 4",serif;font-size:2.35em;font-weight:650;color:#7a5438}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{color:#8c735b}.tp-author{font-family:"Folio Source Sans 3",sans-serif;text-transform:uppercase;letter-spacing:.13em;color:#675345}
+section.frontmatter>h1,section.backmatter>h1{text-align:left;font-family:"Folio Source Serif 4",serif;color:#7a5438;border-bottom:1px solid #d4b58f;padding-bottom:.4em}
+@media print{section.chapter>h1{margin-top:1.7in}}
