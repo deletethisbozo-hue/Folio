@@ -58,6 +58,12 @@ export const SUPPORTED_THEMES = [
   "afterglow", "academia", "memoir",
 ] as const satisfies readonly ThemeName[];
 
+export const NEW_PRODUCTION_THEMES = [
+  "event-horizon", "signal", "nova", "redline", "intercept", "black-ice", "noir",
+  "dread", "seance", "velvet", "amour", "hearth", "regency", "voyager",
+  "afterglow", "academia", "memoir",
+] as const satisfies readonly ThemeName[];
+
 const SUPPORTED_THEME_SET = new Set<string>(SUPPORTED_THEMES);
 
 export function hasTheme(name: string): name is ThemeName { return SUPPORTED_THEME_SET.has(name); }
