@@ -124,7 +124,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -ne 13) { throw "Folio 2.0 packaged app must expose exactly 13 curated themes, found $($themes.Count)." }
+            if ($themes.Count -ne 30) { throw "Folio 2.0 packaged app must expose exactly 30 production themes, found $($themes.Count)." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
