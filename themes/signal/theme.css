@@ -1,12 +1,12 @@
-/* Signal — hard sci-fi and techno-thriller: precise, clinical, readable. */
-body{font-family:"Folio Newsreader",Georgia,serif;line-height:1.5;color:#203237;background:#f6f8f7}
+/* Signal — a transmission log translated into book typography. */
+body{font-family:"Folio Newsreader",Georgia,serif;line-height:1.5;color:#203032;background:#f7faf9}
 main.book{counter-reset:signal-chapter}
 section.chapter{counter-increment:signal-chapter}
-section.chapter>h1{text-align:left;margin:1.4em 0 2.25em;padding:.7em 0 .65em 1em;border-left:4px solid #285b63;border-top:1px solid #9fb5b5;font-family:"Folio Source Sans 3",Arial,sans-serif;font-size:1.72em;font-weight:650;letter-spacing:.075em;color:#1f4f57}
-section.chapter>h1::before{content:"SIGNAL / " counter(signal-chapter,decimal-leading-zero);display:block;margin-bottom:.75em;font-size:.41em;font-weight:700;letter-spacing:.28em;color:#668487}
-section.chapter>h1::after{content:"";display:block;width:3.6em;margin-top:.75em;border-bottom:1px solid #8aa1a3}
-.chapter-subtitle{text-align:left;margin:-1.8em 0 2em;padding-left:1.2em}.chapter-subtitle p{text-align:left;text-align-last:left;font-family:"Folio Source Sans 3",sans-serif;font-size:.82em;font-style:normal;letter-spacing:.08em;color:#607679}
-.scene-break{text-align:left!important;text-align-last:left!important;margin-left:1.2em;font-family:"Folio Source Sans 3",sans-serif;font-size:.92em;letter-spacing:.35em;color:#4b7479}
-section.titlepage{text-align:left}section.titlepage>h1{text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:2.35em;font-weight:650;letter-spacing:.065em;color:#1f4f57;border-left:5px solid #285b63;padding-left:.45em}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{font-style:normal;color:#607679}.tp-author{font-family:"Folio Source Sans 3",sans-serif;text-transform:uppercase;letter-spacing:.14em}
-section.frontmatter>h1,section.backmatter>h1{text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:1.25em;font-weight:650;letter-spacing:.09em;border-left:3px solid #668487;padding-left:.55em}
-@media print{section.chapter>h1{margin-top:1.45in}}
+section.chapter>h1{position:relative;text-align:left;margin:1.1em 0 2.35em;padding:2.65em 1em .8em;border:1px solid #769094;font-family:"Folio Source Sans 3",Arial,sans-serif;font-size:1.72em;font-weight:650;letter-spacing:.04em;color:#1e555a;background:repeating-linear-gradient(0deg,rgba(43,93,98,.045) 0 1px,transparent 1px 12px)}
+section.chapter>h1::before{content:"RX / " counter(signal-chapter,decimal-leading-zero) "     118.40 MHz";position:absolute;top:.8em;left:1.35em;right:1.35em;padding-bottom:.55em;border-bottom:1px solid #9bb0b2;font-size:.33em;font-weight:700;letter-spacing:.2em;color:#53767a}
+section.chapter>h1::after{content:"●  ─ ─  ◌  ─ ─  ●";display:block;margin-top:.8em;font-size:.25em;letter-spacing:.35em;color:#6a8d91}
+.chapter-subtitle{text-align:left;margin:-1.75em 0 2em;padding-left:1em}.chapter-subtitle p{text-align-last:left;text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:.76em;font-style:normal;letter-spacing:.11em;color:#637c7f}
+.scene-break{font-family:"Folio Source Sans 3",sans-serif;font-size:.74em;letter-spacing:.32em;color:#2e6b70}
+section.titlepage>h1{text-align:left;padding:1em;border:1px solid #789194;font-family:"Folio Source Sans 3",sans-serif;font-size:2.3em;font-weight:650;letter-spacing:.04em;color:#1f555a;background:repeating-linear-gradient(0deg,rgba(43,93,98,.04) 0 1px,transparent 1px 12px)}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{font-style:normal;font-family:"Folio Source Sans 3",sans-serif;letter-spacing:.08em;color:#667e81}.tp-author{font-family:"Folio Source Sans 3",sans-serif;text-transform:uppercase;letter-spacing:.14em}
+section.frontmatter>h1,section.backmatter>h1{text-align:left;padding:.55em .7em;border:1px solid #8ca0a2;font-family:"Folio Source Sans 3",sans-serif;font-size:1.15em;font-weight:650;letter-spacing:.08em}
+@media print{section.chapter>h1{margin-top:1.4in}}
