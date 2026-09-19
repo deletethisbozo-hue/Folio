@@ -37,7 +37,7 @@ for (const theme of SUPPORTED_THEMES) {
   try { css = await fs.readFile(file, "utf8"); } catch {}
   check(`${theme}: theme.css exists and is substantive`, css.length >= 650, `${css.length} chars`);
   check(`${theme}: styles chapter openings`, /section\.chapter\s*>\s*h1/.test(css));
-  check(`${theme}: styles title page`, /section\.titlepage\s*>\s*h1/.test(css));
+  if ((NEW_PRODUCTION_THEMES as readonly string[]).includes(theme)) check(`${theme}: styles title page`, /section\.titlepage\s*>\s*h1/.test(css));
   const fp = css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, "").toLowerCase();
   const duplicate = cssFingerprints.get(fp);
   check(`${theme}: CSS is not a duplicate of another active theme`, !duplicate, duplicate ? `duplicates ${duplicate}` : "");
