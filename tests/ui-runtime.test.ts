@@ -237,7 +237,7 @@ try {
     });
     return new Set(signatures).size;
   });
-  check("Folio 2.0 exposes only the 13 curated visual themes", themeCount === 13, String(themeCount));
+  check("Folio exposes exactly 30 production visual themes", themeCount === 30, String(themeCount));
   check("curated theme cards retain broad visual differentiation", distinctCards >= 11, String(distinctCards) + " distinct");
 
   await page.click(".style-category-list button:nth-child(6)");
