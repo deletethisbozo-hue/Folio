@@ -1,0 +1,12 @@
+/* Nova — literary speculative fiction: light, luminous, expansive. */
+body{font-family:"Folio Newsreader",Georgia,serif;line-height:1.6;color:#302f3e;background:#fbfaf7}
+main.book{counter-reset:nova-chapter}
+section.chapter{counter-increment:nova-chapter}
+section.chapter>h1{text-align:right;margin:1.55em 0 2.7em;font-family:"Folio Bodoni Moda",Georgia,serif;font-size:2.15em;font-weight:500;font-style:italic;letter-spacing:.015em;color:#4f5590}
+section.chapter>h1::before{content:counter(nova-chapter,upper-roman);display:block;margin-bottom:.75em;font-family:"Folio Source Sans 3",sans-serif;font-size:.28em;font-style:normal;font-weight:650;letter-spacing:.36em;color:#9699bc}
+section.chapter>h1::after{content:"✧";display:block;margin-top:.55em;font-family:"Folio Source Serif 4",serif;font-size:.42em;font-style:normal;color:#777db2}
+.chapter-subtitle{text-align:right;margin:-2.15em 0 2.3em}.chapter-subtitle p{text-align:right;text-align-last:right;font-size:.9em;color:#70718a}
+.dropcap{font-family:"Folio Bodoni Moda",serif;color:#5c62a0;font-size:3.25em}.scene-break{font-size:1.05em;letter-spacing:.45em;color:#7d82b0}
+section.titlepage>h1{text-align:right;font-family:"Folio Bodoni Moda",serif;font-size:2.65em;font-weight:500;font-style:italic;color:#4f5590}.tp-subtitle,.tp-author{text-align:right;text-align-last:right}.tp-subtitle{color:#787998}.tp-author{font-family:"Folio Source Sans 3",sans-serif;text-transform:uppercase;letter-spacing:.16em}
+section.frontmatter>h1,section.backmatter>h1{text-align:right;font-family:"Folio Bodoni Moda",serif;font-style:italic;color:#545a94;border-bottom:1px solid #c8c8dd;padding-bottom:.4em}
+@media print{section.chapter>h1{margin-top:1.85in}}
