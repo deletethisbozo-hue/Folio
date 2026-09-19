@@ -1,11 +1,12 @@
-/* Intercept — espionage/political thriller: dossier precision without faux typewriter kitsch. */
-body{font-family:"Folio Libre Caslon Text",Georgia,serif;line-height:1.5;color:#262b2d;background:#f7f7f4}
+/* Intercept — an intelligence dossier, with a real stamped hierarchy. */
+body{font-family:"Folio Libre Caslon Text",Georgia,serif;line-height:1.5;color:#262a2d;background:#f7f7f3}
 main.book{counter-reset:intercept-chapter}
 section.chapter{counter-increment:intercept-chapter}
-section.chapter>h1{text-align:left;margin:1.35em 0 2.35em;padding:.65em .8em;border-top:2px solid #42505c;border-bottom:1px solid #9ca4a8;font-family:"Folio Source Sans 3",Arial,sans-serif;font-size:1.75em;font-weight:650;letter-spacing:.055em;color:#35424a}
-section.chapter>h1::before{content:"FILE " counter(intercept-chapter,decimal-leading-zero) " / ACTIVE";display:block;margin-bottom:.85em;font-size:.37em;font-weight:700;letter-spacing:.22em;color:#7a858a}
-.chapter-subtitle{text-align:left;margin:-1.95em .8em 2.1em}.chapter-subtitle p{text-align:left;text-align-last:left;font-family:"Folio Source Sans 3",sans-serif;font-size:.76em;font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:#68777d}
-.scene-break{font-family:"Folio Source Sans 3",sans-serif;font-size:.85em;letter-spacing:.4em;color:#65747a}
-section.titlepage>h1{text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:2.4em;font-weight:650;border-top:3px solid #42505c;border-bottom:1px solid #8c969a;padding:.55em 0}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{font-style:normal;color:#6f7b80}.tp-author{font-family:"Folio Source Sans 3",sans-serif;text-transform:uppercase;letter-spacing:.13em}
-section.frontmatter>h1,section.backmatter>h1{text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:1.3em;font-weight:650;border-top:2px solid #42505c;padding-top:.4em}
-@media print{section.chapter>h1{margin-top:1.5in}}
+section.chapter>h1{position:relative;text-align:left;margin:1.2em 0 2.45em;padding:2.45em 1em 1.05em;border:2px solid #475159;font-family:"Folio Source Sans 3",Arial,sans-serif;font-size:1.78em;font-weight:650;letter-spacing:.035em;color:#303a42}
+section.chapter>h1::before{content:"CLASSIFIED / FILE " counter(intercept-chapter,decimal-leading-zero);position:absolute;top:.75em;left:1.05em;font-size:.34em;font-weight:800;letter-spacing:.18em;color:#4b5961}
+section.chapter>h1::after{content:"RESTRICTED";position:absolute;right:.8em;top:.7em;transform:rotate(-5deg);padding:.24em .45em;border:1px solid #7d4141;font-size:.28em;font-weight:800;letter-spacing:.12em;color:#7d4141}
+.chapter-subtitle{text-align:left;margin:-1.95em 0 2.1em;padding-left:1em}.chapter-subtitle p{text-align-last:left;text-align:left;font-family:"Folio Source Sans 3",sans-serif;font-size:.75em;font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:#69747a}
+.scene-break{font-family:"Folio Source Sans 3",sans-serif;font-size:.78em;letter-spacing:.45em;color:#56636a}
+section.titlepage>h1{text-align:left;padding:1em;border:2px solid #475159;font-family:"Folio Source Sans 3",sans-serif;font-size:2.3em;font-weight:650;color:#303a42}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{font-style:normal;color:#68737a}.tp-author{font-family:"Folio Source Sans 3",sans-serif;text-transform:uppercase;letter-spacing:.13em}
+section.frontmatter>h1,section.backmatter>h1{text-align:left;padding:.55em .7em;border:2px solid #59636a;font-family:"Folio Source Sans 3",sans-serif;font-weight:650}
+@media print{section.chapter>h1{margin-top:1.45in}}
