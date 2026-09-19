@@ -1,0 +1,12 @@
+/* Redline — contemporary thriller: fast, hard, compressed. */
+body{font-family:"Folio Vollkorn",Georgia,serif;line-height:1.48;color:#252323;background:#fbfaf8}
+main.book{counter-reset:redline-chapter}
+section.chapter{counter-increment:redline-chapter}
+section.chapter>h1{text-align:left;margin:.95em 0 2.15em;padding:.25em 0 .5em .55em;border-left:7px solid #9a2c2c;font-family:"Folio Barlow Condensed",Arial,sans-serif;font-size:2.25em;font-weight:900;line-height:.98;letter-spacing:.035em;text-transform:uppercase;color:#222}
+section.chapter>h1::before{content:counter(redline-chapter,decimal-leading-zero);display:block;margin-bottom:.42em;font-size:.43em;font-weight:900;letter-spacing:.18em;color:#a12c2c}
+section.chapter>h1::after{content:"";display:block;width:100%;margin-top:.55em;border-bottom:3px solid #222}
+.chapter-subtitle{text-align:left;margin:-1.65em 0 1.85em;padding-left:1.2em}.chapter-subtitle p{text-align:left;text-align-last:left;font-family:"Folio Source Sans 3",sans-serif;font-size:.76em;font-style:normal;font-weight:650;letter-spacing:.13em;text-transform:uppercase;color:#6f5555}
+.scene-break{font-family:"Folio Barlow Condensed",sans-serif;font-size:1em;font-weight:700;letter-spacing:.08em;color:#9a2c2c}
+section.titlepage>h1{text-align:left;font-family:"Folio Barlow Condensed",sans-serif;font-size:3em;font-weight:900;line-height:.95;text-transform:uppercase;border-left:8px solid #9a2c2c;padding-left:.3em}.tp-subtitle,.tp-author{text-align:left;text-align-last:left}.tp-subtitle{font-family:"Folio Source Sans 3",sans-serif;font-style:normal;text-transform:uppercase;letter-spacing:.12em}.tp-author{font-family:"Folio Source Sans 3",sans-serif;font-weight:700}
+section.frontmatter>h1,section.backmatter>h1{text-align:left;font-family:"Folio Barlow Condensed",sans-serif;font-weight:900;text-transform:uppercase;border-bottom:3px solid #9a2c2c;padding-bottom:.3em}
+@media print{section.chapter>h1{margin-top:1.25in}}
