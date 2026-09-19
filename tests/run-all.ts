@@ -28,6 +28,7 @@ const ORDER = [
   "project-file-api.test.ts",
   "project-file-association.test.ts",
   "typesetting-language.test.ts",
+  "theme-catalog.test.ts",
   "ingestion.test.ts",
   "versioning.test.ts",
   "destinations.test.ts",
