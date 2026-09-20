@@ -1,0 +1,7 @@
+/* Memoir preview */
+body{font-family:Garamond,Georgia,serif;line-height:1.58;color:#34302b;background:#f3eee4}
+main.book{counter-reset:ch} section.chapter{counter-increment:ch}
+section.chapter>h1{text-align:center;position:relative;margin:1.25em 0 2.65em;padding:2.35em 1.2em 2.1em;font-family:Baskerville,Georgia,serif;font-size:1.9em;font-weight:400;color:#4d463e}
+section.chapter>h1::before{content:"";position:absolute;inset:-.35em;background:url("__ASSET_DATA__") center/100% 100% no-repeat;opacity:.58;z-index:-1;filter:grayscale(1)}
+section.chapter>h1::after{content:"CHAPTER " counter(ch,upper-roman);display:block;margin:.9em auto 0;font-size:.3em;letter-spacing:.25em}.dropcap{font-family:Baskerville,Georgia,serif;font-size:3.35em}.scene-break{color:#71685d}
+@media print{section.chapter>h1{margin-top:1.2in}}
