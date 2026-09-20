@@ -7,7 +7,7 @@ import { DEFAULT_PRINT } from "../server/print.ts";
 import type { ThemeName } from "../server/pipeline/types.ts";
 import { ROOT } from "../server/pipeline/paths.ts";
 
-const themes: ThemeName[] = ["seance","regency","velvet","amour","memoir","noir","blackice"];
+const themes: ThemeName[] = ["amour","velvet","seance","memoir","gothic","scriptorium","reliquary"];
 const out = path.join(ROOT, "build", "qa-asset-themes");
 await fs.mkdir(out, { recursive: true });
 
