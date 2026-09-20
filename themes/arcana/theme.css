@@ -1,0 +1,10 @@
+/* Arcana — dark fantasy artifact-book direction. */
+body{font-family:Garamond,Georgia,serif;line-height:1.56;color:#2d2925;background:#eee9dc}
+main.book{counter-reset:arcana-chapter}
+section.chapter{counter-increment:arcana-chapter}
+section.chapter>h1{text-align:center;margin:.75em auto 2.65em;padding:1.05em 1em 1.2em;border-top:4px double #3c3732;border-bottom:4px double #3c3732;font-family:Cinzel,Georgia,serif;font-size:2.05em;font-weight:600;line-height:1.02;letter-spacing:.055em;text-transform:uppercase;color:#332e29}
+section.chapter>h1::before{content:"";display:block;width:220px;height:205px;margin:0 auto .55em;background:url("__ASSET_DATA__") center/contain no-repeat;filter:grayscale(1) contrast(1.15)}
+section.chapter>h1::after{content:"BOOK  " counter(arcana-chapter,upper-roman);display:block;margin:1em auto -.15em;font-family:Garamond,Georgia,serif;font-size:.29em;font-weight:700;letter-spacing:.38em;color:#655c53}
+.chapter-subtitle{margin:-1.85em 0 2.15em}.chapter-subtitle p{font-style:italic;color:#6a6158}
+.dropcap{font-family:Cinzel,Georgia,serif;color:#403a34}.scene-break{font-size:.85em;letter-spacing:.48em;color:#4c4640}
+@media print{section.chapter>h1{margin-top:.88in!important}section.chapter p>.dropcap{font-size:3.08em!important;line-height:1!important;padding-right:.13em!important;margin-bottom:-.02em!important}}
