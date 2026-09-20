@@ -1,0 +1,10 @@
+/* Amour — airy romance. */
+body{font-family:Baskerville,Georgia,serif;line-height:1.64;color:#433638;background:#fbf7f3}
+main.book{counter-reset:amour-chapter}
+section.chapter{counter-increment:amour-chapter}
+section.chapter>h1{text-align:center;max-width:88%;margin:2.2em auto 3.3em;font-family:Baskerville,Georgia,serif;font-style:italic;font-size:2.35em;font-weight:400;line-height:1.08;color:#7b555b}
+section.chapter>h1::before{content:"CHAPTER  " counter(amour-chapter,upper-roman);display:block;margin:0 0 1.55em;font-family:Avenir,Arial,sans-serif;font-size:.24em;font-style:normal;font-weight:600;letter-spacing:.36em;color:#9d7a80}
+section.chapter>h1::after{content:"";display:block;width:280px;height:96px;margin:1.05em auto -1.15em;background:url("__ASSET_DATA__") center/contain no-repeat;opacity:.58}
+.chapter-subtitle{margin:-2.35em 0 2.5em}.chapter-subtitle p{font-style:italic;color:#98747a}
+.dropcap{font-family:Baskerville,Georgia,serif;color:#885d64}.scene-break{font-size:.9em;letter-spacing:.55em;color:#a78388}
+@media print{section.chapter>h1{margin-top:1.75in!important;margin-bottom:.72in}section.chapter p>.dropcap{font-size:3.05em!important;line-height:1!important;padding-right:.14em!important;margin-bottom:-.02em!important}}
