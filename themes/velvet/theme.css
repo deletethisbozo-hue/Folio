@@ -1,26 +1,10 @@
-/* Velvet — luxury romance. Asymmetric editorial opener with jewel flourish integrated into the title block. */
+/* Velvet — luxury romance with asymmetric jewel-work opener. */
 body{font-family:Garamond,Georgia,serif;line-height:1.57;color:#2e2326;background:#f5efec}
 main.book{counter-reset:velvet-chapter}
 section.chapter{counter-increment:velvet-chapter}
-section.chapter>h1{
-  position:relative;text-align:left;margin:1.5em 0 3em;padding:1.1em 5.7em 1.05em .85em;
-  border-left:4px double #70404d;border-bottom:1px solid #b99ca4;
-  background:url("__ASSET_DATA__") right .15em center/150px auto no-repeat;
-  font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.4em;font-weight:400;
-  line-height:1;color:#5d303c;
-}
-section.chapter>h1::before{
-  content:"VOL.  " counter(velvet-chapter,upper-roman);display:block;margin-bottom:1.2em;
-  font-family:Avenir,Arial,sans-serif;font-size:.22em;font-weight:700;letter-spacing:.42em;color:#8e6771;
-}
-section.chapter>h1::after{
-  content:"";display:block;width:2.8em;margin-top:.75em;border-top:2px solid #70404d;
-}
-.chapter-subtitle{margin:-2.15em 0 2.4em;text-align:left}.chapter-subtitle p{text-align:left;text-align-last:left;font-style:italic;color:#7a5962}
-.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;color:#6b3845}
-.scene-break{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1em;letter-spacing:.2em;color:#774653}
-section.titlepage>h1{font-family:Didot,"Bodoni MT",Georgia,serif;color:#5d303c}
-@media print{
-  section.chapter>h1{margin-top:1.35in!important}
-  section.chapter p>.dropcap{font-size:3.2em!important;line-height:1!important;padding-right:.12em!important;margin-bottom:-.02em!important}
-}
+section.chapter>h1{position:relative;text-align:left;margin:1.5em 0 3em;padding:1.1em 5.7em 1.05em .85em;border-left:4px double #70404d;border-bottom:1px solid #b99ca4;background:url("__ASSET_DATA__") right .15em center/150px auto no-repeat;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.4em;font-weight:400;line-height:1;color:#5d303c}
+section.chapter>h1::before{content:"VOL.  " counter(velvet-chapter,upper-roman);display:block;margin-bottom:1.2em;font-family:Avenir,Arial,sans-serif;font-size:.22em;font-weight:700;letter-spacing:.42em;color:#8e6771}
+section.chapter>h1::after{content:"";display:block;width:2.8em;margin-top:.75em;border-top:2px solid #70404d}
+.chapter-subtitle{margin:-2.15em 0 2.4em}.chapter-subtitle p{text-align:left;text-align-last:left;font-style:italic;color:#7a5962}
+.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;color:#6b3845}.scene-break{font-size:1em;letter-spacing:.2em;color:#774653}
+@media print{section.chapter>h1{margin-top:1.35in!important}section.chapter p>.dropcap{font-size:3.2em!important;line-height:1!important;padding-right:.12em!important;margin-bottom:-.02em!important}}
