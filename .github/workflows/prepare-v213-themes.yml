@@ -1,4 +1,5 @@
 name: Prepare Folio 2.1.3 theme patch
+# rerun after 19-theme UI contract update
 
 on:
   push:
