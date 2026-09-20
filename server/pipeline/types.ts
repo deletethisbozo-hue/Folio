@@ -28,6 +28,13 @@ export type ThemeName =
   | "wyrmwood"
   | "runestone"
   | "witchlight"
+  | "seance"
+  | "regency"
+  | "velvet"
+  | "amour"
+  | "memoir"
+  | "noir"
+  | "blackice"
   | "ironbound";
 export type PresetName = "kdp" | "universal";
 
