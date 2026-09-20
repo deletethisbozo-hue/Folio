@@ -31,9 +31,17 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   runestone: { name: "runestone", label: "Runestone", description: "Angular Nordic display type and carved dividers with a clean reading face.", sceneOrnament: "◇ ◆ ◇", dropcap: false, chapterLabel: "RUNE 01", previewFont: "Georgia, serif", previewHeadingFont: "Copperplate, Arial Narrow, sans-serif", previewAccent: "#405868", previewPaper: "#f2f5f3" },
   witchlight: { name: "witchlight", label: "Witchlight", description: "Elegant occult fantasy with violet ink, star points and whispered italics.", sceneOrnament: "✦", dropcap: true, chapterLabel: "I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#60446f", previewPaper: "#f7f3f6" },
   ironbound: { name: "ironbound", label: "Ironbound", description: "Heavy forged headings, boxed numerals and disciplined military-fantasy rhythm.", sceneOrnament: "■", dropcap: false, chapterLabel: "01", previewFont: "Charter, Georgia, serif", previewHeadingFont: "Rockwell, Arial Black, serif", previewAccent: "#333b3d", previewPaper: "#f4f1e9" },
+
+  amour: { name: "amour", label: "Amour", description: "Light romantic pages with floral linework, italic display type and airy chapter openings.", sceneOrnament: "❦", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif", previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#8b5d5c", previewPaper: "#fbf4ed" },
+  seance: { name: "seance", label: "Séance", description: "Occult literary styling built around an illustrated ritual opener and restrained spacing.", sceneOrnament: "✦", dropcap: true, chapterLabel: "I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Bodoni MT, Didot, Georgia, serif", previewAccent: "#3c3038", previewPaper: "#f4ede0" },
+  memoir: { name: "memoir", label: "Memoir", description: "Quiet nostalgic composition with an antique framed chapter opening.", sceneOrnament: "◇", dropcap: true, chapterLabel: "CHAPTER I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#5b5146", previewPaper: "#f3eee4" },
+  gothic: { name: "gothic", label: "Gothic", description: "Ecclesiastical gothic interior with a devotional arch, blackletter display and severe vertical structure.", sceneOrnament: "✠", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif", previewHeadingFont: "Old English Text MT, Georgia, serif", previewAccent: "#24272b", previewPaper: "#f1eee6" },
+  scriptorium: { name: "scriptorium", label: "Scriptorium", description: "Blackletter-derived codex styling with a centered framed opener and rubricated hierarchy.", sceneOrnament: "❦", dropcap: true, chapterLabel: "CAPUT I", previewFont: "Libre Caslon Text, Georgia, serif", previewHeadingFont: "Old English Text MT, Georgia, serif", previewAccent: "#7b2e27", previewPaper: "#f1e1bd" },
+  arcana: { name: "arcana", label: "Arcana", description: "Dark fantasy with heraldic illustration and ceremonial chapter architecture.", sceneOrnament: "◆", dropcap: true, chapterLabel: "BOOK I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Cinzel, Georgia, serif", previewAccent: "#3b3430", previewPaper: "#eee9dc" },
 };
 
 export const SUPPORTED_THEMES = [
+  "amour", "seance", "memoir", "gothic", "scriptorium", "arcana",
   "blackletter", "stanza", "witchlight", "solstice", "literary", "nocturne",
   "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade",
 ] as const satisfies readonly ThemeName[];
