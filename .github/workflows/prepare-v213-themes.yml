@@ -13,8 +13,11 @@ permissions:
 jobs:
   prepare:
     if: ${{ !contains(github.event.head_commit.message, '[skip prepare]') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\\build\\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\\build\\pandoc\\pandoc.exe
     steps:
       - name: Check out release branch
         uses: actions/checkout@v4
@@ -82,6 +85,22 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+
+      - name: Install pinned Pandoc
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable missing." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+
+      - name: Install Chromium runtime
+        shell: pwsh
+        run: npx puppeteer browsers install chrome-headless-shell
 
       - name: Typecheck
         run: npm run typecheck
