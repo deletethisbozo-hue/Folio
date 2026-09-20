@@ -6,3 +6,14 @@ section.chapter>h1::before{content:counter(ch,decimal-leading-zero);display:bloc
 section.chapter>h1::after{content:"";display:block;width:235px;height:75px;margin:.75em auto 0;background:url("__ASSET_DATA__") center/contain no-repeat;filter:grayscale(1) contrast(1.2)}
 .scene-break{font-size:.95em;letter-spacing:.2em;color:#222}
 @media print{section.chapter>h1{margin-top:1.35in}}
+/* Isolated preview fix: keep new themes on a stable two-line print drop cap.
+   print-base.css is loaded later, so these declarations intentionally use
+   higher specificity + !important without changing legacy themes. */
+@media print{
+  section.chapter p > .dropcap{
+    font-size:3.15em!important;
+    line-height:1!important;
+    padding-right:.12em!important;
+    margin-bottom:-.02em!important;
+  }
+}
