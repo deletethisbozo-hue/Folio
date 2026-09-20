@@ -1,0 +1,7 @@
+/* Amour preview */
+body{font-family:Baskerville,Georgia,serif;line-height:1.6;color:#443233;background:#fbf4ed}
+main.book{counter-reset:ch} section.chapter{counter-increment:ch}
+section.chapter>h1{text-align:center;margin:1.35em 0 2.45em;font-family:Baskerville,Georgia,serif;font-style:italic;font-size:2.05em;font-weight:400;color:#81585b}
+section.chapter>h1::before{content:"";display:block;width:240px;height:105px;margin:0 auto .65em;background:url("__ASSET_DATA__") center/contain no-repeat;opacity:.82;filter:sepia(.3) hue-rotate(315deg) saturate(.65)}
+section.chapter>h1::after{content:counter(ch,upper-roman);display:block;margin:.9em auto 0;font-size:.29em;font-style:normal;letter-spacing:.3em}.dropcap{font-size:3.35em;color:#81585b}.scene-break{color:#9b7476}
+@media print{section.chapter>h1{margin-top:1.35in}}
