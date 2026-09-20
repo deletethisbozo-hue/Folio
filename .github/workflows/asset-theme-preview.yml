@@ -48,7 +48,6 @@ jobs:
           $ErrorActionPreference = "Stop"
           $assets = @{
             "amour"       = "https://cdn.pixabay.com/photo/2022/12/30/02/22/design-7686051_1280.png"
-            "velvet"      = "https://cdn.pixabay.com/photo/2020/12/30/00/24/jewelry-5872022_1280.png"
             "seance"      = "https://cdn.pixabay.com/photo/2022/08/14/01/32/hand-7384733_1280.png"
             "memoir"      = "https://cdn.pixabay.com/photo/2019/05/27/23/56/vintage-4234040_1280.png"
             "gothic"      = "https://cdn.pixabay.com/photo/2022/09/28/17/22/ornament-7485579_1280.png"
