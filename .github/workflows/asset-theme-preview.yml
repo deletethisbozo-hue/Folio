@@ -47,36 +47,29 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $assets = @{
-            "seance"   = "https://pixabay.com/vectors/hand-ornamental-line-art-fingers-7384733/"
-            "regency"  = "https://pixabay.com/vectors/ornament-victorian-vintage-1299986/"
-            "velvet"   = "https://pixabay.com/vectors/jewelry-flourish-line-art-decor-5872022/"
-            "amour"    = "https://pixabay.com/vectors/design-ornament-flourish-line-art-7686051/"
-            "memoir"   = "https://pixabay.com/vectors/vintage-frame-line-art-antique-4234040/"
-            "noir"     = "https://pixabay.com/vectors/design-ornament-divider-separator-7647687/"
-            "blackice" = "https://pixabay.com/vectors/divider-separator-art-ornament-7673437/"
+            "seance"   = "https://cdn.pixabay.com/photo/2022/08/14/01/32/hand-7384733_1280.png"
+            "regency"  = "https://cdn.pixabay.com/photo/2016/04/01/10/42/ornament-1299986_1280.png"
+            "velvet"   = "https://cdn.pixabay.com/photo/2020/12/30/00/24/jewelry-5872022_1280.png"
+            "amour"    = "https://cdn.pixabay.com/photo/2022/12/30/02/22/design-7686051_1280.png"
+            "memoir"   = "https://cdn.pixabay.com/photo/2019/05/27/23/56/vintage-4234040_1280.png"
+            "noir"     = "https://cdn.pixabay.com/photo/2022/12/10/20/27/design-7647687_1280.png"
+            "blackice" = "https://cdn.pixabay.com/photo/2022/12/22/23/53/divider-7673437_1280.png"
           }
 
           foreach ($theme in $assets.Keys) {
-            $pageUrl = $assets[$theme]
-            $html = (Invoke-WebRequest -Uri $pageUrl -Headers @{ "User-Agent" = "Mozilla/5.0" }).Content
-            $match = [regex]::Match($html, '<meta[^>]+property=["'']og:image["''][^>]+content=["'']([^"'']+)["'']', 'IgnoreCase')
-            if (-not $match.Success) {
-              $match = [regex]::Match($html, '<meta[^>]+content=["'']([^"'']+)["''][^>]+property=["'']og:image["'']', 'IgnoreCase')
-            }
-            if (-not $match.Success) { throw "No og:image found for $theme at $pageUrl" }
-
-            $imageUrl = [System.Net.WebUtility]::HtmlDecode($match.Groups[1].Value)
-            $dest = "themes\$theme\asset.png"
+            $imageUrl = $assets[$theme]
+            $dest = "themes\\$theme\\asset.png"
             Invoke-WebRequest -Uri $imageUrl -OutFile $dest -Headers @{ "User-Agent" = "Mozilla/5.0" }
 
             $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $dest))
+            if ($bytes.Length -lt 1000) { throw "Downloaded asset for $theme is suspiciously small: $($bytes.Length) bytes" }
             $base64 = [Convert]::ToBase64String($bytes)
             $dataUri = "data:image/png;base64,$base64"
-            $cssPath = "themes\$theme\theme.css"
+            $cssPath = "themes\\$theme\\theme.css"
             $css = Get-Content $cssPath -Raw
             if (-not $css.Contains("__ASSET_DATA__")) { throw "Asset placeholder missing in $cssPath" }
             Set-Content $cssPath ($css.Replace("__ASSET_DATA__", $dataUri)) -NoNewline
-            Write-Host "$theme <= $imageUrl"
+            Write-Host "$theme <= $imageUrl ($($bytes.Length) bytes)"
           }
 
       - name: Install Chromium runtime
