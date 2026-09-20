@@ -1,0 +1,100 @@
+name: Folio Pixabay asset theme previews
+
+on:
+  push:
+    branches:
+      - preview/pixabay-theme-assets
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+
+    steps:
+      - name: Check out preview branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install pinned Pandoc
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable missing." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+
+      - name: Download selected Pixabay assets and embed into preview CSS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $assets = @{
+            "seance"   = "https://pixabay.com/vectors/hand-ornamental-line-art-fingers-7384733/"
+            "regency"  = "https://pixabay.com/vectors/ornament-victorian-vintage-1299986/"
+            "velvet"   = "https://pixabay.com/vectors/jewelry-flourish-line-art-decor-5872022/"
+            "amour"    = "https://pixabay.com/vectors/design-ornament-flourish-line-art-7686051/"
+            "memoir"   = "https://pixabay.com/vectors/vintage-frame-line-art-antique-4234040/"
+            "noir"     = "https://pixabay.com/vectors/design-ornament-divider-separator-7647687/"
+            "blackice" = "https://pixabay.com/vectors/divider-separator-art-ornament-7673437/"
+          }
+
+          foreach ($theme in $assets.Keys) {
+            $pageUrl = $assets[$theme]
+            $html = (Invoke-WebRequest -Uri $pageUrl -Headers @{ "User-Agent" = "Mozilla/5.0" }).Content
+            $match = [regex]::Match($html, '<meta[^>]+property=["'']og:image["''][^>]+content=["'']([^"'']+)["'']', 'IgnoreCase')
+            if (-not $match.Success) {
+              $match = [regex]::Match($html, '<meta[^>]+content=["'']([^"'']+)["''][^>]+property=["'']og:image["'']', 'IgnoreCase')
+            }
+            if (-not $match.Success) { throw "No og:image found for $theme at $pageUrl" }
+
+            $imageUrl = [System.Net.WebUtility]::HtmlDecode($match.Groups[1].Value)
+            $dest = "themes\$theme\asset.png"
+            Invoke-WebRequest -Uri $imageUrl -OutFile $dest -Headers @{ "User-Agent" = "Mozilla/5.0" }
+
+            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $dest))
+            $base64 = [Convert]::ToBase64String($bytes)
+            $dataUri = "data:image/png;base64,$base64"
+            $cssPath = "themes\$theme\theme.css"
+            $css = Get-Content $cssPath -Raw
+            if (-not $css.Contains("__ASSET_DATA__")) { throw "Asset placeholder missing in $cssPath" }
+            Set-Content $cssPath ($css.Replace("__ASSET_DATA__", $dataUri)) -NoNewline
+            Write-Host "$theme <= $imageUrl"
+          }
+
+      - name: Install Chromium runtime
+        shell: pwsh
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build Folio
+        run: npm run build
+
+      - name: Capture real Folio print previews
+        run: node --import tsx scripts/asset-theme-preview.ts
+
+      - name: Upload preview screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Pixabay-Theme-Previews
+          path: build/qa-asset-themes/*
+          if-no-files-found: error
