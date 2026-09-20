@@ -43,10 +43,11 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   gothic: { name: "gothic", label: "Gothic", description: "Ecclesiastical gothic interior with a tall devotional opener, blackletter display and severe vertical structure.", sceneOrnament: "✠", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif", previewHeadingFont: "Old English Text MT, Georgia, serif", previewAccent: "#24272b", previewPaper: "#f1eee6" },
   scriptorium: { name: "scriptorium", label: "Scriptorium", description: "Codex-inspired manuscript styling with rubricated chapter marks, framed openings and dense old-press hierarchy.", sceneOrnament: "❦", dropcap: true, chapterLabel: "CAPUT I", previewFont: "Libre Caslon Text, Georgia, serif", previewHeadingFont: "Cinzel, Georgia, serif", previewAccent: "#7b2e27", previewPaper: "#f1e1bd" },
   reliquary: { name: "reliquary", label: "Reliquary", description: "Dark-fantasy interior with heraldic illustration, hard ceremonial rules and an artifact-book chapter opener.", sceneOrnament: "◆", dropcap: true, chapterLabel: "BOOK I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Cinzel, Georgia, serif", previewAccent: "#3b3430", previewPaper: "#eee9dc" },
+  arcana: { name: "arcana", label: "Arcana", description: "Dark fantasy with heraldic illustration and ceremonial chapter architecture.", sceneOrnament: "◆", dropcap: true, chapterLabel: "BOOK I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Cinzel, Georgia, serif", previewAccent: "#3b3430", previewPaper: "#eee9dc" },
 };
 
 export const SUPPORTED_THEMES = [
-  "amour", "velvet", "seance", "memoir", "gothic", "scriptorium", "reliquary",
+  "amour", "velvet", "seance", "memoir", "gothic", "scriptorium", "arcana",
   "blackletter", "stanza", "witchlight", "solstice", "literary", "nocturne",
   "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade",
 ] as const satisfies readonly ThemeName[];
