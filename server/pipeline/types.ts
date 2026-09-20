@@ -38,6 +38,7 @@ export type ThemeName =
   | "gothic"
   | "scriptorium"
   | "reliquary"
+  | "arcana"
   | "ironbound";
 export type PresetName = "kdp" | "universal";
 
