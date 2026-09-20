@@ -2,7 +2,7 @@
 body{font-family:Garamond,Georgia,serif;line-height:1.57;color:#2e2326;background:#f5efec}
 main.book{counter-reset:velvet-chapter}
 section.chapter{counter-increment:velvet-chapter}
-section.chapter>h1{position:relative;text-align:left;margin:1.5em 0 3em;padding:1.1em .85em .95em;border-left:4px double #70404d;border-bottom:1px solid #b99ca4;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.4em;font-weight:400;line-height:1;color:#5d303c}
+section.chapter>h1{position:relative;text-align:left;margin:1.5em 0 3em;padding:1.1em 0 .95em;border-bottom:1px solid #b99ca4;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.4em;font-weight:400;line-height:1;color:#5d303c}
 section.chapter>h1::before{content:"VOL.  " counter(velvet-chapter,upper-roman);display:block;margin-bottom:1.2em;font-family:Avenir,Arial,sans-serif;font-size:.22em;font-weight:700;letter-spacing:.42em;color:#8e6771}
 section.chapter>h1::after{content:"";display:block;width:310px;height:132px;margin:.7em 0 -.35em auto;background:url("__ASSET_DATA__") center/contain no-repeat;background-repeat:no-repeat}
 .chapter-subtitle{margin:-2.15em 0 2.4em}.chapter-subtitle p{text-align:left;text-align-last:left;font-style:italic;color:#7a5962}
