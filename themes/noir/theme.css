@@ -1,0 +1,8 @@
+/* Noir preview */
+body{font-family:Georgia,serif;line-height:1.54;color:#191919;background:#f5f2ea}
+main.book{counter-reset:ch} section.chapter{counter-increment:ch}
+section.chapter>h1{text-align:center;margin:1.55em 0 2.45em;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.15em;font-weight:700;letter-spacing:.08em;color:#181818}
+section.chapter>h1::before{content:counter(ch,decimal-leading-zero);display:block;margin-bottom:1.2em;font-family:Arial,sans-serif;font-size:.28em;letter-spacing:.3em}
+section.chapter>h1::after{content:"";display:block;width:235px;height:75px;margin:.75em auto 0;background:url("__ASSET_DATA__") center/contain no-repeat;filter:grayscale(1) contrast(1.2)}
+.scene-break{font-size:.95em;letter-spacing:.2em;color:#222}
+@media print{section.chapter>h1{margin-top:1.35in}}
