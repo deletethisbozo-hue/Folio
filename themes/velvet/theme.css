@@ -5,3 +5,14 @@ section.chapter>h1{text-align:center;margin:1.05em 0 2.3em;font-family:Didot,"Bo
 section.chapter>h1::before{content:"";display:block;width:250px;height:120px;margin:0 auto .55em;background:url("__ASSET_DATA__") center/contain no-repeat;filter:sepia(.4) hue-rotate(300deg) saturate(.7)}
 section.chapter>h1::after{content:counter(ch,upper-roman);display:block;margin:.8em auto 0;font-size:.29em;font-style:normal;letter-spacing:.3em}.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.5em;color:#6a3341}.scene-break{color:#7b4653}
 @media print{section.chapter>h1{margin-top:1.25in}}
+/* Isolated preview fix: keep new themes on a stable two-line print drop cap.
+   print-base.css is loaded later, so these declarations intentionally use
+   higher specificity + !important without changing legacy themes. */
+@media print{
+  section.chapter p > .dropcap{
+    font-size:3.15em!important;
+    line-height:1!important;
+    padding-right:.12em!important;
+    margin-bottom:-.02em!important;
+  }
+}
