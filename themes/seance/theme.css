@@ -1,25 +1,10 @@
-/* Séance — occult / mystic. The illustration dominates the opening and the title arrives as a ritual caption beneath it. */
+/* Séance — occult mystic opener dominated by the palmistry plate. */
 body{font-family:Garamond,Georgia,serif;line-height:1.59;color:#272329;background:#f3eee6}
 main.book{counter-reset:seance-chapter}
 section.chapter{counter-increment:seance-chapter}
-section.chapter>h1{
-  text-align:center;margin:.65em auto 2.85em;max-width:88%;
-  font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.75em;font-weight:400;
-  letter-spacing:.085em;text-transform:uppercase;color:#302a32;
-}
-section.chapter>h1::before{
-  content:"";display:block;width:205px;height:255px;margin:0 auto .6em;
-  background:url("__ASSET_DATA__") center/contain no-repeat;filter:grayscale(1) contrast(1.18);
-}
-section.chapter>h1::after{
-  content:"✦   " counter(seance-chapter,upper-roman) "   ✦";display:block;
-  width:11em;margin:1.1em auto 0;padding-top:.75em;border-top:1px solid #716a72;
-  font-family:Garamond,Georgia,serif;font-size:.34em;font-style:italic;letter-spacing:.4em;color:#5e5660;
-}
+section.chapter>h1{text-align:center;margin:.65em auto 2.85em;max-width:88%;font-family:Didot,"Bodoni MT",Georgia,serif;font-size:1.75em;font-weight:400;letter-spacing:.085em;text-transform:uppercase;color:#302a32}
+section.chapter>h1::before{content:"";display:block;width:205px;height:255px;margin:0 auto .6em;background:url("__ASSET_DATA__") center/contain no-repeat;filter:grayscale(1) contrast(1.18)}
+section.chapter>h1::after{content:"✦   " counter(seance-chapter,upper-roman) "   ✦";display:block;width:11em;margin:1.1em auto 0;padding-top:.75em;border-top:1px solid #716a72;font-family:Garamond,Georgia,serif;font-size:.34em;font-style:italic;letter-spacing:.4em;color:#5e5660}
 .chapter-subtitle{margin:-2em 0 2.25em}.chapter-subtitle p{font-style:italic;color:#716875}
-.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;color:#413a44}
-.scene-break{font-size:.9em;letter-spacing:.7em;color:#655e68}
-@media print{
-  section.chapter>h1{margin-top:.82in!important}
-  section.chapter p>.dropcap{font-size:3.1em!important;line-height:1!important;padding-right:.13em!important;margin-bottom:-.02em!important}
-}
+.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;color:#413a44}.scene-break{font-size:.9em;letter-spacing:.7em;color:#655e68}
+@media print{section.chapter>h1{margin-top:.82in!important}section.chapter p>.dropcap{font-size:3.1em!important;line-height:1!important;padding-right:.13em!important;margin-bottom:-.02em!important}}
