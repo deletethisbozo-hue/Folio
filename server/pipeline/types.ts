@@ -30,7 +30,6 @@ export type ThemeName =
   | "witchlight"
   | "seance"
   | "regency"
-  | "velvet"
   | "amour"
   | "memoir"
   | "noir"
