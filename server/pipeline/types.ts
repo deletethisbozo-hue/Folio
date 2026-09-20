@@ -35,6 +35,9 @@ export type ThemeName =
   | "memoir"
   | "noir"
   | "blackice"
+  | "gothic"
+  | "scriptorium"
+  | "reliquary"
   | "ironbound";
 export type PresetName = "kdp" | "universal";
 
