@@ -34,7 +34,6 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
 
   seance: { name: "seance", label: "Séance", description: "Occult literary styling built around a palmistry engraving and restrained ritual spacing.", sceneOrnament: "✦", dropcap: true, chapterLabel: "I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Bodoni MT, Didot, Georgia, serif", previewAccent: "#3c3038", previewPaper: "#f4ede0" },
   regency: { name: "regency", label: "Regency", description: "Formal historical romance with Victorian engraving, measured capitals and classical book proportions.", sceneOrnament: "❦", dropcap: true, chapterLabel: "CHAPTER I", previewFont: "Baskerville, Georgia, serif", previewHeadingFont: "Bodoni MT, Didot, Georgia, serif", previewAccent: "#65462f", previewPaper: "#f7efdf" },
-  velvet: { name: "velvet", label: "Velvet", description: "Lush romantic display treatment with jewelry-like flourishes and softer high-contrast typography.", sceneOrnament: "❧", dropcap: true, chapterLabel: "I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Bodoni MT, Didot, Georgia, serif", previewAccent: "#68363f", previewPaper: "#f3e9e4" },
   amour: { name: "amour", label: "Amour", description: "Light romantic pages with floral linework, italic display type and airy chapter openings.", sceneOrnament: "❦", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif", previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#8b5d5c", previewPaper: "#fbf4ed" },
   memoir: { name: "memoir", label: "Memoir", description: "Quiet nostalgic composition with an antique frame reserved for chapter openings.", sceneOrnament: "◇", dropcap: true, chapterLabel: "CHAPTER I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#5b5146", previewPaper: "#f3eee4" },
   noir: { name: "noir", label: "Noir", description: "Disciplined crime-fiction typography with one sharp ornamental divider and stark spacing.", sceneOrnament: "◆", dropcap: false, chapterLabel: "I", previewFont: "Georgia, serif", previewHeadingFont: "Bodoni MT, Didot, Georgia, serif", previewAccent: "#292929", previewPaper: "#f5f2ea" },
@@ -47,7 +46,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
 };
 
 export const SUPPORTED_THEMES = [
-  "amour", "velvet", "seance", "memoir", "gothic", "scriptorium", "arcana",
+  "amour", "seance", "memoir", "gothic", "scriptorium", "arcana",
   "blackletter", "stanza", "witchlight", "solstice", "literary", "nocturne",
   "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade",
 ] as const satisfies readonly ThemeName[];
