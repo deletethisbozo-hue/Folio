@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.1.2 version consistency
+      - name: Verify Folio 2.1.3 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.1.2") { throw "Windows release is scoped to Folio 2.1.2, found $version." }
+          if ($version -ne "2.1.3") { throw "Windows release is scoped to Folio 2.1.2, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -124,7 +124,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -ne 13) { throw "Folio 2.0 packaged app must expose exactly 13 curated themes, found $($themes.Count)." }
+            if ($themes.Count -ne 19) { throw "Folio 2.0 packaged app must expose exactly 19 curated themes, found $($themes.Count)." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
@@ -221,4 +221,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.1.2 expands Writing Studio into a full writing workflow. Write mode now uses a collapsible manuscript sidebar that pushes rather than covers the editor, Focus mode keeps minimal writing controls available, Split View can be closed without leaving Focus, and Typewriter mode centers the active line while working together with Split and Focus. Settings now lets you disable spellcheck and choose the standard export folder. New and existing books use standalone .folio project files, with legacy folder import, persistent autosave/flush behavior, Windows .folio file association, direct file opening and safe hand-off to an already running Folio instance. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction and screenshot QA, Windows visual/typesetting QA, the Print PDF matrix, packaged executable smoke tests, .folio round-trip and installed-app association tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.1.3 adds six new curated book themes: Amour for airy romance, Séance for occult fiction, Memoir for archival and biographical interiors, Gothic for ecclesiastical blackletter styling, Scriptorium for codex-inspired manuscript design, and Arcana for dark fantasy. The new themes use isolated drop-cap sizing so existing themes and the global compositor remain unchanged. Gothic preserves the Cathedral arch language, Scriptorium preserves Blackletter display typography, and the approved illustrated openers are embedded directly in the packaged theme CSS for offline reliability. The release remains gated by typecheck, the complete formatter/UI suite, visual/typesetting QA, Print PDF matrix, packaged smoke tests, export checks and SHA-256 hashing."
