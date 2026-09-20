@@ -1,25 +1,11 @@
-/* Gothic — derived from Cathedral, rebuilt as a tall ecclesiastical opener rather than another centered ornament theme. */
+/* Gothic — Cathedral-derived ecclesiastical opener with restored arch frame. */
 body{font-family:Baskerville,Georgia,serif;line-height:1.51;color:#1f2327;background:#f1eee6}
 main.book{counter-reset:gothic-chapter}
 section.chapter{counter-increment:gothic-chapter}
-section.chapter>h1{
-  position:relative;text-align:center;margin:.5em auto 2.55em;padding:1.1em 1em 1.25em;
-  border-left:1px solid #46494d;border-right:1px solid #46494d;border-bottom:5px double #282b2f;
-  font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2.25em;font-weight:400;line-height:1.02;color:#1f2225;
-}
-section.chapter>h1::before{
-  content:"";display:block;width:148px;height:230px;margin:0 auto .55em;
-  background:url("__ASSET_DATA__") center/contain no-repeat;filter:grayscale(1) contrast(1.2);
-}
-section.chapter>h1::after{
-  content:"CHAPTER  " counter(gothic-chapter,upper-roman);display:block;margin:.95em auto -.15em;
-  font-family:Cinzel,Georgia,serif;font-size:.27em;font-weight:600;letter-spacing:.35em;color:#4b4e52;
-}
+section.chapter>h1{position:relative;text-align:center;margin:.5em auto 2.55em;padding:1.1em 1em 1.2em;border:1px solid #536270;border-top:6px double #293543;border-radius:50% 50% 0 0/24% 24% 0 0;font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2.18em;font-weight:400;line-height:1.02;color:#1f2225}
+section.chapter>h1::before{content:"";display:block;width:140px;height:210px;margin:.2em auto .5em;background:url("__ASSET_DATA__") center/contain no-repeat;filter:grayscale(1) contrast(1.2)}
+section.chapter>h1::after{content:"CHAPTER  " counter(gothic-chapter,upper-roman);display:block;margin:.9em auto -.05em;font-family:Cinzel,Georgia,serif;font-size:.27em;font-weight:600;letter-spacing:.35em;color:#4b4e52}
 .chapter-subtitle{margin:-1.8em 0 2.2em}.chapter-subtitle p{font-style:normal;font-variant:small-caps;letter-spacing:.14em;color:#53575c}
-.dropcap{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;color:#24272b}
-.scene-break{font-size:1.1em;letter-spacing:.45em;color:#3f4347}
+.dropcap{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;color:#24272b}.scene-break{font-size:1.1em;letter-spacing:.45em;color:#3f4347}
 section.titlepage>h1{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif}
-@media print{
-  section.chapter>h1{margin-top:.72in!important}
-  section.chapter p>.dropcap{font-size:3.12em!important;line-height:1!important;padding-right:.12em!important;margin-bottom:-.02em!important}
-}
+@media print{section.chapter>h1{margin-top:.72in!important}section.chapter p>.dropcap{font-size:3.12em!important;line-height:1!important;padding-right:.12em!important;margin-bottom:-.02em!important}}
