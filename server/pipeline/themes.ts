@@ -39,10 +39,14 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   memoir: { name: "memoir", label: "Memoir", description: "Quiet nostalgic composition with an antique frame reserved for chapter openings.", sceneOrnament: "◇", dropcap: true, chapterLabel: "CHAPTER I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Baskerville, Georgia, serif", previewAccent: "#5b5146", previewPaper: "#f3eee4" },
   noir: { name: "noir", label: "Noir", description: "Disciplined crime-fiction typography with one sharp ornamental divider and stark spacing.", sceneOrnament: "◆", dropcap: false, chapterLabel: "I", previewFont: "Georgia, serif", previewHeadingFont: "Bodoni MT, Didot, Georgia, serif", previewAccent: "#292929", previewPaper: "#f5f2ea" },
   blackice: { name: "blackice", label: "Black Ice", description: "Cold thriller minimalism with a single precise divider and condensed structural hierarchy.", sceneOrnament: "◇", dropcap: false, chapterLabel: "01", previewFont: "Cambria, Georgia, serif", previewHeadingFont: "Arial Narrow, Arial, sans-serif", previewAccent: "#303940", previewPaper: "#fafaf7" },
+
+  gothic: { name: "gothic", label: "Gothic", description: "Ecclesiastical gothic interior with a tall devotional opener, blackletter display and severe vertical structure.", sceneOrnament: "✠", dropcap: true, chapterLabel: "I", previewFont: "Baskerville, Georgia, serif", previewHeadingFont: "Old English Text MT, Georgia, serif", previewAccent: "#24272b", previewPaper: "#f1eee6" },
+  scriptorium: { name: "scriptorium", label: "Scriptorium", description: "Codex-inspired manuscript styling with rubricated chapter marks, framed openings and dense old-press hierarchy.", sceneOrnament: "❦", dropcap: true, chapterLabel: "CAPUT I", previewFont: "Libre Caslon Text, Georgia, serif", previewHeadingFont: "Cinzel, Georgia, serif", previewAccent: "#7b2e27", previewPaper: "#f1e1bd" },
+  reliquary: { name: "reliquary", label: "Reliquary", description: "Dark-fantasy interior with heraldic illustration, hard ceremonial rules and an artifact-book chapter opener.", sceneOrnament: "◆", dropcap: true, chapterLabel: "BOOK I", previewFont: "Garamond, Georgia, serif", previewHeadingFont: "Cinzel, Georgia, serif", previewAccent: "#3b3430", previewPaper: "#eee9dc" },
 };
 
 export const SUPPORTED_THEMES = [
-  "seance", "regency", "velvet", "amour", "memoir", "noir", "blackice",
+  "amour", "velvet", "seance", "memoir", "gothic", "scriptorium", "reliquary",
   "blackletter", "stanza", "witchlight", "solstice", "literary", "nocturne",
   "obsidian", "grimoire", "ivory", "heritage", "decorative", "cathedral", "aubade",
 ] as const satisfies readonly ThemeName[];
