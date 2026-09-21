@@ -136,6 +136,88 @@ try {
     return Boolean(selected && image?.complete && image.naturalWidth > 0 && markdown.includes("{.folio-illustration"));
   }, { timeout: 30000 });
   check("saved front-matter illustration survives a real project reload", true);
+
+
+  await page.evaluate(() => {
+    const chapter = document.querySelector<HTMLElement>(".contents-row.chapter-row");
+    if (!chapter) throw new Error("Sample chapter row is missing for anchored illustration test");
+    chapter.click();
+  });
+  await page.waitForFunction(() => {
+    const selected = document.querySelector(".contents-row.selected");
+    const editor = document.querySelector<HTMLElement>('.rich-editor[contenteditable="true"]');
+    return Boolean(selected && !selected.textContent?.includes("Preface") && editor?.querySelector("p"));
+  }, { timeout: 30000 });
+
+  const beforeChapterMarkdown = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const paragraphs = editor?.querySelectorAll("p");
+    const target = paragraphs?.[Math.min(1, Math.max(0, (paragraphs?.length ?? 1) - 1))];
+    if (!editor || !target) throw new Error("Chapter paragraph is missing for caret anchor");
+    const range = document.createRange();
+    range.setStart(target, 0);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+
+  const chapterUploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"), { timeout: 12000 });
+  const [chapterChooser] = await Promise.all([page.waitForFileChooser({ timeout: 12000 }), page.click(".illustration-button")]);
+  await chapterChooser.accept([fixture]);
+  const chapterUpload = await chapterUploadResponse;
+  if (!chapterUpload.ok()) throw new Error("Chapter illustration upload failed: " + chapterUpload.status() + " " + (await chapterUpload.text()));
+
+  await page.waitForFunction(() => {
+    const figure = document.querySelector<HTMLElement>(".editor-illustration");
+    const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
+    return Boolean(figure?.dataset.folioWrap === "right" && markdown.includes(".folio-wrap-right") && markdown.includes("width=38%"));
+  }, { timeout: 15000 });
+  const afterChapterMarkdown = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
+  check("chapter image inserts at the caret without replacing manuscript text",
+    afterChapterMarkdown.length > beforeChapterMarkdown.length && afterChapterMarkdown.includes(beforeChapterMarkdown.slice(0, Math.min(120, beforeChapterMarkdown.length))),
+    `before=${beforeChapterMarkdown.length}, after=${afterChapterMarkdown.length}`);
+  check("chapter illustration persists responsive right-wrap metadata", afterChapterMarkdown.includes(".folio-wrap-right") && afterChapterMarkdown.includes("width=38%"), afterChapterMarkdown.slice(0, 600));
+
+  await page.hover(".editor-illustration");
+  await page.select('.editor-illustration [data-folio-control="wrap"]', "left");
+  await page.waitForFunction(() => {
+    const figure = document.querySelector<HTMLElement>(".editor-illustration");
+    const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
+    return figure?.dataset.folioWrap === "left" && markdown.includes(".folio-wrap-left");
+  }, { timeout: 15000 });
+  check("wrap side can be changed without touching surrounding text", true);
+
+  const handle = await page.$(".editor-illustration .illustration-drag-handle");
+  const editorBox = await page.$eval(".rich-editor", (editor) => {
+    const rect = editor.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  });
+  const handleBox = await handle?.boundingBox();
+  if (!handleBox) throw new Error("Illustration drag handle is not measurable");
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(editorBox.left + 18, editorBox.top + Math.min(editorBox.height - 60, 300), { steps: 8 });
+  await page.mouse.up();
+  await page.waitForFunction(() => {
+    const figure = document.querySelector<HTMLElement>(".editor-illustration");
+    return Boolean(figure && figure.dataset.folioWrap === "left" && !figure.classList.contains("illustration-dragging"));
+  }, { timeout: 10000 });
+  check("dragging the illustration reanchors it and keeps live left text wrap", true);
+
+  await page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    return Boolean(doc?.querySelector(".folio-illustration-block.folio-wrap-left img.folio-illustration"));
+  }, { timeout: 30000 });
+  check("reader preview renders the same anchored wrap intent", true);
+
+  await page.select('select[aria-label="Preview device"]', "print");
+  await page.waitForFunction(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    return Boolean(doc?.querySelector(".pagedjs_page .folio-illustration-block.folio-wrap-left img.folio-illustration"));
+  }, { timeout: 45000 });
+  check("print preview preserves the anchored illustration and text-wrap side", true);
 } catch (error) {
   failed++;
   console.error("✗ browser illustration scenario completed");
