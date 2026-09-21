@@ -1,0 +1,109 @@
+/* Anchored illustration editor chrome. Publishing layout lives in themes/base.css. */
+
+.editor-illustration {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: #faf9f6;
+  transition: border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+.editor-illustration:hover,
+.editor-illustration:focus-within {
+  border-color: #bdb8ad;
+  box-shadow: 0 1px 8px rgba(40, 35, 28, .08);
+}
+.editor-illustration.wrap-left { float: left; }
+.editor-illustration.wrap-right { float: right; }
+.editor-illustration.wrap-none { float: none; }
+.editor-illustration > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.editor-illustration-controls {
+  position: absolute;
+  z-index: 3;
+  left: 6px;
+  right: 30px;
+  top: 6px;
+  min-height: 27px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px;
+  border: 1px solid rgba(105, 101, 93, .38);
+  border-radius: 5px;
+  background: rgba(250, 249, 246, .94);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+}
+.editor-illustration:hover .editor-illustration-controls,
+.editor-illustration:focus-within .editor-illustration-controls,
+.editor-illustration.illustration-dragging .editor-illustration-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+.editor-illustration-controls label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #666159;
+  font: 8px/1 "Segoe UI", sans-serif;
+}
+.editor-illustration-controls input[type="range"] { width: 74px; }
+.editor-illustration-controls select,
+.editor-illustration-controls button {
+  height: 19px;
+  border: 1px solid #c8c4bb;
+  border-radius: 3px;
+  background: #fff;
+  color: #45413b;
+  font: 8px/17px "Segoe UI", sans-serif;
+}
+.editor-illustration-controls select { max-width: 76px; }
+.editor-illustration-controls .crop-axis input { width: 44px; }
+.illustration-drag-handle {
+  cursor: grab;
+  font-weight: 600 !important;
+}
+.editor-illustration.illustration-dragging {
+  opacity: .78;
+  border-color: #6e8eaf;
+  box-shadow: 0 0 0 2px rgba(72, 122, 173, .16);
+}
+.editor-illustration.illustration-dragging .illustration-drag-handle { cursor: grabbing; }
+
+.editor-illustration-remove {
+  position: absolute;
+  z-index: 4;
+  top: 7px;
+  right: 7px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(250,249,246,.9);
+  color: #837d74;
+  font: 14px/20px "Segoe UI", sans-serif;
+  opacity: .35;
+}
+.editor-illustration:hover .editor-illustration-remove,
+.editor-illustration-remove:focus {
+  opacity: 1;
+  color: #8c3630;
+  background: #f4e8e5;
+}
+
+.rich-editor h1,
+.rich-editor h2,
+.rich-editor h3,
+.rich-editor .editor-scene-break {
+  clear: both;
+}
