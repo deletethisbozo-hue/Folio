@@ -390,6 +390,16 @@ export function markdownToPreviewHtml(markdown: string, ornament = "❦", resolv
     .replace(/<button\b[^>]*class="editor-illustration-remove"[^>]*>.*?<\/button>/g, "")
     .replace(/<button\b[^>]*class="editor-scene-break-remove"[^>]*>.*?<\/button>/g, "")
     .replace(/class="editor-illustration"/g, 'class="folio-illustration-preview"')
+    .replace(/<figure\b[^>]*class="folio-illustration-preview"[^>]*>/g, (tag) => {
+      const wrap = /data-folio-wrap="left"/.test(tag) ? "left" : /data-folio-wrap="right"/.test(tag) ? "right" : "none";
+      return tag.replace(
+        'class="folio-illustration-preview"',
+        `class="folio-illustration-preview folio-illustration-block${wrap === "none" ? "" : ` folio-wrap-${wrap}`}"`,
+      );
+    })
+    .replace(/<img\b([^>]*data-folio-asset[^>]*)>/g, (tag) => tag.includes('class="')
+      ? tag.replace(/class="([^"]*)"/, 'class="$1 folio-illustration"')
+      : tag.replace("<img", '<img class="folio-illustration"'))
     .replace(/class="editor-scene-break"/g, 'class="scene-break" role="separator"')
     .replace(/\scontenteditable="false"/g, "");
 }
