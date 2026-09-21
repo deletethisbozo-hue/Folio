@@ -1,4 +1,5 @@
 /* Anchored illustration editor chrome. Publishing layout lives in themes/base.css. */
+/* Feature qualification branch: no production/main coupling. */
 
 .editor-illustration {
   position: relative;
