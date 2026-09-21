@@ -144,11 +144,19 @@ try {
     const r = editor.getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   });
+  const paragraphTarget = await page.$eval(".rich-editor", (editor) => {
+    const paragraphs = [...editor.querySelectorAll<HTMLElement>(":scope > p")];
+    const target = paragraphs[Math.min(2, Math.max(0, paragraphs.length - 1))];
+    if (!target) throw new Error("No ordinary paragraph target for V2 drag");
+    const r = target.getBoundingClientRect();
+    return { top: r.top, left: r.left, width: r.width, height: r.height };
+  });
 
-  // Directly drag the artwork itself to the left and lower in the manuscript.
+  // Directly drag the artwork itself before an ordinary paragraph, not across a
+  // scene break (scene breaks intentionally clear floats).
   await page.mouse.move(imageBox.x + imageBox.width / 2, imageBox.y + Math.min(60, imageBox.height / 2));
   await page.mouse.down();
-  await page.mouse.move(editorBox.left + editorBox.width * 0.18, editorBox.top + Math.min(editorBox.height - 80, 410), { steps: 14 });
+  await page.mouse.move(editorBox.left + editorBox.width * 0.18, paragraphTarget.top + 2, { steps: 14 });
   await page.mouse.up();
 
   await page.waitForFunction(() => {
