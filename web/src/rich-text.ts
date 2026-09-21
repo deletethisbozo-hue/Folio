@@ -11,7 +11,8 @@ function escapeMarkdownAlt(value: string): string {
   return value.replace(/([\\\]])/g, "\\$1");
 }
 
-type IllustrationSpec = { scale: number; crop: boolean; ratio: string; x: number; y: number };
+type IllustrationWrap = "none" | "left" | "right";
+type IllustrationSpec = { scale: number; crop: boolean; ratio: string; x: number; y: number; wrap: IllustrationWrap };
 
 function clampIllustration(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = Number(value);
@@ -24,7 +25,8 @@ function parseIllustrationAttrs(attrs = ""): IllustrationSpec {
   const ratio = attrs.match(/\.folio-ratio-([a-z0-9-]+)/i)?.[1] ?? "4-3";
   const x = clampIllustration(attrs.match(/data-folio-x=(?:"|')?(\d{1,3})/i)?.[1], 0, 100, 50);
   const y = clampIllustration(attrs.match(/data-folio-y=(?:"|')?(\d{1,3})/i)?.[1], 0, 100, 50);
-  return { scale, crop, ratio, x, y };
+  const wrap: IllustrationWrap = /\.folio-wrap-left\b/.test(attrs) ? "left" : /\.folio-wrap-right\b/.test(attrs) ? "right" : "none";
+  return { scale, crop, ratio, x, y, wrap };
 }
 
 function illustrationRatioCss(ratio: string): string {
@@ -37,8 +39,9 @@ function illustrationRatioCss(ratio: string): string {
 
 function illustrationMarkdownAttrs(spec: IllustrationSpec): string {
   const classes = [".folio-illustration"];
+  if (spec.wrap !== "none") classes.push(`.folio-wrap-${spec.wrap}`);
   if (spec.crop) classes.push(".folio-crop", `.folio-ratio-${spec.ratio}`);
-  if (!spec.crop && Math.round(spec.scale) === 100) return "{.folio-illustration}";
+  if (!spec.crop && Math.round(spec.scale) === 100 && spec.wrap === "none") return "{.folio-illustration}";
   const attrs = [...classes, `width=${Math.round(spec.scale)}%`];
   if (spec.crop) {
     attrs.push(
@@ -137,6 +140,7 @@ function renderNode(node: Node): string {
       ratio: element.getAttribute("data-folio-ratio") || "4-3",
       x: clampIllustration(element.getAttribute("data-folio-x"), 0, 100, 50),
       y: clampIllustration(element.getAttribute("data-folio-y"), 0, 100, 50),
+      wrap: element.getAttribute("data-folio-wrap") === "left" ? "left" : element.getAttribute("data-folio-wrap") === "right" ? "right" : "none",
     };
     return `\n\n![${alt}](${asset})${illustrationMarkdownAttrs(spec)}\n\n`;
   }
@@ -320,7 +324,7 @@ export function markdownToEditorHtml(markdown: string, ornament = "❦", resolve
       const spec = parseIllustrationAttrs(image[3] ?? "");
       const src = resolveAsset ? resolveAsset(asset) : asset;
       const cropStyle = spec.crop ? `aspect-ratio:${illustrationRatioCss(spec.ratio)};object-fit:cover;object-position:${spec.x}% ${spec.y}%;` : "";
-      blocks.push(`<figure class="editor-illustration" data-folio-illustration="true" data-folio-scale="${spec.scale}" data-folio-crop="${spec.crop}" data-folio-ratio="${spec.ratio}" data-folio-x="${spec.x}" data-folio-y="${spec.y}" contenteditable="false" style="width:${spec.scale}%"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" data-folio-asset="${escapeHtml(asset)}" style="width:100%;${cropStyle}"><div class="editor-illustration-controls" contenteditable="false"><label><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="5" value="${spec.scale}"></label><button type="button" data-folio-control="crop" aria-pressed="${spec.crop}">${spec.crop ? "Crop on" : "Crop"}</button><select data-folio-control="ratio" aria-label="Crop ratio" ${spec.crop ? "" : "disabled"}><option value="1-1" ${spec.ratio === "1-1" ? "selected" : ""}>1:1</option><option value="4-3" ${spec.ratio === "4-3" ? "selected" : ""}>4:3</option><option value="3-2" ${spec.ratio === "3-2" ? "selected" : ""}>3:2</option><option value="2-3" ${spec.ratio === "2-3" ? "selected" : ""}>2:3</option><option value="16-9" ${spec.ratio === "16-9" ? "selected" : ""}>16:9</option></select><label class="crop-axis"><span>X</span><input data-folio-control="x" type="range" min="0" max="100" step="5" value="${spec.x}" ${spec.crop ? "" : "disabled"}></label><label class="crop-axis"><span>Y</span><input data-folio-control="y" type="range" min="0" max="100" step="5" value="${spec.y}" ${spec.crop ? "" : "disabled"}></label></div><button type="button" class="editor-illustration-remove" aria-label="Remove illustration" title="Remove illustration">×</button></figure>`);
+      blocks.push(`<figure class="editor-illustration" data-folio-illustration="true" data-folio-scale="${spec.scale}" data-folio-crop="${spec.crop}" data-folio-ratio="${spec.ratio}" data-folio-x="${spec.x}" data-folio-y="${spec.y}" data-folio-wrap="${spec.wrap}" contenteditable="false" style="width:${spec.scale}%"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" data-folio-asset="${escapeHtml(asset)}" style="width:100%;${cropStyle}"><button type="button" class="editor-illustration-remove" aria-label="Remove illustration" title="Remove illustration">×</button></figure>`);
       continue;
     }
     if (/^\s*(?:---|\* \* \*)\s*$/.test(line)) {
