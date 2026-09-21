@@ -49,6 +49,7 @@ function inspectorMarkup(): string {
       <button type="button" data-folio-wrap-choice="none" title="Center without text wrap">Center</button>
       <button type="button" data-folio-wrap-choice="right" title="Wrap text on the left">Right</button>
     </div>
+    <label class="folio-size-slider" title="Illustration width"><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="1"></label>
     <button type="button" data-folio-control="crop" aria-pressed="false">Crop</button>
     <select data-folio-control="ratio" aria-label="Crop ratio">
       <option value="1-1">1:1</option>
@@ -114,12 +115,14 @@ function refreshFigure(figure: HTMLElement): void {
     button.setAttribute("aria-pressed", String(active));
   });
 
+  const scaleInput = figure.querySelector<HTMLInputElement>('[data-folio-control="scale"]');
   const ratioInput = figure.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]');
   const xInput = figure.querySelector<HTMLInputElement>('[data-folio-control="x"]');
   const yInput = figure.querySelector<HTMLInputElement>('[data-folio-control="y"]');
   const cropButton = figure.querySelector<HTMLButtonElement>('[data-folio-control="crop"]');
   const size = figure.querySelector<HTMLElement>(".folio-image-size");
 
+  if (scaleInput) scaleInput.value = String(Math.round(scale));
   if (ratioInput) {
     ratioInput.value = ratio;
     ratioInput.disabled = !crop;
@@ -196,6 +199,7 @@ function setWrap(figure: HTMLElement, wrap: WrapMode, dirty = true): void {
 
 function updateControl(control: HTMLElement, figure: HTMLElement): void {
   const kind = control.dataset.folioControl;
+  if (kind === "scale" && control instanceof HTMLInputElement) figure.dataset.folioScale = String(clamp(control.value, 25, 100, 42));
   if (kind === "ratio" && control instanceof HTMLSelectElement) figure.dataset.folioRatio = control.value || "4-3";
   if (kind === "x" && control instanceof HTMLInputElement) figure.dataset.folioX = String(clamp(control.value, 0, 100, 50));
   if (kind === "y" && control instanceof HTMLInputElement) figure.dataset.folioY = String(clamp(control.value, 0, 100, 50));
@@ -273,7 +277,7 @@ function resizeIllustration(event: PointerEvent, state: ResizeState): void {
   const widthPx = wrap === "right"
     ? Math.max(40, figureRect.right - event.clientX)
     : Math.max(40, event.clientX - figureRect.left);
-  const percent = clamp((widthPx / Math.max(1, editorRect.width)) * 100, 18, wrap === "none" ? 100 : 72, 42);
+  const percent = clamp((widthPx / Math.max(1, editorRect.width)) * 100, 25, wrap === "none" ? 100 : 72, 42);
   state.figure.dataset.folioScale = String(Math.round(percent));
   refreshFigure(state.figure);
   dispatchDirty(state.figure);
