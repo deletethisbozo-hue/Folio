@@ -1,0 +1,51 @@
+name: Anchored Illustration Qualification
+
+on:
+  push:
+    branches: [feature/anchored-illustrations]
+  workflow_dispatch:
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+
+      - name: Install Chromium
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Anchored illustration browser qualification
+        run: node --import tsx tests/illustration-ui.test.ts
+
+      - name: Full regression suite
+        run: npm test
+
+      - name: Upload real preview screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Anchored-Illustration-Preview
+          path: build/qa-anchored-illustration/*.png
+          if-no-files-found: warn
