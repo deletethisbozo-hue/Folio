@@ -185,22 +185,50 @@ local function sender_of(para)
   return nil
 end
 
+local function illustration_div(image, owner)
+  local source = owner or image
+  local classes = { "folio-illustration-block" }
+  if has_class(image, "folio-wrap-left") or has_class(source, "folio-wrap-left") then
+    table.insert(classes, "folio-wrap-left")
+  end
+  if has_class(image, "folio-wrap-right") or has_class(source, "folio-wrap-right") then
+    table.insert(classes, "folio-wrap-right")
+  end
+
+  local attrs = {}
+  local width = nil
+  if image.attributes then width = image.attributes["width"] end
+  if (not width or width == "") and source.attributes then width = source.attributes["width"] end
+  if width and width ~= "" then attrs["style"] = "width:" .. width end
+
+  return pandoc.Div({ pandoc.Plain({ image }) }, pandoc.Attr("", classes, attrs))
+end
+
+local function first_image(blocks)
+  for _, block in ipairs(blocks or {}) do
+    if block.t == "Para" or block.t == "Plain" then
+      for _, inline in ipairs(block.content or {}) do
+        if inline.t == "Image" then return inline end
+      end
+    end
+  end
+  return nil
+end
+
+function Figure(fig)
+  local image = first_image(fig.content)
+  if not image then return nil end
+  if has_class(image, "folio-illustration") or has_class(fig, "folio-illustration") then
+    return illustration_div(image, fig)
+  end
+  return nil
+end
+
 function Para(para)
   if #para.content ~= 1 or para.content[1].t ~= "Image" then return nil end
   local image = para.content[1]
   if not has_class(image, "folio-illustration") then return nil end
-
-  local classes = { "folio-illustration-block" }
-  if has_class(image, "folio-wrap-left") then table.insert(classes, "folio-wrap-left") end
-  if has_class(image, "folio-wrap-right") then table.insert(classes, "folio-wrap-right") end
-
-  local attrs = {}
-  local width = image.attributes and image.attributes["width"] or nil
-  if width and width ~= "" then attrs["style"] = "width:" .. width end
-
-  -- A Plain image inside our own wrapper avoids Pandoc's implicit <figure>
-  -- wrapper, so the block itself can participate in reliable text wrapping.
-  return pandoc.Div({ pandoc.Plain({ image }) }, pandoc.Attr("", classes, attrs))
+  return illustration_div(image, image)
 end
 
 function Div(div)
