@@ -174,10 +174,27 @@ try {
     const range = document.createRange();
     range.setStart(textNode, 0);
     range.setEnd(textNode, Math.min(14, textNode.textContent?.length ?? 0));
+    const figureStyle = getComputedStyle(figure);
+    const paragraphStyle = getComputedStyle(paragraph);
     return {
       figure: figure.getBoundingClientRect().toJSON(),
       firstLine: range.getBoundingClientRect().toJSON(),
-      float: getComputedStyle(figure).float,
+      float: figureStyle.float,
+      paragraph: paragraph.getBoundingClientRect().toJSON(),
+      paragraphStyle: {
+        clear: paragraphStyle.clear,
+        display: paragraphStyle.display,
+        overflow: paragraphStyle.overflow,
+        position: paragraphStyle.position,
+        contain: paragraphStyle.contain,
+        width: paragraphStyle.width,
+      },
+      siblings: Array.from(editor.children).map((node) => ({
+        tag: node.tagName,
+        cls: (node as HTMLElement).className,
+        top: (node as HTMLElement).getBoundingClientRect().top,
+        bottom: (node as HTMLElement).getBoundingClientRect().bottom,
+      })).slice(0, 12),
     };
   });
   const editorWraps = Boolean(
