@@ -1,4 +1,5 @@
 name: Anchored Illustration Portable Build
+# Isolated feature artifact: never creates a tag, release, installer, or main-branch commit.
 
 on:
   push:
