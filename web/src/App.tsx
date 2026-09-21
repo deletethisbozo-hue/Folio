@@ -817,24 +817,25 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   async function insertIllustration(file: File) {
-    if (!project || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter") return;
+    if (!project || !document?.editable || document.id !== selectedSection?.id) return;
     const targetSectionId = selectedSection.id;
     if (!editorRef.current) return;
     setBusy(true); setError(null);
     try {
       const uploaded = await api.uploadIllustration(project.projectId, file);
-      if (selectedRef.current !== targetSectionId) throw new Error("The illustration target changed while the image was uploading. Select the front-matter page and insert it again.");
+      if (selectedRef.current !== targetSectionId) throw new Error("The illustration target changed while the image was uploading. Select the target section and insert it again.");
       const editor = editorRef.current;
-      if (!editor) throw new Error("The front-matter editor is still loading. Try inserting the illustration again.");
+      if (!editor) throw new Error("The editor is still loading. Try inserting the illustration again.");
       const alt = "Illustration";
       const figure = window.document.createElement("figure");
       figure.className = "editor-illustration";
       figure.setAttribute("data-folio-illustration", "true");
-      figure.dataset.folioScale = "100";
+      figure.dataset.folioScale = "38";
       figure.dataset.folioCrop = "false";
       figure.dataset.folioRatio = "4-3";
       figure.dataset.folioX = "50";
       figure.dataset.folioY = "50";
+      figure.dataset.folioWrap = "right";
       figure.contentEditable = "false";
       const image = window.document.createElement("img");
       image.src = uploaded.url;
@@ -846,16 +847,23 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       remove.setAttribute("aria-label", "Remove illustration");
       remove.title = "Remove illustration";
       remove.textContent = "×";
-      const controls = window.document.createElement("div");
-      controls.className = "editor-illustration-controls";
-      controls.contentEditable = "false";
-      controls.innerHTML = `<label><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="5" value="100"></label><button type="button" data-folio-control="crop" aria-pressed="false">Crop</button><select data-folio-control="ratio" aria-label="Crop ratio" disabled><option value="1-1">1:1</option><option value="4-3" selected>4:3</option><option value="3-2">3:2</option><option value="2-3">2:3</option><option value="16-9">16:9</option></select><label class="crop-axis"><span>X</span><input data-folio-control="x" type="range" min="0" max="100" step="5" value="50" disabled></label><label class="crop-axis"><span>Y</span><input data-folio-control="y" type="range" min="0" max="100" step="5" value="50" disabled></label>`;
-      figure.append(image,  controls, remove);
+      figure.append(image, remove);
 
-      editor.replaceChildren(figure);
+      const savedRange = illustrationRangeRef.current;
+      let anchor: Element | null = null;
+      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {
+        const rawNode = savedRange.startContainer;
+        const element = rawNode.nodeType === Node.ELEMENT_NODE
+          ? rawNode as Element
+          : rawNode.parentElement;
+        anchor = element?.closest("p,h1,h2,h3,h4,h5,h6,blockquote,ul,ol,.editor-scene-break,.editor-illustration") ?? null;
+        if (anchor && !editor.contains(anchor)) anchor = null;
+      }
+      if (anchor) editor.insertBefore(figure, anchor);
+      else editor.appendChild(figure);
       illustrationRangeRef.current = null;
 
-      // Commit the illustration synchronously from the live front-matter DOM.
+      // Commit the anchored illustration synchronously from the live editor DOM.
       // The generic editor input queue is deliberately lazy for huge chapters;
       // using it for an uploaded image created a window where React could swap
       // sections before the figure reached the draft. Image insertion is a
@@ -1678,7 +1686,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
-          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
+          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert anchored illustration">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => !value)}><UiIcon name="focus"/></button></>}
