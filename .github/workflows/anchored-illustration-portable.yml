@@ -98,13 +98,13 @@ jobs:
             if (-not $chapter) { throw "Packaged sample has no chapter." }
             $sectionId = [uri]::EscapeDataString($chapter.id)
 
-            $draft = @"
-Before the illustration.
-
-![Feature portable probe](assets/nonexistent-probe.png){.folio-illustration .folio-wrap-left width=38%}
-
-Text after the illustration.
-"@
+            $draft = @(
+              "Before the illustration.",
+              "",
+              "![Feature portable probe](assets/nonexistent-probe.png){.folio-illustration .folio-wrap-left width=38%}",
+              "",
+              "Text after the illustration."
+            ) -join "`n"
             $saveBody = @{ markdown = $draft } | ConvertTo-Json
             $saved = Invoke-RestMethod -Method Put -ContentType "application/json" -Body $saveBody "http://127.0.0.1:43237/api/projects/$($sample.projectId)/sections/$sectionId"
             if ($saved.markdown -notmatch "folio-wrap-left" -or $saved.markdown -notmatch "width=38%") { throw "Packaged section API lost anchored illustration metadata." }
