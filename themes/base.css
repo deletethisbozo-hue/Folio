@@ -346,7 +346,12 @@ section.backmatter::after {
   display: block;
   clear: both;
 }
-@media (max-width: 420px) {
+/* Keep author-selected text wrap in reader previews and EPUBs.
+ * The previous 420px breakpoint silently changed wrap-left/right into a block
+ * on Kindle-sized viewports, so the live preview did not match the manuscript.
+ * Only collapse at genuinely tiny viewport widths where side-by-side prose is
+ * no longer readable. */
+@media (max-width: 280px) {
   .folio-illustration-block.folio-wrap-left,
   .folio-illustration-block.folio-wrap-right {
     float: none;
