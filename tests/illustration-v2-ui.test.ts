@@ -97,18 +97,35 @@ try {
   await chooser.accept([fixture]);
   if (!(await uploadResponse).ok()) throw new Error("V2 illustration upload failed");
 
-  await page.waitForFunction(() => {
-    const figure = document.querySelector<HTMLElement>(".editor-illustration");
-    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
-    const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
-    return Boolean(
-      figure?.dataset.folioWrap === "right" &&
-      figure?.dataset.folioScale === "42" &&
-      image?.complete && image.naturalWidth >= 200 &&
-      markdown.includes(".folio-wrap-right") &&
-      markdown.includes("width=42%")
-    );
-  }, { timeout: 15000 });
+  try {
+    await page.waitForFunction(() => {
+      const figure = document.querySelector<HTMLElement>(".editor-illustration");
+      const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+      const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
+      return Boolean(
+        figure?.dataset.folioWrap === "right" &&
+        figure?.dataset.folioScale === "42" &&
+        image?.complete && image.naturalWidth >= 200 &&
+        markdown.includes(".folio-wrap-right") &&
+        markdown.includes("width=42%")
+      );
+    }, { timeout: 8000 });
+  } catch (error) {
+    const snapshot = await page.evaluate(() => {
+      const figure = document.querySelector<HTMLElement>(".editor-illustration");
+      const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+      const editor = document.querySelector<HTMLElement>(".rich-editor");
+      return {
+        dataset: figure ? { ...figure.dataset } : null,
+        figureHtml: figure?.outerHTML.slice(0, 2400) ?? null,
+        markdown: editor?.dataset.markdown ?? null,
+        image: image ? { complete: image.complete, naturalWidth: image.naturalWidth, src: image.src, asset: image.dataset.folioAsset } : null,
+        inspector: Boolean(figure?.querySelector(".folio-image-inspector")),
+        error: document.querySelector(".global-error")?.textContent ?? null,
+      };
+    });
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; insertionSnapshot=${JSON.stringify(snapshot)}`);
+  }
 
   const afterInsert = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
   check("insertion keeps the manuscript instead of replacing it",
