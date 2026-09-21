@@ -236,10 +236,28 @@ try {
   await page.screenshot({ path: path.join(qaDir, "reader-wrap.png"), fullPage: false });
 
   await page.select('select[aria-label="Preview device"]', "print");
-  await page.waitForFunction(() => {
-    const doc = document.querySelector("iframe")?.contentDocument;
-    return Boolean(doc?.querySelector(".pagedjs_page .folio-illustration-block.folio-wrap-left img.folio-illustration"));
-  }, { timeout: 45000 });
+  try {
+    await page.waitForFunction(() => {
+      const doc = document.querySelector("iframe")?.contentDocument;
+      return Boolean(doc?.querySelector(".pagedjs_page .folio-illustration-block.folio-wrap-left img.folio-illustration"));
+    }, { timeout: 45000 });
+  } catch (error) {
+    await page.screenshot({ path: path.join(qaDir, "print-failure.png"), fullPage: false });
+    const snapshot = await page.evaluate(() => {
+      const frame = document.querySelector<HTMLIFrameElement>("iframe");
+      const doc = frame?.contentDocument;
+      return {
+        ready: doc?.readyState ?? null,
+        pages: doc?.querySelectorAll(".pagedjs_page").length ?? 0,
+        illustrationNodes: doc
+          ? [...doc.querySelectorAll<HTMLElement>("[class*=illustration],figure,img")].map((node) => node.outerHTML.slice(0, 1500))
+          : [],
+        htmlHasAsset: doc?.documentElement.outerHTML.includes("folio-icon") ?? false,
+        bodyText: doc?.body?.innerText.slice(0, 500) ?? null,
+      };
+    });
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; printSnapshot=${JSON.stringify(snapshot)}`);
+  }
   check("print preview preserves the anchored illustration and text-wrap side", true);
   await page.screenshot({ path: path.join(qaDir, "print-wrap.png"), fullPage: false });
 } catch (error) {
