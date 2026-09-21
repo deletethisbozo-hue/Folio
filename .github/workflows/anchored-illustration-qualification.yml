@@ -56,6 +56,9 @@ jobs:
       - name: Legacy illustration crop compatibility
         run: node --import tsx tests/illustration-preview-ui.test.ts
 
+      - name: Anchored illustration EPUB qualification
+        run: node --import tsx tests/anchored-illustration-epub.test.ts
+
       - name: Full regression suite
         run: npm test
 
