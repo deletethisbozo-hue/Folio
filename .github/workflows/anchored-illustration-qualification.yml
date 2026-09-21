@@ -7,8 +7,12 @@ on:
 
 jobs:
   qualify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+
     steps:
       - name: Check out feature branch
         uses: actions/checkout@v4
@@ -22,10 +26,20 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Install Pandoc
+      - name: Install pinned Pandoc 3.11
+        shell: pwsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pandoc
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable missing." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+          & build\pandoc\pandoc.exe --version | Select-Object -First 1
 
       - name: Install Chromium
         run: npx puppeteer browsers install chrome-headless-shell
@@ -38,6 +52,9 @@ jobs:
 
       - name: Anchored illustration browser qualification
         run: node --import tsx tests/illustration-ui.test.ts
+
+      - name: Legacy illustration crop compatibility
+        run: node --import tsx tests/illustration-preview-ui.test.ts
 
       - name: Full regression suite
         run: npm test
