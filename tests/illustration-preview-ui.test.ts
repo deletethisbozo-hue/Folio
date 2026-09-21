@@ -103,14 +103,32 @@ try {
     control.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
-  await page.waitForFunction(() => {
-    const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
-    return markdown.includes("width=65%")
-      && markdown.includes(".folio-crop")
-      && markdown.includes(".folio-ratio-1-1")
-      && markdown.includes("data-folio-x=25")
-      && markdown.includes("data-folio-y=75");
-  });
+  try {
+    await page.waitForFunction(() => {
+      const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
+      return markdown.includes("width=65%")
+        && markdown.includes(".folio-crop")
+        && markdown.includes(".folio-ratio-1-1")
+        && markdown.includes("data-folio-x=25")
+        && markdown.includes("data-folio-y=75");
+    }, { timeout: 8000 });
+  } catch (error) {
+    const snapshot = await page.evaluate(() => {
+      const figure = document.querySelector<HTMLElement>(".editor-illustration");
+      const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
+      const controls = Object.fromEntries(
+        [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(".editor-illustration [data-folio-control]")]
+          .map((control) => [control.dataset.folioControl ?? "?", { value: control.value, disabled: control.disabled }])
+      );
+      return {
+        markdown,
+        dataset: figure ? { ...figure.dataset } : null,
+        controls,
+        imageStyle: figure?.querySelector<HTMLImageElement>("img")?.getAttribute("style") ?? null,
+      };
+    });
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; cropSnapshot=${JSON.stringify(snapshot)}`);
+  }
   check("crop, scale and focal point serialize into manuscript Markdown", true);
 
   await page.waitForFunction(() => {
