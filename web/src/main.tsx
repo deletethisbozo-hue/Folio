@@ -16,6 +16,7 @@ import "./theme-fonts.css";
 import "./start-screen.css";
 import "./cover-workspace.css";
 import "./image-page-workspace.css";
+import "./anchored-illustrations.css";
 import "./ui-polish.css";
 import "./v203-polish.css";
 import "./v204-polish.css";
