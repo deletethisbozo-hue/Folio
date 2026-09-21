@@ -206,10 +206,30 @@ try {
   }, { timeout: 10000 });
   check("dragging the illustration reanchors it and keeps live left text wrap", true);
 
-  await page.waitForFunction(() => {
-    const doc = document.querySelector("iframe")?.contentDocument;
-    return Boolean(doc?.querySelector(".folio-illustration-block.folio-wrap-left img.folio-illustration"));
-  }, { timeout: 30000 });
+  try {
+    await page.waitForFunction(() => {
+      const doc = document.querySelector("iframe")?.contentDocument;
+      return Boolean(doc?.querySelector(".folio-illustration-block.folio-wrap-left img.folio-illustration"));
+    }, { timeout: 15000 });
+  } catch (error) {
+    const snapshot = await page.evaluate(() => {
+      const editor = document.querySelector<HTMLElement>(".rich-editor");
+      const frame = document.querySelector<HTMLIFrameElement>("iframe");
+      const doc = frame?.contentDocument;
+      const illustrationNodes = doc
+        ? [...doc.querySelectorAll<HTMLElement>("[class*=illustration],img")].map((node) => node.outerHTML.slice(0, 1200))
+        : [];
+      return {
+        markdown: editor?.dataset.markdown ?? null,
+        editorFigure: editor?.querySelector<HTMLElement>(".editor-illustration")?.outerHTML.slice(0, 1800) ?? null,
+        frameReady: doc?.readyState ?? null,
+        frameText: doc?.body?.innerText.slice(0, 400) ?? null,
+        illustrationNodes,
+        frameHtmlHasAsset: doc?.documentElement.outerHTML.includes("folio-icon") ?? false,
+      };
+    });
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; readerSnapshot=${JSON.stringify(snapshot)}`);
+  }
   check("reader preview renders the same anchored wrap intent", true);
   const qaDir = path.join(ROOT, "build", "qa-anchored-illustration");
   await fs.mkdir(qaDir, { recursive: true });
