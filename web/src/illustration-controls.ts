@@ -136,7 +136,7 @@ function refreshFigure(figure: HTMLElement): void {
     cropButton.setAttribute("aria-pressed", String(crop));
     cropButton.classList.toggle("active", crop);
   }
-  if (size) size.textContent = `${Math.round(scale)}%`;
+  if (size) { const label = `${Math.round(scale)}%`; if (size.textContent !== label) size.textContent = label; }
 }
 
 function hydrateFigure(figure: HTMLElement): void {
