@@ -26,7 +26,7 @@ await new Promise((resolve) => server.once("listening", resolve));
 const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 const fixture = path.join(os.tmpdir(), `folio-inline-illustration-${Date.now()}.png`);
 const persistedFixture = path.join(os.tmpdir(), `folio-inline-illustration-persisted-${Date.now()}.png`);
-const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAPAAAAFACAIAAAANimYEAAAFjUlEQVR42u3d0W6bWhCGUbLF+79yehGprepCMA54zz9rXZ4eNTZ8GQ9pjD8+Pz8XSDEcAgQNggZBg6ARNAgaZrNu/cHHx4ejw7S2/v3EhMbKAYKGd+7QR/YVuNOR6zoTGisHCBoEDYJG0CBoEDQIGgSNoEHQIGgQNAgaQYOgQdAgaBA0ggZBg6BB0CBoBA2CBkGDoEHQCBoEDYIGQYOgETQIGgQNgkbQIGgQNFxtdQh+1pGP7/2HT54WdOF8j/wlEhd0pYKf/Sr6FnTJjr/96soWdOGOlS3o93d8IrUTX07Zgr6krR/p6fEvOf4wvv5PWQv6fMo31PP3lzjywGQt6OdSfmMrx+OWdfegJ09568HIWtBPpzxzEL8f286zaJv1UPNjLlU6+PahzvZjRxP67pQrPqn9PaTbqB5qrjWVzz2FPqN6lXLSM92Z1k1G9Whbc8BUPjGt40f1aFtz/Hdyz6ZXKcc3/XgogtePoWajWtBq1rSg31dz8PXf61eKYU2PDjUv7B6NpKaHmjWd1PRQs6aTmh5q1nRS00PNmk5qeqhZ00lNDzVrOqnpEX9uaHXcqgbtfnBXN110SA81k9T0UDNJTbvhOVGKBW08G9I5QatZ08krh5od28JBN7xniuMfG7Rlw+KRvHKo2XEuHLRlw7lIntDGs6NdOGjj2RlJntDGs2NeOGjj2XlJntDGsyNfOGjj2ZBOntDGs+NfOGjj2ZBOntDGs7MQeFEIJYO2b9g6kie0fcO5sHJg5ZjyVcx4nnxIz7Z1mNCY0CDoolfN1DprU09oC7TzYuXAygGCBkE/cW1hgS60Rs9zXWhCY0KDoEHQIGgE/XZ+xFHOnD/oMKExoUHQIGgQNIIGQYOgQdAgaAQNggZBg6BB0AgaBP2ayW/SyqM535NhQmNCg6BB0CBoBD0DP+goZNrbTpjQmNAgaOgetDXaeakdtFvaVTTVWbNyYOUAQZ97/bJGT75Az7YlmtCY0K6pjWdBF71qptaZsnJg5fBKZ98QtK3DvmFCG9KOf0rQhrTxHH5RaEg78rWDNqSdl+QJbUg75uWDNqSdkeQJbUg72uWDNqSdi+QJbUg7zuWDfhwMmr6/5hIvlWUmtMXD8Y9dOQxpxzYhaIuHZSNtQmtazbErByQEbUgbz2kTWtNqTls5NK3m/B1a045b4aD/O0I0/SM11/1nrNoTWtNqTls5NK3mtB1a02pOuyjUtJqjgta0mtOC1rSal7zf5dhqWtZbByHsF80Dfzlp6wx1bnrruee9bSLzt+003bPmZVnW1LP4dbYez+XXf2nyhq5WKSdPaKO6Z81Lh1/w32k6Neudpxb/0rQuDWytH3kbyM63aJMtq9FbsHbOaMC03n8KfW4CsS6d7IzqutN6/1ux2/1MOr5Jdv8cF5rW3z7UhnfnWZeW9kf13380YRNHvt/a3miqadAHs55tD5GyoH8y67cUc3z/cfs/QT+X9W1xP7vES1nQr2a9Vd6Jtl65BpWyoJ+o5ERq9/yERMeCvrtsHQta2ToW9FvbuqhvBQt6lh3gROLyFXSlxLmTG54jaBA0CBoEjaBB0CBoEDQIGkGDoEHQIGgQNIIGQYOgQdAgaAQNggZBg6BB0AgaBA2CBkGDoBE0CBoEDYIGQSNoEDQIGgSNoEHQIGi42oUfjXzRB7uT4aLPkDahsXKAoKH2Dn3RkgQmNIIGQYOgQdAgaAQNggZBg6BB0AgaBA2CBkGDoBE0CBoEDYKmvbXig3YLm9uUe6ezCY2VA6wcnV8HMaFB0AjaIUDQIGgQNAgaQYOgQdAgaBA0ggZBg6BB0CBoBA2CBkGDoEHQCBoEDYIGQYOgETQIGgQNLzp0O113zMeEBkGDoOHPeuzjHTChQdAgaBA0ggZBg6DhQr8Amvx42uEUms8AAAAASUVORK5CYII=", "base64");
 await fs.writeFile(fixture, pixel);
 await fs.writeFile(persistedFixture, pixel);
 
@@ -165,14 +165,15 @@ try {
 
   const chapterUploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"), { timeout: 12000 });
   const [chapterChooser] = await Promise.all([page.waitForFileChooser({ timeout: 12000 }), page.click(".illustration-button")]);
-  await chapterChooser.accept([path.join(ROOT, "assets", "folio-icon.png")]);
+  await chapterChooser.accept([fixture]);
   const chapterUpload = await chapterUploadResponse;
   if (!chapterUpload.ok()) throw new Error("Chapter illustration upload failed: " + chapterUpload.status() + " " + (await chapterUpload.text()));
 
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
     const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
-    return Boolean(figure?.dataset.folioWrap === "right" && markdown.includes(".folio-wrap-right") && markdown.includes("width=38%"));
+    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+    return Boolean(figure?.dataset.folioWrap === "right" && image?.complete && image.naturalWidth >= 200 && markdown.includes(".folio-wrap-right") && markdown.includes("width=38%"));
   }, { timeout: 15000 });
   const afterChapterMarkdown = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
   check("chapter image inserts at the caret without replacing manuscript text",
@@ -225,7 +226,7 @@ try {
         frameReady: doc?.readyState ?? null,
         frameText: doc?.body?.innerText.slice(0, 400) ?? null,
         illustrationNodes,
-        frameHtmlHasAsset: doc?.documentElement.outerHTML.includes("folio-icon") ?? false,
+        frameHtmlHasAsset: Boolean(doc?.querySelector("img.folio-illustration")),
       };
     });
     throw new Error(`${error instanceof Error ? error.message : String(error)}; readerSnapshot=${JSON.stringify(snapshot)}`);
@@ -252,7 +253,7 @@ try {
         illustrationNodes: doc
           ? [...doc.querySelectorAll<HTMLElement>("[class*=illustration],figure,img")].map((node) => node.outerHTML.slice(0, 1500))
           : [],
-        htmlHasAsset: doc?.documentElement.outerHTML.includes("folio-icon") ?? false,
+        htmlHasAsset: Boolean(doc?.querySelector("img")),
         bodyText: doc?.body?.innerText.slice(0, 500) ?? null,
       };
     });
