@@ -25,6 +25,7 @@ import "./v207-preview.css";
 import "./v207-mockup.css";
 import "./v207-mockup-final.css";
 import "./v210-writing-studio.css";
+import "./illustrations-v2.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
