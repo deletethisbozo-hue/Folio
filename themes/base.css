@@ -309,6 +309,52 @@ img.folio-illustration,
   break-inside: avoid;
 }
 
+.folio-illustration-block {
+  display: block;
+  max-width: 100%;
+  margin: 1.2em auto;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.folio-illustration-block > img.folio-illustration {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: auto;
+  max-height: 76vh;
+  margin: 0;
+}
+.folio-illustration-block.folio-wrap-left {
+  float: left;
+  margin: 0.22em 1.05em 0.8em 0;
+}
+.folio-illustration-block.folio-wrap-right {
+  float: right;
+  margin: 0.22em 0 0.8em 1.05em;
+}
+section.chapter > h2,
+section.chapter > h3,
+section.backmatter > h2,
+section.backmatter > h3,
+.scene-break {
+  clear: both;
+}
+section.chapter::after,
+section.frontmatter::after,
+section.backmatter::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+@media (max-width: 280px) {
+  .folio-illustration-block.folio-wrap-left,
+  .folio-illustration-block.folio-wrap-right {
+    float: none;
+    width: min(100%, 18em) !important;
+    margin: 1.1em auto;
+  }
+}
+
 /* ============================================================
    Embedded documents — letters, journals, text messages, etc.
    Block form:   ::: letter  …  :::
