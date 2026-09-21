@@ -888,11 +888,28 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
   };
 }
 
+function overlapsWrappedIllustration(paragraph: HTMLElement): boolean {
+  const section = paragraph.closest<HTMLElement>("section.chapter,section.backmatter,section.frontmatter");
+  if (!section) return false;
+  const paragraphRect = paragraph.getBoundingClientRect();
+  for (const illustration of Array.from(section.querySelectorAll<HTMLElement>(".folio-illustration-block.folio-wrap-left,.folio-illustration-block.folio-wrap-right"))) {
+    const rect = illustration.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    if (rect.bottom > paragraphRect.top + 0.5 && rect.top < paragraphRect.bottom - 0.5) return true;
+  }
+  return false;
+}
+
 function composeParagraph(paragraph: HTMLElement, language: string, sectionStats: SectionHyphenStats): void {
   if (
     paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
     paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
   ) return;
+  if (overlapsWrappedIllustration(paragraph)) {
+    paragraph.classList.add("folio-float-native");
+    return;
+  }
+  paragraph.classList.remove("folio-float-native");
   if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
 
   const style = getComputedStyle(paragraph);
