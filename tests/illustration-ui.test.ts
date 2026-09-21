@@ -165,7 +165,7 @@ try {
 
   const chapterUploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"), { timeout: 12000 });
   const [chapterChooser] = await Promise.all([page.waitForFileChooser({ timeout: 12000 }), page.click(".illustration-button")]);
-  await chapterChooser.accept([fixture]);
+  await chapterChooser.accept([path.join(ROOT, "assets", "folio-icon.png")]);
   const chapterUpload = await chapterUploadResponse;
   if (!chapterUpload.ok()) throw new Error("Chapter illustration upload failed: " + chapterUpload.status() + " " + (await chapterUpload.text()));
 
@@ -211,6 +211,9 @@ try {
     return Boolean(doc?.querySelector(".folio-illustration-block.folio-wrap-left img.folio-illustration"));
   }, { timeout: 30000 });
   check("reader preview renders the same anchored wrap intent", true);
+  const qaDir = path.join(ROOT, "build", "qa-anchored-illustration");
+  await fs.mkdir(qaDir, { recursive: true });
+  await page.screenshot({ path: path.join(qaDir, "reader-wrap.png"), fullPage: false });
 
   await page.select('select[aria-label="Preview device"]', "print");
   await page.waitForFunction(() => {
@@ -218,6 +221,7 @@ try {
     return Boolean(doc?.querySelector(".pagedjs_page .folio-illustration-block.folio-wrap-left img.folio-illustration"));
   }, { timeout: 45000 });
   check("print preview preserves the anchored illustration and text-wrap side", true);
+  await page.screenshot({ path: path.join(qaDir, "print-wrap.png"), fullPage: false });
 } catch (error) {
   failed++;
   console.error("✗ browser illustration scenario completed");
