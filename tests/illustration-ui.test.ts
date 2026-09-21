@@ -231,6 +231,44 @@ try {
     });
     throw new Error(`${error instanceof Error ? error.message : String(error)}; readerSnapshot=${JSON.stringify(snapshot)}`);
   }
+  const readerGeometry = await page.evaluate(() => {
+    const frame = document.querySelector<HTMLIFrameElement>("iframe");
+    const doc = frame?.contentDocument;
+    const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-wrap-left");
+    if (!doc || !figure) return null;
+    let paragraph = figure.nextElementSibling as HTMLElement | null;
+    while (paragraph && paragraph.tagName !== "P") paragraph = paragraph.nextElementSibling as HTMLElement | null;
+    const textNode = paragraph ? [...paragraph.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 3) : null;
+    if (!paragraph || !textNode) return {
+      float: getComputedStyle(figure).float,
+      viewportWidth: doc.documentElement.clientWidth,
+      figure: figure.getBoundingClientRect().toJSON(),
+      paragraph: paragraph?.getBoundingClientRect().toJSON() ?? null,
+      firstLine: null,
+    };
+    const range = doc.createRange();
+    const length = Math.min(12, textNode.textContent?.length ?? 0);
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, length);
+    const firstLine = range.getBoundingClientRect();
+    return {
+      float: getComputedStyle(figure).float,
+      viewportWidth: doc.documentElement.clientWidth,
+      figure: figure.getBoundingClientRect().toJSON(),
+      paragraph: paragraph.getBoundingClientRect().toJSON(),
+      firstLine: firstLine.toJSON(),
+    };
+  });
+  const wrapsVisually = Boolean(
+    readerGeometry &&
+    readerGeometry.float === "left" &&
+    readerGeometry.firstLine &&
+    readerGeometry.firstLine.top < readerGeometry.figure.bottom - 4 &&
+    readerGeometry.firstLine.left >= readerGeometry.figure.right - 2
+  );
+  check("reader preview visibly wraps prose beside the illustration", wrapsVisually, JSON.stringify(readerGeometry));
+  if (!wrapsVisually) throw new Error("Reader preview carries wrap metadata but does not visibly wrap prose: " + JSON.stringify(readerGeometry));
+
   check("reader preview renders the same anchored wrap intent", true);
   const qaDir = path.join(ROOT, "build", "qa-anchored-illustration");
   await fs.mkdir(qaDir, { recursive: true });
