@@ -234,6 +234,22 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
       ) continue;
 
+      const paragraphRectForFloat = paragraph.getBoundingClientRect();
+      const sectionForFloat = paragraph.closest<HTMLElement>("section.chapter,section.backmatter,section.frontmatter");
+      const overlapsFloat = sectionForFloat
+        ? Array.from(sectionForFloat.querySelectorAll<HTMLElement>(".folio-illustration-block.folio-wrap-left,.folio-illustration-block.folio-wrap-right"))
+            .some((illustration) => {
+              const rect = illustration.getBoundingClientRect();
+              return rect.width > 0 && rect.height > 0 &&
+                rect.bottom > paragraphRectForFloat.top + 0.5 &&
+                rect.top < paragraphRectForFloat.bottom - 0.5;
+            })
+        : false;
+      if (overlapsFloat) {
+        paragraph.classList.add("folio-float-native");
+        continue;
+      }
+
       const computed = getComputedStyle(paragraph);
       const fontSize = px(computed.fontSize) || 16;
       const paragraphRect = paragraph.getBoundingClientRect();
