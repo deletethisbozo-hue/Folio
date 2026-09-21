@@ -102,6 +102,19 @@
   color: var(--studio-accent) !important;
 }
 
+.folio-shell[data-ui-tone] .folio-image-inspector .folio-size-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 92px;
+  color: var(--studio-muted);
+}
+
+.folio-shell[data-ui-tone] .folio-image-inspector .folio-size-slider input[type="range"] {
+  width: 58px;
+  margin: 0;
+}
+
 .folio-shell[data-ui-tone] .folio-image-inspector .crop-axis {
   display: inline-flex;
   align-items: center;
