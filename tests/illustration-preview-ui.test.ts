@@ -85,6 +85,10 @@ try {
   }, { timeout: 30000 });
   check("new front-matter illustration is visible in live preview", true);
 
+  await page.click(".editor-illustration img[data-folio-asset]");
+  await page.waitForSelector(".editor-illustration.folio-image-selected .folio-image-inspector");
+  check("V2 selects illustration before exposing crop controls", true);
+
   await page.$eval<HTMLInputElement>('[data-folio-control="scale"]', (control) => {
     control.value = "65";
     control.dispatchEvent(new Event("input", { bubbles: true }));
