@@ -227,7 +227,7 @@ export function richTextToMarkdown(html: string): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
-    .replace(/ ?([,.;:!?])/g, "$1")
+    .replace(/ ?([,;:!?]|\.(?![A-Za-z0-9_-]))/g, "$1")
     .trim();
 }
 
