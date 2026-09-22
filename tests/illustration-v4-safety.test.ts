@@ -83,8 +83,7 @@ try {
 
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration.folio-wrap-left.folio-shape-contour");
-    return figure?.dataset.folioContourReady === "true" &&
-      getComputedStyle(figure).shapeOutside.includes("polygon(");
+    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("inset("));
   });
 
   const measure = async (scope: "editor" | "reader" | "print") => page.evaluate((mode) => {
@@ -182,15 +181,25 @@ try {
     return latest;
   };
 
-  const editor = await measureStable("editor", 2, 4);
-  check("editor uses Folio safety polygon instead of raw alpha URL",
-    Boolean(editor?.shape.includes("polygon(") && editor.ready === "true" && Number(editor.contourPoints) >= 20),
+  let editor: Awaited<ReturnType<typeof measure>> = null;
+  for (let attempt = 0; attempt < 80; attempt++) {
+    editor = await measure("editor");
+    if (
+      editor &&
+      editor.shape.includes("inset(") &&
+      editor.measuredLines >= 2 &&
+      (editor.minimumClearance ?? Number.NEGATIVE_INFINITY) >= 4
+    ) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  check("editor uses rectangular safety wrap instead of alpha contour",
+    Boolean(editor?.shape.includes("inset(") && editor.ready == null),
     JSON.stringify(editor));
-  check("editor prose never touches opaque PNG pixels",
+  check("editor prose never enters the illustration box or opaque pixels",
     Boolean(editor && editor.measuredLines >= 2 && (editor.minimumClearance ?? -99) >= 4),
     JSON.stringify(editor));
-  if (!editor || editor.measuredLines < 2 || (editor.minimumClearance ?? -99) < 4) {
-    throw new Error("Editor contour safety clearance failed.");
+  if (!editor || !editor.shape.includes("inset(") || editor.measuredLines < 2 || (editor.minimumClearance ?? -99) < 4) {
+    throw new Error("Editor rectangular safety clearance failed.");
   }
 
   await page.waitForFunction(() => {
