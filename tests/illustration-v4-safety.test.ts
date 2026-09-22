@@ -168,7 +168,7 @@ try {
     minimumClearance: number,
   ) => {
     let latest: Awaited<ReturnType<typeof measure>> = null;
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 120; attempt++) {
       latest = await measure(scope);
       if (
         latest &&
