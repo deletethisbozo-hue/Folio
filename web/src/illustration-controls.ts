@@ -107,7 +107,7 @@ function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
    * replaces it with a dilated polygon that cannot touch visible artwork. */
   const useContour = wrap !== "none" && shape === "contour" && !crop;
   if (useContour) {
-    figure.style.margin = wrap === "left" ? "0.16em .16em .72em 0" : "0.16em 0 .72em .16em";
+    figure.style.margin = wrap === "left" ? "0.16em 0 .72em 0" : "0.16em 0 .72em 0";
     figure.style.setProperty("shape-outside", "inset(0)");
     figure.style.setProperty("shape-margin", "0px");
     figure.style.removeProperty("shape-image-threshold");
