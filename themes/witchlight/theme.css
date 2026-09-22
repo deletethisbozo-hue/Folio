@@ -6,7 +6,7 @@ section.chapter>h1{text-align:center;margin:1.45em 0 2.55em;font-family:Didot,"B
 section.chapter>h1::before{content:"✦  ·  ✧  ·  ✦";display:block;margin-bottom:.75em;font-family:Georgia,serif;font-size:.58em;font-style:normal;letter-spacing:.45em;color:#a68bb2}
 section.chapter>h1::after{content:counter(witchlight-chapter,upper-roman);display:block;width:7.5em;margin:.9em auto 0;padding-top:.65em;border-top:1px solid #b49dbd;font-family:Avenir,Arial,sans-serif;font-size:.3em;font-style:normal;font-weight:600;letter-spacing:.34em;color:#7f628c}
 .chapter-subtitle{margin:-2.2em 0 2.2em}.chapter-subtitle p{font-family:Garamond,Georgia,serif;font-style:italic;color:#80658c}
-.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:3.45em;color:#684a75}
+.dropcap{font-family:Didot,"Bodoni MT",Georgia,serif;--folio-dropcap-theme-size: 3.45em;color:#684a75}
 .scene-break{font-size:1.05em;letter-spacing:.5em;color:#8e73a0}
 section.titlepage>h1{font-family:Didot,"Bodoni MT",Georgia,serif;font-size:2.45em;font-style:italic;font-weight:400;color:#5a3d66}.tp-subtitle{font-style:italic;color:#80658c}.tp-author{font-family:Avenir,Arial,sans-serif;font-size:.86em;letter-spacing:.2em;text-transform:uppercase;color:#70557b}
 section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",Georgia,serif;font-style:italic;color:#654671}
