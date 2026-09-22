@@ -161,7 +161,28 @@ try {
     };
   }, scope);
 
-  const editor = await measure("editor");
+
+  const measureStable = async (
+    scope: "editor" | "reader" | "print",
+    minimumLines: number,
+    minimumClearance: number,
+  ) => {
+    let latest: Awaited<ReturnType<typeof measure>> = null;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      latest = await measure(scope);
+      if (
+        latest &&
+        latest.shape.includes("polygon(") &&
+        latest.ready === "true" &&
+        latest.measuredLines >= minimumLines &&
+        (latest.minimumClearance ?? Number.NEGATIVE_INFINITY) >= minimumClearance
+      ) return latest;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return latest;
+  };
+
+  const editor = await measureStable("editor", 2, 4);
   check("editor uses Folio safety polygon instead of raw alpha URL",
     Boolean(editor?.shape.includes("polygon(") && editor.ready === "true" && Number(editor.contourPoints) >= 20),
     JSON.stringify(editor));
@@ -179,7 +200,7 @@ try {
       getComputedStyle(figure).shapeOutside.includes("polygon(");
   });
 
-  const reader = await measure("reader");
+  const reader = await measureStable("reader", 2, 3);
   check("Reader Preview uses the same safety polygon model",
     Boolean(reader?.shape.includes("polygon(") && reader.ready === "true"),
     JSON.stringify(reader));
@@ -202,7 +223,7 @@ try {
       getComputedStyle(figure).shapeOutside.includes("polygon(");
   }, { timeout: 45000 });
 
-  const print = await measure("print");
+  const print = await measureStable("print", 2, 2.5);
   check("Paged Print retains Folio-computed safety polygon",
     Boolean(print?.shape.includes("polygon(") && print.ready === "true"),
     JSON.stringify(print));
