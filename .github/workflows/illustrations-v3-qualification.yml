@@ -62,6 +62,9 @@ jobs:
       - name: V3 alpha contour geometry
         run: node --import tsx tests/illustration-v3-contour.test.ts
 
+      - name: Write view zoom isolation
+        run: node --import tsx tests/write-zoom-ui.test.ts
+
       - name: Legacy crop compatibility
         run: node --import tsx tests/illustration-preview-ui.test.ts
 
