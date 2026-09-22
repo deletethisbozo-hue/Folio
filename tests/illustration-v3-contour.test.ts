@@ -86,28 +86,27 @@ try {
   await chooser.accept([fixture]);
   if (!(await response).ok()) throw new Error("Contour fixture upload failed");
 
-  try {
-    await page.waitForFunction(() => {
-      const figure = document.querySelector<HTMLElement>(".editor-illustration");
-      const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
-      return figure?.dataset.folioShape === "contour" &&
-        figure.dataset.folioWrap === "right" &&
-        markdown.includes(".folio-shape-contour") &&
-        markdown.includes("data-folio-gap=45");
-    });
-  } catch (error) {
-    const snapshot = await page.evaluate(() => {
-      const figure = document.querySelector<HTMLElement>(".editor-illustration");
-      const editor = document.querySelector<HTMLElement>(".rich-editor");
-      return {
-        dataset: figure ? { ...figure.dataset } : null,
-        html: figure?.outerHTML.slice(0, 2600) ?? null,
-        markdown: editor?.dataset.markdown ?? null,
-      };
-    });
-    throw new Error(`${error instanceof Error ? error.message : String(error)}; contourInsertSnapshot=${JSON.stringify(snapshot)}`);
-  }
-  check("PNG defaults to semantic contour wrap", true);
+  await page.waitForFunction(() => {
+    const figure = document.querySelector<HTMLElement>(".editor-illustration");
+    const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+    return Boolean(
+      figure?.dataset.folioShape === "contour" &&
+      figure.dataset.folioWrap === "right" &&
+      figure.dataset.folioGap === "45" &&
+      image?.complete && image.naturalWidth > 20
+    );
+  }, { timeout: 12000 });
+  check("PNG defaults to contour state in the editor", true);
+
+  const contourMarkdown = await page.waitForFunction(() => {
+    const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
+    return markdown.includes(".folio-shape-contour") && markdown.includes("data-folio-gap=45")
+      ? markdown
+      : false;
+  }, { timeout: 12000 }).then((handle) => handle.jsonValue() as Promise<string>);
+  check("contour state is serialized into manuscript Markdown",
+    contourMarkdown.includes(".folio-shape-contour") && contourMarkdown.includes("data-folio-gap=45"),
+    contourMarkdown.slice(0, 420));
 
   await page.evaluate(() => {
     const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
