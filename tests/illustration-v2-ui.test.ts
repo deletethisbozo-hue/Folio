@@ -245,7 +245,7 @@ try {
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioWrap === "left");
   check("compact inspector can override wrap without moving the image", true);
 
-  await page.waitForFunction(() => {
+  const readerGeometryHandle = await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-wrap-left");
     const image = figure?.querySelector<HTMLImageElement>("img.folio-illustration");
@@ -260,45 +260,25 @@ try {
     range.setEnd(textNode, Math.min(14, textNode.textContent?.length ?? 0));
     const firstLine = range.getBoundingClientRect();
     const figureRect = figure.getBoundingClientRect();
+    const geometry = {
+      viewportWidth: doc.documentElement.clientWidth,
+      float: getComputedStyle(figure).float,
+      figure: figureRect.toJSON(),
+      firstLine: firstLine.toJSON(),
+    };
     return firstLine.width > 2 &&
       firstLine.top < figureRect.bottom - 4 &&
-      firstLine.left >= figureRect.right - 2;
+      firstLine.left >= figureRect.right - 2
+      ? geometry
+      : false;
   }, { timeout: 30000 });
+  const readerGeometry = await readerGeometryHandle.jsonValue() as {
+    viewportWidth: number;
+    float: string;
+    figure: DOMRect;
+    firstLine: DOMRect;
+  };
 
-  const readerGeometry = await page.evaluate(async () => {
-    for (let attempt = 0; attempt < 30; attempt++) {
-      const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
-      const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-wrap-left");
-      if (doc && figure) {
-        let paragraph = figure.nextElementSibling as HTMLElement | null;
-        while (paragraph && paragraph.tagName !== "P") paragraph = paragraph.nextElementSibling as HTMLElement | null;
-        const textNode = paragraph
-          ? [...paragraph.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 3)
-          : null;
-        if (paragraph && textNode) {
-          const range = doc.createRange();
-          range.setStart(textNode, 0);
-          range.setEnd(textNode, Math.min(14, textNode.textContent?.length ?? 0));
-          const firstLine = range.getBoundingClientRect();
-          const figureRect = figure.getBoundingClientRect();
-          if (
-            firstLine.width > 2 &&
-            firstLine.top < figureRect.bottom - 4 &&
-            firstLine.left >= figureRect.right - 2
-          ) {
-            return {
-              viewportWidth: doc.documentElement.clientWidth,
-              float: getComputedStyle(figure).float,
-              figure: figureRect.toJSON(),
-              firstLine: firstLine.toJSON(),
-            };
-          }
-        }
-      }
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    }
-    return null;
-  });
   const readerWraps = Boolean(
     readerGeometry &&
     readerGeometry.float === "left" &&
