@@ -100,8 +100,19 @@ function positionInspector(figure: HTMLElement | null): void {
   const left = Math.max(12, Math.min(window.innerWidth - inspectorWidth - 12, rect.left));
   const above = rect.top - Math.max(42, measured.height + 8);
   const top = above >= 8 ? above : Math.min(window.innerHeight - Math.max(44, measured.height) - 8, rect.bottom + 8);
-  inspector.style.setProperty("left", `${Math.round(left)}px`, "important");
-  inspector.style.setProperty("top", `${Math.round(Math.max(8, top))}px`, "important");
+  const desiredLeft = Math.round(left);
+  const desiredTop = Math.round(Math.max(8, top));
+  inspector.style.setProperty("left", `${desiredLeft}px`, "important");
+  inspector.style.setProperty("top", `${desiredTop}px`, "important");
+
+  // A fixed descendant of a transformed editor can still be positioned in that
+  // transformed containing block. Correct against the actual viewport rect so
+  // the toolbar never disappears when the illustration itself is tiny.
+  const actual = inspector.getBoundingClientRect();
+  const dx = desiredLeft - actual.left;
+  const dy = desiredTop - actual.top;
+  if (Math.abs(dx) > .5) inspector.style.setProperty("left", `${Math.round(desiredLeft + dx)}px`, "important");
+  if (Math.abs(dy) > .5) inspector.style.setProperty("top", `${Math.round(desiredTop + dy)}px`, "important");
 }
 
 function selectFigure(figure: HTMLElement | null): void {
