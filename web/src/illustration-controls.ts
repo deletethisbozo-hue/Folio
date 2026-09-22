@@ -1,3 +1,5 @@
+import { applySafeContourToFigure } from "./contour-wrap";
+
 type WrapMode = "none" | "left" | "right";
 type ShapeMode = "box" | "contour";
 
@@ -11,11 +13,19 @@ type DragState = {
   moved: boolean;
 };
 
+type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
 type ResizeState = {
   kind: "resize";
   figure: HTMLElement;
   editor: HTMLElement;
   pointerId: number;
+  handle: ResizeHandle;
+  startX: number;
+  startY: number;
+  startWidth: number;
+  startHeight: number;
+  startScale: number;
 };
 
 type InteractionState = DragState | ResizeState;
@@ -59,7 +69,7 @@ function inspectorMarkup(): string {
       <button type="button" data-folio-shape-choice="box" title="Wrap around the image rectangle">Box</button>
       <button type="button" data-folio-shape-choice="contour" title="Wrap around transparent PNG pixels">Contour</button>
     </div>
-    <label class="folio-gap-slider" title="Distance between text and illustration contour"><span>Gap</span><input data-folio-control="gap" type="range" min="0" max="150" step="5"></label>
+    <label class="folio-gap-slider" title="Distance between text and illustration contour"><span>Gap</span><input data-folio-control="gap" type="range" min="25" max="200" step="5"></label>
     <button type="button" data-folio-control="crop" aria-pressed="false">Crop</button>
     <select data-folio-control="ratio" aria-label="Crop ratio">
       <option value="1-1">1:1</option>
@@ -84,7 +94,7 @@ function selectFigure(figure: HTMLElement | null): void {
 function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
   const wrap = wrapMode(figure);
   const shape = shapeMode(figure);
-  const gap = clamp(figure.dataset.folioGap, 0, 150, 65);
+  const gap = clamp(figure.dataset.folioGap, 25, 200, 65);
   const crop = figure.dataset.folioCrop === "true";
   figure.classList.toggle("folio-wrap-left", wrap === "left");
   figure.classList.toggle("folio-wrap-right", wrap === "right");
@@ -92,20 +102,21 @@ function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
   figure.classList.toggle("folio-shape-contour", shape === "contour");
   figure.style.float = wrap === "none" ? "none" : wrap;
 
-  /* Box mode uses a conventional rectangular gutter. Contour mode delegates
-   * the exclusion geometry to the PNG alpha channel, so transparent corners
-   * no longer reserve empty rectangular space. */
-  const useContour = wrap !== "none" && shape === "contour" && !crop && Boolean(image.currentSrc || image.src);
+  /* V4 never trusts browser alpha wrapping directly. Until the safety polygon
+   * is ready, keep a conservative rectangle. The async contour pass then
+   * replaces it with a dilated polygon that cannot touch visible artwork. */
+  const useContour = wrap !== "none" && shape === "contour" && !crop;
   if (useContour) {
-    const src = image.currentSrc || image.src;
-    figure.style.margin = wrap === "left" ? "0.18em .18em .7em 0" : "0.18em 0 .7em .18em";
-    figure.style.setProperty("shape-outside", `url("${src.replace(/"/g, '%22')}")`);
-    figure.style.setProperty("shape-image-threshold", ".08");
-    figure.style.setProperty("shape-margin", `${gap / 100}em`);
+    figure.style.margin = wrap === "left" ? "0.16em .16em .72em 0" : "0.16em 0 .72em .16em";
+    figure.style.setProperty("shape-outside", "inset(0)");
+    figure.style.setProperty("shape-margin", "0px");
+    figure.style.removeProperty("shape-image-threshold");
+    void applySafeContourToFigure(figure, image);
   } else {
     figure.style.removeProperty("shape-outside");
     figure.style.removeProperty("shape-image-threshold");
     figure.style.removeProperty("shape-margin");
+    delete figure.dataset.folioContourReady;
     if (wrap === "left") figure.style.margin = "0.22em 1.05em .8em 0";
     else if (wrap === "right") figure.style.margin = "0.22em 0 .8em 1.05em";
     else figure.style.margin = "1em auto";
@@ -206,13 +217,17 @@ function hydrateFigure(figure: HTMLElement): void {
   }
 
   if (!figure.querySelector(".folio-image-resize")) {
-    const resize = document.createElement("button");
-    resize.type = "button";
-    resize.className = "folio-image-resize";
-    resize.setAttribute("aria-label", "Resize illustration");
-    resize.title = "Drag to resize";
-    resize.contentEditable = "false";
-    figure.appendChild(resize);
+    const handles: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+    for (const handleName of handles) {
+      const resize = document.createElement("button");
+      resize.type = "button";
+      resize.className = `folio-image-resize folio-image-resize-${handleName}`;
+      resize.dataset.folioResize = handleName;
+      resize.setAttribute("aria-label", `Resize illustration ${handleName}`);
+      resize.title = "Drag to resize";
+      resize.contentEditable = "false";
+      figure.appendChild(resize);
+    }
   }
 
   figure.setAttribute("tabindex", "0");
@@ -247,7 +262,7 @@ function setWrap(figure: HTMLElement, wrap: WrapMode, dirty = true): void {
 function updateControl(control: HTMLElement, figure: HTMLElement): void {
   const kind = control.dataset.folioControl;
   if (kind === "scale" && control instanceof HTMLInputElement) figure.dataset.folioScale = String(clamp(control.value, 25, 100, 42));
-  if (kind === "gap" && control instanceof HTMLInputElement) figure.dataset.folioGap = String(clamp(control.value, 0, 150, 65));
+  if (kind === "gap" && control instanceof HTMLInputElement) figure.dataset.folioGap = String(clamp(control.value, 25, 200, 65));
   if (kind === "ratio" && control instanceof HTMLSelectElement) figure.dataset.folioRatio = control.value || "4-3";
   if (kind === "x" && control instanceof HTMLInputElement) figure.dataset.folioX = String(clamp(control.value, 0, 100, 50));
   if (kind === "y" && control instanceof HTMLInputElement) figure.dataset.folioY = String(clamp(control.value, 0, 100, 50));
@@ -320,13 +335,36 @@ function moveIllustration(event: PointerEvent, state: DragState): void {
 
 function resizeIllustration(event: PointerEvent, state: ResizeState): void {
   const editorRect = state.editor.getBoundingClientRect();
-  const figureRect = state.figure.getBoundingClientRect();
   const wrap = wrapMode(state.figure);
-  const widthPx = wrap === "right"
-    ? Math.max(40, figureRect.right - event.clientX)
-    : Math.max(40, event.clientX - figureRect.left);
-  const percent = clamp((widthPx / Math.max(1, editorRect.width)) * 100, 25, wrap === "none" ? 100 : 72, 42);
-  state.figure.dataset.folioScale = String(Math.round(percent));
+  const dx = event.clientX - state.startX;
+  const dy = event.clientY - state.startY;
+  const aspect = Math.max(0.05, state.startWidth / Math.max(1, state.startHeight));
+  const horizontalDirection = state.handle.includes("w") ? -1 : state.handle.includes("e") ? 1 : 0;
+  const verticalDirection = state.handle.includes("n") ? -1 : state.handle.includes("s") ? 1 : 0;
+
+  const widthFromX = horizontalDirection
+    ? state.startWidth + dx * horizontalDirection
+    : state.startWidth;
+  const widthFromY = verticalDirection
+    ? state.startWidth + dy * verticalDirection * aspect
+    : state.startWidth;
+
+  let widthPx = state.startWidth;
+  if (horizontalDirection && verticalDirection) {
+    // Corners preserve the image's intrinsic proportions and use whichever
+    // pointer axis represents the stronger intentional resize.
+    const xDelta = Math.abs(widthFromX - state.startWidth);
+    const yDelta = Math.abs(widthFromY - state.startWidth);
+    widthPx = xDelta >= yDelta ? widthFromX : widthFromY;
+  } else if (horizontalDirection) {
+    widthPx = widthFromX;
+  } else if (verticalDirection) {
+    widthPx = widthFromY;
+  }
+
+  const maxPercent = wrap === "none" ? 100 : 76;
+  const percent = clamp((widthPx / Math.max(1, editorRect.width)) * 100, 20, maxPercent, state.startScale);
+  state.figure.dataset.folioScale = String(Math.round(percent * 10) / 10);
   refreshFigure(state.figure);
   dispatchDirty(state.figure);
 }
@@ -357,7 +395,20 @@ export function installIllustrationControls(): void {
       event.preventDefault();
       event.stopPropagation();
       selectFigure(figure);
-      interaction = { kind: "resize", figure, editor, pointerId: event.pointerId };
+      const handle = (resize.dataset.folioResize || "se") as ResizeHandle;
+      const rect = figure.getBoundingClientRect();
+      interaction = {
+        kind: "resize",
+        figure,
+        editor,
+        pointerId: event.pointerId,
+        handle,
+        startX: event.clientX,
+        startY: event.clientY,
+        startWidth: rect.width,
+        startHeight: rect.height,
+        startScale: clamp(figure.dataset.folioScale, 20, 100, 42),
+      };
       figure.classList.add("folio-image-resizing");
       figure.setPointerCapture?.(event.pointerId);
       return;
