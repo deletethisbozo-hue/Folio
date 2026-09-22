@@ -101,6 +101,7 @@ export interface Typography {
   fontSize?: string; // base size, e.g. "12pt"
   lineHeight?: number | string;
   dropcap?: boolean; // override the theme default
+  dropcapSize?: "small" | "medium" | "large" | "xlarge"; // small = current legacy size
   sceneOrnament?: string; // override the theme ornament
   chapterTitle?: ChapterTitleStyle;
   bodyAlign?: "left" | "justify";
