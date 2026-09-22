@@ -333,6 +333,37 @@ img.folio-illustration,
   margin: 0.22em 0 0.8em 1.05em;
 }
 
+/* Chapter-opening illustrations sit between the chapter heading and the first
+ * prose paragraph. They may be aligned left/center/right, but they must never
+ * share the paragraph's float context: the first paragraph may carry a drop cap
+ * and its metrics must be invariant with or without the opening illustration. */
+.folio-illustration-block.folio-chapter-opener {
+  float: none !important;
+  clear: both;
+  shape-outside: none !important;
+  shape-margin: 0 !important;
+  margin-top: .3em !important;
+  margin-bottom: .72em !important;
+}
+section.chapter > h1 + .folio-illustration-block.folio-chapter-opener {
+  margin-top: -.35em !important;
+}
+.folio-illustration-block.folio-chapter-opener.folio-wrap-left {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+.folio-illustration-block.folio-chapter-opener.folio-wrap-right {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+.folio-illustration-block.folio-chapter-opener:not(.folio-wrap-left):not(.folio-wrap-right) {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+.folio-illustration-block.folio-chapter-opener + p {
+  clear: both;
+}
+
 /* Contour wrapping uses the actual alpha channel supplied by render-html /
  * EPUB post-processing. Keep the rectangular gutter tiny here; shape-margin
  * becomes the true text-to-artwork distance when CSS Shapes is supported. */
