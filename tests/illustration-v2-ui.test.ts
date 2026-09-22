@@ -223,11 +223,11 @@ try {
   await page.waitForFunction(() =>
     document.querySelectorAll(".editor-illustration.folio-image-selected .folio-image-resize").length === 8
   );
-  const resizeHandles = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize", (handles) =>
-    handles.map((handle) => {
+  const resizeHandles = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>(".editor-illustration.folio-image-selected .folio-image-resize")].map((handle) => {
       const rect = handle.getBoundingClientRect();
       return {
-        name: (handle as HTMLElement).dataset.folioResize,
+        name: handle.dataset.folioResize,
         width: rect.width,
         height: rect.height,
         cursor: getComputedStyle(handle).cursor,
