@@ -146,15 +146,18 @@ function polygonFor(
     }
 
     if (!found) boundaryPx = side === "left" ? 0 : widthPx;
-    const xPercent = Math.max(0, Math.min(100, boundaryPx / widthPx * 100));
+    // Let the exclusion edge extend beyond the image box when visible ink
+    // reaches the PNG edge. Otherwise the requested safety gap would be clipped
+    // exactly where it matters most (swords, hands, ornaments touching an edge).
+    const xPercent = Math.max(-30, Math.min(130, boundaryPx / widthPx * 100));
     const yPercent = yFraction * 100;
     points.push(`${xPercent.toFixed(2)}% ${yPercent.toFixed(2)}%`);
   }
 
   if (side === "left") {
-    return `polygon(0% 0%, ${points.join(", ")}, 0% 100%)`;
+    return `polygon(0% 0%, ${points.join(", ")}, 0% 100%) border-box`;
   }
-  return `polygon(100% 0%, ${points.join(", ")}, 100% 100%)`;
+  return `polygon(100% 0%, ${points.join(", ")}, 100% 100%) border-box`;
 }
 
 function safeBoxFallback(figure: HTMLElement): void {
