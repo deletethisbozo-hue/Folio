@@ -26,6 +26,7 @@ type ResizeState = {
   startWidth: number;
   startHeight: number;
   startScale: number;
+  percentBasisWidth: number;
 };
 
 type InteractionState = DragState | ResizeState;
@@ -350,7 +351,6 @@ function moveIllustration(event: PointerEvent, state: DragState): void {
 }
 
 function resizeIllustration(event: PointerEvent, state: ResizeState): void {
-  const editorRect = state.editor.getBoundingClientRect();
   const wrap = wrapMode(state.figure);
   const dx = event.clientX - state.startX;
   const dy = event.clientY - state.startY;
@@ -379,7 +379,7 @@ function resizeIllustration(event: PointerEvent, state: ResizeState): void {
   }
 
   const maxPercent = wrap === "none" ? 100 : 76;
-  const percent = clamp((widthPx / Math.max(1, editorRect.width)) * 100, 20, maxPercent, state.startScale);
+  const percent = clamp((widthPx / Math.max(1, state.percentBasisWidth)) * 100, 20, maxPercent, state.startScale);
   state.figure.dataset.folioScale = String(Math.round(percent * 10) / 10);
   refreshFigure(state.figure);
 }
@@ -423,6 +423,7 @@ export function installIllustrationControls(): void {
         startWidth: rect.width,
         startHeight: rect.height,
         startScale: clamp(figure.dataset.folioScale, 20, 100, 42),
+        percentBasisWidth: rect.width / Math.max(0.01, clamp(figure.dataset.folioScale, 20, 100, 42) / 100),
       };
       figure.classList.add("folio-image-resizing");
       figure.setPointerCapture?.(event.pointerId);
