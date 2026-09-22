@@ -1,4 +1,4 @@
-/* Illustration V2 — direct manipulation, not a form disguised as artwork. */
+/* Illustration V3 — direct manipulation + contour-aware text wrapping. */
 
 .folio-shell[data-ui-tone] .editor-illustration {
   position: relative;
@@ -50,7 +50,7 @@
   left: 0;
   top: -36px;
   width: max-content;
-  max-width: min(520px, calc(100vw - 80px));
+  max-width: min(720px, calc(100vw - 80px));
   min-height: 29px;
   display: none !important;
   grid-template-columns: auto auto auto auto auto auto;
@@ -71,7 +71,8 @@
   display: grid !important;
 }
 
-.folio-shell[data-ui-tone] .folio-wrap-group {
+.folio-shell[data-ui-tone] .folio-wrap-group,
+.folio-shell[data-ui-tone] .folio-shape-group {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--studio-rule);
@@ -80,6 +81,7 @@
 }
 
 .folio-shell[data-ui-tone] .folio-wrap-group button,
+.folio-shell[data-ui-tone] .folio-shape-group button,
 .folio-shell[data-ui-tone] .folio-image-inspector > button,
 .folio-shell[data-ui-tone] .folio-image-inspector select {
   height: 22px !important;
@@ -94,9 +96,11 @@
   font: 600 9.5px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
 }
 
-.folio-shell[data-ui-tone] .folio-wrap-group button:last-child { border-right: 0 !important; }
+.folio-shell[data-ui-tone] .folio-wrap-group button:last-child,
+.folio-shell[data-ui-tone] .folio-shape-group button:last-child { border-right: 0 !important; }
 
 .folio-shell[data-ui-tone] .folio-wrap-group button.active,
+.folio-shell[data-ui-tone] .folio-shape-group button.active,
 .folio-shell[data-ui-tone] .folio-image-inspector button.active {
   background: var(--studio-accent-soft) !important;
   color: var(--studio-accent) !important;
@@ -113,6 +117,26 @@
 .folio-shell[data-ui-tone] .folio-image-inspector .folio-size-slider input[type="range"] {
   width: 58px;
   margin: 0;
+}
+
+.folio-shell[data-ui-tone] .folio-image-inspector .folio-gap-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 88px;
+  color: var(--studio-muted);
+}
+
+.folio-shell[data-ui-tone] .folio-image-inspector .folio-gap-slider input[type="range"] {
+  width: 54px;
+  margin: 0;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-shape-contour.folio-wrap-left,
+.folio-shell[data-ui-tone] .editor-illustration.folio-shape-contour.folio-wrap-right {
+  /* The real exclusion contour is applied inline from the image source.
+   * This class exists for selection/diagnostics and format round-tripping. */
+  isolation: auto;
 }
 
 .folio-shell[data-ui-tone] .folio-image-inspector .crop-axis {
