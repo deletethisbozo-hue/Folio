@@ -137,7 +137,7 @@ try {
     return { x: r.x, y: r.y, width: r.width, height: r.height };
   });
   await page.mouse.click(imageBox.x + imageBox.width / 2, imageBox.y + imageBox.height / 2);
-  await page.waitForSelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
+  await page.waitForSelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]');
   check("clicking the artwork selects it and reveals a compact inspector", true);
 
   // V2 regression is explicitly rectangular. V3 PNGs default to contour and
