@@ -164,24 +164,69 @@
 
 .folio-shell[data-ui-tone] .folio-image-resize {
   position: absolute;
-  z-index: 9;
-  right: -6px;
-  bottom: -6px;
-  width: 14px !important;
-  height: 14px !important;
-  min-width: 14px !important;
+  z-index: 10;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
   padding: 0 !important;
   display: none;
-  border: 2px solid var(--studio-surface) !important;
-  border-radius: 50% !important;
-  background: var(--studio-accent) !important;
-  box-shadow: 0 1px 4px rgba(20,20,20,.25) !important;
-  cursor: nwse-resize;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  touch-action: none;
+}
+
+.folio-shell[data-ui-tone] .folio-image-resize::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  left: 6px;
+  top: 6px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--studio-surface);
+  background: var(--studio-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--studio-accent) 70%, #000 30%);
+}
+
+.folio-shell[data-ui-tone] .folio-image-resize-nw { left: -10px; top: -10px; cursor: nwse-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-n  { left: calc(50% - 10px); top: -10px; cursor: ns-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-ne { right: -10px; top: -10px; cursor: nesw-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-e  { right: -10px; top: calc(50% - 10px); cursor: ew-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-se { right: -10px; bottom: -10px; cursor: nwse-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-s  { left: calc(50% - 10px); bottom: -10px; cursor: ns-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-sw { left: -10px; bottom: -10px; cursor: nesw-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-w  { left: -10px; top: calc(50% - 10px); cursor: ew-resize; }
+
+.folio-shell[data-ui-tone] .folio-image-resize-n::after,
+.folio-shell[data-ui-tone] .folio-image-resize-s::after {
+  width: 12px;
+  height: 5px;
+  left: 4px;
+  top: 7.5px;
+}
+
+.folio-shell[data-ui-tone] .folio-image-resize-e::after,
+.folio-shell[data-ui-tone] .folio-image-resize-w::after {
+  width: 5px;
+  height: 12px;
+  left: 7.5px;
+  top: 4px;
 }
 
 .folio-shell[data-ui-tone] .editor-illustration.folio-image-selected .folio-image-resize,
 .folio-shell[data-ui-tone] .editor-illustration:focus-within .folio-image-resize {
   display: block;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-resizing {
+  user-select: none;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-resizing > img[data-folio-asset] {
+  cursor: inherit !important;
 }
 
 .folio-shell[data-ui-tone] .editor-illustration-remove {
