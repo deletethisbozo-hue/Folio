@@ -97,11 +97,12 @@ function typographyCss(book: Book): string {
   const out: string[] = [];
 
   const dropcapSizes = {
+    small: { screen: "3em", print: "5em" },
     medium: { screen: "3.9em", print: "6em" },
     large: { screen: "4.5em", print: "7em" },
     xlarge: { screen: "5.1em", print: "8em" },
   } as const;
-  if (ty.dropcapSize && ty.dropcapSize !== "small") {
+  if (ty.dropcapSize) {
     const size = dropcapSizes[ty.dropcapSize];
     out.push(`:root { --folio-dropcap-user-size: ${size.screen}; --folio-dropcap-print-size: ${size.print}; }`);
   }
