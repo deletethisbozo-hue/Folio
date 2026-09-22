@@ -314,7 +314,9 @@ check("preview offers size-based Kindle, Kobo, phone, tablet and print profiles"
 await page.select('select[aria-label="Preview device"]', "phone-6-1");
 await stage("switch to phone size class", () => page.waitForSelector('.reader-device.device-phone-6-1[data-device-family="phone"]'));
   await stage("phone justified layout", () => page.waitForFunction(() => {
-    const paragraph = document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p");
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+      .find((candidate) => !candidate.querySelector(":scope > .dropcap"));
     return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
   }));
   check("Justified preview uses the bounded paragraph compositor", true);
