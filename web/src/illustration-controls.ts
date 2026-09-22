@@ -32,6 +32,7 @@ type InteractionState = DragState | ResizeState;
 
 let interaction: InteractionState | null = null;
 let selectedFigure: HTMLElement | null = null;
+let selectedAsset: string | null = null;
 let pendingDirtyFrame = 0;
 
 function clamp(value: string | number | undefined, min: number, max: number, fallback: number): number {
@@ -85,9 +86,13 @@ function inspectorMarkup(): string {
 }
 
 function selectFigure(figure: HTMLElement | null): void {
-  if (selectedFigure === figure) return;
+  if (selectedFigure === figure) {
+    if (figure) selectedAsset = figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? selectedAsset;
+    return;
+  }
   selectedFigure?.classList.remove("folio-image-selected");
   selectedFigure = figure;
+  selectedAsset = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? null;
   selectedFigure?.classList.add("folio-image-selected");
 }
 
@@ -232,6 +237,18 @@ function hydrateFigure(figure: HTMLElement): void {
 
   figure.setAttribute("tabindex", "0");
   refreshFigure(figure);
+
+  // React can replace the entire editable figure after a DOM -> Markdown ->
+  // DOM round-trip. Preserve selection by the stable project asset so resize
+  // handles do not disappear under the user's pointer.
+  const asset = figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? null;
+  if (selectedAsset && asset === selectedAsset && selectedFigure !== figure) {
+    if (!selectedFigure?.isConnected || selectedFigure.dataset.folioIllustration === "true") {
+      selectedFigure?.classList.remove("folio-image-selected");
+      selectedFigure = figure;
+      figure.classList.add("folio-image-selected");
+    }
+  }
 }
 
 function hydrateAll(): void {
