@@ -322,11 +322,11 @@ try {
 
   await page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 });
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
-  await page.waitForSelector(".contents-row.chapter-row");
-  await page.evaluate(() => {
-    const chapter = document.querySelector<HTMLElement>(".contents-row.chapter-row");
-    chapter?.click();
-  });
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const markdown = editor?.dataset.markdown ?? "";
+    return markdown.includes(".folio-wrap-left") && /width=\d+%/.test(markdown);
+  }, { timeout: 30000 });
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
     return Boolean(figure?.dataset.folioWrap === "left" && Number(figure.dataset.folioScale || 0) > 0);
