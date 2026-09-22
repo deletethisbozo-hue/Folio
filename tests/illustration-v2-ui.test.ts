@@ -260,10 +260,14 @@ try {
     scale: Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0),
   }));
   await page.mouse.move(eastCenter.x + 47, eastCenter.y, { steps: 12 });
-  const resizeMoved = await page.evaluate(() => ({
-    active: document.querySelector(".editor-illustration.folio-image-resizing") !== null,
-    scale: Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0),
-  }));
+  const resizeMoved = await page.evaluate(() => {
+    const figure = document.querySelector<HTMLElement>(".editor-illustration");
+    return {
+      active: document.querySelector(".editor-illustration.folio-image-resizing") !== null,
+      scale: Number(figure?.dataset.folioScale || 0),
+      debug: figure?.dataset.folioResizeDebug ?? null,
+    };
+  });
   await page.mouse.up();
   check("east resize handle receives the real pointer drag",
     eastHit.resize === "e" && resizeDown.active && resizeMoved.scale > beforeScale,
