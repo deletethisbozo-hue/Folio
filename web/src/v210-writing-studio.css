@@ -326,7 +326,7 @@
   border-radius: 2px !important;
   background: var(--mockup-paper, var(--studio-paper)) !important;
   box-shadow: 0 2px 12px rgba(28, 24, 19, .05) !important;
-  font-size: calc(16px * var(--folio-write-zoom, 1)) !important;
+  font-size: var(--folio-write-font-size, 16px) !important;
   line-height: 1.72 !important;
 }
 
@@ -614,7 +614,7 @@
   background: var(--mockup-paper, var(--studio-paper));
   color: var(--mockup-ink, var(--studio-ink));
   font-family: Georgia, "Times New Roman", serif;
-  font-size: calc(16px * var(--folio-write-zoom, 1));
+  font-size: var(--folio-write-font-size, 16px) !important;
   line-height: 1.72;
   scrollbar-gutter: stable;
 }
@@ -666,4 +666,9 @@
 
 .folio-shell[data-workspace-mode="write"] .writing-split-editor {
   transition: font-size 70ms ease-out;
+}
+
+.folio-shell[data-workspace-mode="write"] .manuscript-editor:not(.folio-image-page-editor),
+.folio-shell[data-workspace-mode="write"] .writing-split-editor {
+  font-size: var(--folio-write-font-size, 16px) !important;
 }
