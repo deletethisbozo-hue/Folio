@@ -135,6 +135,7 @@ try {
     if (!toolbar || !gap) return null;
     const r = toolbar.getBoundingClientRect();
     const g = gap.getBoundingClientRect();
+    const editorRect = document.querySelector<HTMLElement>(".rich-editor")?.getBoundingClientRect();
     const cx = Math.max(0, Math.min(innerWidth - 1, r.left + r.width / 2));
     const cy = Math.max(0, Math.min(innerHeight - 1, r.top + r.height / 2));
     const hit = document.elementFromPoint(cx, cy);
@@ -142,6 +143,7 @@ try {
       toolbar: r.toJSON(),
       gap: g.toJSON(),
       viewport: { width: innerWidth, height: innerHeight },
+      editorRight: editorRect?.right ?? null,
       position: getComputedStyle(toolbar).position,
       parentClass: toolbar.parentElement?.className ?? "",
       parentIsFigure: Boolean(toolbar.closest(".editor-illustration")),
@@ -155,6 +157,7 @@ try {
     inspector.toolbar.top >= 0 &&
     inspector.toolbar.right <= inspector.viewport.width + 1 &&
     inspector.toolbar.bottom <= inspector.viewport.height + 1 &&
+    (inspector.editorRight == null || inspector.toolbar.right <= inspector.editorRight + 1) &&
     inspector.gap.width > 20 && inspector.gap.height > 5 &&
     inspector.parentClass.includes("folio-illustration-overlay") &&
     !inspector.parentIsFigure &&
