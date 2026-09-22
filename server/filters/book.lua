@@ -292,6 +292,15 @@ function Pandoc(doc)
         out,
         pandoc.RawBlock("html", '<p class="scene-break" role="separator">' .. ornament .. "</p>")
       )
+    elseif b.t == "Div" and awaiting and has_class(b, "folio-illustration-block") then
+      -- An illustration before the chapter's first prose paragraph is an
+      -- opening device, not a prose float. Preserve the author's left/right
+      -- choice as alignment only; CSS disables wrapping so the following drop
+      -- cap keeps exactly the same line geometry it has without an image.
+      if not has_class(b, "folio-chapter-opener") then
+        table.insert(b.classes, "folio-chapter-opener")
+      end
+      table.insert(out, b)
     elseif b.t == "Para" and awaiting then
       awaiting = false
       if reflow then b = reflow_prose(b) end
