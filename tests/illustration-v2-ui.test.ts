@@ -247,7 +247,22 @@ try {
 
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
-    return Boolean(doc?.querySelector(".folio-illustration-block.folio-wrap-left img.folio-illustration"));
+    const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-wrap-left");
+    const image = figure?.querySelector<HTMLImageElement>("img.folio-illustration");
+    if (!doc || !figure || !image?.complete || image.naturalWidth < 50) return false;
+    let paragraph = figure.nextElementSibling as HTMLElement | null;
+    while (paragraph && paragraph.tagName !== "P") paragraph = paragraph.nextElementSibling as HTMLElement | null;
+    if (!paragraph) return false;
+    const textNode = [...paragraph.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 3);
+    if (!textNode) return false;
+    const range = doc.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, Math.min(14, textNode.textContent?.length ?? 0));
+    const firstLine = range.getBoundingClientRect();
+    const figureRect = figure.getBoundingClientRect();
+    return firstLine.width > 2 &&
+      firstLine.top < figureRect.bottom - 4 &&
+      firstLine.left >= figureRect.right - 2;
   }, { timeout: 30000 });
 
   const readerGeometry = await page.evaluate(() => {
