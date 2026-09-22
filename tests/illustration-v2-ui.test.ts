@@ -220,8 +220,11 @@ try {
   if (!editorWraps) throw new Error("Editor did not visibly reflow around V2 illustration.");
 
   // V4 exposes a proper object-resize frame rather than one tiny corner dot.
+  await page.waitForFunction(() =>
+    document.querySelectorAll(".editor-illustration.folio-image-selected .folio-image-resize").length === 8
+  );
   const resizeHandles = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize", (handles) =>
-    Array.from(handles).map((handle) => {
+    handles.map((handle) => {
       const rect = handle.getBoundingClientRect();
       return {
         name: (handle as HTMLElement).dataset.folioResize,
