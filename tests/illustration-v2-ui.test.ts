@@ -219,23 +219,54 @@ try {
   check("editor prose visibly reflows beside the dragged image", editorWraps, JSON.stringify(editorGeometry));
   if (!editorWraps) throw new Error("Editor did not visibly reflow around V2 illustration.");
 
-  // Resize via the corner handle rather than a scale slider.
-  const resizeBox = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize", (handle) => {
-    const r = handle.getBoundingClientRect();
-    return { x: r.x, y: r.y, width: r.width, height: r.height };
-  });
+  // V4 exposes a proper object-resize frame rather than one tiny corner dot.
+  const resizeHandles = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize", (handles) =>
+    handles.map((handle) => {
+      const rect = handle.getBoundingClientRect();
+      return {
+        name: (handle as HTMLElement).dataset.folioResize,
+        width: rect.width,
+        height: rect.height,
+        cursor: getComputedStyle(handle).cursor,
+      };
+    })
+  );
+  check("selected illustration exposes eight generous resize handles",
+    resizeHandles.length === 8 &&
+      resizeHandles.every((handle) => handle.width >= 18 && handle.height >= 18 && /resize/.test(handle.cursor)),
+    JSON.stringify(resizeHandles));
+
   const beforeScale = await page.$eval(".editor-illustration", (figure) => Number((figure as HTMLElement).dataset.folioScale || 0));
-  await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + resizeBox.height / 2);
+  const eastHandle = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize-e", (handle) => {
+    const rect = handle.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
+  await page.mouse.move(eastHandle.x + eastHandle.width / 2, eastHandle.y + eastHandle.height / 2);
   await page.mouse.down();
-  await page.mouse.move(resizeBox.x + 70, resizeBox.y + resizeBox.height / 2, { steps: 10 });
+  await page.mouse.move(eastHandle.x + eastHandle.width / 2 + 47, eastHandle.y + eastHandle.height / 2, { steps: 12 });
   await page.mouse.up();
-  await page.waitForFunction((oldScale) => Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0) !== oldScale, {}, beforeScale);
+  await page.waitForFunction((oldScale) => Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0) > oldScale, {}, beforeScale);
+
+  const afterEdge = await page.$eval(".editor-illustration", (figure) => Number((figure as HTMLElement).dataset.folioScale || 0));
+  const northHandle = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize-n", (handle) => {
+    const rect = handle.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
+  await page.mouse.move(northHandle.x + northHandle.width / 2, northHandle.y + northHandle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(northHandle.x + northHandle.width / 2, northHandle.y + northHandle.height / 2 - 24, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForFunction((oldScale) => Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0) > oldScale, {}, afterEdge);
+
   const resized = await page.$eval(".editor-illustration", (figure) => ({
     scale: Number((figure as HTMLElement).dataset.folioScale || 0),
     markdown: (figure.closest(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "",
   }));
-  check("corner drag resizes the illustration and persists relative width",
-    resized.scale !== beforeScale && resized.markdown.includes(`width=${resized.scale}%`),
+  const persistedWidth = resized.markdown.match(/width=(\d+(?:\.\d+)?)%/)?.[1];
+  check("edge and vertical-handle drags resize smoothly and persist relative width",
+    resized.scale > afterEdge &&
+      persistedWidth !== undefined &&
+      Math.abs(Number(persistedWidth) - resized.scale) < 0.11,
     JSON.stringify(resized));
 
   // Explicit positioning controls remain available, but are not required for moving the artwork.
