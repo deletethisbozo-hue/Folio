@@ -134,31 +134,42 @@ try {
 
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
-    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("polygon("));
+    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("inset("));
   });
 
   const editorGeometry = await page.evaluate(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration.folio-wrap-left");
     if (!figure) return null;
-    let paragraph = figure.nextElementSibling as HTMLElement | null;
-    while (paragraph && (paragraph.tagName !== "P" || (paragraph.textContent?.trim().length ?? 0) < 120)) paragraph = paragraph.nextElementSibling as HTMLElement | null;
-    if (!paragraph) return null;
-    const range = document.createRange();
-    range.selectNodeContents(paragraph);
     const fr = figure.getBoundingClientRect();
-    const rects = [...range.getClientRects()].filter((r) => r.height > 4 && r.top < fr.bottom - 3 && r.bottom > fr.top + 3);
-    const lefts = rects.map((r) => r.left);
+    const collisions: Array<{ left: number; top: number; right: number; bottom: number }> = [];
+    let paragraph = figure.nextElementSibling as HTMLElement | null;
+    while (paragraph && paragraph.getBoundingClientRect().top < fr.bottom - 1) {
+      if (paragraph.tagName === "P") {
+        const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const node = walker.currentNode as Text;
+          if (!node.data.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of Array.from(range.getClientRects())) {
+            if (rect.width <= 1 || rect.height <= 1) continue;
+            const vertical = rect.bottom > fr.top + 1 && rect.top < fr.bottom - 1;
+            const horizontal = rect.left < fr.right - 1 && rect.right > fr.left + 1;
+            if (vertical && horizontal) collisions.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
+          }
+        }
+      }
+      paragraph = paragraph.nextElementSibling as HTMLElement | null;
+    }
     return {
       shape: getComputedStyle(figure).shapeOutside,
       figure: fr.toJSON(),
-      lefts,
-      spread: lefts.length ? Math.max(...lefts) - Math.min(...lefts) : 0,
-      intrudes: lefts.some((left) => left < fr.right - 8),
+      collisions,
     };
   });
-  const editorContour = Boolean(editorGeometry && editorGeometry.shape.includes("polygon(") && editorGeometry.spread > 18 && editorGeometry.intrudes);
-  check("editor text follows PNG alpha contour instead of a rectangle", editorContour, JSON.stringify(editorGeometry));
-  if (!editorContour) throw new Error("Editor contour geometry stayed rectangular.");
+  const editorSafe = Boolean(editorGeometry && editorGeometry.shape.includes("inset(") && editorGeometry.collisions.length === 0);
+  check("editor keeps all manuscript glyphs outside the illustration box", editorSafe, JSON.stringify(editorGeometry));
+  if (!editorSafe) throw new Error("Editor illustration still covers manuscript text.");
 
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
