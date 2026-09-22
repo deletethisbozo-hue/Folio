@@ -836,6 +836,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       figure.dataset.folioX = "50";
       figure.dataset.folioY = "50";
       figure.dataset.folioWrap = "right";
+      figure.dataset.folioShape = file.type === "image/png" ? "contour" : "box";
+      figure.dataset.folioGap = "65";
       figure.contentEditable = "false";
       const image = window.document.createElement("img");
       image.src = uploaded.url;
