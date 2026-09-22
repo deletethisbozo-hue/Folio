@@ -872,9 +872,20 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
   const capStyle = getComputedStyle(cap);
   const marginRight = pixels(capStyle.marginRight);
   const marginBottom = pixels(capStyle.marginBottom);
-  const capIntrusion = Math.max(0, capRect.right + marginRight - contentLeft);
+
+  // The compositor owns drop-cap placement. Do not derive horizontal intrusion
+  // from the float's current x-position: a preceding opening illustration can
+  // change native-float placement before composition and V7 then baked that
+  // transient displacement into every first line. Use the cap's physical box
+  // width instead, anchored at the paragraph's content edge.
+  const capIntrusion = Math.max(0, capRect.width + marginRight);
+  const capTop = capRect.top - (paragraphRect.top + borderTop);
   const capDepth = Math.max(0, capRect.bottom + marginBottom - contentTop);
-  const capLines = 2;
+
+  // V7 hard-coded every cap to two lines. Larger user presets therefore grew
+  // over line 3/4 instead of reserving those lines. Derive the occupied line
+  // count from the rendered cap depth after fonts have settled.
+  const capLines = Math.max(2, Math.ceil(capDepth / Math.max(1, lineHeight) - 0.12));
 
   return {
     width,
@@ -882,8 +893,8 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
     cap,
     capLines,
     capIntrusion: Math.min(width * 0.46, capIntrusion),
-    capLeft: capRect.left - (paragraphRect.left + borderLeft),
-    capTop: capRect.top - (paragraphRect.top + borderTop),
+    capLeft: 0,
+    capTop,
     capDepth,
   };
 }
@@ -990,7 +1001,16 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
   const cap = geometry.cap;
   if (cap) {
     paragraph.classList.add("folio-composed-dropcap");
-    paragraph.style.minHeight = `${Math.max(pixels(style.minHeight), geometry.capDepth)}px`;
+    paragraph.dataset.folioDropcapLines = String(geometry.capLines);
+    // Only force extra block height when the prose is genuinely shorter than
+    // the cap. Long first paragraphs already provide enough natural height;
+    // forcing capDepth unconditionally made the post-dropcap whitespace look
+    // detached from the paragraph in some opener layouts.
+    if (lines.length < geometry.capLines) {
+      paragraph.style.minHeight = `${Math.max(pixels(style.minHeight), geometry.capDepth)}px`;
+    } else {
+      paragraph.style.removeProperty("min-height");
+    }
     cap.classList.add("folio-composed-cap");
     cap.style.left = `${geometry.capLeft}px`;
     cap.style.top = `${geometry.capTop}px`;
