@@ -221,7 +221,7 @@ try {
 
   // V4 exposes a proper object-resize frame rather than one tiny corner dot.
   const resizeHandles = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize", (handles) =>
-    handles.map((handle) => {
+    Array.from(handles).map((handle) => {
       const rect = handle.getBoundingClientRect();
       return {
         name: (handle as HTMLElement).dataset.folioResize,
