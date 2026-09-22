@@ -48,6 +48,149 @@ function resolveGutter(book: Book, opts: PrintOptions): number {
   return autoGutter(estimatePages(bodyChars(book), opts.trim, chapters, others), opts.binding);
 }
 
+async function applySafePrintContourPolygons(page: Page): Promise<{
+  figures: number;
+  polygons: number;
+  fallbacks: number;
+}> {
+  return page.evaluate(async () => {
+    const figures = [...document.querySelectorAll<HTMLElement>(
+      ".folio-illustration-block.folio-shape-contour.folio-wrap-left,.folio-illustration-block.folio-shape-contour.folio-wrap-right",
+    )];
+    let polygons = 0;
+    let fallbacks = 0;
+
+    for (const figure of figures) {
+      const image = figure.querySelector<HTMLImageElement>("img.folio-illustration,img");
+      if (!image || image.classList.contains("folio-crop")) {
+        fallbacks++;
+        continue;
+      }
+
+      if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        await new Promise<void>((resolve) => {
+          const done = () => resolve();
+          image.addEventListener("load", done, { once: true });
+          image.addEventListener("error", done, { once: true });
+        });
+      }
+      if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        figure.style.shapeOutside = "inset(0)";
+        figure.style.shapeMargin = "0px";
+        fallbacks++;
+        continue;
+      }
+
+      const naturalWidth = image.naturalWidth;
+      const naturalHeight = image.naturalHeight;
+      const rows = Math.max(48, Math.min(160, Math.round(naturalHeight / 4)));
+      const columns = Math.max(48, Math.min(220, Math.round(naturalWidth * rows / naturalHeight)));
+      const canvas = document.createElement("canvas");
+      canvas.width = columns;
+      canvas.height = rows;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        figure.style.shapeOutside = "inset(0)";
+        figure.style.shapeMargin = "0px";
+        fallbacks++;
+        continue;
+      }
+
+      try {
+        context.clearRect(0, 0, columns, rows);
+        context.drawImage(image, 0, 0, columns, rows);
+        const pixels = context.getImageData(0, 0, columns, rows).data;
+        const left = new Array<number>(rows).fill(1);
+        const right = new Array<number>(rows).fill(0);
+        let opaque = false;
+
+        for (let y = 0; y < rows; y++) {
+          let first = columns;
+          let last = -1;
+          for (let x = 0; x < columns; x++) {
+            const alpha = pixels[(y * columns + x) * 4 + 3];
+            if (alpha >= 28) {
+              opaque = true;
+              if (x < first) first = x;
+              if (x > last) last = x;
+            }
+          }
+          if (last >= 0) {
+            left[y] = first / Math.max(1, columns - 1);
+            right[y] = last / Math.max(1, columns - 1);
+          }
+        }
+
+        if (!opaque) {
+          figure.style.shapeOutside = "inset(0)";
+          figure.style.shapeMargin = "0px";
+          fallbacks++;
+          continue;
+        }
+
+        const side = figure.classList.contains("folio-wrap-left") ? "left" : "right";
+        const rect = image.getBoundingClientRect();
+        const widthPx = Math.max(1, rect.width || figure.getBoundingClientRect().width);
+        const heightPx = Math.max(1, rect.height || figure.getBoundingClientRect().height);
+        const storedGap = Number(figure.dataset.folioGap || figure.getAttribute("data-folio-gap") || 65);
+        const fontSize = Number.parseFloat(getComputedStyle(figure).fontSize) || 16;
+        const gapEm = Math.max(.28, Math.min(2, Number.isFinite(storedGap) ? storedGap / 100 : .65));
+        const gapPx = gapEm * fontSize;
+        const sampleCount = Math.max(24, Math.min(64, Math.round(heightPx / 10)));
+        const points: string[] = [];
+
+        for (let index = 0; index < sampleCount; index++) {
+          const yFraction = sampleCount === 1 ? 0 : index / (sampleCount - 1);
+          const sourceY = yFraction * (rows - 1);
+          const verticalRadiusRows = Math.ceil(gapPx / heightPx * rows);
+          let boundaryPx = side === "left" ? 0 : widthPx;
+          const from = Math.max(0, Math.floor(sourceY) - verticalRadiusRows);
+          const to = Math.min(rows - 1, Math.ceil(sourceY) + verticalRadiusRows);
+          let found = false;
+
+          for (let row = from; row <= to; row++) {
+            const fraction = side === "left" ? right[row] : left[row];
+            const rowHasInk = side === "left" ? fraction > 0 : fraction < 1;
+            if (!rowHasInk) continue;
+            found = true;
+            const rowY = row / Math.max(1, rows - 1) * heightPx;
+            const targetY = yFraction * heightPx;
+            const dy = Math.abs(rowY - targetY);
+            if (dy > gapPx + .5) continue;
+            const radialX = Math.sqrt(Math.max(0, gapPx * gapPx - dy * dy));
+            const inkX = fraction * widthPx;
+            const safeX = side === "left" ? inkX + radialX : inkX - radialX;
+            boundaryPx = side === "left"
+              ? Math.max(boundaryPx, safeX)
+              : Math.min(boundaryPx, safeX);
+          }
+
+          if (!found) boundaryPx = side === "left" ? 0 : widthPx;
+          const xPercent = Math.max(-30, Math.min(130, boundaryPx / widthPx * 100));
+          points.push(`${xPercent.toFixed(2)}% ${(yFraction * 100).toFixed(2)}%`);
+        }
+
+        const polygon = side === "left"
+          ? `polygon(0% 0%, ${points.join(", ")}, 0% 100%) border-box`
+          : `polygon(100% 0%, ${points.join(", ")}, 100% 100%) border-box`;
+        figure.style.shapeOutside = polygon;
+        figure.style.shapeMargin = "0px";
+        figure.style.removeProperty("shape-image-threshold");
+        figure.dataset.folioContourReady = "true";
+        figure.dataset.folioContourPoints = String(sampleCount);
+        polygons++;
+      } catch {
+        figure.style.shapeOutside = "inset(0)";
+        figure.style.shapeMargin = "0px";
+        figure.dataset.folioContourReady = "false";
+        fallbacks++;
+      }
+    }
+
+    return { figures: figures.length, polygons, fallbacks };
+  });
+}
+
 async function stabilizePrintIllustrationWraps(page: Page): Promise<{
   figures: number;
   autoScaled: number;
@@ -209,10 +352,17 @@ async function withPaginated<T>(
     // Seat the drop caps before pagination — the correction changes how text
     // wraps around the float, so it has to settle before pages are measured.
     await alignDropCaps(page);
+    // Build Folio's own safety-dilated alpha polygon before measuring any text
+    // corridor. A conservative rectangular shape remains if canvas decoding
+    // fails; Print must never fall back to an unsafe raw alpha wrap.
+    await applySafePrintContourPolygons(page);
     // Float geometry is now final enough to measure. Guard against narrow,
     // over-justified text corridors before the compositor freezes lines and
     // before Paged.js fragments the document into pages.
     await stabilizePrintIllustrationWraps(page);
+    // The print preflight may reduce an illustration's width. Recompute the
+    // polygon at that actual size so the physical safety gap remains constant.
+    await applySafePrintContourPolygons(page);
     await composeProfessionalParagraphs(page, book);
     // Disable Paged.js auto-run (set before the polyfill script loads).
     await page.evaluate(() => {
