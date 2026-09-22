@@ -92,7 +92,7 @@ try {
     return figure?.dataset.folioShape === "contour" &&
       figure.dataset.folioWrap === "right" &&
       markdown.includes(".folio-shape-contour") &&
-      markdown.includes("data-folio-gap=65");
+      markdown.includes("data-folio-gap=45");
   });
   check("PNG defaults to semantic contour wrap", true);
 
