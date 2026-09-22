@@ -842,7 +842,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       figure.dataset.folioX = "50";
       figure.dataset.folioY = "50";
       figure.dataset.folioWrap = "right";
-      figure.dataset.folioShape = file.type === "image/png" ? "contour" : "box";
+      const isTransparentPng = file.type === "image/png" || /\.png$/i.test(file.name);
+      figure.dataset.folioShape = isTransparentPng ? "contour" : "box";
       figure.dataset.folioGap = "45";
       figure.contentEditable = "false";
       const image = window.document.createElement("img");
