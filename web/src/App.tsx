@@ -97,7 +97,7 @@ function markDraftChapterOpener(section: Element): void {
   }
 }
 
-function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography["dropcapSize"]): void {
+function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography["dropcapSize"], font?: string): void {
   const screenSizes: Record<NonNullable<Typography["dropcapSize"]>, string> = {
     small: "3em",
     medium: "3.9em",
@@ -107,10 +107,17 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
   const selectedSize = size ? screenSizes[size] : undefined;
   if (selectedSize) (section as HTMLElement).style.setProperty("--folio-dropcap-user-size", selectedSize);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-size");
+  if (font) (section as HTMLElement).style.setProperty("--folio-dropcap-user-font", font);
+  else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-font");
   if (!enabled || !section.classList.contains("chapter")) return;
   const paragraph = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"))
     .find((candidate) => Boolean(candidate.textContent?.trim()));
-  if (!paragraph || paragraph.querySelector(".dropcap")) return;
+  if (!paragraph) return;
+  const existingCap = paragraph.querySelector<HTMLElement>(".dropcap");
+  if (existingCap) {
+    existingCap.style.fontFamily = font ?? "";
+    return;
+  }
   const walker = paragraph.ownerDocument.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
@@ -122,6 +129,7 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
     const span = paragraph.ownerDocument.createElement("span");
     span.className = "dropcap";
     span.textContent = match[1] + match[2];
+    if (font) span.style.fontFamily = font;
     node.data = node.data.slice(match[0].length);
     // Keep the float as a direct child of the paragraph. Nesting it inside an
     // opening <em>/<strong> creates a separate inline formatting context and
@@ -544,7 +552,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     void applySafeContours(previewDocument);
     livePreviewDraftRef.current = liveDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
-    applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false), typography.dropcapSize);
+    applyDraftDropcap(
+      section,
+      document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false),
+      typography.dropcapSize,
+      typography.dropcapFont,
+    );
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
     void composePreviewDocument(previewDocument, typography.bodyAlign !== "left");
     return "rebuilt";
@@ -557,7 +570,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.dropcapSize, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
+  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.dropcapSize, typography.dropcapFont, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -1924,6 +1937,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
   const { category, typography: ty, setTypography: setTy, printOptions, setPrintOptions } = props;
   const row = (label: string, control: React.ReactNode) => <label className="customize-row"><span>{label}</span>{control}</label>;
   const fonts = <><option value="">Theme default</option><option value="Georgia, serif">Georgia</option><option value="Garamond, Georgia, serif">Garamond</option><option value="Baskerville, Georgia, serif">Baskerville</option><option value="Palatino, Georgia, serif">Palatino</option><option value="Cambria, Georgia, serif">Cambria</option><option value="Segoe UI, Arial, sans-serif">Segoe UI</option></>;
+  const displayFonts = <><option value="">Theme default</option><optgroup label="New display fonts"><option value="Folio Jena Gotisch">Jena Gotisch</option><option value="Folio Manufacturing Consent">Manufacturing Consent</option><option value="Folio Kings">Kings</option><option value="Folio CAT Altenglisch">CAT Altenglisch</option><option value="Folio Slavkappen">Slavkappen</option></optgroup><optgroup label="Folio built-ins"><option value="Folio Cinzel">Cinzel</option><option value="Folio Grenze Gotisch">Grenze Gotisch</option><option value="Folio Bodoni Moda">Bodoni Moda</option><option value="Folio EB Garamond">EB Garamond</option><option value="Folio Libre Baskerville">Libre Baskerville</option><option value="Folio Barlow Condensed">Barlow Condensed</option></optgroup></>;
   const clearTypographyKeys = (...keys: Array<keyof Typography>) => {
     const next = { ...ty };
     for (const key of keys) delete next[key];
@@ -1938,7 +1952,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
         clearTypographyKeys("headingFont", "chapterTitle");
         return;
       case "First Paragraph":
-        clearTypographyKeys("dropcap", "dropcapSize");
+        clearTypographyKeys("dropcap", "dropcapSize", "dropcapFont");
         return;
       case "Paragraph After Break":
         clearTypographyKeys("paragraphAfterBreakIndent");
@@ -1969,7 +1983,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     {category === "Chapter Heading" && <>
       {row("Show theme label", <input type="checkbox" checked={ty.chapterTitle?.showLabel ?? true} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, showLabel: e.target.checked } })}/>)}
       {row("Label text", <input value={ty.chapterTitle?.labelText ?? ""} disabled={ty.chapterTitle?.showLabel === false} placeholder="CHAPTER → CHAPTER 1, CHAPTER 2…" title="Folio automatically appends the chapter number in current book order" onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, labelText: e.target.value || undefined } })}/>)}
-      {row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{fonts}</select>)}
+      {row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{displayFonts}</select>)}
       {row("Size", <select value={ty.chapterTitle?.size ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, size: e.target.value || undefined } })}><option value="">Theme default</option><option value="1.4em">Compact</option><option value="1.8em">Standard</option><option value="2.2em">Large</option></select>)}
       {row("Alignment", <select value={ty.chapterTitle?.align ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, align: (e.target.value || undefined) as "left" | "center" | "right" | undefined } })}><option value="">Theme default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>)}
       {row("Letter case", <select value={ty.chapterTitle?.case ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, case: (e.target.value || undefined) as "normal" | "smallcaps" | "uppercase" | undefined } })}><option value="">Theme default</option><option value="normal">Normal</option><option value="smallcaps">Small caps</option><option value="uppercase">Uppercase</option></select>)}
@@ -1978,6 +1992,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     {category === "First Paragraph" && <>
       {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
       {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Current theme size</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option><option value="xlarge">Extra large</option></select>)}
+      {row("Drop cap typeface", <select value={ty.dropcapFont ?? ""} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapFont: e.target.value || undefined })}>{displayFonts}</select>)}
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
