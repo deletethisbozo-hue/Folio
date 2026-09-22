@@ -380,16 +380,6 @@ function resizeIllustration(event: PointerEvent, state: ResizeState): void {
 
   const maxPercent = wrap === "none" ? 100 : 76;
   const percent = clamp((widthPx / Math.max(1, state.percentBasisWidth)) * 100, 20, maxPercent, state.startScale);
-  state.figure.dataset.folioResizeDebug = JSON.stringify({
-    handle: state.handle,
-    startX: state.startX,
-    currentX: event.clientX,
-    dx,
-    startWidth: state.startWidth,
-    basis: state.percentBasisWidth,
-    widthPx,
-    percent,
-  });
   state.figure.dataset.folioScale = String(Math.round(percent * 10) / 10);
   refreshFigure(state.figure);
 }
