@@ -278,6 +278,7 @@ function Pandoc(doc)
   local out = {}
   local awaiting = false
   local reflow = false
+  local current_chapter_header = nil
   for _, b in ipairs(doc.blocks) do
     if b.t == "Header" and b.level == 1 then
       -- Image-page headings are structural anchors only. Clear their inline
@@ -286,6 +287,7 @@ function Pandoc(doc)
       if has_class(b, "image-page") then b.content = {} end
       awaiting = dropcap and has_class(b, "chapter")
       reflow = has_class(b, "chapter") or has_class(b, "backmatter")
+      current_chapter_header = has_class(b, "chapter") and b or nil
       table.insert(out, b)
     elseif b.t == "HorizontalRule" then
       table.insert(
@@ -299,6 +301,9 @@ function Pandoc(doc)
       -- cap keeps exactly the same line geometry it has without an image.
       if not has_class(b, "folio-chapter-opener") then
         table.insert(b.classes, "folio-chapter-opener")
+      end
+      if current_chapter_header and not has_class(current_chapter_header, "folio-has-chapter-opener") then
+        table.insert(current_chapter_header.classes, "folio-has-chapter-opener")
       end
       table.insert(out, b)
     elseif b.t == "Para" and awaiting then
