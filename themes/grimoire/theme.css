@@ -6,7 +6,7 @@ section.chapter>h1{text-align:center;margin:.8em 0 2.45em;padding:1em .75em .95e
 section.chapter>h1::before{content:"✦  " counter(grimoire-chapter,upper-roman) "  ✦";display:block;margin-bottom:.95em;font-family:Garamond,Georgia,serif;font-size:.32em;font-weight:700;letter-spacing:.24em;color:#745783}
 section.chapter>h1::after{content:"☙  ❦  ❧";display:block;margin:.7em 0 -.12em;font-family:Garamond,Georgia,serif;font-size:.42em;letter-spacing:.3em;color:#765986}
 .chapter-subtitle{margin:-2.15em 0 2.1em}.chapter-subtitle p{font-family:Garamond,Georgia,serif;font-style:italic;color:#6c5278}
-.dropcap{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:3.35em;color:#4b315d}
+.dropcap{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;--folio-dropcap-theme-size: 3.35em;color:#4b315d}
 .scene-break{font-family:Garamond,Georgia,serif;font-size:1.05em;letter-spacing:.25em;color:#674a75}
 section.titlepage>h1{font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;font-size:2.45em;color:#3f2a49;border:4px double #5b4264;padding:.7em}.tp-subtitle{font-style:italic;color:#765986}.tp-author{font-variant:small-caps;letter-spacing:.14em;color:#4b315d}
 section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Old English Text MT",UnifrakturCook,Georgia,serif;border:3px double #6d5873;padding:.4em;color:#493154}
