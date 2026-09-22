@@ -244,11 +244,34 @@ try {
     const rect = handle.getBoundingClientRect();
     return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
   });
-  await page.mouse.move(eastHandle.x + eastHandle.width / 2, eastHandle.y + eastHandle.height / 2);
+  const eastCenter = { x: eastHandle.x + eastHandle.width / 2, y: eastHandle.y + eastHandle.height / 2 };
+  const eastHit = await page.evaluate(({ x, y }) => {
+    const hit = document.elementFromPoint(x, y) as HTMLElement | null;
+    return {
+      tag: hit?.tagName ?? null,
+      cls: hit?.className ?? null,
+      resize: hit?.closest<HTMLElement>(".folio-image-resize")?.dataset.folioResize ?? null,
+    };
+  }, eastCenter);
+  await page.mouse.move(eastCenter.x, eastCenter.y);
   await page.mouse.down();
-  await page.mouse.move(eastHandle.x + eastHandle.width / 2 + 47, eastHandle.y + eastHandle.height / 2, { steps: 12 });
+  const resizeDown = await page.evaluate(() => ({
+    active: document.querySelector(".editor-illustration.folio-image-resizing") !== null,
+    scale: Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0),
+  }));
+  await page.mouse.move(eastCenter.x + 47, eastCenter.y, { steps: 12 });
+  const resizeMoved = await page.evaluate(() => ({
+    active: document.querySelector(".editor-illustration.folio-image-resizing") !== null,
+    scale: Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0),
+  }));
   await page.mouse.up();
-  await page.waitForFunction((oldScale) => Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0) > oldScale, {}, beforeScale);
+  check("east resize handle receives the real pointer drag",
+    eastHit.resize === "e" && resizeDown.active && resizeMoved.scale > beforeScale,
+    JSON.stringify({ eastHit, resizeDown, resizeMoved, beforeScale }));
+  if (!(eastHit.resize === "e" && resizeDown.active && resizeMoved.scale > beforeScale)) {
+    throw new Error("East resize drag did not update illustration width.");
+  }
+  await page.waitForFunction((oldScale) => Number(document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale || 0) > oldScale, { timeout: 5000 }, beforeScale);
 
   const afterEdge = await page.$eval(".editor-illustration", (figure) => Number((figure as HTMLElement).dataset.folioScale || 0));
   const northHandle = await page.$eval(".editor-illustration.folio-image-selected .folio-image-resize-n", (handle) => {
