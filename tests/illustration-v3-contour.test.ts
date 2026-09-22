@@ -113,7 +113,7 @@ try {
     if (!image) throw new Error("Contour illustration image missing after hydration");
     image.click();
   });
-  await page.waitForFunction(() => document.querySelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]"));
+  await page.waitForFunction(() => document.querySelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]'));
   await page.evaluate(() => {
     const button = document.querySelector<HTMLButtonElement>('.folio-illustration-overlay [data-folio-wrap-choice="left"]');
     if (!button) throw new Error("Contour wrap-left control missing after selection");
