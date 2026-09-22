@@ -89,7 +89,9 @@ export function updatePreviewPageCounts(frame: HTMLIFrameElement): void {
   const editor = document.querySelector<HTMLElement>(".rich-editor");
   const chapterWords = countWords(editor?.dataset.markdown || editor?.innerText || "");
   const totalWords = numberFromWordsLabel();
-  const contentHeight = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0);
+  const root = doc.documentElement;
+  if (!root) return;
+  const contentHeight = Math.max(root.scrollHeight, doc.body?.scrollHeight ?? 0);
   const chapterPages = Math.max(1, Math.ceil(contentHeight / frame.clientHeight));
   const observedDensity = chapterWords >= 500 ? chapterWords / chapterPages : profile.wordsPerPage;
   const density = Math.max(profile.wordsPerPage * 0.62, Math.min(profile.wordsPerPage * 1.45, observedDensity));
