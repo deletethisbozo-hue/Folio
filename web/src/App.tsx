@@ -12,6 +12,7 @@ import {
 import { hyphenatePreviewDocument } from "./hyphenation";
 import { composePreviewDocument } from "./compositor";
 import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
+import { applySafeContours } from "./contour-wrap";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
@@ -513,6 +514,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
     template.innerHTML = markdownToPreviewHtml(liveDraft, ornament, (asset) => project ? `/api/projects/${encodeURIComponent(project.projectId)}/asset?path=${encodeURIComponent(asset)}` : asset);
     section.appendChild(template.content);
+    void applySafeContours(previewDocument);
     livePreviewDraftRef.current = liveDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
     applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
@@ -1378,6 +1380,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (!geometryOnly || typeof restoreScroll === "number") {
         doc.scrollingElement?.scrollTo(0, targetScroll);
       }
+      if (previewMode !== "print") void applySafeContours(doc);
       updatePreviewPageCounts(frame);
       const pendingWord = pendingPreviewWordRef.current;
       if (pendingWord) window.setTimeout(() => highlightPreviewWord(pendingWord), 70);
