@@ -892,7 +892,7 @@ function overlapsWrappedIllustration(paragraph: HTMLElement): boolean {
   const section = paragraph.closest<HTMLElement>("section.chapter,section.backmatter,section.frontmatter");
   if (!section) return false;
   const paragraphRect = paragraph.getBoundingClientRect();
-  for (const illustration of Array.from(section.querySelectorAll<HTMLElement>(".folio-illustration-block.folio-wrap-left,.folio-illustration-block.folio-wrap-right"))) {
+  for (const illustration of Array.from(section.querySelectorAll<HTMLElement>(".folio-illustration-block.folio-wrap-left:not(.folio-chapter-opener),.folio-illustration-block.folio-wrap-right:not(.folio-chapter-opener)"))) {
     const rect = illustration.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) continue;
     if (rect.bottom > paragraphRect.top + 0.5 && rect.top < paragraphRect.bottom - 0.5) return true;
