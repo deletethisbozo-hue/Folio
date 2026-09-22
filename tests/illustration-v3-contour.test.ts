@@ -135,7 +135,21 @@ try {
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-shape-contour.folio-wrap-left");
-    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("url("));
+    const image = figure?.querySelector<HTMLImageElement>("img.folio-illustration");
+    if (!doc || !figure || !image?.complete || image.naturalWidth < 50) return false;
+    if (!getComputedStyle(figure).shapeOutside.includes("url(")) return false;
+    let paragraph = figure.nextElementSibling as HTMLElement | null;
+    while (paragraph && (paragraph.tagName !== "P" || (paragraph.textContent?.trim().length ?? 0) < 120)) paragraph = paragraph.nextElementSibling as HTMLElement | null;
+    if (!paragraph) return false;
+    const range = doc.createRange();
+    range.selectNodeContents(paragraph);
+    const fr = figure.getBoundingClientRect();
+    const rects = [...range.getClientRects()].filter((line) =>
+      line.width > 2 &&
+      line.bottom > fr.top + 1 &&
+      line.top < fr.bottom - 1
+    );
+    return rects.length >= 3;
   }, { timeout: 30000 });
 
   const readerGeometry = await page.evaluate(() => {
