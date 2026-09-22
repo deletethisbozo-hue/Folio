@@ -912,6 +912,92 @@ function overlapsWrappedIllustration(paragraph: HTMLElement): boolean {
   return false;
 }
 
+function seatNativeDropCap(paragraph: HTMLElement): void {
+  const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
+  const doc = paragraph.ownerDocument;
+  if (!cap || !doc.defaultView) return;
+
+  // Start from stylesheet defaults on every pass. Size/theme/font changes can
+  // otherwise accumulate old inline corrections.
+  cap.style.removeProperty("margin-top");
+  cap.style.removeProperty("margin-bottom");
+  delete cap.dataset.folioDropcapLines;
+  delete cap.dataset.folioDropcapSeated;
+  void paragraph.offsetHeight;
+
+  const bodyTextWalker = doc.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+  let bodyText: Text | null = null;
+  while (bodyTextWalker.nextNode()) {
+    const node = bodyTextWalker.currentNode as Text;
+    if (cap.contains(node) || !node.data.trim()) continue;
+    bodyText = node;
+    break;
+  }
+  if (!bodyText) return;
+
+  const range = doc.createRange();
+  range.setStart(bodyText, 0);
+  range.setEnd(bodyText, Math.min(20, bodyText.data.length));
+  const firstBodyRect = range.getClientRects()[0];
+  if (!firstBodyRect) return;
+
+  const canvas = doc.createElement("canvas").getContext("2d");
+  if (!canvas) return;
+
+  const capStyle = getComputedStyle(cap);
+  canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+  const capMetrics = canvas.measureText(cap.textContent || "H");
+  const capFontAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent;
+  const capFontDesc = capMetrics.fontBoundingBoxDescent || capMetrics.actualBoundingBoxDescent;
+  const capLineHeight = capStyle.lineHeight === "normal"
+    ? capFontAsc + capFontDesc
+    : pixels(capStyle.lineHeight) || capFontAsc + capFontDesc;
+
+  const bodyStyle = getComputedStyle(paragraph);
+  canvas.font = `${bodyStyle.fontStyle} ${bodyStyle.fontWeight} ${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
+  const bodyMetrics = canvas.measureText("Hh");
+  const bodyFontAsc = bodyMetrics.fontBoundingBoxAscent || bodyMetrics.actualBoundingBoxAscent;
+  const bodyFontDesc = bodyMetrics.fontBoundingBoxDescent || bodyMetrics.actualBoundingBoxDescent;
+  const bodyLineHeight = bodyStyle.lineHeight === "normal"
+    ? bodyFontAsc + bodyFontDesc
+    : pixels(bodyStyle.lineHeight) || bodyFontAsc + bodyFontDesc;
+
+  // Optical top: align visible ink, not the font's line box.
+  const capRect0 = cap.getBoundingClientRect();
+  const capBaseline0 =
+    capRect0.top +
+    pixels(capStyle.paddingTop) +
+    (capLineHeight - (capFontAsc + capFontDesc)) / 2 +
+    capFontAsc;
+  const capInkTop0 = capBaseline0 - capMetrics.actualBoundingBoxAscent;
+
+  const bodyBaseline =
+    firstBodyRect.top +
+    (bodyLineHeight - (bodyFontAsc + bodyFontDesc)) / 2 +
+    bodyFontAsc;
+  const bodyInkTop = bodyBaseline - bodyMetrics.actualBoundingBoxAscent;
+  const topDelta = capInkTop0 - bodyInkTop;
+  const baseTopMargin = pixels(capStyle.marginTop);
+  if (Math.abs(topDelta) > 0.25) {
+    cap.style.marginTop = `${baseTopMargin - topDelta}px`;
+    void paragraph.offsetHeight;
+  }
+
+  // Optical depth: choose how many body lines the VISIBLE capital occupies,
+  // then end the float exactly at that line-grid boundary. This removes the
+  // "stair step" caused by wrapping around the font box instead of the glyph.
+  const inkHeight = Math.max(1, capMetrics.actualBoundingBoxAscent + capMetrics.actualBoundingBoxDescent);
+  const seatLines = Math.max(2, Math.min(5, Math.round(inkHeight / Math.max(1, bodyLineHeight))));
+
+  const bodyRect = range.getClientRects()[0] ?? firstBodyRect;
+  const bodyLineBoxTop = bodyRect.top - Math.max(0, (bodyLineHeight - bodyRect.height) / 2);
+  const desiredFloatBottom = bodyLineBoxTop + seatLines * bodyLineHeight - 0.5;
+  const capRect = cap.getBoundingClientRect();
+  cap.style.marginBottom = `${desiredFloatBottom - capRect.bottom}px`;
+  cap.dataset.folioDropcapLines = String(seatLines);
+  cap.dataset.folioDropcapSeated = "true";
+}
+
 function composeParagraph(paragraph: HTMLElement, language: string, sectionStats: SectionHyphenStats): void {
   if (
     paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
@@ -929,6 +1015,7 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
     paragraph.classList.add("folio-native-dropcap");
     paragraph.classList.remove("folio-float-native");
     paragraph.style.removeProperty("min-height");
+    seatNativeDropCap(paragraph);
     return;
   }
 
