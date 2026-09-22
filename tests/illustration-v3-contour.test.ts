@@ -96,8 +96,17 @@ try {
   });
   check("PNG defaults to semantic contour wrap", true);
 
-  await page.click(".editor-illustration img[data-folio-asset]");
-  await page.click('.editor-illustration [data-folio-wrap-choice="left"]');
+  await page.evaluate(() => {
+    const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
+    if (!image) throw new Error("Contour illustration image missing after hydration");
+    image.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".editor-illustration.folio-image-selected .folio-image-inspector"));
+  await page.evaluate(() => {
+    const button = document.querySelector<HTMLButtonElement>('.editor-illustration [data-folio-wrap-choice="left"]');
+    if (!button) throw new Error("Contour wrap-left control missing after selection");
+    button.click();
+  });
   await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="scale"]', (input) => {
     input.value = "55";
     input.dispatchEvent(new Event("input", { bubbles: true }));
