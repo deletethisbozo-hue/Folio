@@ -8,6 +8,7 @@ import { buildDocCss, epubFontFiles } from "./doc-css.ts";
 import { buildThemeRuntimeCss } from "./theme-fonts.ts";
 import { getPreset } from "../presets.ts";
 import { readEpubEntries, writeEpub, reorderSpineToc } from "./epub-zip.ts";
+import { applyIllustrationContours } from "./illustration-shapes.ts";
 
 export interface EpubResult {
   buffer: Buffer;
@@ -36,6 +37,24 @@ async function reorderToc(buffer: Buffer, book: Book): Promise<Buffer> {
     if (reordered === opf) return buffer;
     opfEntry.data = Buffer.from(reordered, "utf8");
     return Buffer.from(writeEpub(entries));
+  } catch {
+    return buffer;
+  }
+}
+
+async function applyEpubIllustrationContours(buffer: Buffer): Promise<Buffer> {
+  try {
+    const entries = await readEpubEntries(buffer);
+    let changed = false;
+    for (const entry of entries) {
+      if (!/\.xhtml$/i.test(entry.name)) continue;
+      const source = Buffer.from(entry.data).toString("utf8");
+      const shaped = applyIllustrationContours(source);
+      if (shaped === source) continue;
+      entry.data = Buffer.from(shaped, "utf8");
+      changed = true;
+    }
+    return changed ? Buffer.from(writeEpub(entries)) : buffer;
   } catch {
     return buffer;
   }
@@ -100,6 +119,7 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
     await runPandoc(args, md);
     let buffer: Buffer = await fs.readFile(outPath);
     buffer = await reorderToc(buffer, book);
+    buffer = await applyEpubIllustrationContours(buffer);
     return { buffer, bytes: buffer.length, preset: presetName };
   } finally {
     await cleanup(ws);
