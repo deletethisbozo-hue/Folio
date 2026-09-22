@@ -64,73 +64,71 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
     let blockFallbacks = 0;
     let narrowestEm = Number.POSITIVE_INFINITY;
 
-    const measure = (figure: HTMLElement) => {
-      const figureRect = figure.getBoundingClientRect();
-      const affected: HTMLElement[] = [];
-      const widthsEm: number[] = [];
-      let sibling = figure.nextElementSibling as HTMLElement | null;
-      while (sibling) {
-        if (sibling.matches("h1,h2,h3,.scene-break,.folio-illustration-block")) break;
-        const rect = sibling.getBoundingClientRect();
-        if (rect.top >= figureRect.bottom - 1) break;
-        if (sibling.tagName === "P") {
-          const range = document.createRange();
-          range.selectNodeContents(sibling);
-          const fontSize = Number.parseFloat(getComputedStyle(sibling).fontSize) || 16;
-          const lineRects = [...range.getClientRects()].filter((line) =>
-            line.width > 2 &&
-            line.bottom > figureRect.top + 1 &&
-            line.top < figureRect.bottom - 1
-          );
-          if (lineRects.length) {
-            affected.push(sibling);
-            for (const line of lineRects) widthsEm.push(line.width / fontSize);
-          }
-        }
-        sibling = sibling.nextElementSibling as HTMLElement | null;
-      }
-      return { figureRect, affected, widthsEm };
-    };
-
-    const quality = (widthsEm: number[]) => {
-      const severeLines = widthsEm.filter((width) => width < 8.5).length;
-      const narrowLines = widthsEm.filter((width) => width < 13).length;
-      return {
-        severeLines,
-        narrowLines,
-        severe: severeLines >= 3 && severeLines / Math.max(1, widthsEm.length) >= 0.34,
-      };
-    };
-
     for (const figure of figures) {
-      let sample = measure(figure);
-      if (sample.figureRect.width <= 0 || sample.figureRect.height <= 0 || !sample.widthsEm.length) continue;
+      let figureRect = figure.getBoundingClientRect();
+      if (figureRect.width <= 0 || figureRect.height <= 0) continue;
 
       const container = figure.parentElement?.getBoundingClientRect();
-      const containerWidth = Math.max(1, container?.width || sample.figureRect.width);
-      const originalPercent = sample.figureRect.width / containerWidth * 100;
+      const containerWidth = Math.max(1, container?.width || figureRect.width);
+      const originalPercent = figureRect.width / containerWidth * 100;
       let printPercent = originalPercent;
-      let q = quality(sample.widthsEm);
+      let finalAffected: HTMLElement[] = [];
+      let finalWidthsEm: number[] = [];
+      let severe = false;
+      let narrowLines = 0;
 
-      // Preserve the user's float and contour first. If print measure is too
-      // narrow, reduce only the print clone in small 4%-point steps. This is
-      // deliberately non-destructive: editor/reader/project width stay intact.
-      for (let attempt = 0; q.severe && attempt < 6 && printPercent > 31; attempt++) {
+      for (let attempt = 0; attempt < 7; attempt++) {
+        figureRect = figure.getBoundingClientRect();
+        const affected: HTMLElement[] = [];
+        const widthsEm: number[] = [];
+
+        let sibling = figure.nextElementSibling as HTMLElement | null;
+        while (sibling) {
+          if (sibling.matches("h1,h2,h3,.scene-break,.folio-illustration-block")) break;
+          const rect = sibling.getBoundingClientRect();
+          if (rect.top >= figureRect.bottom - 1) break;
+          if (sibling.tagName === "P") {
+            const range = document.createRange();
+            range.selectNodeContents(sibling);
+            const fontSize = Number.parseFloat(getComputedStyle(sibling).fontSize) || 16;
+            const lineRects = [...range.getClientRects()].filter((line) =>
+              line.width > 2 &&
+              line.bottom > figureRect.top + 1 &&
+              line.top < figureRect.bottom - 1
+            );
+            if (lineRects.length) {
+              affected.push(sibling);
+              for (const line of lineRects) widthsEm.push(line.width / fontSize);
+            }
+          }
+          sibling = sibling.nextElementSibling as HTMLElement | null;
+        }
+
+        finalAffected = affected;
+        finalWidthsEm = widthsEm;
+        if (!widthsEm.length) {
+          severe = false;
+          narrowLines = 0;
+          break;
+        }
+
+        const severeLines = widthsEm.filter((width) => width < 8.5).length;
+        narrowLines = widthsEm.filter((width) => width < 13).length;
+        severe = severeLines >= 3 && severeLines / widthsEm.length >= 0.34;
+
+        if (!severe || printPercent <= 31 || attempt === 6) break;
+
         const nextPercent = Math.max(31, printPercent - 4);
         if (Math.abs(nextPercent - printPercent) < 0.1) break;
         printPercent = nextPercent;
         figure.style.width = `${printPercent}%`;
         figure.style.maxWidth = "none";
         figure.dataset.folioPrintScale = String(Math.round(printPercent));
-        sample = measure(figure);
-        q = quality(sample.widthsEm);
       }
 
       if (printPercent + 0.1 < originalPercent) autoScaled++;
 
-      // Only a truly pathological remainder loses the float. Most cases should
-      // have been repaired by print-only scaling above.
-      if (q.severe) {
+      if (severe) {
         figure.style.float = "none";
         figure.style.removeProperty("shape-outside");
         figure.style.removeProperty("shape-image-threshold");
@@ -142,13 +140,12 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
         continue;
       }
 
-      const finalMinimum = Math.min(...sample.widthsEm);
-      narrowestEm = Math.min(narrowestEm, finalMinimum);
+      if (finalWidthsEm.length) {
+        narrowestEm = Math.min(narrowestEm, ...finalWidthsEm);
+      }
 
-      // A moderately narrow corridor is readable when set ragged-right and
-      // hyphenated; forcing full justification here creates obvious rivers.
-      if (q.narrowLines >= 3) {
-        for (const paragraph of sample.affected) {
+      if (narrowLines >= 3) {
+        for (const paragraph of finalAffected) {
           paragraph.classList.add("folio-wrap-ragged");
           paragraph.style.textAlign = "left";
           paragraph.style.textAlignLast = "left";
