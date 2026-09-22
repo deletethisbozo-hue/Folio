@@ -119,7 +119,7 @@ try {
     if (!image) throw new Error("Inserted image missing");
     image.click();
   });
-  await page.waitForSelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
+  await page.waitForSelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]');
 
   // Small image: controls must stay independent of the figure's own box.
   await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="scale"]', (input) => {
@@ -130,7 +130,7 @@ try {
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale === "25");
 
   const inspector = await page.evaluate(() => {
-    const toolbar = document.querySelector<HTMLElement>(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
+    const toolbar = document.querySelector<HTMLElement>('.folio-illustration-overlay .folio-image-inspector[data-open="true"]');
     const gap = toolbar?.querySelector<HTMLElement>('[data-folio-control="gap"]');
     if (!toolbar || !gap) return null;
     const r = toolbar.getBoundingClientRect();
