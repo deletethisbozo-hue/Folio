@@ -74,6 +74,11 @@ try {
   };
 
   await openFirstParagraphSettings();
+  const bookStylesFont = await page.$eval(".style-library-header h2", (node) => getComputedStyle(node).fontFamily);
+  const uiFontOk = !/Georgia|Times New Roman/i.test(bookStylesFont);
+  check("Book Styles header keeps the UI sans-serif font", uiFontOk, bookStylesFont);
+  if (!uiFontOk) throw new Error("Book Styles header fell back to manuscript serif font");
+
   await page.evaluate(() => {
     const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
     const dropRow = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap");
@@ -100,8 +105,8 @@ try {
     const bodySize = parseFloat(getComputedStyle(para).fontSize);
     return Number.isFinite(capSize) && Number.isFinite(bodySize) &&
       capSize >= bodySize * 2.5 &&
-      para.classList.contains("folio-composed-dropcap") &&
-      cap.classList.contains("folio-composed-cap");
+      para.classList.contains("folio-native-dropcap") &&
+      getComputedStyle(cap).float === "left";
   });
 
   const measureDropcap = async () => page.evaluate(() => {
@@ -111,9 +116,8 @@ try {
     if (!doc || !cap || !para) return null;
     const cr = cap.getBoundingClientRect();
     const pr = para.getBoundingClientRect();
-    const nextPara = Array.from(para.parentElement?.children ?? []).find((node) =>
-      node instanceof HTMLElement && node.tagName === "P" && node !== para && node.getBoundingClientRect().top >= pr.bottom - 0.5
-    ) as HTMLElement | undefined;
+    let nextPara = para.nextElementSibling as HTMLElement | null;
+    while (nextPara && nextPara.tagName !== "P") nextPara = nextPara.nextElementSibling as HTMLElement | null;
     let bodyText: Text | null = null;
     const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
@@ -160,17 +164,24 @@ try {
     const para = cap?.closest<HTMLElement>("p");
     if (!doc || !cap || !para) return null;
     const cr = cap.getBoundingClientRect();
-    const lines = Array.from(para.querySelectorAll<HTMLElement>(":scope > .folio-composed-line"));
-    const collisions = lines.map((line, index) => {
-      const lr = line.getBoundingClientRect();
-      const vertical = lr.bottom > cr.top + .5 && lr.top < cr.bottom - .5;
-      const horizontal = lr.left < cr.right - .5 && lr.right > cr.left + .5;
-      return vertical && horizontal ? { index, line: lr.toJSON() } : null;
-    }).filter(Boolean);
+    const collisions: Array<{ left: number; top: number; right: number; bottom: number }> = [];
+    const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const range = doc.createRange();
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        const vertical = rect.bottom > cr.top + .5 && rect.top < cr.bottom - .5;
+        const horizontal = rect.left < cr.right - .5 && rect.right > cr.left + .5;
+        if (vertical && horizontal) collisions.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
+      }
+    }
     return {
       cap: cr.toJSON(),
-      lineCount: lines.length,
-      reservedLines: Number(para.dataset.folioDropcapLines ?? 0),
+      float: getComputedStyle(cap).float,
+      position: getComputedStyle(cap).position,
       collisions,
     };
   });
@@ -283,9 +294,9 @@ try {
     return getComputedStyle(opener).float === "none" &&
       getComputedStyle(opener).shapeOutside === "none" &&
       pr.top >= or.bottom - 1 &&
-      para.classList.contains("folio-composed-dropcap") &&
-      cap.classList.contains("folio-composed-cap") &&
-      !para.classList.contains("folio-float-native");
+      para.classList.contains("folio-native-dropcap") &&
+      getComputedStyle(cap).float === "left" &&
+      !para.classList.contains("folio-composed-dropcap");
   });
 
   await authoritativeAfterOpener;
@@ -294,7 +305,7 @@ try {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
     const para = cap?.closest<HTMLElement>("p");
-    return Boolean(cap && para?.classList.contains("folio-composed-dropcap") && cap.classList.contains("folio-composed-cap"));
+    return Boolean(cap && para?.classList.contains("folio-native-dropcap") && getComputedStyle(cap).float === "left");
   });
 
   const after = await measureDropcap();
@@ -362,11 +373,11 @@ try {
   if (!medium || medium.fontSize <= baseline.fontSize * 1.15) throw new Error("Drop cap size override disappeared after server preview");
 
   const mediumCollision = await measureCapLineCollisions();
-  check("Medium drop cap reserves enough composed lines",
-    Boolean(mediumCollision && mediumCollision.reservedLines >= 3 && mediumCollision.collisions.length === 0),
+  check("Medium drop cap uses native float without entering prose",
+    Boolean(mediumCollision && mediumCollision.float === "left" && mediumCollision.position !== "absolute" && mediumCollision.collisions.length === 0),
     JSON.stringify(mediumCollision));
-  if (!mediumCollision || mediumCollision.reservedLines < 3 || mediumCollision.collisions.length) {
-    throw new Error("Medium drop cap overlaps composed prose");
+  if (!mediumCollision || mediumCollision.float !== "left" || mediumCollision.position === "absolute" || mediumCollision.collisions.length) {
+    throw new Error("Medium drop cap overlaps prose");
   }
 
   await openFirstParagraphSettings();
@@ -390,7 +401,8 @@ try {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
     const para = cap?.closest<HTMLElement>("p");
-    return Boolean(cap && para?.classList.contains("folio-composed-dropcap") &&
+    return Boolean(cap && para?.classList.contains("folio-native-dropcap") &&
+      getComputedStyle(cap).float === "left" &&
       parseFloat(getComputedStyle(cap).fontSize) > Number(mediumSize) * 1.12);
   }, {}, medium.fontSize);
 
@@ -399,7 +411,8 @@ try {
   check("Extra large drop cap grows without entering prose",
     Boolean(xlarge && xlargeCollision &&
       xlarge.fontSize > medium.fontSize * 1.12 &&
-      xlargeCollision.reservedLines >= mediumCollision.reservedLines &&
+      xlargeCollision.float === "left" &&
+      xlargeCollision.position !== "absolute" &&
       xlargeCollision.collisions.length === 0),
     JSON.stringify({ medium, xlarge, collision: xlargeCollision }));
   if (!xlarge || !xlargeCollision || xlargeCollision.collisions.length) {
