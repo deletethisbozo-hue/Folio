@@ -384,7 +384,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
-    }, previewDraft.length > 250_000 ? 650 : 220);
+    }, previewDraft.length > 250_000 ? 1100 : previewDraft.length > 100_000 ? 850 : 520);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
@@ -843,7 +843,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       figure.dataset.folioY = "50";
       figure.dataset.folioWrap = "right";
       figure.dataset.folioShape = file.type === "image/png" ? "contour" : "box";
-      figure.dataset.folioGap = "65";
+      figure.dataset.folioGap = "45";
       figure.contentEditable = "false";
       const image = window.document.createElement("img");
       image.src = uploaded.url;
@@ -859,28 +859,21 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
       const savedRange = illustrationRangeRef.current;
       let anchor: HTMLElement | null = null;
-      let insertAfter = false;
       if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {
         const rawNode = savedRange.startContainer;
         const element = rawNode.nodeType === Node.ELEMENT_NODE
           ? rawNode as Element
           : rawNode.parentElement;
         anchor = element?.closest<HTMLElement>("p,h1,h2,h3,h4,h5,h6,blockquote,ul,ol,.editor-scene-break,.editor-illustration") ?? null;
-        if (anchor && editor.contains(anchor)) {
-          const caretRect = savedRange.getBoundingClientRect();
-          const anchorRect = anchor.getBoundingClientRect();
-          if (caretRect.height || caretRect.width) insertAfter = caretRect.top >= anchorRect.top + anchorRect.height / 2;
-        } else {
-          anchor = null;
-        }
+        if (anchor && !editor.contains(anchor)) anchor = null;
       }
 
-      if (anchor) {
-        if (insertAfter) anchor.insertAdjacentElement("afterend", figure);
-        else editor.insertBefore(figure, anchor);
-      } else {
-        editor.appendChild(figure);
-      }
+      // Images are block-level anchored objects. Never guess "before or after"
+      // from the caret's vertical pixel position inside a multi-line paragraph:
+      // that can reorder prose and create apparent page-break jumps. Insert
+      // deterministically after the semantic block containing the caret.
+      if (anchor) anchor.insertAdjacentElement("afterend", figure);
+      else editor.appendChild(figure);
       illustrationRangeRef.current = null;
 
       // Commit the anchored illustration synchronously from the live editor DOM.
