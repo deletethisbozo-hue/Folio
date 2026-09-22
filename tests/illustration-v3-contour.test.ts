@@ -137,7 +137,7 @@ try {
       intrudes: lefts.some((left) => left < fr.right - 8),
     };
   });
-  const editorContour = Boolean(editorGeometry && editorGeometry.shape.includes("url(") && editorGeometry.spread > 18 && editorGeometry.intrudes);
+  const editorContour = Boolean(editorGeometry && editorGeometry.shape.includes("polygon(") && editorGeometry.spread > 18 && editorGeometry.intrudes);
   check("editor text follows PNG alpha contour instead of a rectangle", editorContour, JSON.stringify(editorGeometry));
   if (!editorContour) throw new Error("Editor contour geometry stayed rectangular.");
 
