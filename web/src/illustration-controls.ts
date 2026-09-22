@@ -1,4 +1,5 @@
 type WrapMode = "none" | "left" | "right";
+type ShapeMode = "box" | "contour";
 
 type DragState = {
   kind: "move";
@@ -42,6 +43,10 @@ function wrapMode(figure: HTMLElement): WrapMode {
   return "none";
 }
 
+function shapeMode(figure: HTMLElement): ShapeMode {
+  return figure.dataset.folioShape === "contour" ? "contour" : "box";
+}
+
 function inspectorMarkup(): string {
   return `<div class="editor-illustration-controls folio-image-inspector" contenteditable="false" role="toolbar" aria-label="Illustration">
     <div class="folio-wrap-group" role="group" aria-label="Text wrap">
@@ -50,6 +55,11 @@ function inspectorMarkup(): string {
       <button type="button" data-folio-wrap-choice="right" title="Wrap text on the left">Right</button>
     </div>
     <label class="folio-size-slider" title="Illustration width"><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="1"></label>
+    <div class="folio-shape-group" role="group" aria-label="Wrap shape">
+      <button type="button" data-folio-shape-choice="box" title="Wrap around the image rectangle">Box</button>
+      <button type="button" data-folio-shape-choice="contour" title="Wrap around transparent PNG pixels">Contour</button>
+    </div>
+    <label class="folio-gap-slider" title="Distance between text and illustration contour"><span>Gap</span><input data-folio-control="gap" type="range" min="0" max="150" step="5"></label>
     <button type="button" data-folio-control="crop" aria-pressed="false">Crop</button>
     <select data-folio-control="ratio" aria-label="Crop ratio">
       <option value="1-1">1:1</option>
@@ -71,15 +81,35 @@ function selectFigure(figure: HTMLElement | null): void {
   selectedFigure?.classList.add("folio-image-selected");
 }
 
-function applyWrapLayout(figure: HTMLElement): void {
+function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
   const wrap = wrapMode(figure);
+  const shape = shapeMode(figure);
+  const gap = clamp(figure.dataset.folioGap, 0, 150, 65);
+  const crop = figure.dataset.folioCrop === "true";
   figure.classList.toggle("folio-wrap-left", wrap === "left");
   figure.classList.toggle("folio-wrap-right", wrap === "right");
   figure.classList.toggle("folio-wrap-none", wrap === "none");
+  figure.classList.toggle("folio-shape-contour", shape === "contour");
   figure.style.float = wrap === "none" ? "none" : wrap;
-  if (wrap === "left") figure.style.margin = "0.22em 1.05em .8em 0";
-  else if (wrap === "right") figure.style.margin = "0.22em 0 .8em 1.05em";
-  else figure.style.margin = "1em auto";
+
+  /* Box mode uses a conventional rectangular gutter. Contour mode delegates
+   * the exclusion geometry to the PNG alpha channel, so transparent corners
+   * no longer reserve empty rectangular space. */
+  const useContour = wrap !== "none" && shape === "contour" && !crop && Boolean(image.currentSrc || image.src);
+  if (useContour) {
+    const src = image.currentSrc || image.src;
+    figure.style.margin = wrap === "left" ? "0.18em .18em .7em 0" : "0.18em 0 .7em .18em";
+    figure.style.setProperty("shape-outside", `url("${src.replace(/"/g, '%22')}")`);
+    figure.style.setProperty("shape-image-threshold", ".08");
+    figure.style.setProperty("shape-margin", `${gap / 100}em`);
+  } else {
+    figure.style.removeProperty("shape-outside");
+    figure.style.removeProperty("shape-image-threshold");
+    figure.style.removeProperty("shape-margin");
+    if (wrap === "left") figure.style.margin = "0.22em 1.05em .8em 0";
+    else if (wrap === "right") figure.style.margin = "0.22em 0 .8em 1.05em";
+    else figure.style.margin = "1em auto";
+  }
 }
 
 function refreshFigure(figure: HTMLElement): void {
@@ -92,6 +122,8 @@ function refreshFigure(figure: HTMLElement): void {
   const x = clamp(figure.dataset.folioX, 0, 100, 50);
   const y = clamp(figure.dataset.folioY, 0, 100, 50);
   const wrap = wrapMode(figure);
+  const shape = shapeMode(figure);
+  const gap = clamp(figure.dataset.folioGap, 0, 150, 65);
 
   figure.dataset.folioScale = String(Math.round(scale));
   figure.dataset.folioCrop = String(crop);
@@ -99,8 +131,10 @@ function refreshFigure(figure: HTMLElement): void {
   figure.dataset.folioX = String(Math.round(x));
   figure.dataset.folioY = String(Math.round(y));
   figure.dataset.folioWrap = wrap;
+  figure.dataset.folioShape = shape;
+  figure.dataset.folioGap = String(Math.round(gap));
   figure.style.width = `${scale}%`;
-  applyWrapLayout(figure);
+  applyWrapLayout(figure, image);
 
   image.draggable = false;
   image.style.width = "100%";
@@ -114,8 +148,15 @@ function refreshFigure(figure: HTMLElement): void {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+  figure.querySelectorAll<HTMLButtonElement>("[data-folio-shape-choice]").forEach((button) => {
+    const active = button.dataset.folioShapeChoice === shape;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+    button.disabled = crop && button.dataset.folioShapeChoice === "contour";
+  });
 
   const scaleInput = figure.querySelector<HTMLInputElement>('[data-folio-control="scale"]');
+  const gapInput = figure.querySelector<HTMLInputElement>('[data-folio-control="gap"]');
   const ratioInput = figure.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]');
   const xInput = figure.querySelector<HTMLInputElement>('[data-folio-control="x"]');
   const yInput = figure.querySelector<HTMLInputElement>('[data-folio-control="y"]');
@@ -123,6 +164,10 @@ function refreshFigure(figure: HTMLElement): void {
   const size = figure.querySelector<HTMLElement>(".folio-image-size");
 
   if (scaleInput) scaleInput.value = String(Math.round(scale));
+  if (gapInput) {
+    gapInput.value = String(Math.round(gap));
+    gapInput.disabled = wrap === "none" || shape !== "contour" || crop;
+  }
   if (ratioInput) {
     ratioInput.value = ratio;
     ratioInput.disabled = !crop;
@@ -149,6 +194,8 @@ function hydrateFigure(figure: HTMLElement): void {
   if (!figure.dataset.folioX) figure.dataset.folioX = "50";
   if (!figure.dataset.folioY) figure.dataset.folioY = "50";
   if (!figure.dataset.folioWrap) figure.dataset.folioWrap = "right";
+  if (!figure.dataset.folioShape) figure.dataset.folioShape = "box";
+  if (!figure.dataset.folioGap) figure.dataset.folioGap = "65";
 
   let controls = figure.querySelector<HTMLElement>(".editor-illustration-controls");
   if (!controls) {
@@ -200,6 +247,7 @@ function setWrap(figure: HTMLElement, wrap: WrapMode, dirty = true): void {
 function updateControl(control: HTMLElement, figure: HTMLElement): void {
   const kind = control.dataset.folioControl;
   if (kind === "scale" && control instanceof HTMLInputElement) figure.dataset.folioScale = String(clamp(control.value, 25, 100, 42));
+  if (kind === "gap" && control instanceof HTMLInputElement) figure.dataset.folioGap = String(clamp(control.value, 0, 150, 65));
   if (kind === "ratio" && control instanceof HTMLSelectElement) figure.dataset.folioRatio = control.value || "4-3";
   if (kind === "x" && control instanceof HTMLInputElement) figure.dataset.folioX = String(clamp(control.value, 0, 100, 50));
   if (kind === "y" && control instanceof HTMLInputElement) figure.dataset.folioY = String(clamp(control.value, 0, 100, 50));
@@ -353,11 +401,24 @@ export function installIllustrationControls(): void {
       return;
     }
 
+    const shapeButton = target?.closest<HTMLButtonElement>("[data-folio-shape-choice]");
+    if (figure && shapeButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (shapeButton.disabled) return;
+      figure.dataset.folioShape = shapeButton.dataset.folioShapeChoice === "contour" ? "contour" : "box";
+      refreshFigure(figure);
+      dispatchDirty(figure, true);
+      selectFigure(figure);
+      return;
+    }
+
     const cropButton = target?.closest<HTMLButtonElement>('[data-folio-control="crop"]');
     if (figure && cropButton) {
       event.preventDefault();
       event.stopPropagation();
       figure.dataset.folioCrop = figure.dataset.folioCrop === "true" ? "false" : "true";
+      if (figure.dataset.folioCrop === "true" && figure.dataset.folioShape === "contour") figure.dataset.folioShape = "box";
       refreshFigure(figure);
       dispatchDirty(figure, true);
       selectFigure(figure);
