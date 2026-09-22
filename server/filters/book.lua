@@ -194,12 +194,21 @@ local function illustration_div(image, owner)
   if has_class(image, "folio-wrap-right") or has_class(source, "folio-wrap-right") then
     table.insert(classes, "folio-wrap-right")
   end
+  if has_class(image, "folio-shape-contour") or has_class(source, "folio-shape-contour") then
+    table.insert(classes, "folio-shape-contour")
+  end
 
   local attrs = {}
   local width = nil
-  if image.attributes then width = image.attributes["width"] end
+  local gap = nil
+  if image.attributes then
+    width = image.attributes["width"]
+    gap = image.attributes["data-folio-gap"]
+  end
   if (not width or width == "") and source.attributes then width = source.attributes["width"] end
+  if (not gap or gap == "") and source.attributes then gap = source.attributes["data-folio-gap"] end
   if width and width ~= "" then attrs["style"] = "width:" .. width end
+  if gap and gap ~= "" then attrs["data-folio-gap"] = gap end
 
   return pandoc.Div({ pandoc.Plain({ image }) }, pandoc.Attr("", classes, attrs))
 end
