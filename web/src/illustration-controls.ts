@@ -191,6 +191,22 @@ function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
   figure.classList.toggle("folio-wrap-right", wrap === "right");
   figure.classList.toggle("folio-wrap-none", wrap === "none");
   figure.classList.toggle("folio-shape-contour", shape === "contour");
+
+  const opener = figure.classList.contains("folio-chapter-opener-editor");
+  if (opener) {
+    // Chapter-opening artwork is alignment-only. Never start a float or contour
+    // pass here: either can make the first paragraph enter the image's geometry.
+    figure.style.float = "none";
+    figure.style.removeProperty("shape-outside");
+    figure.style.removeProperty("shape-image-threshold");
+    figure.style.removeProperty("shape-margin");
+    delete figure.dataset.folioContourReady;
+    if (wrap === "left") figure.style.margin = "0 auto .55em 0";
+    else if (wrap === "right") figure.style.margin = "0 0 .55em auto";
+    else figure.style.margin = "0 auto .55em";
+    return;
+  }
+
   figure.style.float = wrap === "none" ? "none" : wrap;
 
   /* V4 never trusts browser alpha wrapping directly. Until the safety polygon
@@ -339,7 +355,7 @@ function hydrateFigure(figure: HTMLElement): void {
   }
 }
 
-function syncChapterOpener(editor: HTMLElement): void {
+function syncChapterOpener(editor: HTMLElement, refreshChanged = true): void {
   const blocks = Array.from(editor.children).filter((node): node is HTMLElement => {
     if (!(node instanceof HTMLElement) || node.classList.contains("folio-drag-placeholder")) return false;
     if (node.tagName === "P" && !(node.textContent?.trim()) && !node.querySelector("img")) return false;
@@ -347,13 +363,18 @@ function syncChapterOpener(editor: HTMLElement): void {
   });
   const opener = blocks[0]?.classList.contains("editor-illustration") ? blocks[0] : null;
   editor.querySelectorAll<HTMLElement>(":scope > .editor-illustration").forEach((figure) => {
-    figure.classList.toggle("folio-chapter-opener-editor", figure === opener);
+    const shouldBeOpener = figure === opener;
+    const changed = figure.classList.contains("folio-chapter-opener-editor") !== shouldBeOpener;
+    figure.classList.toggle("folio-chapter-opener-editor", shouldBeOpener);
+    if (changed && refreshChanged && figure.querySelector("img[data-folio-asset]")) refreshFigure(figure);
   });
 }
 
 function hydrateAll(): void {
+  // Classification must happen BEFORE hydration. V6 hydrated a new top image as
+  // a normal float/contour and only afterwards called it an opener.
+  document.querySelectorAll<HTMLElement>(".rich-editor").forEach((editor) => syncChapterOpener(editor, false));
   document.querySelectorAll<HTMLElement>(".rich-editor .editor-illustration").forEach(hydrateFigure);
-  document.querySelectorAll<HTMLElement>(".rich-editor").forEach(syncChapterOpener);
 }
 
 function dispatchDirty(figure: HTMLElement, immediate = false): void {
