@@ -186,8 +186,64 @@ try {
     };
   });
 
+  const measureUnderCapHole = async () => page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    const para = cap?.closest<HTMLElement>("p");
+    if (!doc || !cap || !para) return null;
+    const cr = cap.getBoundingClientRect();
+    const rects: DOMRect[] = [];
+    const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const range = doc.createRange();
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width > 1 && rect.height > 1) rects.push(rect);
+      }
+    }
+    const lines = [...new Map(
+      rects
+        .sort((a, b) => a.top - b.top || a.left - b.left)
+        .map((r) => [Math.round(r.top * 2) / 2, r])
+    ).values()].sort((a, b) => a.top - b.top);
+    if (lines.length < 4) return null;
+
+    const firstBelowIndex = lines.findIndex((r) => r.top >= cr.bottom - 0.5);
+    if (firstBelowIndex <= 0) return null;
+    const previous = lines[firstBelowIndex - 1];
+    const firstBelow = lines[firstBelowIndex];
+    const returnGap = firstBelow.top - previous.bottom;
+
+    const normalGaps: number[] = [];
+    for (let i = firstBelowIndex + 1; i < lines.length; i++) {
+      const gap = lines[i].top - lines[i - 1].bottom;
+      if (gap >= -0.5 && gap < 50) normalGaps.push(gap);
+    }
+    normalGaps.sort((a, b) => a - b);
+    const normalGap = normalGaps.length
+      ? normalGaps[Math.floor(normalGaps.length / 2)]
+      : 0;
+
+    return {
+      cap: cr.toJSON(),
+      returnGap,
+      normalGap,
+      excessGap: returnGap - normalGap,
+      firstBelow: firstBelow.toJSON(),
+      previous: previous.toJSON(),
+      lineCount: lines.length,
+    };
+  });
+
   const baseline = await measureDropcap();
   if (!baseline) throw new Error("Baseline drop cap geometry unavailable");
+  const smallHole = await measureUnderCapHole();
+  check("Small drop cap has no artificial hole underneath",
+    Boolean(smallHole && smallHole.excessGap <= 2),
+    JSON.stringify(smallHole));
+  if (!smallHole || smallHole.excessGap > 2) throw new Error("Small drop cap leaves an artificial gap underneath");
 
   // Insert normally, then use the same direct manipulation path a user uses to
   // move the illustration to the very top of chapter body.
@@ -425,6 +481,12 @@ try {
   if (Math.abs((xlarge.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) >= 1.5) {
     throw new Error("Drop cap size created extra paragraph spacing");
   }
+
+  const xlargeHole = await measureUnderCapHole();
+  check("Extra large drop cap has no artificial hole underneath",
+    Boolean(xlargeHole && xlargeHole.excessGap <= 2),
+    JSON.stringify(xlargeHole));
+  if (!xlargeHole || xlargeHole.excessGap > 2) throw new Error("Extra large drop cap leaves an artificial gap underneath");
 
   await page.close();
 } catch (error) {
