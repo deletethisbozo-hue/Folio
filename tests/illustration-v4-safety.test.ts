@@ -64,6 +64,11 @@ try {
   await chooser.accept([fixture]);
   if (!(await response).ok()) throw new Error("Safety fixture upload failed");
 
+  await page.waitForSelector(".editor-illustration img[data-folio-asset]", { visible: true });
+  await page.waitForFunction(() => {
+    const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
+    return Boolean(image?.complete && image.naturalWidth > 1 && image.naturalHeight > 1);
+  });
   await page.evaluate(() => {
     const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
     if (!image) throw new Error("Inserted illustration missing");
