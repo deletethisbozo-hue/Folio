@@ -52,7 +52,7 @@ const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 const fixture = path.join(os.tmpdir(), `folio-v3-alpha-${Date.now()}.png`);
 await fs.writeFile(fixture, alphaPng);
 
-console.log("\nFolio illustration V3 alpha contour wrap");
+console.log("\nFolio illustration V4 safety contour wrap");
 
 try {
   const browser = await getBrowser();
@@ -115,7 +115,7 @@ try {
 
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
-    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("url("));
+    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("polygon("));
   });
 
   const editorGeometry = await page.evaluate(() => {
@@ -146,7 +146,7 @@ try {
     const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-shape-contour.folio-wrap-left");
     const image = figure?.querySelector<HTMLImageElement>("img.folio-illustration");
     if (!doc || !figure || !image?.complete || image.naturalWidth < 50) return false;
-    if (!getComputedStyle(figure).shapeOutside.includes("url(")) return false;
+    if (!getComputedStyle(figure).shapeOutside.includes("polygon(")) return false;
     let paragraph = figure.nextElementSibling as HTMLElement | null;
     while (paragraph && (paragraph.tagName !== "P" || (paragraph.textContent?.trim().length ?? 0) < 120)) paragraph = paragraph.nextElementSibling as HTMLElement | null;
     if (!paragraph) return false;
@@ -180,7 +180,7 @@ try {
       intrudes: lefts.some((left) => left < fr.right - 6),
     };
   });
-  const readerContour = Boolean(readerGeometry && readerGeometry.shape.includes("url(") && readerGeometry.spread > 10);
+  const readerContour = Boolean(readerGeometry && readerGeometry.shape.includes("polygon(") && readerGeometry.spread > 10);
   check("Reader Preview preserves non-rectangular contour geometry", readerContour, JSON.stringify(readerGeometry));
   if (!readerContour) throw new Error("Reader Preview contour geometry stayed rectangular.");
 
@@ -192,7 +192,7 @@ try {
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const figure = doc?.querySelector<HTMLElement>(".pagedjs_page .folio-illustration-block.folio-shape-contour.folio-wrap-left");
-    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("url("));
+    return Boolean(figure && getComputedStyle(figure).shapeOutside.includes("polygon("));
   }, { timeout: 45000 });
   check("Print Preview receives resolved alpha shape-outside", true);
 
@@ -228,11 +228,11 @@ try {
     result.spread = result.lefts.length ? Math.max(...result.lefts) - Math.min(...result.lefts) : 0;
     return result;
   });
-  check("Print contour keeps a real shape margin", Boolean(printShape?.shape.includes("url(") && printShape.gap !== "0px"), JSON.stringify(printShape));
+  check("Print contour bakes safety gap into the polygon", Boolean(printShape?.shape.includes("polygon(") && printShape.gap === "0px"), JSON.stringify(printShape));
   const printContour = Boolean(
     printShape &&
     printShape.printWrap !== "block-fallback" &&
-    printShape.shape.includes("url(") &&
+    printShape.shape.includes("polygon(") &&
     (printShape.spread ?? 0) > 8
   );
   check("Paged Print lines visibly follow the alpha contour", printContour, JSON.stringify(printShape));
@@ -246,7 +246,7 @@ try {
   await page.close();
 } catch (error) {
   failed++;
-  console.error("✗ illustration V3 contour scenario completed");
+  console.error("✗ illustration V4 contour scenario completed");
   console.error(error);
 } finally {
   await closeBrowser().catch(() => undefined);
