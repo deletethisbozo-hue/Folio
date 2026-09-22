@@ -74,9 +74,15 @@ try {
     done?.click();
   });
 
-  await page.waitForFunction(() => Boolean(
-    document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.querySelector("section.chapter .dropcap")
-  ));
+  await page.waitForFunction(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    const para = cap?.closest("p");
+    if (!cap || !para) return false;
+    const capSize = parseFloat(getComputedStyle(cap).fontSize);
+    const bodySize = parseFloat(getComputedStyle(para).fontSize);
+    return Number.isFinite(capSize) && Number.isFinite(bodySize) && capSize >= bodySize * 2.5;
+  });
 
   const measureDropcap = async () => page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
