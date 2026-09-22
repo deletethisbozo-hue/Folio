@@ -50,6 +50,7 @@ function resolveGutter(book: Book, opts: PrintOptions): number {
 
 async function stabilizePrintIllustrationWraps(page: Page): Promise<{
   figures: number;
+  autoScaled: number;
   raggedParagraphs: number;
   blockFallbacks: number;
   narrowestEm: number | null;
@@ -58,14 +59,13 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
     const figures = [...document.querySelectorAll<HTMLElement>(
       ".folio-illustration-block.folio-wrap-left,.folio-illustration-block.folio-wrap-right",
     )];
+    let autoScaled = 0;
     let raggedParagraphs = 0;
     let blockFallbacks = 0;
     let narrowestEm = Number.POSITIVE_INFINITY;
 
-    for (const figure of figures) {
+    const measure = (figure: HTMLElement) => {
       const figureRect = figure.getBoundingClientRect();
-      if (figureRect.width <= 0 || figureRect.height <= 0) continue;
-
       const affected: HTMLElement[] = [];
       const widthsEm: number[] = [];
       let sibling = figure.nextElementSibling as HTMLElement | null;
@@ -89,34 +89,66 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
         }
         sibling = sibling.nextElementSibling as HTMLElement | null;
       }
+      return { figureRect, affected, widthsEm };
+    };
 
-      if (!widthsEm.length) continue;
-      const minimum = Math.min(...widthsEm);
+    const quality = (widthsEm: number[]) => {
       const severeLines = widthsEm.filter((width) => width < 8.5).length;
       const narrowLines = widthsEm.filter((width) => width < 13).length;
-      narrowestEm = Math.min(narrowestEm, minimum);
+      return {
+        severeLines,
+        narrowLines,
+        severe: severeLines >= 3 && severeLines / Math.max(1, widthsEm.length) >= 0.34,
+      };
+    };
 
-      // A single narrow line can be a perfectly natural part of a curved alpha
-      // contour. Downgrade only when several lines form a genuinely unusable
-      // text ribbon.
-      if (severeLines >= 3 && severeLines / widthsEm.length >= 0.34) {
+    for (const figure of figures) {
+      let sample = measure(figure);
+      if (sample.figureRect.width <= 0 || sample.figureRect.height <= 0 || !sample.widthsEm.length) continue;
+
+      const container = figure.parentElement?.getBoundingClientRect();
+      const containerWidth = Math.max(1, container?.width || sample.figureRect.width);
+      const originalPercent = sample.figureRect.width / containerWidth * 100;
+      let printPercent = originalPercent;
+      let q = quality(sample.widthsEm);
+
+      // Preserve the user's float and contour first. If print measure is too
+      // narrow, reduce only the print clone in small 4%-point steps. This is
+      // deliberately non-destructive: editor/reader/project width stay intact.
+      for (let attempt = 0; q.severe && attempt < 6 && printPercent > 31; attempt++) {
+        const nextPercent = Math.max(31, printPercent - 4);
+        if (Math.abs(nextPercent - printPercent) < 0.1) break;
+        printPercent = nextPercent;
+        figure.style.width = `${printPercent}%`;
+        figure.style.maxWidth = "none";
+        figure.dataset.folioPrintScale = String(Math.round(printPercent));
+        sample = measure(figure);
+        q = quality(sample.widthsEm);
+      }
+
+      if (printPercent + 0.1 < originalPercent) autoScaled++;
+
+      // Only a truly pathological remainder loses the float. Most cases should
+      // have been repaired by print-only scaling above.
+      if (q.severe) {
         figure.style.float = "none";
         figure.style.removeProperty("shape-outside");
         figure.style.removeProperty("shape-image-threshold");
         figure.style.removeProperty("shape-margin");
+        figure.style.width = `${Math.min(72, Math.max(38, printPercent))}%`;
         figure.style.margin = "1.05em auto";
-        figure.style.maxWidth = "72%";
         figure.dataset.folioPrintWrap = "block-fallback";
         blockFallbacks++;
         continue;
       }
 
-      // Native justification in a corridor narrower than ~13em tends to make
-      // conspicuous rivers. Keep the author's wrap but make only the affected
-      // print paragraphs ragged-right; normal full-measure prose remains under
-      // Folio's professional compositor.
-      if (narrowLines >= 3) {
-        for (const paragraph of affected) {
+      const finalMinimum = Math.min(...sample.widthsEm);
+      narrowestEm = Math.min(narrowestEm, finalMinimum);
+
+      // A moderately narrow corridor is readable when set ragged-right and
+      // hyphenated; forcing full justification here creates obvious rivers.
+      if (q.narrowLines >= 3) {
+        for (const paragraph of sample.affected) {
           paragraph.classList.add("folio-wrap-ragged");
           paragraph.style.textAlign = "left";
           paragraph.style.textAlignLast = "left";
@@ -128,6 +160,7 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
 
     return {
       figures: figures.length,
+      autoScaled,
       raggedParagraphs,
       blockFallbacks,
       narrowestEm: Number.isFinite(narrowestEm) ? narrowestEm : null,
