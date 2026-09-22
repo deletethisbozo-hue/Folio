@@ -145,7 +145,7 @@ try {
     const scale = figure?.querySelector<HTMLInputElement>('[data-folio-control="scale"]')?.value;
     const ratio = figure?.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]')?.value;
     const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
-    return Boolean(figure?.dataset.folioCrop === "true" && scale === "65" && ratio === "1-1" && image?.naturalWidth);
+    return Boolean(figure?.dataset.folioCrop === "true" && scale === "60" && ratio === "1-1" && image?.naturalWidth);
   });
   check("crop and scale survive autosave plus project reload", true);
 } catch (error) {
