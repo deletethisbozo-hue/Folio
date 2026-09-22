@@ -140,6 +140,11 @@ try {
   await page.waitForSelector(".editor-illustration.folio-image-selected .folio-image-inspector");
   check("clicking the artwork selects it and reveals a compact inspector", true);
 
+  // V2 regression is explicitly rectangular. V3 PNGs default to contour and
+  // are covered by illustration-v3-contour.test.ts.
+  await page.click('.editor-illustration [data-folio-shape-choice="box"]');
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioShape === "box");
+
   const editorBox = await page.$eval(".rich-editor", (editor) => {
     const r = editor.getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
