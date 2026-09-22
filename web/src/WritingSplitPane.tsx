@@ -12,6 +12,7 @@ type WritingSplitPaneProps = {
   ornament: string;
   typewriterMode: boolean;
   spellcheckEnabled: boolean;
+  writeZoom: number;
   onClose: () => void;
   onError: (message: string) => void;
   onRegisterFlush: (flush: (() => Promise<boolean>) | null) => void;
@@ -166,7 +167,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
     setSelectedId(nextId);
   }
 
-  return <section className="writing-split-pane" aria-label="Split writing editor">
+  return <section className="writing-split-pane" aria-label="Split writing editor" data-write-zoom={Math.round(props.writeZoom * 100)}>
     <header className="writing-split-header">
       <div className="writing-split-title">
         <span>Split editor</span>
