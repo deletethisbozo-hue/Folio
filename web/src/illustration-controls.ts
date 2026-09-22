@@ -339,8 +339,21 @@ function hydrateFigure(figure: HTMLElement): void {
   }
 }
 
+function syncChapterOpener(editor: HTMLElement): void {
+  const blocks = Array.from(editor.children).filter((node): node is HTMLElement => {
+    if (!(node instanceof HTMLElement) || node.classList.contains("folio-drag-placeholder")) return false;
+    if (node.tagName === "P" && !(node.textContent?.trim()) && !node.querySelector("img")) return false;
+    return true;
+  });
+  const opener = blocks[0]?.classList.contains("editor-illustration") ? blocks[0] : null;
+  editor.querySelectorAll<HTMLElement>(":scope > .editor-illustration").forEach((figure) => {
+    figure.classList.toggle("folio-chapter-opener-editor", figure === opener);
+  });
+}
+
 function hydrateAll(): void {
   document.querySelectorAll<HTMLElement>(".rich-editor .editor-illustration").forEach(hydrateFigure);
+  document.querySelectorAll<HTMLElement>(".rich-editor").forEach(syncChapterOpener);
 }
 
 function dispatchDirty(figure: HTMLElement, immediate = false): void {
@@ -399,10 +412,12 @@ function reanchorAtPointer(editor: HTMLElement, figure: HTMLElement, clientY: nu
 
   if (!target) {
     editor.appendChild(figure);
+    syncChapterOpener(editor);
     return;
   }
   if (after) target.insertAdjacentElement("afterend", figure);
   else editor.insertBefore(figure, target);
+  syncChapterOpener(editor);
 }
 
 function wrapFromPointer(editor: HTMLElement, clientX: number): WrapMode {
