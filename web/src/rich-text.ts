@@ -398,9 +398,10 @@ export function markdownToPreviewHtml(markdown: string, ornament = "❦", resolv
     .replace(/class="editor-illustration"/g, 'class="folio-illustration-preview"')
     .replace(/<figure\b[^>]*class="folio-illustration-preview"[^>]*>/g, (tag) => {
       const wrap = /data-folio-wrap="left"/.test(tag) ? "left" : /data-folio-wrap="right"/.test(tag) ? "right" : "none";
+      const shape = /data-folio-shape="contour"/.test(tag) ? " folio-shape-contour" : "";
       return tag.replace(
         'class="folio-illustration-preview"',
-        `class="folio-illustration-preview folio-illustration-block${wrap === "none" ? "" : ` folio-wrap-${wrap}`}"`,
+        `class="folio-illustration-preview folio-illustration-block${wrap === "none" ? "" : ` folio-wrap-${wrap}`}${shape}"`,
       );
     })
     .replace(/<img\b([^>]*data-folio-asset[^>]*)>/g, (tag) => tag.includes('class="')
