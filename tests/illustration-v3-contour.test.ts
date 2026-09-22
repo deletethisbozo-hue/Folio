@@ -113,13 +113,13 @@ try {
     if (!image) throw new Error("Contour illustration image missing after hydration");
     image.click();
   });
-  await page.waitForFunction(() => document.querySelector(".editor-illustration.folio-image-selected .folio-image-inspector"));
+  await page.waitForFunction(() => document.querySelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]"));
   await page.evaluate(() => {
-    const button = document.querySelector<HTMLButtonElement>('.editor-illustration [data-folio-wrap-choice="left"]');
+    const button = document.querySelector<HTMLButtonElement>('.folio-illustration-overlay [data-folio-wrap-choice="left"]');
     if (!button) throw new Error("Contour wrap-left control missing after selection");
     button.click();
   });
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="scale"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="scale"]', (input) => {
     input.value = "55";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
