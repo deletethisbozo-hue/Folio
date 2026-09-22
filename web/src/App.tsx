@@ -98,12 +98,13 @@ function markDraftChapterOpener(section: Element): void {
 }
 
 function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography["dropcapSize"]): void {
-  const screenSizes: Partial<Record<NonNullable<Typography["dropcapSize"]>, string>> = {
+  const screenSizes: Record<NonNullable<Typography["dropcapSize"]>, string> = {
+    small: "3em",
     medium: "3.9em",
     large: "4.5em",
     xlarge: "5.1em",
   };
-  const selectedSize = size && size !== "small" ? screenSizes[size] : undefined;
+  const selectedSize = size ? screenSizes[size] : undefined;
   if (selectedSize) (section as HTMLElement).style.setProperty("--folio-dropcap-user-size", selectedSize);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-size");
   if (!enabled || !section.classList.contains("chapter")) return;
@@ -1976,7 +1977,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     </>}
     {category === "First Paragraph" && <>
       {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
-      {row("Drop cap size", <select value={ty.dropcapSize ?? "small"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "small" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="small">Small · current theme size</option><option value="medium">Medium</option><option value="large">Large</option><option value="xlarge">Extra large</option></select>)}
+      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Current theme size</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option><option value="xlarge">Extra large</option></select>)}
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
