@@ -205,7 +205,7 @@ section.level1 {
    Per-theme colour/face live in each theme.css. */
 .dropcap {
   float: left;
-  font-size: 3em;
+  font-size: var(--folio-dropcap-screen-size, 3em);
   line-height: 1;
   padding: 0 0.10em 0 0;
   /* A floated cap aligns its BOX to the line top, but the glyph sits on its
