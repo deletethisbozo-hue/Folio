@@ -44,9 +44,20 @@
   box-shadow: 0 5px 18px rgba(30, 26, 22, .18);
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector {
+.folio-illustration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  overflow: visible;
+  pointer-events: none;
+  contain: none;
+  transform: none;
+}
+
+.folio-illustration-overlay .folio-image-inspector {
   position: fixed !important;
-  z-index: 220;
+  z-index: 1;
+  pointer-events: auto;
   left: 12px;
   top: 12px;
   width: max-content;
@@ -66,13 +77,12 @@
   font: 10px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
 }
 
-.folio-shell[data-ui-tone] .editor-illustration.folio-image-selected .folio-image-inspector,
-.folio-shell[data-ui-tone] .editor-illustration:focus-within .folio-image-inspector {
+.folio-illustration-overlay .folio-image-inspector[data-open="true"] {
   display: flex !important;
 }
 
-.folio-shell[data-ui-tone] .folio-wrap-group,
-.folio-shell[data-ui-tone] .folio-shape-group {
+.folio-illustration-overlay .folio-wrap-group,
+.folio-illustration-overlay .folio-shape-group {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--studio-rule);
@@ -80,10 +90,10 @@
   overflow: hidden;
 }
 
-.folio-shell[data-ui-tone] .folio-wrap-group button,
-.folio-shell[data-ui-tone] .folio-shape-group button,
-.folio-shell[data-ui-tone] .folio-image-inspector > button,
-.folio-shell[data-ui-tone] .folio-image-inspector select {
+.folio-illustration-overlay .folio-wrap-group button,
+.folio-illustration-overlay .folio-shape-group button,
+.folio-illustration-overlay .folio-image-inspector > button,
+.folio-illustration-overlay .folio-image-inspector select {
   height: 22px !important;
   min-width: 0 !important;
   padding: 0 7px !important;
@@ -96,17 +106,17 @@
   font: 600 9.5px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
 }
 
-.folio-shell[data-ui-tone] .folio-wrap-group button:last-child,
-.folio-shell[data-ui-tone] .folio-shape-group button:last-child { border-right: 0 !important; }
+.folio-illustration-overlay .folio-wrap-group button:last-child,
+.folio-illustration-overlay .folio-shape-group button:last-child { border-right: 0 !important; }
 
-.folio-shell[data-ui-tone] .folio-wrap-group button.active,
-.folio-shell[data-ui-tone] .folio-shape-group button.active,
-.folio-shell[data-ui-tone] .folio-image-inspector button.active {
+.folio-illustration-overlay .folio-wrap-group button.active,
+.folio-illustration-overlay .folio-shape-group button.active,
+.folio-illustration-overlay .folio-image-inspector button.active {
   background: var(--studio-accent-soft) !important;
   color: var(--studio-accent) !important;
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector .folio-size-slider {
+.folio-illustration-overlay .folio-image-inspector .folio-size-slider {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -114,12 +124,12 @@
   color: var(--studio-muted);
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector .folio-size-slider input[type="range"] {
+.folio-illustration-overlay .folio-image-inspector .folio-size-slider input[type="range"] {
   width: 58px;
   margin: 0;
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector .folio-gap-slider {
+.folio-illustration-overlay .folio-image-inspector .folio-gap-slider {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -127,7 +137,7 @@
   color: var(--studio-muted);
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector .folio-gap-slider input[type="range"] {
+.folio-illustration-overlay .folio-image-inspector .folio-gap-slider input[type="range"] {
   width: 54px;
   margin: 0;
 }
@@ -139,23 +149,23 @@
   isolation: auto;
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector .crop-axis {
+.folio-illustration-overlay .folio-image-inspector .crop-axis {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   min-width: 62px;
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector .crop-axis input[type="range"] {
+.folio-illustration-overlay .folio-image-inspector .crop-axis input[type="range"] {
   width: 52px;
   margin: 0;
 }
 
-.folio-shell[data-ui-tone] .folio-image-inspector :disabled {
+.folio-illustration-overlay .folio-image-inspector :disabled {
   opacity: .32;
 }
 
-.folio-shell[data-ui-tone] .folio-image-size {
+.folio-illustration-overlay .folio-image-size {
   min-width: 30px;
   text-align: right;
   color: var(--studio-muted);
