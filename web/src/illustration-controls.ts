@@ -35,6 +35,8 @@ let interaction: InteractionState | null = null;
 let selectedFigure: HTMLElement | null = null;
 let selectedAsset: string | null = null;
 let pendingDirtyFrame = 0;
+let floatingLayer: HTMLElement | null = null;
+let floatingInspector: HTMLElement | null = null;
 
 function clamp(value: string | number | undefined, min: number, max: number, fallback: number): number {
   const parsed = Number(value);
@@ -86,9 +88,50 @@ function inspectorMarkup(): string {
   </div>`;
 }
 
+function ensureFloatingInspector(): HTMLElement | null {
+  if (floatingInspector?.isConnected && floatingLayer?.isConnected) return floatingInspector;
+
+  const shell = document.querySelector<HTMLElement>(".folio-shell[data-ui-tone], .folio-shell");
+  if (!shell || !document.body) return null;
+
+  const layer = document.createElement("div");
+  layer.className = "folio-illustration-overlay";
+  layer.setAttribute("aria-live", "off");
+  layer.contentEditable = "false";
+  layer.insertAdjacentHTML("beforeend", inspectorMarkup());
+  document.body.appendChild(layer);
+
+  const inspector = layer.querySelector<HTMLElement>(".folio-image-inspector");
+  if (!inspector) {
+    layer.remove();
+    return null;
+  }
+
+  // The portal lives under <body>, outside every transformed/clipped editor and
+  // preview pane. Copy only the studio theme tokens it needs.
+  const computed = getComputedStyle(shell);
+  for (const token of [
+    "--studio-accent",
+    "--studio-accent-soft",
+    "--studio-rule",
+    "--studio-rule-strong",
+    "--studio-surface",
+    "--studio-control",
+    "--studio-ink",
+    "--studio-muted",
+  ]) {
+    const value = computed.getPropertyValue(token);
+    if (value) layer.style.setProperty(token, value);
+  }
+
+  floatingLayer = layer;
+  floatingInspector = inspector;
+  return inspector;
+}
+
 function positionInspector(figure: HTMLElement | null): void {
-  if (!figure?.isConnected) return;
-  const inspector = figure.querySelector<HTMLElement>(".folio-image-inspector");
+  if (!figure?.isConnected || selectedFigure !== figure) return;
+  const inspector = ensureFloatingInspector();
   if (!inspector) return;
   const rect = figure.getBoundingClientRect();
   const width = Math.min(720, Math.max(280, window.innerWidth - 24));
@@ -105,21 +148,18 @@ function positionInspector(figure: HTMLElement | null): void {
   inspector.style.setProperty("left", `${desiredLeft}px`, "important");
   inspector.style.setProperty("top", `${desiredTop}px`, "important");
 
-  // A fixed descendant of a transformed editor can still be positioned in that
-  // transformed containing block. Correct against the actual viewport rect so
-  // the toolbar never disappears when the illustration itself is tiny.
-  const actual = inspector.getBoundingClientRect();
-  const dx = desiredLeft - actual.left;
-  const dy = desiredTop - actual.top;
-  if (Math.abs(dx) > .5) inspector.style.setProperty("left", `${Math.round(desiredLeft + dx)}px`, "important");
-  if (Math.abs(dy) > .5) inspector.style.setProperty("top", `${Math.round(desiredTop + dy)}px`, "important");
 }
 
 function selectFigure(figure: HTMLElement | null): void {
+  const inspector = ensureFloatingInspector();
   if (selectedFigure === figure) {
     if (figure) {
       selectedAsset = figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? selectedAsset;
+      inspector?.setAttribute("data-open", "true");
+      refreshFigure(figure);
       requestAnimationFrame(() => positionInspector(figure));
+    } else {
+      inspector?.removeAttribute("data-open");
     }
     return;
   }
@@ -127,7 +167,14 @@ function selectFigure(figure: HTMLElement | null): void {
   selectedFigure = figure;
   selectedAsset = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? null;
   selectedFigure?.classList.add("folio-image-selected");
-  if (figure) requestAnimationFrame(() => positionInspector(figure));
+
+  if (figure) {
+    inspector?.setAttribute("data-open", "true");
+    refreshFigure(figure);
+    requestAnimationFrame(() => positionInspector(figure));
+  } else {
+    inspector?.removeAttribute("data-open");
+  }
 }
 
 function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
@@ -206,13 +253,14 @@ function refreshFigure(figure: HTMLElement): void {
     button.disabled = crop && button.dataset.folioShapeChoice === "contour";
   });
 
-  const scaleInput = figure.querySelector<HTMLInputElement>('[data-folio-control="scale"]');
-  const gapInput = figure.querySelector<HTMLInputElement>('[data-folio-control="gap"]');
-  const ratioInput = figure.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]');
-  const xInput = figure.querySelector<HTMLInputElement>('[data-folio-control="x"]');
-  const yInput = figure.querySelector<HTMLInputElement>('[data-folio-control="y"]');
-  const cropButton = figure.querySelector<HTMLButtonElement>('[data-folio-control="crop"]');
-  const size = figure.querySelector<HTMLElement>(".folio-image-size");
+  const inspector = selectedFigure === figure ? ensureFloatingInspector() : null;
+  const scaleInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="scale"]') ?? null;
+  const gapInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="gap"]') ?? null;
+  const ratioInput = inspector?.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]') ?? null;
+  const xInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="x"]') ?? null;
+  const yInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="y"]') ?? null;
+  const cropButton = inspector?.querySelector<HTMLButtonElement>('[data-folio-control="crop"]') ?? null;
+  const size = inspector?.querySelector<HTMLElement>(".folio-image-size") ?? null;
 
   if (scaleInput) scaleInput.value = String(Math.round(scale));
   if (gapInput) {
@@ -250,13 +298,11 @@ function hydrateFigure(figure: HTMLElement): void {
   if (!figure.dataset.folioShape) figure.dataset.folioShape = "box";
   if (!figure.dataset.folioGap) figure.dataset.folioGap = "65";
 
-  let controls = figure.querySelector<HTMLElement>(".editor-illustration-controls");
-  if (!controls) {
-    figure.insertAdjacentHTML("beforeend", inspectorMarkup());
-    controls = figure.querySelector<HTMLElement>(".editor-illustration-controls");
-  } else if (!controls.classList.contains("folio-image-inspector")) {
-    controls.outerHTML = inspectorMarkup();
-  }
+  // V5 used to inject the inspector into the contenteditable <figure>. That
+  // makes position:fixed vulnerable to editor transforms, overflow clipping and
+  // preview stacking contexts. Remove legacy copies; the real inspector is a
+  // single body-level portal created by ensureFloatingInspector().
+  figure.querySelectorAll(".editor-illustration-controls").forEach((controls) => controls.remove());
 
   if (!figure.querySelector(".folio-image-resize")) {
     const handles: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -441,7 +487,8 @@ export function installIllustrationControls(): void {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement | null;
     const resize = target?.closest<HTMLElement>(".folio-image-resize");
-    const figure = target?.closest<HTMLElement>(".editor-illustration");
+    const fromInspector = Boolean(target?.closest(".folio-image-inspector"));
+    const figure = fromInspector ? selectedFigure : target?.closest<HTMLElement>(".editor-illustration") ?? null;
     const editor = figure?.closest<HTMLElement>(".rich-editor");
     if (!figure || !editor) return;
 
@@ -495,7 +542,8 @@ export function installIllustrationControls(): void {
 
   document.addEventListener("click", (event) => {
     const target = event.target as HTMLElement | null;
-    const figure = target?.closest<HTMLElement>(".editor-illustration");
+    const fromInspector = Boolean(target?.closest(".folio-image-inspector"));
+    const figure = fromInspector ? selectedFigure : target?.closest<HTMLElement>(".editor-illustration") ?? null;
 
     const wrapButton = target?.closest<HTMLButtonElement>("[data-folio-wrap-choice]");
     if (figure && wrapButton) {
@@ -540,11 +588,11 @@ export function installIllustrationControls(): void {
 
   const onValue = (event: Event) => {
     const control = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-folio-control]");
-    const figure = control?.closest<HTMLElement>(".editor-illustration");
+    const figure = control?.closest(".folio-image-inspector") ? selectedFigure : control?.closest<HTMLElement>(".editor-illustration") ?? null;
     if (!control || !figure || control.dataset.folioControl === "crop") return;
-    // Inspector controls live inside contenteditable. Never let their native
-    // input/change events masquerade as manuscript edits; V5 commits one
-    // synthetic editor input only when the user releases the control.
+    // The inspector is portal-mounted outside contenteditable. Stop propagation
+    // anyway so only the explicit synthetic editor input commits manuscript
+    // state when the user releases the control.
     event.stopPropagation();
     updateControl(control, figure, event.type === "change");
   };
