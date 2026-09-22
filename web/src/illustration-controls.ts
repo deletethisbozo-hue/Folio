@@ -139,7 +139,7 @@ function refreshFigure(figure: HTMLElement): void {
   const y = clamp(figure.dataset.folioY, 0, 100, 50);
   const wrap = wrapMode(figure);
   const shape = shapeMode(figure);
-  const gap = clamp(figure.dataset.folioGap, 0, 150, 65);
+  const gap = clamp(figure.dataset.folioGap, 25, 200, 65);
 
   figure.dataset.folioScale = String(Math.round(scale));
   figure.dataset.folioCrop = String(crop);
