@@ -86,14 +86,27 @@ try {
   await chooser.accept([fixture]);
   if (!(await response).ok()) throw new Error("Contour fixture upload failed");
 
-  await page.waitForFunction(() => {
-    const figure = document.querySelector<HTMLElement>(".editor-illustration");
-    const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
-    return figure?.dataset.folioShape === "contour" &&
-      figure.dataset.folioWrap === "right" &&
-      markdown.includes(".folio-shape-contour") &&
-      markdown.includes("data-folio-gap=45");
-  });
+  try {
+    await page.waitForFunction(() => {
+      const figure = document.querySelector<HTMLElement>(".editor-illustration");
+      const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
+      return figure?.dataset.folioShape === "contour" &&
+        figure.dataset.folioWrap === "right" &&
+        markdown.includes(".folio-shape-contour") &&
+        markdown.includes("data-folio-gap=45");
+    });
+  } catch (error) {
+    const snapshot = await page.evaluate(() => {
+      const figure = document.querySelector<HTMLElement>(".editor-illustration");
+      const editor = document.querySelector<HTMLElement>(".rich-editor");
+      return {
+        dataset: figure ? { ...figure.dataset } : null,
+        html: figure?.outerHTML.slice(0, 2600) ?? null,
+        markdown: editor?.dataset.markdown ?? null,
+      };
+    });
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; contourInsertSnapshot=${JSON.stringify(snapshot)}`);
+  }
   check("PNG defaults to semantic contour wrap", true);
 
   await page.evaluate(() => {
