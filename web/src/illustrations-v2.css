@@ -17,6 +17,31 @@
 .folio-shell[data-ui-tone] .editor-illustration.folio-wrap-right { float: right; }
 .folio-shell[data-ui-tone] .editor-illustration.folio-wrap-none { float: none; }
 
+/* A body-first illustration is a chapter-opening object. Keep its visual
+ * left/center/right alignment, but never let it float into the first paragraph:
+ * the first paragraph may contain a drop cap, and two competing floats change
+ * its line geometry. */
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor {
+  float: none !important;
+  clear: both;
+  shape-outside: none !important;
+  shape-margin: 0 !important;
+  margin-top: .18em !important;
+  margin-bottom: .55em !important;
+}
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor.folio-wrap-left {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor.folio-wrap-right {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor.folio-wrap-none {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
 .folio-shell[data-ui-tone] .editor-illustration > img[data-folio-asset] {
   display: block;
   width: 100% !important;
