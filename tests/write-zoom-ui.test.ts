@@ -60,7 +60,7 @@ try {
       devicePixelRatio: window.devicePixelRatio,
     };
   });
-  check("Write starts at 100% view zoom", baseline.editorFont > 0 && document !== null, JSON.stringify(baseline));
+  check("Write starts at 100% view zoom", baseline.editorFont > 0, JSON.stringify(baseline));
 
   await page.keyboard.down("Control");
   await page.keyboard.press("=");
