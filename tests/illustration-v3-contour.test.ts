@@ -176,9 +176,48 @@ try {
   const printShape = await page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const figure = doc?.querySelector<HTMLElement>(".pagedjs_page .folio-illustration-block.folio-shape-contour.folio-wrap-left");
-    return figure ? { shape: getComputedStyle(figure).shapeOutside, gap: getComputedStyle(figure).shapeMargin } : null;
+    if (!doc || !figure) return null;
+    let paragraph = figure.nextElementSibling as HTMLElement | null;
+    while (paragraph && (paragraph.tagName !== "P" || (paragraph.textContent?.trim().length ?? 0) < 120)) paragraph = paragraph.nextElementSibling as HTMLElement | null;
+    const result: {
+      shape: string;
+      gap: string;
+      printWrap: string | null;
+      spread: number | null;
+      lefts: number[];
+    } = {
+      shape: getComputedStyle(figure).shapeOutside,
+      gap: getComputedStyle(figure).shapeMargin,
+      printWrap: figure.dataset.folioPrintWrap ?? null,
+      spread: null,
+      lefts: [],
+    };
+    if (!paragraph) return result;
+    const range = doc.createRange();
+    range.selectNodeContents(paragraph);
+    const fr = figure.getBoundingClientRect();
+    const rects = [...range.getClientRects()].filter((line) =>
+      line.width > 2 &&
+      line.bottom > fr.top + 1 &&
+      line.top < fr.bottom - 1
+    );
+    result.lefts = rects.map((line) => line.left);
+    result.spread = result.lefts.length ? Math.max(...result.lefts) - Math.min(...result.lefts) : 0;
+    return result;
   });
   check("Print contour keeps a real shape margin", Boolean(printShape?.shape.includes("url(") && printShape.gap !== "0px"), JSON.stringify(printShape));
+  const printContour = Boolean(
+    printShape &&
+    printShape.printWrap !== "block-fallback" &&
+    printShape.shape.includes("url(") &&
+    (printShape.spread ?? 0) > 8
+  );
+  check("Paged Print lines visibly follow the alpha contour", printContour, JSON.stringify(printShape));
+  if (!printContour) throw new Error("Paged Print contour geometry stayed rectangular or degraded.");
+
+  const previewFrame = await (await page.$(".preview-frame"))?.contentFrame();
+  const contourPage = await previewFrame?.$(".pagedjs_page:has(.folio-illustration-block.folio-shape-contour)");
+  if (contourPage) await contourPage.screenshot({ path: path.join(qaDir, "contour-print-page.png") });
   await page.screenshot({ path: path.join(qaDir, "contour-print.png"), fullPage: false });
 
   await page.close();
