@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import yauzl from "yauzl";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fontDir = path.join(root, "themes", "fonts");
@@ -32,6 +33,17 @@ const assets = [
   ["cinzel.ttf", "ofl/cinzel/Cinzel[wght].ttf"],
   ["grenze-gotisch.ttf", "ofl/grenzegotisch/GrenzeGotisch[wght].ttf"],
   ["roboto-slab.ttf", "apache/robotoslab/RobotoSlab[wght].ttf"],
+  ["manufacturing-consent.ttf", "ofl/manufacturingconsent/ManufacturingConsent-Regular.ttf"],
+  ["kings.ttf", "ofl/kings/Kings-Regular.ttf"],
+];
+
+const externalAssets = [
+  ["slavkappen.ttf", "https://db.onlinewebfonts.com/t/751bb64b3e1933d2653d99d63c779743.ttf", 15_000],
+];
+
+const archiveAssets = [
+  ["jena-gotisch.ttf", "https://static.wfonts.com/download/data/2017/10/16/jena-gotisch/jena-gotisch.zip", "JenaGotisch.ttf"],
+  ["cat-altenglisch.ttf", "https://static.wfonts.com/download/data/2023/04/06/cat-altenglisch/cat-altenglisch.zip", "CAT Altenglisch.ttf"],
 ];
 
 const licenses = [
@@ -48,14 +60,18 @@ const licenses = [
   ["Cinzel-OFL.txt", "ofl/cinzel/OFL.txt"],
   ["Grenze-Gotisch-OFL.txt", "ofl/grenzegotisch/OFL.txt"],
   ["Roboto-Slab-LICENSE.txt", "apache/robotoslab/LICENSE.txt"],
+  ["Manufacturing-Consent-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
+  ["Kings-OFL.txt", "ofl/kings/OFL.txt"],
+  ["Jena-Gotisch-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
+  ["CAT-Altenglisch-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
+  ["Slavkappen-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
 ];
 
 function encodeRepoPath(value) {
   return value.split("/").map(encodeURIComponent).join("/");
 }
 
-async function fetchWithRetry(relativePath, attempts = 4) {
-  const url = `${RAW}/${encodeRepoPath(relativePath)}`;
+async function fetchUrlWithRetry(url, attempts = 4) {
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
@@ -71,7 +87,82 @@ async function fetchWithRetry(relativePath, attempts = 4) {
       await new Promise((resolve) => setTimeout(resolve, 500 * (2 ** (attempt - 1))));
     }
   }
-  throw lastError ?? new Error(`Unable to fetch ${relativePath}`);
+  throw lastError ?? new Error(`Unable to fetch ${url}`);
+}
+
+async function fetchWithRetry(relativePath, attempts = 4) {
+  return fetchUrlWithRetry(`${RAW}/${encodeRepoPath(relativePath)}`, attempts);
+}
+
+function assertFontBuffer(data, label, minBytes = 30_000) {
+  if (data.length < minBytes) throw new Error(`Downloaded font is unexpectedly small: ${label}`);
+  const signature = data.subarray(0, 4).toString("hex");
+  if (signature !== "00010000" && data.subarray(0, 4).toString("ascii") !== "OTTO") {
+    throw new Error(`Downloaded file is not a TrueType/OpenType font: ${label}`);
+  }
+}
+
+async function downloadUrl(url, destination, minBytes = 30_000) {
+  try {
+    const existing = await fs.readFile(destination);
+    if (existing.length >= minBytes) return false;
+  } catch {
+    // Missing file: fetch it below.
+  }
+  const response = await fetchUrlWithRetry(url);
+  const data = Buffer.from(await response.arrayBuffer());
+  assertFontBuffer(data, url, minBytes);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, data);
+  return true;
+}
+
+function extractZipEntry(buffer, entryName) {
+  return new Promise((resolve, reject) => {
+    yauzl.fromBuffer(buffer, { lazyEntries: true }, (error, zip) => {
+      if (error || !zip) return reject(error ?? new Error("Unable to open font archive"));
+      let settled = false;
+      zip.readEntry();
+      zip.on("entry", (entry) => {
+        const base = path.basename(entry.fileName);
+        if (base.toLowerCase() !== entryName.toLowerCase()) {
+          zip.readEntry();
+          return;
+        }
+        zip.openReadStream(entry, (streamError, stream) => {
+          if (streamError || !stream) return reject(streamError ?? new Error(`Unable to read ${entryName}`));
+          const chunks = [];
+          stream.on("data", (chunk) => chunks.push(chunk));
+          stream.on("error", reject);
+          stream.on("end", () => {
+            settled = true;
+            zip.close();
+            resolve(Buffer.concat(chunks));
+          });
+        });
+      });
+      zip.on("end", () => {
+        if (!settled) reject(new Error(`Font archive does not contain ${entryName}`));
+      });
+      zip.on("error", reject);
+    });
+  });
+}
+
+async function downloadArchiveFont(url, entryName, destination) {
+  try {
+    const existing = await fs.readFile(destination);
+    if (existing.length > 30_000) return false;
+  } catch {
+    // Missing file: fetch it below.
+  }
+  const response = await fetchUrlWithRetry(url);
+  const archive = Buffer.from(await response.arrayBuffer());
+  const data = await extractZipEntry(archive, entryName);
+  assertFontBuffer(data, `${url}#${entryName}`, 15_000);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, data);
+  return true;
 }
 
 async function download(relativePath, destination, font = false) {
@@ -84,13 +175,7 @@ async function download(relativePath, destination, font = false) {
 
   const response = await fetchWithRetry(relativePath);
   const data = Buffer.from(await response.arrayBuffer());
-  if (font) {
-    if (data.length < 30_000) throw new Error(`Downloaded font is unexpectedly small: ${relativePath}`);
-    const signature = data.subarray(0, 4).toString("hex");
-    if (signature !== "00010000" && data.subarray(0, 4).toString("ascii") !== "OTTO") {
-      throw new Error(`Downloaded file is not a TrueType/OpenType font: ${relativePath}`);
-    }
-  }
+  if (font) assertFontBuffer(data, relativePath);
   await fs.mkdir(path.dirname(destination), { recursive: true });
   await fs.writeFile(destination, data);
   return true;
@@ -102,6 +187,12 @@ let fetched = 0;
 for (const [name, remotePath] of assets) {
   if (await download(remotePath, path.join(fontDir, name), true)) fetched++;
 }
+for (const [name, url, minBytes] of externalAssets) {
+  if (await downloadUrl(url, path.join(fontDir, name), minBytes)) fetched++;
+}
+for (const [name, url, entryName] of archiveAssets) {
+  if (await downloadArchiveFont(url, entryName, path.join(fontDir, name))) fetched++;
+}
 for (const [name, remotePath] of licenses) {
   if (await download(remotePath, path.join(licenseDir, name), false)) fetched++;
 }
@@ -110,9 +201,14 @@ await fs.writeFile(
   path.join(fontDir, "SOURCE.txt"),
   [
     "Folio built-in typography fonts",
-    `Source: google/fonts commit ${GOOGLE_FONTS_COMMIT}`,
+    `Primary source: google/fonts commit ${GOOGLE_FONTS_COMMIT}`,
+    "Additional display fonts:",
+    "Jena Gotisch — Peter Wiegel; archive mirror contains OFL metadata; https://www.peter-wiegel.de/",
+    "CAT Altenglisch — Peter Wiegel; author permits app redistribution; https://www.peter-wiegel.de/",
+    "Slavkappen — Jason Reed; SIL OFL; https://fontesk.com/slavkappen-font/",
     "Files are fetched at build time and shipped with Folio so preview, PDF and EPUB use deterministic metrics.",
-    "See licenses/ for the original font licenses.",
+    "Scarbes is intentionally NOT bundled because redistribution terms were not clear enough.",
+    "See licenses/ for the font license texts.",
     "",
   ].join("\n"),
   "utf8",
