@@ -265,7 +265,6 @@ try {
     return {
       active: document.querySelector(".editor-illustration.folio-image-resizing") !== null,
       scale: Number(figure?.dataset.folioScale || 0),
-      debug: figure?.dataset.folioResizeDebug ?? null,
     };
   });
   await page.mouse.up();
