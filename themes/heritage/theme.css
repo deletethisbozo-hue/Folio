@@ -6,7 +6,7 @@ section.chapter>h1{text-align:center;margin:.7em 0 2.45em;padding:.8em .6em .75e
 section.chapter>h1::before{content:"VOLUME · " counter(heritage,upper-roman);display:block;margin-bottom:.9em;font-family:Baskerville,Georgia,serif;font-size:.37em;font-weight:700;letter-spacing:.24em;color:#80563a}
 section.chapter>h1::after{content:"◆";display:block;margin:.72em 0 -.15em;font-size:.34em;color:#9a6a42}
 .chapter-subtitle{margin:-2.15em 0 2em}.chapter-subtitle p{font-style:normal;font-variant:small-caps;letter-spacing:.13em;color:#6d4b37}
-.dropcap{font-family:"Bodoni MT",Didot,Georgia,serif;font-size:3.25em;color:#6b3d2b}
+.dropcap{font-family:"Bodoni MT",Didot,Georgia,serif;--folio-dropcap-theme-size: 3.25em;color:#6b3d2b}
 .scene-break{font-size:1.05em;letter-spacing:.38em;color:#7b5b43}
 section.titlepage>h1{font-family:"Trajan Pro",Georgia,serif;font-size:2.2em;letter-spacing:.1em;text-transform:uppercase;border-top:4px double #4e3728;border-bottom:1px solid #7b5b43;padding:.65em 0}.tp-author{font-variant:small-caps;letter-spacing:.15em}.tp-subtitle{font-style:normal;letter-spacing:.05em;color:#72533e}
 section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Trajan Pro",Georgia,serif;letter-spacing:.11em;text-transform:uppercase}
