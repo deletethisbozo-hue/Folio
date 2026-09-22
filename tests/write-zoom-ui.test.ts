@@ -40,53 +40,62 @@ try {
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
 
+  await page.waitForFunction(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+    const doc = frame?.contentDocument;
+    const paragraph = doc?.querySelector<HTMLElement>("p");
+    const device = document.querySelector<HTMLElement>(".reader-device");
+    return Boolean(paragraph && Number.parseFloat(getComputedStyle(paragraph).fontSize) > 0 && (device?.getBoundingClientRect().width ?? 0) > 50);
+  }, { timeout: 30000 });
+
+  const previewBaseline = await page.evaluate(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+    const doc = frame?.contentDocument;
+    const previewText = doc?.querySelector<HTMLElement>("p");
+    const previewDevice = document.querySelector<HTMLElement>(".reader-device");
+    return {
+      previewFont: previewText ? Number.parseFloat(getComputedStyle(previewText).fontSize) : 0,
+      previewWidth: previewDevice?.getBoundingClientRect().width ?? 0,
+      devicePixelRatio: window.devicePixelRatio,
+    };
+  });
+
   await page.evaluate(() => {
     const write = [...document.querySelectorAll<HTMLButtonElement>(".workspace-mode-switch button")]
       .find((button) => button.textContent?.trim() === "Write");
     write?.click();
   });
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode") === "write");
-
-  const baseline = await page.evaluate(() => {
+  await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
-    const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
-    const doc = frame?.contentDocument;
-    const previewText = doc?.querySelector<HTMLElement>("p");
-    const previewDevice = document.querySelector<HTMLElement>(".reader-device");
-    return {
-      editorFont: editor ? Number.parseFloat(getComputedStyle(editor).fontSize) : 0,
-      previewFont: previewText ? Number.parseFloat(getComputedStyle(previewText).fontSize) : 0,
-      previewWidth: previewDevice?.getBoundingClientRect().width ?? 0,
-      devicePixelRatio: window.devicePixelRatio,
-    };
+    return Boolean(editor && Math.abs(Number.parseFloat(getComputedStyle(editor).fontSize) - 16) < 0.1);
   });
-  check("Write starts at 100% view zoom", baseline.editorFont > 0, JSON.stringify(baseline));
+
+  const baseline = await page.evaluate(() => ({
+    editorFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".manuscript-editor")!).fontSize),
+    stored: localStorage.getItem("folio-write-zoom"),
+  }));
+  check("Write starts at 100% view zoom", Math.abs(baseline.editorFont - 16) < 0.1 && baseline.stored === "1", JSON.stringify(baseline));
 
   await page.keyboard.down("Control");
   await page.keyboard.press("=");
   await page.keyboard.up("Control");
   await page.waitForFunction(() => document.querySelector(".folio-statusbar")?.textContent?.includes("110%"));
 
-  const plus = await page.evaluate(() => {
+  await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
-    const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
-    const doc = frame?.contentDocument;
-    const previewText = doc?.querySelector<HTMLElement>("p");
-    const previewDevice = document.querySelector<HTMLElement>(".reader-device");
-    return {
-      editorFont: editor ? Number.parseFloat(getComputedStyle(editor).fontSize) : 0,
-      previewFont: previewText ? Number.parseFloat(getComputedStyle(previewText).fontSize) : 0,
-      previewWidth: previewDevice?.getBoundingClientRect().width ?? 0,
-      stored: localStorage.getItem("folio-write-zoom"),
-      devicePixelRatio: window.devicePixelRatio,
-    };
+    return Boolean(editor && Math.abs(Number.parseFloat(getComputedStyle(editor).fontSize) - 17.6) < 0.15);
   });
+  const plus = await page.evaluate(() => ({
+    editorFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".manuscript-editor")!).fontSize),
+    stored: localStorage.getItem("folio-write-zoom"),
+    devicePixelRatio: window.devicePixelRatio,
+  }));
 
-  check("Ctrl++ magnifies only the Write editor",
-    plus.editorFont > baseline.editorFont * 1.08 &&
-    Math.abs(plus.previewFont - baseline.previewFont) < 0.01 &&
-    Math.abs(plus.previewWidth - baseline.previewWidth) < 0.5 &&
-    plus.devicePixelRatio === baseline.devicePixelRatio,
+  check("Ctrl++ magnifies the Write editor without browser-page zoom",
+    Math.abs(plus.editorFont - 17.6) < 0.15 &&
+    plus.stored === "1.1" &&
+    plus.devicePixelRatio === previewBaseline.devicePixelRatio,
     JSON.stringify({ baseline, plus }));
 
   const editorBox = await page.$eval(".manuscript-editor", (editor) => {
@@ -97,7 +106,11 @@ try {
   await page.keyboard.down("Control");
   await page.mouse.wheel({ deltaY: -120 });
   await page.keyboard.up("Control");
-  await page.waitForFunction(() => document.querySelector(".folio-statusbar")?.textContent?.includes("120%"));
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    return document.querySelector(".folio-statusbar")?.textContent?.includes("120%") &&
+      Boolean(editor && Math.abs(Number.parseFloat(getComputedStyle(editor).fontSize) - 19.2) < 0.15);
+  });
 
   const wheel = await page.evaluate(() => ({
     font: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".manuscript-editor")!).fontSize),
@@ -108,6 +121,10 @@ try {
   // Split View inherits the exact same visual zoom without touching manuscript data.
   await page.click(".editor-split-toggle");
   await page.waitForSelector(".writing-split-editor");
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".writing-split-editor");
+    return Boolean(editor && Math.abs(Number.parseFloat(getComputedStyle(editor).fontSize) - 19.2) < 0.15);
+  });
   const split = await page.evaluate(() => ({
     primary: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".manuscript-editor")!).fontSize),
     secondary: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".writing-split-editor")!).fontSize),
@@ -118,24 +135,50 @@ try {
   await page.keyboard.down("Control");
   await page.keyboard.press("0");
   await page.keyboard.up("Control");
-  await page.waitForFunction(() => document.querySelector(".folio-statusbar")?.textContent?.includes("100%"));
+  await page.waitForFunction(() => {
+    const main = document.querySelector<HTMLElement>(".manuscript-editor");
+    const split = document.querySelector<HTMLElement>(".writing-split-editor");
+    return document.querySelector(".folio-statusbar")?.textContent?.includes("100%") &&
+      Boolean(main && split &&
+        Math.abs(Number.parseFloat(getComputedStyle(main).fontSize) - 16) < 0.1 &&
+        Math.abs(Number.parseFloat(getComputedStyle(split).fontSize) - 16) < 0.1);
+  });
 
-  const reset = await page.evaluate(() => {
+  const reset = await page.evaluate(() => ({
+    editorFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".manuscript-editor")!).fontSize),
+    splitFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".writing-split-editor")!).fontSize),
+    stored: localStorage.getItem("folio-write-zoom"),
+  }));
+  check("Ctrl+0 resets both Write surfaces", Math.abs(reset.editorFont - 16) < 0.1 && Math.abs(reset.splitFont - 16) < 0.1 && reset.stored === "1", JSON.stringify(reset));
+
+  await page.evaluate(() => {
+    const format = [...document.querySelectorAll<HTMLButtonElement>(".workspace-mode-switch button")]
+      .find((button) => button.textContent?.trim() === "Format");
+    format?.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode") === "format");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+    const paragraph = frame?.contentDocument?.querySelector<HTMLElement>("p");
+    const device = document.querySelector<HTMLElement>(".reader-device");
+    return Boolean(paragraph && Number.parseFloat(getComputedStyle(paragraph).fontSize) > 0 && (device?.getBoundingClientRect().width ?? 0) > 50);
+  });
+
+  const previewAfter = await page.evaluate(() => {
     const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
     const previewText = frame?.contentDocument?.querySelector<HTMLElement>("p");
+    const previewDevice = document.querySelector<HTMLElement>(".reader-device");
     return {
-      editorFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".manuscript-editor")!).fontSize),
-      splitFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".writing-split-editor")!).fontSize),
       previewFont: previewText ? Number.parseFloat(getComputedStyle(previewText).fontSize) : 0,
-      stored: localStorage.getItem("folio-write-zoom"),
+      previewWidth: previewDevice?.getBoundingClientRect().width ?? 0,
+      devicePixelRatio: window.devicePixelRatio,
     };
   });
-  check("Ctrl+0 resets Write view without touching Preview",
-    Math.abs(reset.editorFont - baseline.editorFont) < 0.1 &&
-    Math.abs(reset.splitFont - baseline.editorFont) < 0.1 &&
-    Math.abs(reset.previewFont - baseline.previewFont) < 0.01 &&
-    reset.stored === "1",
-    JSON.stringify(reset));
+  check("Write zoom never changes Reader Preview geometry",
+    Math.abs(previewAfter.previewFont - previewBaseline.previewFont) < 0.01 &&
+    Math.abs(previewAfter.previewWidth - previewBaseline.previewWidth) < 0.5 &&
+    previewAfter.devicePixelRatio === previewBaseline.devicePixelRatio,
+    JSON.stringify({ previewBaseline, previewAfter }));
 
   await page.close();
 } catch (error) {
