@@ -52,6 +52,7 @@ export interface Typography {
   lineHeight?: number | string;
   dropcap?: boolean;
   dropcapSize?: "small" | "medium" | "large" | "xlarge";
+  dropcapFont?: string;
   sceneOrnament?: string;
   chapterTitle?: ChapterTitleStyle;
   bodyAlign?: "left" | "justify";
