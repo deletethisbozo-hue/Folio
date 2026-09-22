@@ -332,6 +332,20 @@ img.folio-illustration,
   float: right;
   margin: 0.22em 0 0.8em 1.05em;
 }
+
+/* Contour wrapping uses the actual alpha channel supplied by render-html /
+ * EPUB post-processing. Keep the rectangular gutter tiny here; shape-margin
+ * becomes the true text-to-artwork distance when CSS Shapes is supported. */
+.folio-illustration-block.folio-shape-contour.folio-wrap-left {
+  margin: 0.18em 0.18em 0.72em 0;
+  shape-image-threshold: .08;
+  shape-margin: .65em;
+}
+.folio-illustration-block.folio-shape-contour.folio-wrap-right {
+  margin: 0.18em 0 0.72em 0.18em;
+  shape-image-threshold: .08;
+  shape-margin: .65em;
+}
 section.chapter > h2,
 section.chapter > h3,
 section.backmatter > h2,
