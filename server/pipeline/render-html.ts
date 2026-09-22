@@ -21,7 +21,11 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
   const ws = await makeWorkspace(book, target);
   try {
     const md = assembleMarkdown(book, target);
-    const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, target === "print" ? "print" : "html");
+    const runtimeTheme = await buildThemeRuntimeCss(
+      book.meta.theme,
+      target === "print" ? "print" : "html",
+      [book.typography.headingFont, book.typography.dropcapFont].filter((value): value is string => Boolean(value)),
+    );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.themeCss, "utf8");
     const css = [path.join(THEMES_DIR, "base.css"), path.join(THEMES_DIR, "image-page.css"), runtimeThemePath];
