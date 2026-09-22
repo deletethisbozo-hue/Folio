@@ -48,6 +48,91 @@ function resolveGutter(book: Book, opts: PrintOptions): number {
   return autoGutter(estimatePages(bodyChars(book), opts.trim, chapters, others), opts.binding);
 }
 
+async function stabilizePrintIllustrationWraps(page: Page): Promise<{
+  figures: number;
+  raggedParagraphs: number;
+  blockFallbacks: number;
+  narrowestEm: number | null;
+}> {
+  return page.evaluate(() => {
+    const figures = [...document.querySelectorAll<HTMLElement>(
+      ".folio-illustration-block.folio-wrap-left,.folio-illustration-block.folio-wrap-right",
+    )];
+    let raggedParagraphs = 0;
+    let blockFallbacks = 0;
+    let narrowestEm = Number.POSITIVE_INFINITY;
+
+    for (const figure of figures) {
+      const figureRect = figure.getBoundingClientRect();
+      if (figureRect.width <= 0 || figureRect.height <= 0) continue;
+
+      const affected: HTMLElement[] = [];
+      const widthsEm: number[] = [];
+      let sibling = figure.nextElementSibling as HTMLElement | null;
+      while (sibling) {
+        if (sibling.matches("h1,h2,h3,.scene-break,.folio-illustration-block")) break;
+        const rect = sibling.getBoundingClientRect();
+        if (rect.top >= figureRect.bottom - 1) break;
+        if (sibling.tagName === "P") {
+          const range = document.createRange();
+          range.selectNodeContents(sibling);
+          const fontSize = Number.parseFloat(getComputedStyle(sibling).fontSize) || 16;
+          const lineRects = [...range.getClientRects()].filter((line) =>
+            line.width > 2 &&
+            line.bottom > figureRect.top + 1 &&
+            line.top < figureRect.bottom - 1
+          );
+          if (lineRects.length) {
+            affected.push(sibling);
+            for (const line of lineRects) widthsEm.push(line.width / fontSize);
+          }
+        }
+        sibling = sibling.nextElementSibling as HTMLElement | null;
+      }
+
+      if (!widthsEm.length) continue;
+      const minimum = Math.min(...widthsEm);
+      narrowestEm = Math.min(narrowestEm, minimum);
+
+      // Below ~8.5em even hyphenated prose becomes a vertical ribbon. A
+      // professional print layout is better served by a clean block image than
+      // by preserving a user float at any cost.
+      if (minimum < 8.5) {
+        figure.style.float = "none";
+        figure.style.removeProperty("shape-outside");
+        figure.style.removeProperty("shape-image-threshold");
+        figure.style.removeProperty("shape-margin");
+        figure.style.margin = "1.05em auto";
+        figure.style.maxWidth = "72%";
+        figure.dataset.folioPrintWrap = "block-fallback";
+        blockFallbacks++;
+        continue;
+      }
+
+      // Native justification in a corridor narrower than ~13em tends to make
+      // conspicuous rivers. Keep the author's wrap but make only the affected
+      // print paragraphs ragged-right; normal full-measure prose remains under
+      // Folio's professional compositor.
+      if (minimum < 13) {
+        for (const paragraph of affected) {
+          paragraph.classList.add("folio-wrap-ragged");
+          paragraph.style.textAlign = "left";
+          paragraph.style.textAlignLast = "left";
+          paragraph.style.hyphens = "auto";
+          raggedParagraphs++;
+        }
+      }
+    }
+
+    return {
+      figures: figures.length,
+      raggedParagraphs,
+      blockFallbacks,
+      narrowestEm: Number.isFinite(narrowestEm) ? narrowestEm : null,
+    };
+  });
+}
+
 async function withPaginated<T>(
   book: Book,
   opts: PrintOptions,
@@ -92,6 +177,10 @@ async function withPaginated<T>(
     // Seat the drop caps before pagination — the correction changes how text
     // wraps around the float, so it has to settle before pages are measured.
     await alignDropCaps(page);
+    // Float geometry is now final enough to measure. Guard against narrow,
+    // over-justified text corridors before the compositor freezes lines and
+    // before Paged.js fragments the document into pages.
+    await stabilizePrintIllustrationWraps(page);
     await composeProfessionalParagraphs(page, book);
     // Disable Paged.js auto-run (set before the polyfill script loads).
     await page.evaluate(() => {
