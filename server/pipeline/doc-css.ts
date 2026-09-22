@@ -96,6 +96,17 @@ function typographyCss(book: Book): string {
   const ty = book.typography ?? {};
   const out: string[] = [];
 
+  const dropcapSizes = {
+    small: { screen: "3em", print: "5em" },
+    medium: { screen: "3.6em", print: "6em" },
+    large: { screen: "4.2em", print: "7em" },
+    xlarge: { screen: "4.8em", print: "8em" },
+  } as const;
+  if (ty.dropcapSize) {
+    const size = dropcapSizes[ty.dropcapSize];
+    out.push(`:root { --folio-dropcap-screen-size: ${size.screen}; --folio-dropcap-print-size: ${size.print}; }`);
+  }
+
   const bodyDecls: string[] = [];
   if (ty.bodyFont) bodyDecls.push(`font-family: ${familyValue(ty.bodyFont)} !important;`);
   // !important so the author's size/leading survive the print path, where
