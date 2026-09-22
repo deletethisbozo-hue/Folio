@@ -103,10 +103,11 @@ try {
       const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
       const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
       return Boolean(
-        figure?.dataset.folioWrap === "right" &&
+        figure?.dataset.folioWrap === "none" &&
         figure?.dataset.folioScale === "42" &&
         image?.complete && image.naturalWidth >= 200 &&
-        markdown.includes(".folio-wrap-right") &&
+        !markdown.includes(".folio-wrap-right") &&
+        !markdown.includes(".folio-wrap-left") &&
         markdown.includes("width=42%")
       );
     }, { timeout: 8000 });
