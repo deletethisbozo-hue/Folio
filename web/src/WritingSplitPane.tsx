@@ -210,6 +210,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
           ? <div
               ref={editorRef}
               className={`writing-split-editor rich-editor ${props.typewriterMode ? "typewriter-active" : ""}`}
+              style={{ "--folio-write-font-size": `${16 * props.writeZoom}px` } as React.CSSProperties}
               contentEditable={document.editable}
               suppressContentEditableWarning
               spellCheck={props.spellcheckEnabled}
