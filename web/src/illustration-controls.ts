@@ -542,6 +542,10 @@ export function installIllustrationControls(): void {
     const control = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-folio-control]");
     const figure = control?.closest<HTMLElement>(".editor-illustration");
     if (!control || !figure || control.dataset.folioControl === "crop") return;
+    // Inspector controls live inside contenteditable. Never let their native
+    // input/change events masquerade as manuscript edits; V5 commits one
+    // synthetic editor input only when the user releases the control.
+    event.stopPropagation();
     updateControl(control, figure, event.type === "change");
   };
   document.addEventListener("input", onValue, true);
