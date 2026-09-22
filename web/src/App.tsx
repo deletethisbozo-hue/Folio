@@ -1713,7 +1713,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   );
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom) } as React.CSSProperties}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom), "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
