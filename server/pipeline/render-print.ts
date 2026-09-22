@@ -92,12 +92,14 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
 
       if (!widthsEm.length) continue;
       const minimum = Math.min(...widthsEm);
+      const severeLines = widthsEm.filter((width) => width < 8.5).length;
+      const narrowLines = widthsEm.filter((width) => width < 13).length;
       narrowestEm = Math.min(narrowestEm, minimum);
 
-      // Below ~8.5em even hyphenated prose becomes a vertical ribbon. A
-      // professional print layout is better served by a clean block image than
-      // by preserving a user float at any cost.
-      if (minimum < 8.5) {
+      // A single narrow line can be a perfectly natural part of a curved alpha
+      // contour. Downgrade only when several lines form a genuinely unusable
+      // text ribbon.
+      if (severeLines >= 3 && severeLines / widthsEm.length >= 0.34) {
         figure.style.float = "none";
         figure.style.removeProperty("shape-outside");
         figure.style.removeProperty("shape-image-threshold");
@@ -113,7 +115,7 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
       // conspicuous rivers. Keep the author's wrap but make only the affected
       // print paragraphs ragged-right; normal full-measure prose remains under
       // Folio's professional compositor.
-      if (minimum < 13) {
+      if (narrowLines >= 3) {
         for (const paragraph of affected) {
           paragraph.classList.add("folio-wrap-ragged");
           paragraph.style.textAlign = "left";
