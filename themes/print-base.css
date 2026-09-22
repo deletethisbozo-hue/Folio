@@ -72,7 +72,7 @@ img {
    font-size ≈ (cap-height 0.7 + 2 × 1.4 leading) / 0.7 ≈ 5em for a 3-line cap.
    Colour (Decorative) and weight (Modern) still come from the theme .dropcap. */
 .dropcap {
-  font-size: 5em;
+  font-size: var(--folio-dropcap-print-size, 5em);
   line-height: 1;
   padding: 0 0.1em 0 0;
   /* Seated by measurement at render time (pipeline/dropcap.ts); this is only
