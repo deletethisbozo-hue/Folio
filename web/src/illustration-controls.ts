@@ -86,19 +86,40 @@ function inspectorMarkup(): string {
   </div>`;
 }
 
+function positionInspector(figure: HTMLElement | null): void {
+  if (!figure?.isConnected) return;
+  const inspector = figure.querySelector<HTMLElement>(".folio-image-inspector");
+  if (!inspector) return;
+  const rect = figure.getBoundingClientRect();
+  const width = Math.min(720, Math.max(280, window.innerWidth - 24));
+  inspector.style.setProperty("position", "fixed", "important");
+  inspector.style.setProperty("width", "max-content", "important");
+  inspector.style.setProperty("max-width", `${width}px`, "important");
+  const measured = inspector.getBoundingClientRect();
+  const inspectorWidth = Math.min(width, Math.max(280, measured.width || 620));
+  const left = Math.max(12, Math.min(window.innerWidth - inspectorWidth - 12, rect.left));
+  const above = rect.top - Math.max(42, measured.height + 8);
+  const top = above >= 8 ? above : Math.min(window.innerHeight - Math.max(44, measured.height) - 8, rect.bottom + 8);
+  inspector.style.setProperty("left", `${Math.round(left)}px`, "important");
+  inspector.style.setProperty("top", `${Math.round(Math.max(8, top))}px`, "important");
+}
+
 function selectFigure(figure: HTMLElement | null): void {
   if (selectedFigure === figure) {
-    if (figure) selectedAsset = figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? selectedAsset;
+    if (figure) {
+      selectedAsset = figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? selectedAsset;
+      requestAnimationFrame(() => positionInspector(figure));
+    }
     return;
   }
   selectedFigure?.classList.remove("folio-image-selected");
   selectedFigure = figure;
   selectedAsset = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? null;
   selectedFigure?.classList.add("folio-image-selected");
+  if (figure) requestAnimationFrame(() => positionInspector(figure));
 }
 
 function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
-  const wrap = wrapMode(figure);
   const shape = shapeMode(figure);
   const gap = clamp(figure.dataset.folioGap, 25, 200, 65);
   const crop = figure.dataset.folioCrop === "true";
@@ -133,7 +154,9 @@ function refreshFigure(figure: HTMLElement): void {
   const image = figure.querySelector<HTMLImageElement>("img[data-folio-asset]");
   if (!image) return;
 
-  const scale = clamp(figure.dataset.folioScale, 18, 100, 42);
+  const wrap = wrapMode(figure);
+  const maxScale = wrap === "none" ? 100 : 60;
+  const scale = clamp(figure.dataset.folioScale, 18, maxScale, 42);
   const crop = figure.dataset.folioCrop === "true";
   const ratio = figure.dataset.folioRatio || "4-3";
   const x = clamp(figure.dataset.folioX, 0, 100, 50);
@@ -202,6 +225,8 @@ function refreshFigure(figure: HTMLElement): void {
     cropButton.classList.toggle("active", crop);
   }
   if (size) { const label = `${Math.round(scale)}%`; if (size.textContent !== label) size.textContent = label; }
+  if (scaleInput) scaleInput.max = wrap === "none" ? "100" : "60";
+  if (figure.classList.contains("folio-image-selected")) requestAnimationFrame(() => positionInspector(figure));
 }
 
 function hydrateFigure(figure: HTMLElement): void {
@@ -277,7 +302,7 @@ function setWrap(figure: HTMLElement, wrap: WrapMode, dirty = true): void {
   if (dirty) dispatchDirty(figure);
 }
 
-function updateControl(control: HTMLElement, figure: HTMLElement): void {
+function updateControl(control: HTMLElement, figure: HTMLElement, commit: boolean): void {
   const kind = control.dataset.folioControl;
   if (kind === "scale" && control instanceof HTMLInputElement) figure.dataset.folioScale = String(clamp(control.value, 25, 100, 42));
   if (kind === "gap" && control instanceof HTMLInputElement) figure.dataset.folioGap = String(clamp(control.value, 25, 200, 65));
@@ -285,7 +310,7 @@ function updateControl(control: HTMLElement, figure: HTMLElement): void {
   if (kind === "x" && control instanceof HTMLInputElement) figure.dataset.folioX = String(clamp(control.value, 0, 100, 50));
   if (kind === "y" && control instanceof HTMLInputElement) figure.dataset.folioY = String(clamp(control.value, 0, 100, 50));
   refreshFigure(figure);
-  dispatchDirty(figure);
+  if (commit) dispatchDirty(figure, true);
 }
 
 function topLevelBlocks(editor: HTMLElement, figure: HTMLElement): HTMLElement[] {
@@ -397,6 +422,9 @@ export function installIllustrationControls(): void {
   const observer = new MutationObserver(hydrateAll);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   requestAnimationFrame(hydrateAll);
+  const repositionSelected = () => positionInspector(selectedFigure);
+  window.addEventListener("resize", repositionSelected);
+  document.addEventListener("scroll", repositionSelected, true);
 
   document.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
@@ -503,7 +531,7 @@ export function installIllustrationControls(): void {
     const control = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-folio-control]");
     const figure = control?.closest<HTMLElement>(".editor-illustration");
     if (!control || !figure || control.dataset.folioControl === "crop") return;
-    updateControl(control, figure);
+    updateControl(control, figure, event.type === "change");
   };
   document.addEventListener("input", onValue, true);
   document.addEventListener("change", onValue, true);
