@@ -44,6 +44,23 @@ try {
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
 
+  // Use a theme that historically hard-coded its own drop-cap font-size.
+  // V6 passed on themes without that override and therefore missed the real bug.
+  await page.click('button[data-command="design"]');
+  await page.waitForSelector('.style-library[aria-label="Book style library"]');
+  await page.evaluate(() => {
+    const bookStyle = [...document.querySelectorAll<HTMLButtonElement>(".style-category-list button")]
+      .find((item) => item.textContent?.trim() === "Book Style");
+    bookStyle?.click();
+  });
+  await page.waitForSelector('button[data-theme="aubade"]');
+  await page.click('button[data-theme="aubade"]');
+  await page.evaluate(() => {
+    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+      .find((button) => button.textContent?.trim() === "Done");
+    done?.click();
+  });
+
   const openFirstParagraphSettings = async () => {
     await page.click('button[data-command="design"]');
     await page.waitForSelector('.style-library[aria-label="Book style library"]');
@@ -165,6 +182,29 @@ try {
     );
   });
 
+  const editorOpenerLayout = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const opener = editor?.querySelector<HTMLElement>(":scope > .editor-illustration.folio-chapter-opener-editor");
+    if (!editor || !opener) return null;
+    let para = opener.nextElementSibling as HTMLElement | null;
+    while (para && (para.tagName !== "P" || !(para.textContent?.trim()))) para = para.nextElementSibling as HTMLElement | null;
+    if (!para) return null;
+    const or = opener.getBoundingClientRect();
+    const pr = para.getBoundingClientRect();
+    const style = getComputedStyle(opener);
+    return {
+      float: style.float,
+      shapeOutside: style.shapeOutside,
+      opener: or.toJSON(),
+      paragraph: pr.toJSON(),
+      overlaps: or.bottom > pr.top + 1 && or.top < pr.bottom - 1,
+    };
+  });
+  check("editor chapter opener never covers first paragraph",
+    Boolean(editorOpenerLayout && editorOpenerLayout.float === "none" && editorOpenerLayout.shapeOutside === "none" && !editorOpenerLayout.overlaps),
+    JSON.stringify(editorOpenerLayout));
+  if (!editorOpenerLayout || editorOpenerLayout.overlaps) throw new Error("Editor opener overlaps first paragraph");
+
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const opener = doc?.querySelector<HTMLElement>("section.chapter > .folio-illustration-block.folio-chapter-opener");
@@ -172,7 +212,7 @@ try {
     if (!opener || !para) return false;
     const or = opener.getBoundingClientRect();
     const pr = para.getBoundingClientRect();
-    return getComputedStyle(opener).float === "none" && pr.top >= or.bottom - 1;
+    return getComputedStyle(opener).float === "none" && getComputedStyle(opener).shapeOutside === "none" && pr.top >= or.bottom - 1;
   });
 
   const after = await measureDropcap();
@@ -200,9 +240,16 @@ try {
       alignRight: Math.abs(or.right - (opener.parentElement?.getBoundingClientRect().right ?? or.right)),
     };
   });
-  check("chapter opener is a non-wrapping opening device", Boolean(openerLayout && openerLayout.float === "none" && openerLayout.paragraphGap >= -1), JSON.stringify(openerLayout));
+  check("chapter opener is tight to the chapter heading and non-wrapping",
+    Boolean(openerLayout && openerLayout.float === "none" && openerLayout.headingGap <= 18 && openerLayout.paragraphGap >= -1),
+    JSON.stringify(openerLayout));
+  if (!openerLayout || openerLayout.headingGap > 18) throw new Error("Chapter opener is still too far from heading");
 
   await openFirstParagraphSettings();
+  const authoritativePreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 }).catch(() => null);
   await page.evaluate(() => {
     const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
       .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap size");
@@ -222,8 +269,13 @@ try {
     return Boolean(cap && parseFloat(getComputedStyle(cap).fontSize) > Number(smallSize) * 1.15);
   }, {}, baseline.fontSize);
 
+  await authoritativePreview;
+  await new Promise((resolve) => setTimeout(resolve, 250));
   const medium = await measureDropcap();
-  check("Medium drop cap is materially larger than legacy Small", Boolean(medium && medium.fontSize > baseline.fontSize * 1.15), JSON.stringify({ small: baseline.fontSize, medium: medium?.fontSize }));
+  check("Medium drop cap stays larger after authoritative server preview",
+    Boolean(medium && medium.fontSize > baseline.fontSize * 1.15),
+    JSON.stringify({ small: baseline.fontSize, medium: medium?.fontSize }));
+  if (!medium || medium.fontSize <= baseline.fontSize * 1.15) throw new Error("Drop cap size override disappeared after server preview");
 
   await page.close();
 } catch (error) {
