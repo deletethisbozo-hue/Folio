@@ -91,12 +91,25 @@ try {
     const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
     return Boolean(
       figure?.dataset.folioShape === "contour" &&
-      figure.dataset.folioWrap === "right" &&
+      figure.dataset.folioWrap === "none" &&
       figure.dataset.folioGap === "45" &&
       image?.complete && image.naturalWidth > 20
     );
   }, { timeout: 12000 });
-  check("PNG defaults to contour state in the editor", true);
+  check("PNG defaults to contour metadata without forcing text wrap", true);
+
+  await page.evaluate(() => {
+    const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
+    if (!image) throw new Error("Contour illustration image missing after hydration");
+    image.click();
+  });
+  await page.waitForFunction(() => document.querySelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]'));
+  await page.evaluate(() => {
+    const button = document.querySelector<HTMLButtonElement>('.folio-illustration-overlay [data-folio-wrap-choice="right"]');
+    if (!button) throw new Error("Contour wrap-right control missing after selection");
+    button.click();
+  });
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioWrap === "right");
 
   const contourMarkdown = await page.waitForFunction(() => {
     const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
@@ -108,12 +121,6 @@ try {
     contourMarkdown.includes(".folio-shape-contour") && contourMarkdown.includes("data-folio-gap=45"),
     contourMarkdown.slice(0, 420));
 
-  await page.evaluate(() => {
-    const image = document.querySelector<HTMLImageElement>(".editor-illustration img[data-folio-asset]");
-    if (!image) throw new Error("Contour illustration image missing after hydration");
-    image.click();
-  });
-  await page.waitForFunction(() => document.querySelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]'));
   await page.evaluate(() => {
     const button = document.querySelector<HTMLButtonElement>('.folio-illustration-overlay [data-folio-wrap-choice="left"]');
     if (!button) throw new Error("Contour wrap-left control missing after selection");
