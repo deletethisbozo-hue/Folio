@@ -55,7 +55,7 @@ async function applySafePrintContourPolygons(page: Page): Promise<{
 }> {
   return page.evaluate(async () => {
     const figures = [...document.querySelectorAll<HTMLElement>(
-      ".folio-illustration-block.folio-shape-contour.folio-wrap-left,.folio-illustration-block.folio-shape-contour.folio-wrap-right",
+      ".folio-illustration-block.folio-shape-contour.folio-wrap-left:not(.folio-chapter-opener),.folio-illustration-block.folio-shape-contour.folio-wrap-right:not(.folio-chapter-opener)",
     )];
     let polygons = 0;
     let fallbacks = 0;
@@ -207,7 +207,7 @@ async function stabilizePrintIllustrationWraps(page: Page): Promise<{
 }> {
   return page.evaluate(() => {
     const figures = [...document.querySelectorAll<HTMLElement>(
-      ".folio-illustration-block.folio-wrap-left,.folio-illustration-block.folio-wrap-right",
+      ".folio-illustration-block.folio-wrap-left:not(.folio-chapter-opener),.folio-illustration-block.folio-wrap-right:not(.folio-chapter-opener)",
     )];
     let autoScaled = 0;
     let raggedParagraphs = 0;
