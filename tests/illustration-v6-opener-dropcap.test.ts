@@ -111,6 +111,9 @@ try {
     if (!doc || !cap || !para) return null;
     const cr = cap.getBoundingClientRect();
     const pr = para.getBoundingClientRect();
+    const nextPara = Array.from(para.parentElement?.children ?? []).find((node) =>
+      node instanceof HTMLElement && node.tagName === "P" && node !== para && node.getBoundingClientRect().top >= pr.bottom - 0.5
+    ) as HTMLElement | undefined;
     let bodyText: Text | null = null;
     const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
@@ -130,12 +133,20 @@ try {
       firstLineTop = rr?.top ?? null;
     }
     const capStyle = getComputedStyle(cap);
+    const capRightFromParagraph = cr.right - pr.left;
+    const firstLineLeftFromParagraph = firstLineLeft == null ? null : firstLineLeft - pr.left;
     return {
       fontSize: parseFloat(capStyle.fontSize),
       capTopFromParagraph: cr.top - pr.top,
       capLeftFromParagraph: cr.left - pr.left,
+      capRightFromParagraph,
+      capWidth: cr.width,
       firstLineTopFromParagraph: firstLineTop == null ? null : firstLineTop - pr.top,
-      firstLineLeftFromParagraph: firstLineLeft == null ? null : firstLineLeft - pr.left,
+      firstLineLeftFromParagraph,
+      firstLineGapAfterCap: firstLineLeftFromParagraph == null ? null : firstLineLeftFromParagraph - capRightFromParagraph,
+      nextParagraphGap: nextPara ? nextPara.getBoundingClientRect().top - pr.bottom : null,
+      paragraphHeight: pr.height,
+      dropcapLines: Number(para.dataset.folioDropcapLines ?? 0),
       paragraphClass: para.className,
       capClass: cap.className,
       capPosition: capStyle.position,
@@ -165,8 +176,31 @@ try {
   );
   const [chooser] = await Promise.all([page.waitForFileChooser(), page.click(".illustration-button")]);
   await chooser.accept([fixture]);
-  if (!(await upload).ok()) throw new Error("V6 opener fixture upload failed");
+  if (!(await upload).ok()) throw new Error("V8 opener fixture upload failed");
   await page.waitForSelector(".editor-illustration img[data-folio-asset]");
+
+  const insertedLayout = await page.evaluate(() => {
+    const figure = document.querySelector<HTMLElement>(".rich-editor > .editor-illustration");
+    if (!figure) return null;
+    const style = getComputedStyle(figure);
+    const rect = figure.getBoundingClientRect();
+    const next = figure.nextElementSibling as HTMLElement | null;
+    const nextRect = next?.getBoundingClientRect();
+    return {
+      wrap: figure.dataset.folioWrap,
+      float: style.float,
+      shapeOutside: style.shapeOutside,
+      figure: rect.toJSON(),
+      next: nextRect?.toJSON() ?? null,
+      overlapsNext: Boolean(nextRect && rect.bottom > nextRect.top + 1 && rect.top < nextRect.bottom - 1),
+    };
+  });
+  check("freshly inserted illustration starts as a non-wrapping block",
+    Boolean(insertedLayout && insertedLayout.wrap === "none" && insertedLayout.float === "none" && !insertedLayout.overlapsNext),
+    JSON.stringify(insertedLayout));
+  if (!insertedLayout || insertedLayout.wrap !== "none" || insertedLayout.float !== "none" || insertedLayout.overlapsNext) {
+    throw new Error("Fresh illustration still intrudes into editor prose");
+  }
 
   const boxes = await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
@@ -179,6 +213,10 @@ try {
   await page.mouse.move(boxes.image.left + boxes.image.width / 2, boxes.image.top + Math.min(50, boxes.image.height / 2));
   await page.mouse.down();
   await page.mouse.move(boxes.editor.left + boxes.editor.width * 0.82, boxes.editor.top + 3, { steps: 16 });
+  const authoritativeAfterOpener = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 10000 }).catch(() => null);
   await page.mouse.up();
 
   await page.waitForFunction(() => {
@@ -229,14 +267,25 @@ try {
       !para.classList.contains("folio-float-native");
   });
 
+  await authoritativeAfterOpener;
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await page.waitForFunction(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    const para = cap?.closest<HTMLElement>("p");
+    return Boolean(cap && para?.classList.contains("folio-composed-dropcap") && cap.classList.contains("folio-composed-cap"));
+  });
+
   const after = await measureDropcap();
   if (!after) throw new Error("Drop cap geometry after opener unavailable");
   const invariant =
     Math.abs(after.fontSize - baseline.fontSize) < 0.2 &&
     Math.abs(after.capTopFromParagraph - baseline.capTopFromParagraph) < 1.5 &&
-    Math.abs((after.firstLineTopFromParagraph ?? 0) - (baseline.firstLineTopFromParagraph ?? 0)) < 1.5;
-  check("chapter opener does not change drop cap metrics", invariant, JSON.stringify({ baseline, after }));
-  if (!invariant) throw new Error("Chapter opener changed drop cap geometry");
+    Math.abs((after.firstLineTopFromParagraph ?? 0) - (baseline.firstLineTopFromParagraph ?? 0)) < 1.5 &&
+    Math.abs((after.firstLineLeftFromParagraph ?? 0) - (baseline.firstLineLeftFromParagraph ?? 0)) < 1.5 &&
+    Math.abs((after.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) < 1.5;
+  check("chapter opener leaves horizontal and vertical drop-cap flow unchanged", invariant, JSON.stringify({ baseline, after }));
+  if (!invariant) throw new Error("Chapter opener changed drop cap text flow");
 
   const openerLayout = await page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
