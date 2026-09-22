@@ -94,11 +94,14 @@ try {
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
-    const para = cap?.closest("p");
+    const para = cap?.closest<HTMLElement>("p");
     if (!cap || !para) return false;
     const capSize = parseFloat(getComputedStyle(cap).fontSize);
     const bodySize = parseFloat(getComputedStyle(para).fontSize);
-    return Number.isFinite(capSize) && Number.isFinite(bodySize) && capSize >= bodySize * 2.5;
+    return Number.isFinite(capSize) && Number.isFinite(bodySize) &&
+      capSize >= bodySize * 2.5 &&
+      para.classList.contains("folio-composed-dropcap") &&
+      cap.classList.contains("folio-composed-cap");
   });
 
   const measureDropcap = async () => page.evaluate(() => {
@@ -126,12 +129,17 @@ try {
       firstLineLeft = rr?.left ?? null;
       firstLineTop = rr?.top ?? null;
     }
+    const capStyle = getComputedStyle(cap);
     return {
-      fontSize: parseFloat(getComputedStyle(cap).fontSize),
+      fontSize: parseFloat(capStyle.fontSize),
       capTopFromParagraph: cr.top - pr.top,
       capLeftFromParagraph: cr.left - pr.left,
       firstLineTopFromParagraph: firstLineTop == null ? null : firstLineTop - pr.top,
       firstLineLeftFromParagraph: firstLineLeft == null ? null : firstLineLeft - pr.left,
+      paragraphClass: para.className,
+      capClass: cap.className,
+      capPosition: capStyle.position,
+      capFloat: capStyle.float,
     };
   });
 
@@ -208,11 +216,17 @@ try {
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const opener = doc?.querySelector<HTMLElement>("section.chapter > .folio-illustration-block.folio-chapter-opener");
-    const para = doc?.querySelector<HTMLElement>("section.chapter > p .dropcap")?.closest("p");
-    if (!opener || !para) return false;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter > p .dropcap");
+    const para = cap?.closest<HTMLElement>("p");
+    if (!opener || !para || !cap) return false;
     const or = opener.getBoundingClientRect();
     const pr = para.getBoundingClientRect();
-    return getComputedStyle(opener).float === "none" && getComputedStyle(opener).shapeOutside === "none" && pr.top >= or.bottom - 1;
+    return getComputedStyle(opener).float === "none" &&
+      getComputedStyle(opener).shapeOutside === "none" &&
+      pr.top >= or.bottom - 1 &&
+      para.classList.contains("folio-composed-dropcap") &&
+      cap.classList.contains("folio-composed-cap") &&
+      !para.classList.contains("folio-float-native");
   });
 
   const after = await measureDropcap();
