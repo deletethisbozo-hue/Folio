@@ -70,9 +70,9 @@ try {
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
-    const paragraphs = editor?.querySelectorAll(":scope > p");
-    const target = paragraphs?.[2];
-    if (!editor || !target) throw new Error("No prose paragraph for contour insertion");
+    const paragraphs = [...(editor?.querySelectorAll<HTMLElement>(":scope > p") ?? [])];
+    const target = paragraphs.find((paragraph) => (paragraph.textContent?.trim().length ?? 0) > 180);
+    if (!editor || !target) throw new Error("No long prose paragraph for contour insertion");
     const range = document.createRange();
     range.setStart(target, 0);
     range.collapse(true);
@@ -113,7 +113,7 @@ try {
     const figure = document.querySelector<HTMLElement>(".editor-illustration.folio-wrap-left");
     if (!figure) return null;
     let paragraph = figure.nextElementSibling as HTMLElement | null;
-    while (paragraph && paragraph.tagName !== "P") paragraph = paragraph.nextElementSibling as HTMLElement | null;
+    while (paragraph && (paragraph.tagName !== "P" || (paragraph.textContent?.trim().length ?? 0) < 120)) paragraph = paragraph.nextElementSibling as HTMLElement | null;
     if (!paragraph) return null;
     const range = document.createRange();
     range.selectNodeContents(paragraph);
@@ -143,7 +143,7 @@ try {
     const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-shape-contour.folio-wrap-left");
     if (!doc || !figure) return null;
     let paragraph = figure.nextElementSibling as HTMLElement | null;
-    while (paragraph && paragraph.tagName !== "P") paragraph = paragraph.nextElementSibling as HTMLElement | null;
+    while (paragraph && (paragraph.tagName !== "P" || (paragraph.textContent?.trim().length ?? 0) < 120)) paragraph = paragraph.nextElementSibling as HTMLElement | null;
     if (!paragraph) return null;
     const range = doc.createRange();
     range.selectNodeContents(paragraph);
