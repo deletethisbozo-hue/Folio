@@ -21,7 +21,7 @@ function clampIllustration(value: unknown, min: number, max: number, fallback: n
 }
 
 function parseIllustrationAttrs(attrs = ""): IllustrationSpec {
-  const scale = clampIllustration(attrs.match(/(?:^|\s)width=(?:"|')?(\d{1,3})%/i)?.[1], 25, 100, 100);
+  const scale = clampIllustration(attrs.match(/(?:^|\s)width=(?:"|')?(\d{1,3}(?:\.\d+)?)%/i)?.[1], 20, 100, 100);
   const crop = /\.folio-crop\b/.test(attrs);
   const ratio = attrs.match(/\.folio-ratio-([a-z0-9-]+)/i)?.[1] ?? "4-3";
   const x = clampIllustration(attrs.match(/data-folio-x=(?:"|')?(\d{1,3})/i)?.[1], 0, 100, 50);
@@ -30,6 +30,11 @@ function parseIllustrationAttrs(attrs = ""): IllustrationSpec {
   const shape: IllustrationShape = /\.folio-shape-contour\b/.test(attrs) ? "contour" : "box";
   const gap = clampIllustration(attrs.match(/data-folio-gap=(?:"|')?(\d{1,3})/i)?.[1], 0, 150, 65);
   return { scale, crop, ratio, x, y, wrap, shape, gap };
+}
+
+function illustrationScaleText(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 function illustrationRatioCss(ratio: string): string {
@@ -46,7 +51,7 @@ function illustrationMarkdownAttrs(spec: IllustrationSpec): string {
   if (spec.shape === "contour") classes.push(".folio-shape-contour");
   if (spec.crop) classes.push(".folio-crop", `.folio-ratio-${spec.ratio}`);
   if (!spec.crop && Math.round(spec.scale) === 100 && spec.wrap === "none" && spec.shape === "box" && Math.round(spec.gap) === 65) return "{.folio-illustration}";
-  const attrs = [...classes, `width=${Math.round(spec.scale)}%`, `data-folio-gap=${Math.round(spec.gap)}`];
+  const attrs = [...classes, `width=${illustrationScaleText(spec.scale)}%`, `data-folio-gap=${Math.round(spec.gap)}`];
   if (spec.crop) {
     attrs.push(
       `data-folio-x=${Math.round(spec.x)}`,
@@ -139,7 +144,7 @@ function renderNode(node: Node): string {
     if (!asset) return "";
     const alt = escapeMarkdownAlt(image.alt.trim() || "Illustration");
     const spec: IllustrationSpec = {
-      scale: clampIllustration(element.getAttribute("data-folio-scale"), 25, 100, 100),
+      scale: clampIllustration(element.getAttribute("data-folio-scale"), 20, 100, 100),
       crop: element.getAttribute("data-folio-crop") === "true",
       ratio: element.getAttribute("data-folio-ratio") || "4-3",
       x: clampIllustration(element.getAttribute("data-folio-x"), 0, 100, 50),
