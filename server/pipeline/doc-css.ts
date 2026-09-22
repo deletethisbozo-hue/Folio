@@ -106,6 +106,9 @@ function typographyCss(book: Book): string {
     const size = dropcapSizes[ty.dropcapSize];
     out.push(`:root { --folio-dropcap-user-size: ${size.screen}; --folio-dropcap-print-size: ${size.print}; }`);
   }
+  if (ty.dropcapFont) {
+    out.push(`.dropcap { font-family: ${familyValue(ty.dropcapFont)} !important; }`);
+  }
 
   const bodyDecls: string[] = [];
   if (ty.bodyFont) bodyDecls.push(`font-family: ${familyValue(ty.bodyFont)} !important;`);
