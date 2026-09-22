@@ -4,6 +4,7 @@ import { printCss, THEMES_DIR } from "./paths.ts";
 import { BOOK_TEMPLATE, cleanup, commonArgs, makeWorkspace, runPandoc } from "./pandoc.ts";
 import { buildDocCss } from "./doc-css.ts";
 import { buildThemeRuntimeCss } from "./theme-fonts.ts";
+import { applyIllustrationContours } from "./illustration-shapes.ts";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
@@ -44,7 +45,7 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
       `--metadata=lang:${book.meta.language}`,
       ...css.map((c) => `--css=${c}`),
     ];
-    const rendered = await runPandoc(args, md);
+    const rendered = applyIllustrationContours(await runPandoc(args, md));
     if (!runtimeTheme.fontCss.trim()) return rendered;
     const fontStyle = `<style id="folio-theme-fonts">${runtimeTheme.fontCss}</style>`;
     const headClose = rendered.lastIndexOf("</head>");
