@@ -83,44 +83,51 @@ async function applySafePrintContourPolygons(page: Page): Promise<{
 
       const naturalWidth = image.naturalWidth;
       const naturalHeight = image.naturalHeight;
-      const rows = Math.max(48, Math.min(160, Math.round(naturalHeight / 4)));
-      const columns = Math.max(48, Math.min(220, Math.round(naturalWidth * rows / naturalHeight)));
-      const canvas = document.createElement("canvas");
-      canvas.width = columns;
-      canvas.height = rows;
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-      if (!context) {
-        figure.style.shapeOutside = "inset(0)";
-        figure.style.shapeMargin = "0px";
-        fallbacks++;
-        continue;
-      }
+      const profileKey = `${image.currentSrc || image.src}::${naturalWidth}x${naturalHeight}`;
+      const runtime = window as typeof window & {
+        __folioPrintContourProfiles?: Map<string, { rows: number; left: number[]; right: number[]; opaque: boolean }>;
+      };
+      const cache = runtime.__folioPrintContourProfiles ??= new Map();
+      let profile = cache.get(profileKey);
 
       try {
-        context.clearRect(0, 0, columns, rows);
-        context.drawImage(image, 0, 0, columns, rows);
-        const pixels = context.getImageData(0, 0, columns, rows).data;
-        const left = new Array<number>(rows).fill(1);
-        const right = new Array<number>(rows).fill(0);
-        let opaque = false;
+        if (!profile) {
+          const rows = Math.max(48, Math.min(160, Math.round(naturalHeight / 4)));
+          const columns = Math.max(48, Math.min(220, Math.round(naturalWidth * rows / naturalHeight)));
+          const canvas = document.createElement("canvas");
+          canvas.width = columns;
+          canvas.height = rows;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (!context) throw new Error("No canvas context");
 
-        for (let y = 0; y < rows; y++) {
-          let first = columns;
-          let last = -1;
-          for (let x = 0; x < columns; x++) {
-            const alpha = pixels[(y * columns + x) * 4 + 3];
-            if (alpha >= 28) {
-              opaque = true;
-              if (x < first) first = x;
-              if (x > last) last = x;
+          context.clearRect(0, 0, columns, rows);
+          context.drawImage(image, 0, 0, columns, rows);
+          const pixels = context.getImageData(0, 0, columns, rows).data;
+          const left = new Array<number>(rows).fill(1);
+          const right = new Array<number>(rows).fill(0);
+          let opaque = false;
+
+          for (let y = 0; y < rows; y++) {
+            let first = columns;
+            let last = -1;
+            for (let x = 0; x < columns; x++) {
+              const alpha = pixels[(y * columns + x) * 4 + 3];
+              if (alpha >= 28) {
+                opaque = true;
+                if (x < first) first = x;
+                if (x > last) last = x;
+              }
+            }
+            if (last >= 0) {
+              left[y] = first / Math.max(1, columns - 1);
+              right[y] = last / Math.max(1, columns - 1);
             }
           }
-          if (last >= 0) {
-            left[y] = first / Math.max(1, columns - 1);
-            right[y] = last / Math.max(1, columns - 1);
-          }
+          profile = { rows, left, right, opaque };
+          cache.set(profileKey, profile);
         }
 
+        const { rows, left, right, opaque } = profile;
         if (!opaque) {
           figure.style.shapeOutside = "inset(0)";
           figure.style.shapeMargin = "0px";
@@ -359,10 +366,11 @@ async function withPaginated<T>(
     // Float geometry is now final enough to measure. Guard against narrow,
     // over-justified text corridors before the compositor freezes lines and
     // before Paged.js fragments the document into pages.
-    await stabilizePrintIllustrationWraps(page);
-    // The print preflight may reduce an illustration's width. Recompute the
-    // polygon at that actual size so the physical safety gap remains constant.
-    await applySafePrintContourPolygons(page);
+    const illustrationPreflight = await stabilizePrintIllustrationWraps(page);
+    // Recompute only when preflight actually changed a float's print size.
+    // The alpha profile itself is cached in the page, so even this pass avoids
+    // decoding the PNG twice.
+    if (illustrationPreflight.autoScaled > 0) await applySafePrintContourPolygons(page);
     await composeProfessionalParagraphs(page, book);
     // Disable Paged.js auto-run (set before the polyfill script loads).
     await page.evaluate(() => {
