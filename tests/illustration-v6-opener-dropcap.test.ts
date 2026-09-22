@@ -154,6 +154,27 @@ try {
     };
   });
 
+  const measureCapLineCollisions = async () => page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    const para = cap?.closest<HTMLElement>("p");
+    if (!doc || !cap || !para) return null;
+    const cr = cap.getBoundingClientRect();
+    const lines = Array.from(para.querySelectorAll<HTMLElement>(":scope > .folio-composed-line"));
+    const collisions = lines.map((line, index) => {
+      const lr = line.getBoundingClientRect();
+      const vertical = lr.bottom > cr.top + .5 && lr.top < cr.bottom - .5;
+      const horizontal = lr.left < cr.right - .5 && lr.right > cr.left + .5;
+      return vertical && horizontal ? { index, line: lr.toJSON() } : null;
+    }).filter(Boolean);
+    return {
+      cap: cr.toJSON(),
+      lineCount: lines.length,
+      reservedLines: Number(para.dataset.folioDropcapLines ?? 0),
+      collisions,
+    };
+  });
+
   const baseline = await measureDropcap();
   if (!baseline) throw new Error("Baseline drop cap geometry unavailable");
 
@@ -339,6 +360,58 @@ try {
     Boolean(medium && medium.fontSize > baseline.fontSize * 1.15),
     JSON.stringify({ small: baseline.fontSize, medium: medium?.fontSize }));
   if (!medium || medium.fontSize <= baseline.fontSize * 1.15) throw new Error("Drop cap size override disappeared after server preview");
+
+  const mediumCollision = await measureCapLineCollisions();
+  check("Medium drop cap reserves enough composed lines",
+    Boolean(mediumCollision && mediumCollision.reservedLines >= 3 && mediumCollision.collisions.length === 0),
+    JSON.stringify(mediumCollision));
+  if (!mediumCollision || mediumCollision.reservedLines < 3 || mediumCollision.collisions.length) {
+    throw new Error("Medium drop cap overlaps composed prose");
+  }
+
+  await openFirstParagraphSettings();
+  const authoritativeXL = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 }).catch(() => null);
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap size");
+    const select = row?.querySelector<HTMLSelectElement>("select");
+    if (!select) throw new Error("Drop cap size selector missing");
+    select.value = "xlarge";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+      .find((button) => button.textContent?.trim() === "Done");
+    done?.click();
+  });
+  await authoritativeXL;
+  await page.waitForFunction((mediumSize) => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    const para = cap?.closest<HTMLElement>("p");
+    return Boolean(cap && para?.classList.contains("folio-composed-dropcap") &&
+      parseFloat(getComputedStyle(cap).fontSize) > Number(mediumSize) * 1.12);
+  }, {}, medium.fontSize);
+
+  const xlarge = await measureDropcap();
+  const xlargeCollision = await measureCapLineCollisions();
+  check("Extra large drop cap grows without entering prose",
+    Boolean(xlarge && xlargeCollision &&
+      xlarge.fontSize > medium.fontSize * 1.12 &&
+      xlargeCollision.reservedLines >= mediumCollision.reservedLines &&
+      xlargeCollision.collisions.length === 0),
+    JSON.stringify({ medium, xlarge, collision: xlargeCollision }));
+  if (!xlarge || !xlargeCollision || xlargeCollision.collisions.length) {
+    throw new Error("Extra large drop cap overlaps composed prose");
+  }
+
+  check("Larger drop caps do not create a new post-paragraph hole",
+    Math.abs((xlarge.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) < 1.5,
+    JSON.stringify({ baselineGap: baseline.nextParagraphGap, xlargeGap: xlarge.nextParagraphGap }));
+  if (Math.abs((xlarge.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) >= 1.5) {
+    throw new Error("Drop cap size created extra paragraph spacing");
+  }
 
   await page.close();
 } catch (error) {
