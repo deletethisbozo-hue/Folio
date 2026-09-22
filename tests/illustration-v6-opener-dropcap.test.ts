@@ -73,7 +73,37 @@ try {
     await page.waitForFunction(() => [...document.querySelectorAll(".customize-row > span")].some((node) => node.textContent?.trim() === "Drop cap"));
   };
 
+  const measureDropcapFontSize = async () => page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    return cap ? parseFloat(getComputedStyle(cap).fontSize) : null;
+  });
+
   await openFirstParagraphSettings();
+  const pickerState = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
+    const size = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap size")
+      ?.querySelector<HTMLSelectElement>("select");
+    const font = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap typeface")
+      ?.querySelector<HTMLSelectElement>("select");
+    return {
+      sizeValue: size?.value,
+      sizeOptions: [...(size?.options ?? [])].map((option) => ({ value: option.value, text: option.textContent?.trim() })),
+      fontOptions: [...(font?.options ?? [])].map((option) => option.textContent?.trim()),
+    };
+  });
+  const hasSeparateThemeAndSmall =
+    pickerState.sizeValue === "theme" &&
+    pickerState.sizeOptions.some((option) => option.value === "theme" && option.text === "Current theme size") &&
+    pickerState.sizeOptions.some((option) => option.value === "small" && option.text === "Small");
+  check("Current theme size and Small are separate drop-cap states", hasSeparateThemeAndSmall, JSON.stringify(pickerState.sizeOptions));
+  if (!hasSeparateThemeAndSmall) throw new Error("Drop cap size picker still aliases theme default to Small");
+
+  const requestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"];
+  const hasRequestedFonts = requestedFonts.every((name) => pickerState.fontOptions.includes(name));
+  check("Drop cap font picker exposes all requested licensed fonts", hasRequestedFonts, JSON.stringify(pickerState.fontOptions));
+  if (!hasRequestedFonts) throw new Error("Drop cap font picker is missing requested fonts");
+
   const bookStylesFont = await page.$eval(".style-library-header h2", (node) => getComputedStyle(node).fontFamily);
   const uiFontOk = !/Georgia|Times New Roman/i.test(bookStylesFont);
   check("Book Styles header keeps the UI sans-serif font", uiFontOk, bookStylesFont);
@@ -82,11 +112,27 @@ try {
   await page.evaluate(() => {
     const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
     const dropRow = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap");
-    const sizeRow = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap size");
     const checkbox = dropRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    const select = sizeRow?.querySelector<HTMLSelectElement>("select");
-    if (!checkbox || !select) throw new Error("Drop cap controls missing");
+    if (!checkbox) throw new Error("Drop cap checkbox missing");
     if (!checkbox.checked) checkbox.click();
+  });
+  await page.evaluate(() => {
+    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+      .find((button) => button.textContent?.trim() === "Done");
+    done?.click();
+  });
+  await page.waitForFunction(() => Boolean(
+    document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.querySelector("section.chapter .dropcap")
+  ));
+  const themeDefaultSize = await measureDropcapFontSize();
+  if (!themeDefaultSize) throw new Error("Theme-default drop cap size unavailable");
+
+  await openFirstParagraphSettings();
+  await page.evaluate(() => {
+    const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
+    const sizeRow = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap size");
+    const select = sizeRow?.querySelector<HTMLSelectElement>("select");
+    if (!select) throw new Error("Drop cap size selector missing");
     select.value = "small";
     select.dispatchEvent(new Event("change", { bubbles: true }));
   });
@@ -95,6 +141,21 @@ try {
       .find((button) => button.textContent?.trim() === "Done");
     done?.click();
   });
+
+  await page.waitForFunction((themeSize) => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    if (!cap) return false;
+    const current = parseFloat(getComputedStyle(cap).fontSize);
+    return Number.isFinite(current) && Math.abs(current - Number(themeSize)) >= 0.5;
+  }, {}, themeDefaultSize);
+  const explicitSmallSize = await measureDropcapFontSize();
+  check("Explicit Small overrides the current theme size",
+    Boolean(explicitSmallSize && Math.abs(explicitSmallSize - themeDefaultSize) >= 0.5),
+    JSON.stringify({ themeDefaultSize, explicitSmallSize }));
+  if (!explicitSmallSize || Math.abs(explicitSmallSize - themeDefaultSize) < 0.5) {
+    throw new Error("Explicit Small is still indistinguishable from Current theme size");
+  }
 
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
@@ -488,7 +549,26 @@ try {
     JSON.stringify(xlargeHole));
   if (!xlargeHole || xlargeHole.excessGap > 2) throw new Error("Extra large drop cap leaves an artificial gap underneath");
 
-  await page.close();
+  await page.click('button[data-command="design"]');
+  await page.waitForSelector('.style-library[aria-label="Book style library"]');
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".style-category-list button")]
+      .find((item) => item.textContent?.trim() === "Chapter Heading");
+    if (!button) throw new Error("Chapter Heading category missing");
+    button.click();
+  });
+  const chapterFontOptions = await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
+    return [...(row?.querySelector<HTMLSelectElement>("select")?.options ?? [])]
+      .map((option) => option.textContent?.trim());
+  });
+  const chapterHasRequestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"]
+    .every((name) => chapterFontOptions.includes(name));
+  check("Chapter Heading picker exposes all requested licensed fonts", chapterHasRequestedFonts, JSON.stringify(chapterFontOptions));
+  if (!chapterHasRequestedFonts) throw new Error("Chapter Heading font picker is missing requested fonts");
+
+    await page.close();
 } catch (error) {
   failed++;
   console.error("✗ illustration V6 chapter opener scenario completed");
