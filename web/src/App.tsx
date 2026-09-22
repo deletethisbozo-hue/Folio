@@ -80,6 +80,18 @@ function lastPreviewProse(section: Element | null): HTMLElement | null {
   return nested.at(-1) ?? null;
 }
 
+function markDraftChapterOpener(section: Element): void {
+  section.querySelectorAll<HTMLElement>(":scope > .folio-illustration-block").forEach((figure) => {
+    figure.classList.remove("folio-chapter-opener");
+  });
+  const firstAuthored = Array.from(section.children).find((node) =>
+    node.tagName !== "H1" && !node.classList.contains("chapter-subtitle")
+  );
+  if (firstAuthored?.classList.contains("folio-illustration-block")) {
+    firstAuthored.classList.add("folio-chapter-opener");
+  }
+}
+
 function applyDraftDropcap(section: Element, enabled: boolean): void {
   if (!enabled || !section.classList.contains("chapter")) return;
   const paragraph = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"))
@@ -514,6 +526,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
     template.innerHTML = markdownToPreviewHtml(liveDraft, ornament, (asset) => project ? `/api/projects/${encodeURIComponent(project.projectId)}/asset?path=${encodeURIComponent(asset)}` : asset);
     section.appendChild(template.content);
+    if (document.kind === "chapter") markDraftChapterOpener(section);
     void applySafeContours(previewDocument);
     livePreviewDraftRef.current = liveDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
