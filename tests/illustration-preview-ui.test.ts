@@ -125,7 +125,7 @@ try {
     const image = figure?.querySelector<HTMLImageElement>("img");
     return Boolean(
       figure &&
-      Math.abs(parseFloat(figure.style.width || "0") - 65) < 1 &&
+      Math.abs(parseFloat(figure.style.width || "0") - 60) < 1 &&
       image?.style.objectFit === "cover" &&
       (image.style.aspectRatio === "1 / 1" || image.style.aspectRatio === "1/1")
     );
