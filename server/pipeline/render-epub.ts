@@ -80,7 +80,11 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
   const outPath = path.join(ws.dir, "book.epub");
   try {
     const md = assembleMarkdown(book, "epub");
-    const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, "epub");
+    const runtimeTheme = await buildThemeRuntimeCss(
+      book.meta.theme,
+      "epub",
+      [book.typography.headingFont, book.typography.dropcapFont].filter((value): value is string => Boolean(value)),
+    );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.css, "utf8");
     const cssFiles = [path.join(THEMES_DIR, "base.css"), path.join(THEMES_DIR, "image-page.css"), runtimeThemePath];
