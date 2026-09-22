@@ -91,6 +91,7 @@ function restore(paragraph: HTMLElement): void {
   paragraph.classList.remove(
     "folio-composed",
     "folio-composed-dropcap",
+    "folio-native-dropcap",
     "folio-compositor-safe-fallback",
   );
   delete paragraph.dataset.folioCompositionLanguage;
@@ -103,7 +104,7 @@ function ensureCompositionStyle(document: Document): void {
     style.id = "folio-compositor-fallback";
     document.head.appendChild(style);
   }
-  const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed)`).join(",");
+  const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed):not(.folio-native-dropcap)`).join(",");
   style.textContent = `
 ${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important;text-wrap:pretty!important}
 .folio-composed{position:relative!important;text-indent:0!important;text-align:left!important;text-align-last:left!important;overflow:visible!important}
@@ -916,12 +917,26 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
     paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
     paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
   ) return;
+
+  if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
+
+  // Drop caps deliberately stay on the browser's native float layout.
+  // Chromium already reserves exactly as many text lines as the cap's physical
+  // height needs, for every user-selected size. The custom line compositor used
+  // to convert the cap to absolute positioning and then guess that geometry,
+  // which caused both overlapping prose and phantom gaps after opener images.
+  if (paragraph.querySelector(":scope > .dropcap")) {
+    paragraph.classList.add("folio-native-dropcap");
+    paragraph.classList.remove("folio-float-native");
+    paragraph.style.removeProperty("min-height");
+    return;
+  }
+
   if (overlapsWrappedIllustration(paragraph)) {
     paragraph.classList.add("folio-float-native");
     return;
   }
   paragraph.classList.remove("folio-float-native");
-  if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
 
   const style = getComputedStyle(paragraph);
   const fontSize = pixels(style.fontSize) || 16;
