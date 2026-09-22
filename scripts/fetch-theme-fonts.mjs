@@ -78,7 +78,7 @@ async function fetchUrlWithRetry(url, attempts = 4) {
       const response = await fetch(url);
       if (response.ok) return response;
       const retryable = response.status === 429 || response.status >= 500;
-      lastError = new Error(`Unable to fetch ${relativePath}: HTTP ${response.status}`);
+      lastError = new Error(`Unable to fetch ${url}: HTTP ${response.status}`);
       if (!retryable) throw lastError;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
