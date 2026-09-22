@@ -90,7 +90,7 @@ try {
   check("V2 selects illustration before exposing crop controls", true);
 
   await page.$eval<HTMLInputElement>('[data-folio-control="scale"]', (control) => {
-    control.value = "65";
+    control.value = "60";
     control.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await page.click('[data-folio-control="crop"]');
@@ -101,15 +101,17 @@ try {
   await page.$eval<HTMLInputElement>('[data-folio-control="x"]', (control) => {
     control.value = "25";
     control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.$eval<HTMLInputElement>('[data-folio-control="y"]', (control) => {
     control.value = "75";
     control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
   await page.waitForFunction(() => {
     const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
-    return markdown.includes("width=65%")
+    return markdown.includes("width=60%")
       && markdown.includes(".folio-crop")
       && markdown.includes(".folio-ratio-1-1")
       && markdown.includes("data-folio-x=25")
