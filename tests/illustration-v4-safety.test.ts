@@ -69,13 +69,13 @@ try {
     if (!image) throw new Error("Inserted illustration missing");
     image.click();
   });
-  await page.waitForSelector(".editor-illustration.folio-image-selected .folio-image-inspector");
+  await page.waitForSelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
   await page.evaluate(() => {
-    const left = document.querySelector<HTMLButtonElement>('.editor-illustration [data-folio-wrap-choice="left"]');
+    const left = document.querySelector<HTMLButtonElement>('.folio-illustration-overlay [data-folio-wrap-choice="left"]');
     if (!left) throw new Error("Left wrap control missing");
     left.click();
   });
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="scale"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="scale"]', (input) => {
     input.value = "55";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
