@@ -867,7 +867,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       figure.dataset.folioRatio = "4-3";
       figure.dataset.folioX = "50";
       figure.dataset.folioY = "50";
-      figure.dataset.folioWrap = "right";
+      // A fresh image starts as a centered block. Wrapping is an explicit
+      // author action (drag left/right or choose a wrap control), never a side
+      // effect of insertion that can make the editor appear to cover prose.
+      figure.dataset.folioWrap = "none";
       const isTransparentPng = file.type === "image/png" || /\.png$/i.test(file.name);
       figure.dataset.folioShape = isTransparentPng ? "contour" : "box";
       figure.dataset.folioGap = "45";
