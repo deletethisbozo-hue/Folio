@@ -347,7 +347,6 @@ function moveIllustration(event: PointerEvent, state: DragState): void {
 
   reanchorAtPointer(state.editor, state.figure, event.clientY);
   setWrap(state.figure, wrapFromPointer(state.editor, event.clientX), false);
-  dispatchDirty(state.figure);
 }
 
 function resizeIllustration(event: PointerEvent, state: ResizeState): void {
@@ -383,7 +382,6 @@ function resizeIllustration(event: PointerEvent, state: ResizeState): void {
   const percent = clamp((widthPx / Math.max(1, editorRect.width)) * 100, 20, maxPercent, state.startScale);
   state.figure.dataset.folioScale = String(Math.round(percent * 10) / 10);
   refreshFigure(state.figure);
-  dispatchDirty(state.figure);
 }
 
 function finishInteraction(event: PointerEvent): void {
