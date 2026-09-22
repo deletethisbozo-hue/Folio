@@ -119,10 +119,10 @@ try {
     if (!image) throw new Error("Inserted image missing");
     image.click();
   });
-  await page.waitForSelector(".editor-illustration.folio-image-selected .folio-image-inspector");
+  await page.waitForSelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
 
   // Small image: controls must stay independent of the figure's own box.
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="scale"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="scale"]', (input) => {
     input.value = "25";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -130,16 +130,23 @@ try {
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioScale === "25");
 
   const inspector = await page.evaluate(() => {
-    const toolbar = document.querySelector<HTMLElement>(".editor-illustration.folio-image-selected .folio-image-inspector");
+    const toolbar = document.querySelector<HTMLElement>(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
     const gap = toolbar?.querySelector<HTMLElement>('[data-folio-control="gap"]');
     if (!toolbar || !gap) return null;
     const r = toolbar.getBoundingClientRect();
     const g = gap.getBoundingClientRect();
+    const cx = Math.max(0, Math.min(innerWidth - 1, r.left + r.width / 2));
+    const cy = Math.max(0, Math.min(innerHeight - 1, r.top + r.height / 2));
+    const hit = document.elementFromPoint(cx, cy);
     return {
       toolbar: r.toJSON(),
       gap: g.toJSON(),
       viewport: { width: innerWidth, height: innerHeight },
       position: getComputedStyle(toolbar).position,
+      parentClass: toolbar.parentElement?.className ?? "",
+      parentIsFigure: Boolean(toolbar.closest(".editor-illustration")),
+      hitToolbar: Boolean(hit?.closest(".folio-image-inspector") === toolbar),
+      zIndex: getComputedStyle(toolbar.parentElement as HTMLElement).zIndex,
     };
   });
   const inspectorVisible = Boolean(inspector &&
@@ -148,13 +155,16 @@ try {
     inspector.toolbar.top >= 0 &&
     inspector.toolbar.right <= inspector.viewport.width + 1 &&
     inspector.toolbar.bottom <= inspector.viewport.height + 1 &&
-    inspector.gap.width > 20 && inspector.gap.height > 5);
-  check("small illustrations keep the full inspector and Gap control visible", inspectorVisible, JSON.stringify(inspector));
+    inspector.gap.width > 20 && inspector.gap.height > 5 &&
+    inspector.parentClass.includes("folio-illustration-overlay") &&
+    !inspector.parentIsFigure &&
+    inspector.hitToolbar);
+  check("small illustrations keep the full inspector above preview and Gap control visible", inspectorVisible, JSON.stringify(inspector));
   if (!inspectorVisible) throw new Error("Inspector escaped the viewport for a small illustration.");
 
   // Range input should be visually live but commit only when the user releases it.
   const markdownBeforeSlider = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="scale"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="scale"]', (input) => {
     input.value = "37";
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
@@ -167,18 +177,18 @@ try {
     duringSlider.markdown === markdownBeforeSlider && duringSlider.scale === "37",
     JSON.stringify({ beforeLength: markdownBeforeSlider.length, during: duringSlider }));
 
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="scale"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="scale"]', (input) => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.waitForFunction(() => (document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "").includes("width=37%"));
 
   // Right-side contour at the largest allowed wrapped size must not cover prose.
   await page.evaluate(() => {
-    const right = document.querySelector<HTMLButtonElement>('.editor-illustration [data-folio-wrap-choice="right"]');
+    const right = document.querySelector<HTMLButtonElement>('.folio-illustration-overlay [data-folio-wrap-choice="right"]');
     if (!right) throw new Error("Right wrap button missing");
     right.click();
   });
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="scale"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="scale"]', (input) => {
     input.value = "60";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -244,7 +254,7 @@ try {
   );
   const baselinePrintRequests = printRequests;
 
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="gap"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="gap"]', (input) => {
     for (const value of ["40","42","44","46","48","50","52","54"]) {
       input.value = value;
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -255,7 +265,7 @@ try {
     printRequests === baselinePrintRequests,
     JSON.stringify({ baselinePrintRequests, printRequests }));
 
-  await page.$eval<HTMLInputElement>('.editor-illustration [data-folio-control="gap"]', (input) => {
+  await page.$eval<HTMLInputElement>('.folio-illustration-overlay [data-folio-control="gap"]', (input) => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.waitForResponse((response) =>
