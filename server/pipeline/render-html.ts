@@ -45,7 +45,7 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
       `--metadata=lang:${book.meta.language}`,
       ...css.map((c) => `--css=${c}`),
     ];
-    const rendered = applyIllustrationContours(await runPandoc(args, md));
+    const rendered = applyIllustrationContours(await runPandoc(args, md), "safe-box");
     if (!runtimeTheme.fontCss.trim()) return rendered;
     const fontStyle = `<style id="folio-theme-fonts">${runtimeTheme.fontCss}</style>`;
     const headClose = rendered.lastIndexOf("</head>");
