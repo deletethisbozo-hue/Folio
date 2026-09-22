@@ -1,14 +1,18 @@
+export type IllustrationContourMode = "safe-box" | "url-fallback";
+
 function clampGap(value: string | undefined): number {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.max(0, Math.min(150, parsed)) : 65;
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(200, parsed)) : 65;
 }
 
-function mergeShapeStyle(attrs: string, src: string, gap: number): string {
-  const additions = [
-    `shape-outside:url('${src.replace(/'/g, "%27")}')`,
-    "shape-image-threshold:.08",
-    `shape-margin:${gap / 100}em`,
-  ].join(";");
+function mergeShapeStyle(attrs: string, src: string, gap: number, mode: IllustrationContourMode): string {
+  const additions = mode === "url-fallback"
+    ? [
+        `shape-outside:url(\'${src.replace(/\'/g, "%27")}\')`,
+        "shape-image-threshold:.08",
+        `shape-margin:${Math.max(.28, gap / 100)}em`,
+      ].join(";")
+    : "shape-outside:inset(0);shape-margin:0";
 
   const styleMatch = attrs.match(/\sstyle="([^"]*)"/i);
   if (styleMatch) {
@@ -24,14 +28,15 @@ function mergeShapeStyle(attrs: string, src: string, gap: number): string {
 }
 
 /**
- * Resolve semantic Folio contour wrapping into browser-consumable CSS.
- *
- * Pandoc correctly embeds or rewrites the <img src>, but it cannot make the
- * float's shape-outside automatically point at that rewritten source. This
- * post-pass uses the actual emitted src, so HTML/Print/PDF and EPUB all wrap
- * against exactly the image readers will display.
+ * Keep semantic contour metadata in HTML while choosing a conservative runtime
+ * fallback. Reader/Print replace safe-box with a Folio-computed polygon after
+ * the image has loaded. EPUB cannot rely on runtime JS, so it keeps a standards-
+ * based URL contour fallback with a non-zero safety margin.
  */
-export function applyIllustrationContours(html: string): string {
+export function applyIllustrationContours(
+  html: string,
+  mode: IllustrationContourMode = "url-fallback",
+): string {
   return html.replace(/<div\b([^>]*)>([\s\S]*?)<\/div>/gi, (whole, attrs: string, inner: string) => {
     const classMatch = attrs.match(/\bclass="([^"]*)"/i);
     const classes = classMatch?.[1] ?? "";
@@ -44,7 +49,7 @@ export function applyIllustrationContours(html: string): string {
     if (!src) return whole;
 
     const gap = clampGap(attrs.match(/\bdata-folio-gap="(\d{1,3})"/i)?.[1]);
-    const shapedAttrs = mergeShapeStyle(attrs, src, gap);
+    const shapedAttrs = mergeShapeStyle(attrs, src, gap, mode);
     return `<div${shapedAttrs}>${inner}</div>`;
   });
 }
