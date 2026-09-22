@@ -129,6 +129,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [focusMode, setFocusMode] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
+  const [writeZoom, setWriteZoom] = useState(() => {
+    const stored = Number(window.localStorage.getItem("folio-write-zoom"));
+    return Number.isFinite(stored) ? Math.max(0.7, Math.min(2, stored)) : 1;
+  });
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(() => window.localStorage.getItem("folio-spellcheck-enabled") !== "false");
   const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
@@ -972,6 +976,50 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return flush ? flush() : true;
   }
 
+  function changeWriteZoom(delta: number | "reset") {
+    setWriteZoom((current) => {
+      const next = delta === "reset"
+        ? 1
+        : Math.max(0.7, Math.min(2, Math.round((current + delta) * 10) / 10));
+      window.localStorage.setItem("folio-write-zoom", String(next));
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (workspaceMode !== "write") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = event.key;
+      if (key === "+" || key === "=" || key === "Add") {
+        event.preventDefault();
+        changeWriteZoom(0.1);
+      } else if (key === "-" || key === "_" || key === "Subtract") {
+        event.preventDefault();
+        changeWriteZoom(-0.1);
+      } else if (key === "0") {
+        event.preventDefault();
+        changeWriteZoom("reset");
+      }
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest(".editor-paper,.writing-split-paper")) return;
+      event.preventDefault();
+      changeWriteZoom(event.deltaY < 0 ? 0.1 : -0.1);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("wheel", onWheel, true);
+    };
+  }, [workspaceMode]);
+
   async function changeWorkspaceMode(next: WorkspaceMode) {
     if (next === workspaceMode) return;
     if (next === "format" && splitView) {
@@ -1665,7 +1713,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   );
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom) } as React.CSSProperties}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
@@ -1714,6 +1762,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         ornament={writingOrnament}
         typewriterMode={typewriterMode}
         spellcheckEnabled={spellcheckEnabled}
+        writeZoom={writeZoom}
         onClose={() => setSplitView(false)}
         onError={(message) => setError(message)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
@@ -1731,7 +1780,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{coverSelected ? (project.hasCover ? <div className="cover-preview-surface"><img src={`/api/projects/${project.projectId}/cover?v=${coverVersion}`} alt={`${meta.title} cover`}/></div> : <div className="cover-preview-empty"><strong>No cover yet</strong><span>Add a PNG or JPEG from the Cover workspace.</span></div>) : selectedId ? <iframe key={`${project.projectId}:${selectedId}:${previewMode === "print" ? "print" : "reader"}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
-      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{workspaceMode === "write" ? (splitView ? "Write · Split" : "Write") : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
+      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
         <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
