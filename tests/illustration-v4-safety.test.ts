@@ -69,7 +69,7 @@ try {
     if (!image) throw new Error("Inserted illustration missing");
     image.click();
   });
-  await page.waitForSelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
+  await page.waitForSelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]');
   await page.evaluate(() => {
     const left = document.querySelector<HTMLButtonElement>('.folio-illustration-overlay [data-folio-wrap-choice="left"]');
     if (!left) throw new Error("Left wrap control missing");
