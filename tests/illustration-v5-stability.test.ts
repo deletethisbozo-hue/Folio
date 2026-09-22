@@ -198,7 +198,11 @@ try {
   });
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration.folio-wrap-right.folio-shape-contour");
-    return figure?.dataset.folioScale === "60" && figure.dataset.folioContourReady === "true";
+    return Boolean(
+      figure?.dataset.folioScale === "60" &&
+      getComputedStyle(figure).shapeOutside.includes("inset(") &&
+      !figure.dataset.folioContourReady
+    );
   });
 
   const rightClearance = await page.evaluate(() => {
