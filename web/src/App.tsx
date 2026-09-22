@@ -92,7 +92,15 @@ function markDraftChapterOpener(section: Element): void {
   }
 }
 
-function applyDraftDropcap(section: Element, enabled: boolean): void {
+function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography["dropcapSize"]): void {
+  const screenSizes: Record<NonNullable<Typography["dropcapSize"]>, string> = {
+    small: "3em",
+    medium: "3.6em",
+    large: "4.2em",
+    xlarge: "4.8em",
+  };
+  if (size) (section as HTMLElement).style.setProperty("--folio-dropcap-screen-size", screenSizes[size]);
+  else (section as HTMLElement).style.removeProperty("--folio-dropcap-screen-size");
   if (!enabled || !section.classList.contains("chapter")) return;
   const paragraph = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"))
     .find((candidate) => Boolean(candidate.textContent?.trim()));
@@ -530,7 +538,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     void applySafeContours(previewDocument);
     livePreviewDraftRef.current = liveDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
-    applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
+    applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false), typography.dropcapSize);
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
     void composePreviewDocument(previewDocument, typography.bodyAlign !== "left");
     return "rebuilt";
@@ -543,7 +551,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
+  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.dropcapSize, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -1921,7 +1929,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
         clearTypographyKeys("headingFont", "chapterTitle");
         return;
       case "First Paragraph":
-        clearTypographyKeys("dropcap");
+        clearTypographyKeys("dropcap", "dropcapSize");
         return;
       case "Paragraph After Break":
         clearTypographyKeys("paragraphAfterBreakIndent");
@@ -1958,7 +1966,10 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
       {row("Letter case", <select value={ty.chapterTitle?.case ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, case: (e.target.value || undefined) as "normal" | "smallcaps" | "uppercase" | undefined } })}><option value="">Theme default</option><option value="normal">Normal</option><option value="smallcaps">Small caps</option><option value="uppercase">Uppercase</option></select>)}
       {row("Style", <select value={ty.chapterTitle?.style ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, style: (e.target.value || undefined) as "normal" | "italic" | undefined } })}><option value="">Theme default</option><option value="normal">Roman</option><option value="italic">Italic</option></select>)}
     </>}
-    {category === "First Paragraph" && row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
+    {category === "First Paragraph" && <>
+      {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
+      {row("Drop cap size", <select value={ty.dropcapSize ?? "small"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="small">Small · current</option><option value="medium">Medium</option><option value="large">Large</option><option value="xlarge">Extra large</option></select>)}
+    </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
     {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
