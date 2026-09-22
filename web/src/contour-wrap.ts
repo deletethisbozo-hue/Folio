@@ -171,6 +171,14 @@ export async function applySafeContourToFigure(
   figure: HTMLElement,
   image?: HTMLImageElement | null,
 ): Promise<boolean> {
+  const isOpener = figure.classList.contains("folio-chapter-opener") || figure.classList.contains("folio-chapter-opener-editor");
+  if (isOpener) {
+    figure.style.removeProperty("shape-outside");
+    figure.style.removeProperty("shape-image-threshold");
+    figure.style.removeProperty("shape-margin");
+    delete figure.dataset.folioContourReady;
+    return false;
+  }
   const resolvedImage = image ?? figure.querySelector<HTMLImageElement>("img[data-folio-asset],img.folio-illustration,img");
   const side = sideForFigure(figure);
   const contour = figure.dataset.folioShape === "contour" || figure.classList.contains("folio-shape-contour");
@@ -190,6 +198,13 @@ export async function applySafeContourToFigure(
 
   const profile = await alphaProfile(resolvedImage);
   if (!profile || contourTokens.get(figure) !== token || !figure.isConnected) return false;
+  if (figure.classList.contains("folio-chapter-opener") || figure.classList.contains("folio-chapter-opener-editor")) {
+    figure.style.removeProperty("shape-outside");
+    figure.style.removeProperty("shape-image-threshold");
+    figure.style.removeProperty("shape-margin");
+    delete figure.dataset.folioContourReady;
+    return false;
+  }
 
   const rect = resolvedImage.getBoundingClientRect();
   const figureRect = figure.getBoundingClientRect();
