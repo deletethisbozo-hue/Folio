@@ -660,13 +660,6 @@
   --folio-effective-write-zoom: var(--folio-write-zoom, 1);
 }
 
-.folio-shell[data-workspace-mode="write"] .manuscript-editor:not(.folio-image-page-editor) {
-  transition: font-size 70ms ease-out;
-}
-
-.folio-shell[data-workspace-mode="write"] .writing-split-editor {
-  transition: font-size 70ms ease-out;
-}
 
 .folio-shell[data-workspace-mode="write"] .manuscript-editor:not(.folio-image-page-editor),
 .folio-shell[data-workspace-mode="write"] .writing-split-editor {
