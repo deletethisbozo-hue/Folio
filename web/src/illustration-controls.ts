@@ -214,11 +214,14 @@ function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
    * replaces it with a dilated polygon that cannot touch visible artwork. */
   const useContour = wrap !== "none" && shape === "contour" && !crop;
   if (useContour) {
-    figure.style.margin = wrap === "left" ? "0.16em 0 .72em 0" : "0.16em 0 .72em 0";
+    figure.style.margin = wrap === "left" ? "0.16em 1.05em .72em 0" : "0.16em 0 .72em 1.05em";
+    // Editor safety rule: never let manuscript glyphs enter the image's
+    // bounding box. Reader/Print/PDF still receive the stored contour metadata
+    // and calculate the professional alpha contour there.
     figure.style.setProperty("shape-outside", "inset(0)");
     figure.style.setProperty("shape-margin", "0px");
     figure.style.removeProperty("shape-image-threshold");
-    void applySafeContourToFigure(figure, image);
+    delete figure.dataset.folioContourReady;
   } else {
     figure.style.removeProperty("shape-outside");
     figure.style.removeProperty("shape-image-threshold");
