@@ -120,6 +120,7 @@ function selectFigure(figure: HTMLElement | null): void {
 }
 
 function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
+  const wrap = wrapMode(figure);
   const shape = shapeMode(figure);
   const gap = clamp(figure.dataset.folioGap, 25, 200, 65);
   const crop = figure.dataset.folioCrop === "true";
@@ -161,7 +162,6 @@ function refreshFigure(figure: HTMLElement): void {
   const ratio = figure.dataset.folioRatio || "4-3";
   const x = clamp(figure.dataset.folioX, 0, 100, 50);
   const y = clamp(figure.dataset.folioY, 0, 100, 50);
-  const wrap = wrapMode(figure);
   const shape = shapeMode(figure);
   const gap = clamp(figure.dataset.folioGap, 25, 200, 65);
 
