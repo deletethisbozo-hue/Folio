@@ -1,0 +1,141 @@
+name: Illustration V3 Portable Build
+# Isolated feature artifact: no tag, no release, no installer, no main-branch write.
+
+on:
+  push:
+    branches: [feature/illustrations-v3-layout]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-illustrations-v3-portable
+  cancel-in-progress: true
+
+jobs:
+  portable:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+      FOLIO_VERSION: 2.1.2
+
+    steps:
+      - name: Check out V3 branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify isolated branch and stable base
+        shell: pwsh
+        run: |
+          if ("$env:GITHUB_REF_NAME" -ne "feature/illustrations-v3-layout") { throw "Refusing to package outside feature/illustrations-v3-layout." }
+          $version = (node -p "require('./package.json').version").Trim()
+          if ($version -ne "2.1.2") { throw "Expected 2.1.2 base, found $version." }
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('version mismatch')"
+          if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
+
+      - name: Download pinned Pandoc 3.11
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable missing." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+
+      - name: Download pinned Chromium runtime
+        shell: pwsh
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build app
+        run: npm run build
+
+      - name: Build isolated portable candidate
+        run: npx electron-builder --win portable --x64 --publish never
+
+      - name: Smoke-test packaged V3 runtime
+        timeout-minutes: 7
+        shell: pwsh
+        run: |
+          $env:FOLIO_E2E_PORT = "43257"
+          $env:FOLIO_E2E_DEBUG_PORT = "43258"
+          $exe = (Resolve-Path "release\Folio-$env:FOLIO_VERSION-portable.exe").Path
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 160; $i++) {
+              if ($process.HasExited) { throw "Portable Folio exited before health became ready." }
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43257/api/health" -TimeoutSec 1; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Portable Folio did not start with bundled Pandoc." }
+
+            node scripts\packaged-ui-smoke.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
+
+            $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "http://127.0.0.1:43257/api/sample"
+            $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
+            if (-not $chapter) { throw "Packaged sample has no chapter." }
+            $sectionId = [uri]::EscapeDataString($chapter.id)
+
+            $draft = @(
+              "Before the illustration.",
+              "",
+              "![V3 contour probe](assets/nonexistent-probe.png){.folio-illustration .folio-wrap-left .folio-shape-contour width=43% data-folio-gap=70}",
+              "",
+              "Text after the illustration."
+            ) -join "`n"
+            $saveBody = @{ markdown = $draft } | ConvertTo-Json
+            $saved = Invoke-RestMethod -Method Put -ContentType "application/json" -Body $saveBody "http://127.0.0.1:43257/api/projects/$($sample.projectId)/sections/$sectionId"
+            if ($saved.markdown -notmatch "folio-wrap-left" -or
+                $saved.markdown -notmatch "folio-shape-contour" -or
+                $saved.markdown -notmatch "data-folio-gap=70" -or
+                $saved.markdown -notmatch "width=43%") {
+              throw "Packaged section API lost V3 contour metadata."
+            }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Prepare V3 portable artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\feature-artifacts | Out-Null
+          $source = "release\Folio-$env:FOLIO_VERSION-portable.exe"
+          $target = "build\feature-artifacts\Folio-2.1.2-illustrations-v3-portable.exe"
+          Copy-Item $source $target
+          $hash = Get-FileHash $target -Algorithm SHA256
+          "$($hash.Hash.ToLowerInvariant())  $(Split-Path $target -Leaf)" | Set-Content -Encoding ascii build\feature-artifacts\sha256.txt
+          Get-Item $target | ForEach-Object { if ($_.Length -lt 1MB) { throw "Portable artifact is unexpectedly small." } }
+          Get-Content build\feature-artifacts\sha256.txt
+
+      - name: Upload V3 portable only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-2.1.2-Illustrations-V3-Portable
+          path: |
+            build/feature-artifacts/Folio-2.1.2-illustrations-v3-portable.exe
+            build/feature-artifacts/sha256.txt
+          if-no-files-found: error
