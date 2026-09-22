@@ -120,7 +120,7 @@ try {
         figureHtml: figure?.outerHTML.slice(0, 2400) ?? null,
         markdown: editor?.dataset.markdown ?? null,
         image: image ? { complete: image.complete, naturalWidth: image.naturalWidth, src: image.src, asset: image.dataset.folioAsset } : null,
-        inspector: Boolean(figure?.querySelector(".folio-image-inspector")),
+        inspector: Boolean(document.querySelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]')),
         error: document.querySelector(".global-error")?.textContent ?? null,
       };
     });
@@ -137,12 +137,12 @@ try {
     return { x: r.x, y: r.y, width: r.width, height: r.height };
   });
   await page.mouse.click(imageBox.x + imageBox.width / 2, imageBox.y + imageBox.height / 2);
-  await page.waitForSelector(".editor-illustration.folio-image-selected .folio-image-inspector");
+  await page.waitForSelector(".folio-illustration-overlay .folio-image-inspector[data-open="true"]");
   check("clicking the artwork selects it and reveals a compact inspector", true);
 
   // V2 regression is explicitly rectangular. V3 PNGs default to contour and
   // are covered by illustration-v3-contour.test.ts.
-  await page.click('.editor-illustration [data-folio-shape-choice="box"]');
+  await page.click('.folio-illustration-overlay [data-folio-shape-choice="box"]');
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioShape === "box");
 
   const editorBox = await page.$eval(".rich-editor", (editor) => {
@@ -299,9 +299,9 @@ try {
     JSON.stringify(resized));
 
   // Explicit positioning controls remain available, but are not required for moving the artwork.
-  await page.click('.editor-illustration [data-folio-wrap-choice="right"]');
+  await page.click('.folio-illustration-overlay [data-folio-wrap-choice="right"]');
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioWrap === "right");
-  await page.click('.editor-illustration [data-folio-wrap-choice="left"]');
+  await page.click('.folio-illustration-overlay [data-folio-wrap-choice="left"]');
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioWrap === "left");
   check("compact inspector can override wrap without moving the image", true);
 
