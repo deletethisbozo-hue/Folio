@@ -205,7 +205,7 @@ section.level1 {
    Per-theme colour/face live in each theme.css. */
 .dropcap {
   float: left;
-  font-size: var(--folio-dropcap-screen-size, 3em);
+  font-size: var(--folio-dropcap-user-size, var(--folio-dropcap-theme-size, 3em));
   line-height: 1;
   padding: 0 0.10em 0 0;
   /* A floated cap aligns its BOX to the line top, but the glyph sits on its
@@ -342,11 +342,24 @@ img.folio-illustration,
   clear: both;
   shape-outside: none !important;
   shape-margin: 0 !important;
-  margin-top: .3em !important;
-  margin-bottom: .72em !important;
+  margin-top: 0 !important;
+  margin-bottom: .68em !important;
 }
-section.chapter > h1 + .folio-illustration-block.folio-chapter-opener {
-  margin-top: -.35em !important;
+/* Tighten the CHAPTER HEADING itself when artwork is the opening device.
+ * V6 only nudged the image, while most themes keep 1.5–3em on the heading. */
+section.chapter.folio-has-chapter-opener > h1,
+section.chapter > h1.folio-has-chapter-opener {
+  margin-bottom: .5em !important;
+}
+section.chapter.folio-has-chapter-opener > h1::after,
+section.chapter > h1.folio-has-chapter-opener::after {
+  margin-bottom: .18em !important;
+}
+section.chapter.folio-has-chapter-opener > .chapter-subtitle {
+  margin-bottom: .5em !important;
+}
+section.chapter.folio-has-chapter-opener > .chapter-subtitle::after {
+  margin-bottom: .18em !important;
 }
 .folio-illustration-block.folio-chapter-opener.folio-wrap-left {
   margin-left: 0 !important;
@@ -359,9 +372,6 @@ section.chapter > h1 + .folio-illustration-block.folio-chapter-opener {
 .folio-illustration-block.folio-chapter-opener:not(.folio-wrap-left):not(.folio-wrap-right) {
   margin-left: auto !important;
   margin-right: auto !important;
-}
-.folio-illustration-block.folio-chapter-opener + p {
-  clear: both;
 }
 
 /* Contour wrapping uses the actual alpha channel supplied by render-html /
