@@ -166,6 +166,7 @@ for (const [label, size] of printSizes) {
     const offsets = lines.slice(0, capLines + 2).map((line) => parseFloat(getComputedStyle(line).marginLeft) || 0);
     const collisions: number[] = [];
     const inkRows: number[] = [];
+    const rowRects: Array<{ index: number; top: number; bottom: number; left: number; right: number }> = [];
 
     lines.forEach((line, index) => {
       const content = line.querySelector<HTMLElement>(":scope > .folio-line-content") ?? line;
@@ -173,18 +174,23 @@ for (const [label, size] of printSizes) {
       range.selectNodeContents(content);
       const textRects = Array.from(range.getClientRects()).filter((rect) => rect.width > 1 && rect.height > 1);
       const rect = textRects[0] ?? content.getBoundingClientRect();
+      rowRects.push({ index, top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
       const vertical = rect.bottom > inkTop + 0.5 && rect.top < inkBottom - 0.5;
       const horizontal = rect.left < capRect.right - 0.5 && rect.right > capRect.left + 0.5;
       if (vertical) inkRows.push(index);
       if (vertical && horizontal) collisions.push(index);
     });
 
+    const paraRect = para.getBoundingClientRect();
     return {
       capLines,
       wrappedLines,
       offsets,
       collisions,
       inkRows,
+      rowRects: rowRects.slice(0, 7),
+      paragraph: paraRect.toJSON(),
+      paragraphLineHeight: parseFloat(getComputedStyle(para).lineHeight),
       fontSize: parseFloat(capStyle.fontSize),
       cap: capRect.toJSON(),
       inkTop,
