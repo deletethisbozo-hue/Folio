@@ -983,17 +983,28 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
     void paragraph.offsetHeight;
   }
 
-  // Optical depth: choose how many body lines the VISIBLE capital occupies,
-  // then end the float exactly at that line-grid boundary. This removes the
-  // "stair step" caused by wrapping around the font box instead of the glyph.
-  const inkHeight = Math.max(1, capMetrics.actualBoundingBoxAscent + capMetrics.actualBoundingBoxDescent);
-  const seatLines = Math.max(2, Math.min(5, Math.round(inkHeight / Math.max(1, bodyLineHeight))));
-
+  // Optical depth: derive the occupied line count from the VISIBLE glyph's
+  // bottom edge after top seating. Rounding the glyph height (V10 draft 1)
+  // could classify a medium cap as two lines even when its ink still entered
+  // line three. Ceil against the actual body line grid instead.
   const bodyRect = range.getClientRects()[0] ?? firstBodyRect;
   const bodyLineBoxTop = bodyRect.top - Math.max(0, (bodyLineHeight - bodyRect.height) / 2);
-  const desiredFloatBottom = bodyLineBoxTop + seatLines * bodyLineHeight - 0.5;
-  const capRect = cap.getBoundingClientRect();
-  cap.style.marginBottom = `${desiredFloatBottom - capRect.bottom}px`;
+
+  const seatedCapStyle = getComputedStyle(cap);
+  const seatedCapRect = cap.getBoundingClientRect();
+  const seatedBaseline =
+    seatedCapRect.top +
+    pixels(seatedCapStyle.paddingTop) +
+    (capLineHeight - (capFontAsc + capFontDesc)) / 2 +
+    capFontAsc;
+  const capInkBottom = seatedBaseline + capMetrics.actualBoundingBoxDescent;
+  const visibleDepth = Math.max(1, capInkBottom - bodyLineBoxTop);
+  const seatLines = Math.max(2, Math.min(5, Math.ceil((visibleDepth + 0.75) / Math.max(1, bodyLineHeight))));
+
+  // Keep the float's margin box through the last occupied line and release
+  // prose only at the next line-grid boundary.
+  const desiredFloatBottom = bodyLineBoxTop + seatLines * bodyLineHeight + 0.5;
+  cap.style.marginBottom = `${desiredFloatBottom - seatedCapRect.bottom}px`;
   cap.dataset.folioDropcapLines = String(seatLines);
   cap.dataset.folioDropcapSeated = "true";
 }
