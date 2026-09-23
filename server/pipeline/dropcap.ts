@@ -105,16 +105,13 @@ export async function alignDropCaps(page: Page): Promise<number> {
       // Same visual rule as Reader: reserve a row only when the painted glyph
       // actually intersects painted body text on that row. Leading is not ink
       // and must not create a phantom blank line below the initial.
-      const bodyInkAscent = bodyMetrics.actualBoundingBoxAscent;
-      const bodyInkDescent = bodyMetrics.actualBoundingBoxDescent;
       let intersectedInkLines = 0;
       for (let line = 0; line < 7; line++) {
-        const lineBaseline = bodyBaseline + line * bodyLineHeight;
-        const lineInkTop = lineBaseline - bodyInkAscent;
-        const lineInkBottom = lineBaseline + bodyInkDescent;
+        const lineTextTop = firstBodyRect.top + line * bodyLineHeight;
+        const lineTextBottom = lineTextTop + firstBodyRect.height;
         const intersectsInk =
-          capInkBottom > lineInkTop + 0.5 &&
-          capInkTop < lineInkBottom - 0.5;
+          capInkBottom > lineTextTop + 0.5 &&
+          capInkTop < lineTextBottom - 0.5;
         if (intersectsInk) intersectedInkLines = line + 1;
       }
       const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
