@@ -211,6 +211,34 @@ try {
       firstLineTop = rr?.top ?? null;
     }
     const capStyle = getComputedStyle(cap);
+    const bodyStyle = getComputedStyle(para);
+    const canvas = doc.createElement("canvas").getContext("2d");
+    let opticalTopDelta: number | null = null;
+    let bodyLineHeight: number | null = null;
+    if (canvas && bodyText && firstLineTop != null) {
+      canvas.font = `${bodyStyle.fontStyle} ${bodyStyle.fontWeight} ${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
+      const bodyMetrics = canvas.measureText("Hh");
+      const bodyAsc = bodyMetrics.fontBoundingBoxAscent || bodyMetrics.actualBoundingBoxAscent;
+      const bodyDesc = bodyMetrics.fontBoundingBoxDescent || bodyMetrics.actualBoundingBoxDescent;
+      bodyLineHeight = bodyStyle.lineHeight === "normal"
+        ? bodyAsc + bodyDesc
+        : parseFloat(bodyStyle.lineHeight) || bodyAsc + bodyDesc;
+      const bodyBaseline = firstLineTop + (bodyLineHeight - (bodyAsc + bodyDesc)) / 2 + bodyAsc;
+      const bodyInkTop = bodyBaseline - bodyMetrics.actualBoundingBoxAscent;
+
+      canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+      const capMetrics = canvas.measureText(cap.textContent || "H");
+      const capAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent;
+      const capDesc = capMetrics.fontBoundingBoxDescent || capMetrics.actualBoundingBoxDescent;
+      const capLineHeight = capStyle.lineHeight === "normal"
+        ? capAsc + capDesc
+        : parseFloat(capStyle.lineHeight) || capAsc + capDesc;
+      const capBaseline = cr.top + parseFloat(capStyle.paddingTop || "0") +
+        (capLineHeight - (capAsc + capDesc)) / 2 + capAsc;
+      const capInkTop = capBaseline - capMetrics.actualBoundingBoxAscent;
+      opticalTopDelta = capInkTop - bodyInkTop;
+    }
+
     const capRightFromParagraph = cr.right - pr.left;
     const firstLineLeftFromParagraph = firstLineLeft == null ? null : firstLineLeft - pr.left;
     return {
@@ -225,6 +253,8 @@ try {
       nextParagraphGap: nextPara ? nextPara.getBoundingClientRect().top - pr.bottom : null,
       paragraphHeight: pr.height,
       dropcapLines: Number(para.dataset.folioDropcapLines ?? 0),
+      opticalTopDelta,
+      bodyLineHeight,
       paragraphClass: para.className,
       capClass: cap.className,
       capPosition: capStyle.position,
@@ -470,97 +500,86 @@ try {
     JSON.stringify(openerLayout));
   if (!openerLayout || openerLayout.headingGap > 18) throw new Error("Chapter opener is still too far from heading");
 
-  await openFirstParagraphSettings();
-  const authoritativePreview = page.waitForResponse((response) => {
-    const request = response.request();
-    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
-  }, { timeout: 20000 }).catch(() => null);
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap size");
-    const select = row?.querySelector<HTMLSelectElement>("select");
-    if (!select) throw new Error("Drop cap size selector missing");
-    select.value = "medium";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  await page.evaluate(() => {
-    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
-      .find((button) => button.textContent?.trim() === "Done");
-    done?.click();
-  });
-  await page.waitForFunction((smallSize) => {
-    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
-    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
-    return Boolean(cap && parseFloat(getComputedStyle(cap).fontSize) > Number(smallSize) * 1.15);
-  }, {}, baseline.fontSize);
+  const setDropcapSize = async (size: "theme" | "small" | "medium" | "large" | "xlarge") => {
+    await openFirstParagraphSettings();
+    const authoritative = page.waitForResponse((response) => {
+      const request = response.request();
+      return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+    }, { timeout: 20000 }).catch(() => null);
+    await page.evaluate((nextSize) => {
+      const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+        .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap size");
+      const select = row?.querySelector<HTMLSelectElement>("select");
+      if (!select) throw new Error("Drop cap size selector missing");
+      select.value = nextSize;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+        .find((button) => button.textContent?.trim() === "Done");
+      done?.click();
+    }, size);
+    await authoritative;
+    await page.waitForFunction(() => {
+      const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+      const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+      const para = cap?.closest<HTMLElement>("p");
+      return Boolean(cap && para?.classList.contains("folio-native-dropcap") &&
+        para.dataset.folioDropcapSeated === "true" &&
+        getComputedStyle(cap).float === "left");
+    });
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  };
 
-  await authoritativePreview;
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  const medium = await measureDropcap();
-  check("Medium drop cap stays larger after authoritative server preview",
-    Boolean(medium && medium.fontSize > baseline.fontSize * 1.15),
-    JSON.stringify({ small: baseline.fontSize, medium: medium?.fontSize }));
-  if (!medium || medium.fontSize <= baseline.fontSize * 1.15) throw new Error("Drop cap size override disappeared after server preview");
+  const sizeResults: Record<string, Awaited<ReturnType<typeof measureDropcap>>> = { small: baseline };
+  let previousExplicit = baseline;
 
-  const mediumCollision = await measureCapLineCollisions();
-  check("Medium drop cap uses native float without entering prose",
-    Boolean(mediumCollision && mediumCollision.float === "left" && mediumCollision.position !== "absolute" && mediumCollision.collisions.length === 0),
-    JSON.stringify(mediumCollision));
-  if (!mediumCollision || mediumCollision.float !== "left" || mediumCollision.position === "absolute" || mediumCollision.collisions.length) {
-    throw new Error("Medium drop cap overlaps prose");
+  for (const size of ["medium", "large", "xlarge"] as const) {
+    await setDropcapSize(size);
+    const geometry = await measureDropcap();
+    const collision = await measureCapLineCollisions();
+    const hole = await measureUnderCapHole();
+    sizeResults[size] = geometry;
+
+    const visuallySeated = Boolean(
+      geometry &&
+      geometry.opticalTopDelta != null &&
+      Math.abs(geometry.opticalTopDelta) <= 1.25
+    );
+    const flowSafe = Boolean(
+      geometry &&
+      collision &&
+      collision.float === "left" &&
+      collision.position !== "absolute" &&
+      collision.collisions.length === 0 &&
+      hole &&
+      hole.excessGap <= 2 &&
+      Math.abs((geometry.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) < 1.5 &&
+      geometry.dropcapLines >= 2 &&
+      geometry.dropcapLines <= 5
+    );
+    const grows = Boolean(previousExplicit && geometry && geometry.fontSize > previousExplicit.fontSize * 1.08);
+
+    check(`${size} drop cap is optically seated, grows, and never enters prose`,
+      visuallySeated && flowSafe && grows,
+      JSON.stringify({ geometry, collision, hole, previousSize: previousExplicit?.fontSize }));
+    if (!geometry || !visuallySeated || !flowSafe || !grows) {
+      throw new Error(`${size} drop cap failed full geometry qualification`);
+    }
+    previousExplicit = geometry;
   }
 
-  await openFirstParagraphSettings();
-  const authoritativeXL = page.waitForResponse((response) => {
-    const request = response.request();
-    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
-  }, { timeout: 20000 }).catch(() => null);
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap size");
-    const select = row?.querySelector<HTMLSelectElement>("select");
-    if (!select) throw new Error("Drop cap size selector missing");
-    select.value = "xlarge";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
-      .find((button) => button.textContent?.trim() === "Done");
-    done?.click();
-  });
-  await authoritativeXL;
-  await page.waitForFunction((mediumSize) => {
-    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
-    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
-    const para = cap?.closest<HTMLElement>("p");
-    return Boolean(cap && para?.classList.contains("folio-native-dropcap") &&
-      getComputedStyle(cap).float === "left" &&
-      parseFloat(getComputedStyle(cap).fontSize) > Number(mediumSize) * 1.12);
-  }, {}, medium.fontSize);
-
-  const xlarge = await measureDropcap();
-  const xlargeCollision = await measureCapLineCollisions();
-  check("Extra large drop cap grows without entering prose",
-    Boolean(xlarge && xlargeCollision &&
-      xlarge.fontSize > medium.fontSize * 1.12 &&
-      xlargeCollision.float === "left" &&
-      xlargeCollision.position !== "absolute" &&
-      xlargeCollision.collisions.length === 0),
-    JSON.stringify({ medium, xlarge, collision: xlargeCollision }));
-  if (!xlarge || !xlargeCollision || xlargeCollision.collisions.length) {
-    throw new Error("Extra large drop cap overlaps composed prose");
+  const xlarge = sizeResults.xlarge!;
+  check("All explicit drop-cap sizes grow monotonically",
+    Boolean(sizeResults.small && sizeResults.medium && sizeResults.large && sizeResults.xlarge &&
+      sizeResults.small.fontSize < sizeResults.medium.fontSize &&
+      sizeResults.medium.fontSize < sizeResults.large.fontSize &&
+      sizeResults.large.fontSize < sizeResults.xlarge.fontSize),
+    JSON.stringify(Object.fromEntries(Object.entries(sizeResults).map(([key, value]) => [key, value?.fontSize]))));
+  if (!(sizeResults.small && sizeResults.medium && sizeResults.large && sizeResults.xlarge &&
+    sizeResults.small.fontSize < sizeResults.medium.fontSize &&
+    sizeResults.medium.fontSize < sizeResults.large.fontSize &&
+    sizeResults.large.fontSize < sizeResults.xlarge.fontSize)) {
+    throw new Error("Drop-cap size ladder is not monotonic");
   }
-
-  check("Larger drop caps do not create a new post-paragraph hole",
-    Math.abs((xlarge.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) < 1.5,
-    JSON.stringify({ baselineGap: baseline.nextParagraphGap, xlargeGap: xlarge.nextParagraphGap }));
-  if (Math.abs((xlarge.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) >= 1.5) {
-    throw new Error("Drop cap size created extra paragraph spacing");
-  }
-
-  const xlargeHole = await measureUnderCapHole();
-  check("Extra large drop cap has no artificial hole underneath",
-    Boolean(xlargeHole && xlargeHole.excessGap <= 2),
-    JSON.stringify(xlargeHole));
-  if (!xlargeHole || xlargeHole.excessGap > 2) throw new Error("Extra large drop cap leaves an artificial gap underneath");
 
   // Let autosave persist XL first. This reproduces the real regression where
   // selecting "Current theme size" omitted dropcapSize from JSON and the server
@@ -589,11 +608,27 @@ try {
     return Boolean(cap && Math.abs(parseFloat(getComputedStyle(cap).fontSize) - Number(themeSize)) < 0.35);
   }, {}, baseline.fontSize);
   const restoredThemeDropcap = await measureDropcap();
-  check("Current theme size clears a persisted XL override",
-    Boolean(restoredThemeDropcap && Math.abs(restoredThemeDropcap.fontSize - baseline.fontSize) < 0.35),
-    JSON.stringify({ baseline: baseline.fontSize, restored: restoredThemeDropcap?.fontSize }));
-  if (!restoredThemeDropcap || Math.abs(restoredThemeDropcap.fontSize - baseline.fontSize) >= 0.35) {
-    throw new Error("Current theme size still revives the persisted drop-cap override");
+  const restoredThemeCollision = await measureCapLineCollisions();
+  const restoredThemeHole = await measureUnderCapHole();
+  const restoredThemeHealthy = Boolean(
+    restoredThemeDropcap &&
+    Math.abs(restoredThemeDropcap.fontSize - baseline.fontSize) < 0.35 &&
+    restoredThemeDropcap.opticalTopDelta != null &&
+    Math.abs(restoredThemeDropcap.opticalTopDelta) <= 1.25 &&
+    restoredThemeDropcap.dropcapLines >= 2 &&
+    restoredThemeDropcap.dropcapLines <= 5 &&
+    restoredThemeCollision &&
+    restoredThemeCollision.float === "left" &&
+    restoredThemeCollision.position !== "absolute" &&
+    restoredThemeCollision.collisions.length === 0 &&
+    restoredThemeHole &&
+    restoredThemeHole.excessGap <= 2
+  );
+  check("Current theme size clears persisted XL and keeps full drop-cap geometry healthy",
+    restoredThemeHealthy,
+    JSON.stringify({ baseline: baseline.fontSize, restored: restoredThemeDropcap, collision: restoredThemeCollision, hole: restoredThemeHole }));
+  if (!restoredThemeHealthy) {
+    throw new Error("Current theme size failed full drop-cap geometry qualification");
   }
 
   await page.click('button[data-command="design"]');
