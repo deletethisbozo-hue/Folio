@@ -295,6 +295,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         // native-float line count left medium/XL caps with a phantom extra row
         // after composition because the composed rows land at slightly different
         // y coordinates.
+        let firstBodyRectTop = contentTop;
         let firstBodyRectHeight = fontSize;
         const probeWalker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
         while (probeWalker.nextNode()) {
@@ -304,7 +305,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           range.setStart(node, 0);
           range.setEnd(node, Math.min(20, node.data.length));
           const rect = range.getClientRects()[0];
-          if (rect?.height) firstBodyRectHeight = rect.height;
+          if (rect) {
+            firstBodyRectTop = rect.top;
+            if (rect.height) firstBodyRectHeight = rect.height;
+          }
           break;
         }
 
@@ -327,7 +331,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           const inkBottom = baseline + metrics.actualBoundingBoxDescent;
 
           for (let line = 0; line < 7; line++) {
-            const rowTop = contentTop + line * lineHeight;
+            const rowTop = firstBodyRectTop + line * lineHeight;
             const rowBottom = rowTop + firstBodyRectHeight;
             const intersectsInk =
               inkBottom > rowTop + 0.5 &&
