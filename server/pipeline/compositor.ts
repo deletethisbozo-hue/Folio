@@ -286,7 +286,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // synthetic line boxes reintroduces a second, slightly different vertical
       // grid and is the source of the repeated 3-vs-4 line phantom gap/overlap
       // regressions. Keep professional composition for every other paragraph.
-      if (cap) {
+      const keepNativeDropcap = Boolean(cap);
+      if (keepNativeDropcap) {
         paragraph.classList.add("folio-native-dropcap");
         paragraph.classList.remove("folio-composed", "folio-composed-dropcap");
         paragraph.style.removeProperty("min-height");
