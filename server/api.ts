@@ -131,10 +131,15 @@ function bodyMeta(req: Request): Partial<BookMeta> {
 function applyTypography(book: { typography: any }, req: Request): void {
   const ty = req.body?.typography;
   if (!ty || typeof ty !== "object" || Array.isArray(ty)) return;
+  const normalized = { ...ty };
+  if (normalized.dropcapSize === "medium" || normalized.dropcapSize === "xlarge") normalized.dropcapSize = "large";
+  else if (normalized.dropcapSize !== undefined && normalized.dropcapSize !== "small" && normalized.dropcapSize !== "large") {
+    delete normalized.dropcapSize;
+  }
   book.typography = {
-    ...ty,
-    ...(ty.chapterTitle && typeof ty.chapterTitle === "object" && !Array.isArray(ty.chapterTitle)
-      ? { chapterTitle: { ...ty.chapterTitle } }
+    ...normalized,
+    ...(normalized.chapterTitle && typeof normalized.chapterTitle === "object" && !Array.isArray(normalized.chapterTitle)
+      ? { chapterTitle: { ...normalized.chapterTitle } }
       : {}),
   };
 }
