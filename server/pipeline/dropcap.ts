@@ -9,6 +9,10 @@ import type { Page } from "puppeteer";
  * and user size presets have wildly different ascent/descent geometry.
  */
 export async function alignDropCaps(page: Page): Promise<number> {
+  // tsx/esbuild annotates nested helpers with __name while serialising the
+  // evaluate callback. Puppeteer's isolated page world does not inherit that
+  // helper from Node, so provide the same harmless shim used by the compositor.
+  await page.evaluate("globalThis.__name = globalThis.__name || function(target){ return target; }");
   return page.evaluate(() => {
     const caps = Array.from(document.querySelectorAll<HTMLElement>(".dropcap"));
     if (caps.length === 0) return 0;
