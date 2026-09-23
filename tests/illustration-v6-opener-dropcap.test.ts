@@ -272,6 +272,24 @@ try {
     const para = cap?.closest<HTMLElement>("p");
     if (!doc || !cap || !para) return null;
     const cr = cap.getBoundingClientRect();
+    const capStyle = getComputedStyle(cap);
+    const canvas = doc.createElement("canvas").getContext("2d");
+    if (!canvas) return null;
+    canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+    const metrics = canvas.measureText(cap.textContent || "H");
+    const asc = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent;
+    const desc = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent;
+    const lineHeight = capStyle.lineHeight === "normal"
+      ? asc + desc
+      : parseFloat(capStyle.lineHeight) || asc + desc;
+    const baseline =
+      cr.top +
+      parseFloat(capStyle.paddingTop || "0") +
+      (lineHeight - (asc + desc)) / 2 +
+      asc;
+    const inkTop = baseline - metrics.actualBoundingBoxAscent;
+    const inkBottom = baseline + metrics.actualBoundingBoxDescent;
+
     const collisions: Array<{ left: number; top: number; right: number; bottom: number }> = [];
     const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
@@ -281,13 +299,19 @@ try {
       range.selectNodeContents(node);
       for (const rect of Array.from(range.getClientRects())) {
         if (rect.width <= 1 || rect.height <= 1) continue;
-        const vertical = rect.bottom > cr.top + .5 && rect.top < cr.bottom - .5;
+        // Collision means prose enters VISIBLE glyph ink. The CSS line box can
+        // extend well below a capital (especially at XL) without any painted
+        // pixels there; treating that empty font box as ink would force a
+        // phantom extra wrapped line back into the layout.
+        const vertical = rect.bottom > inkTop + .5 && rect.top < inkBottom - .5;
         const horizontal = rect.left < cr.right - .5 && rect.right > cr.left + .5;
         if (vertical && horizontal) collisions.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
       }
     }
     return {
       cap: cr.toJSON(),
+      inkTop,
+      inkBottom,
       float: getComputedStyle(cap).float,
       position: getComputedStyle(cap).position,
       collisions,
