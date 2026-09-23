@@ -280,6 +280,19 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const indent = Math.max(0, px(computed.textIndent));
       const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
 
+      // Print drop-cap paragraphs stay on Chromium's native float layout.
+      // alignDropCaps() has already optically seated and calibrated the float
+      // before this compositor runs. Converting that stable float into Folio's
+      // synthetic line boxes reintroduces a second, slightly different vertical
+      // grid and is the source of the repeated 3-vs-4 line phantom gap/overlap
+      // regressions. Keep professional composition for every other paragraph.
+      if (cap) {
+        paragraph.classList.add("folio-native-dropcap");
+        paragraph.classList.remove("folio-composed", "folio-composed-dropcap");
+        paragraph.style.removeProperty("min-height");
+        continue;
+      }
+
       let capLines = 0;
       let capIntrusion = 0;
       let capLeft = 0;
