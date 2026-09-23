@@ -97,14 +97,27 @@ export async function alignDropCaps(page: Page): Promise<number> {
         Number.parseFloat(capStyle.paddingTop || "0") +
         (capLineHeight - (capAsc + capDesc)) / 2 +
         capAsc;
+      const capInkTop = capBaseline - capMetrics.actualBoundingBoxAscent;
       const capInkBottom = capBaseline + capMetrics.actualBoundingBoxDescent;
       const bodyLineBoxTop =
         firstBodyRect.top - Math.max(0, (bodyLineHeight - firstBodyRect.height) / 2);
-      const visibleDepth = Math.max(1, capInkBottom - bodyLineBoxTop);
-      const seatLines = Math.max(
-        2,
-        Math.min(6, Math.ceil((visibleDepth + 0.75) / Math.max(1, bodyLineHeight))),
-      );
+
+      // Same visual rule as Reader: reserve a row only when the painted glyph
+      // actually intersects painted body text on that row. Leading is not ink
+      // and must not create a phantom blank line below the initial.
+      const bodyInkAscent = bodyMetrics.actualBoundingBoxAscent;
+      const bodyInkDescent = bodyMetrics.actualBoundingBoxDescent;
+      let intersectedInkLines = 0;
+      for (let line = 0; line < 7; line++) {
+        const lineBaseline = bodyBaseline + line * bodyLineHeight;
+        const lineInkTop = lineBaseline - bodyInkAscent;
+        const lineInkBottom = lineBaseline + bodyInkDescent;
+        const intersectsInk =
+          capInkBottom > lineInkTop + 0.5 &&
+          capInkTop < lineInkBottom - 0.5;
+        if (intersectsInk) intersectedInkLines = line + 1;
+      }
+      const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
 
       const paraRect = para.getBoundingClientRect();
       const contentLeft =
