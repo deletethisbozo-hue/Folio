@@ -100,9 +100,7 @@ function markDraftChapterOpener(section: Element): void {
 function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography["dropcapSize"], font?: string): void {
   const screenSizes: Record<NonNullable<Typography["dropcapSize"]>, string> = {
     small: "3em",
-    medium: "3.9em",
     large: "4.5em",
-    xlarge: "5.1em",
   };
   const selectedSize = size ? screenSizes[size] : undefined;
   if (selectedSize) (section as HTMLElement).style.setProperty("--folio-dropcap-user-size", selectedSize);
@@ -1991,7 +1989,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     </>}
     {category === "First Paragraph" && <>
       {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
-      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option><option value="xlarge">Extra large</option></select>)}
+      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small</option><option value="large">Large</option></select>)}
       {row("Drop cap typeface", <select value={ty.dropcapFont ?? ""} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapFont: e.target.value || undefined })}>{displayFonts}</select>)}
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
