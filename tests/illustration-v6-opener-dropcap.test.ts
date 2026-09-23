@@ -618,7 +618,30 @@ try {
     JSON.stringify(openerLayout));
   if (!openerLayout || openerLayout.headingGap > 18) throw new Error("Chapter opener is still too far from heading");
 
-  const setDropcapSize = async (size: "theme" | "small" | "medium" | "large" | "xlarge") => {
+  await openFirstParagraphSettings();
+  const supportedSizeOptions = await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap size");
+    const select = row?.querySelector<HTMLSelectElement>("select");
+    return [...(select?.options ?? [])].map((option) => ({ value: option.value, label: option.textContent?.trim() ?? "" }));
+  });
+  check("Drop cap size picker exposes only Theme default, Small, and Large",
+    JSON.stringify(supportedSizeOptions) === JSON.stringify([
+      { value: "theme", label: "Theme default" },
+      { value: "small", label: "Small" },
+      { value: "large", label: "Large" },
+    ]),
+    JSON.stringify(supportedSizeOptions));
+  if (supportedSizeOptions.some((option) => option.value === "medium" || option.value === "xlarge")) {
+    throw new Error("Removed Medium/Extra large drop-cap sizes are still exposed");
+  }
+  await page.evaluate(() => {
+    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+      .find((button) => button.textContent?.trim() === "Done");
+    done?.click();
+  });
+
+  const setDropcapSize = async (size: "theme" | "small" | "large") => {
     await openFirstParagraphSettings();
     const authoritative = page.waitForResponse((response) => {
       const request = response.request();
@@ -650,7 +673,7 @@ try {
   const sizeResults: Record<string, Awaited<ReturnType<typeof measureDropcap>>> = { small: baseline };
   let previousExplicit = baseline;
 
-  for (const size of ["medium", "large", "xlarge"] as const) {
+  for (const size of ["large"] as const) {
     await setDropcapSize(size);
     const geometry = await measureDropcap();
     const collision = await measureCapLineCollisions();
@@ -688,23 +711,17 @@ try {
     previousExplicit = geometry;
   }
 
-  const xlarge = sizeResults.xlarge!;
-  check("All explicit drop-cap sizes grow monotonically",
-    Boolean(sizeResults.small && sizeResults.medium && sizeResults.large && sizeResults.xlarge &&
-      sizeResults.small.fontSize < sizeResults.medium.fontSize &&
-      sizeResults.medium.fontSize < sizeResults.large.fontSize &&
-      sizeResults.large.fontSize < sizeResults.xlarge.fontSize),
+  check("Small and Large are the only explicit drop-cap sizes and Large grows from Small",
+    Boolean(sizeResults.small && sizeResults.large &&
+      sizeResults.small.fontSize < sizeResults.large.fontSize),
     JSON.stringify(Object.fromEntries(Object.entries(sizeResults).map(([key, value]) => [key, value?.fontSize]))));
-  if (!(sizeResults.small && sizeResults.medium && sizeResults.large && sizeResults.xlarge &&
-    sizeResults.small.fontSize < sizeResults.medium.fontSize &&
-    sizeResults.medium.fontSize < sizeResults.large.fontSize &&
-    sizeResults.large.fontSize < sizeResults.xlarge.fontSize)) {
-    throw new Error("Drop-cap size ladder is not monotonic");
+  if (!(sizeResults.small && sizeResults.large && sizeResults.small.fontSize < sizeResults.large.fontSize)) {
+    throw new Error("Small/Large drop-cap size ladder is invalid");
   }
 
-  // Let autosave persist XL first. This reproduces the real regression where
+  // Let autosave persist Large first. This reproduces the real regression where
   // selecting "Theme default" omitted dropcapSize from JSON and the server
-  // merged the just-saved XL value straight back into the authoritative preview.
+  // merged the just-saved Large value straight back into the authoritative preview.
   await new Promise((resolve) => setTimeout(resolve, 650));
   await openFirstParagraphSettings();
   const authoritativeThemeSize = page.waitForResponse((response) => {
@@ -813,7 +830,7 @@ try {
   });
   await jenaDropcapPreview;
 
-  for (const size of ["theme", "small", "medium", "large", "xlarge"] as const) {
+  for (const size of ["theme", "small", "large"] as const) {
     await setDropcapSize(size);
     const geometry = await measureDropcap();
     const collision = await measureCapLineCollisions();
