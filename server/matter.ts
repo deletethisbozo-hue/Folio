@@ -294,7 +294,12 @@ function prune(obj: Record<string, unknown>): Record<string, unknown> | undefine
 export async function saveTypography(bookDir: string, meta: BookMeta, typography: Record<string, unknown>): Promise<void> {
   return withConfigLock(bookDir, async () => {
     const cfg = await ensureConfigUnlocked(bookDir, meta);
-    const pruned = prune(typography);
+    const normalized = { ...typography };
+    if (normalized.dropcapSize === "medium" || normalized.dropcapSize === "xlarge") normalized.dropcapSize = "large";
+    else if (normalized.dropcapSize !== undefined && normalized.dropcapSize !== "small" && normalized.dropcapSize !== "large") {
+      delete normalized.dropcapSize;
+    }
+    const pruned = prune(normalized);
     if (pruned) cfg.typography = pruned;
     else delete cfg.typography;
     await writeConfig(bookDir, cfg);
