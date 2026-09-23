@@ -1012,9 +1012,26 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
     pixels(seatedCapStyle.paddingTop) +
     (capLineHeight - (capFontAsc + capFontDesc)) / 2 +
     capFontAsc;
+  const capInkTop = seatedBaseline - capMetrics.actualBoundingBoxAscent;
   const capInkBottom = seatedBaseline + capMetrics.actualBoundingBoxDescent;
-  const visibleDepth = Math.max(1, capInkBottom - bodyLineBoxTop);
-  const seatLines = Math.max(2, Math.min(5, Math.ceil((visibleDepth + 0.75) / Math.max(1, bodyLineHeight))));
+
+  // Reserve only body rows whose VISIBLE text ink intersects the VISIBLE cap
+  // ink. Using the whole CSS line box made a cap that ended in inter-line
+  // leading reserve one extra row, producing the obvious empty pocket under
+  // blackletter initials.
+  const bodyInkAscent = bodyMetrics.actualBoundingBoxAscent;
+  const bodyInkDescent = bodyMetrics.actualBoundingBoxDescent;
+  let intersectedInkLines = 0;
+  for (let line = 0; line < 6; line++) {
+    const lineBaseline = bodyBaseline + line * bodyLineHeight;
+    const lineInkTop = lineBaseline - bodyInkAscent;
+    const lineInkBottom = lineBaseline + bodyInkDescent;
+    const intersectsInk =
+      capInkBottom > lineInkTop + 0.5 &&
+      capInkTop < lineInkBottom - 0.5;
+    if (intersectsInk) intersectedInkLines = line + 1;
+  }
+  const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
 
   // Native float exclusion is annoyingly sensitive to fractional line-box
   // boundaries. A theoretically correct bottom can still make Chromium keep one
