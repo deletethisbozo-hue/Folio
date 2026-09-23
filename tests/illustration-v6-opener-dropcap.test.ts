@@ -562,8 +562,67 @@ try {
     JSON.stringify(xlargeHole));
   if (!xlargeHole || xlargeHole.excessGap > 2) throw new Error("Extra large drop cap leaves an artificial gap underneath");
 
+  // Let autosave persist XL first. This reproduces the real regression where
+  // selecting "Current theme size" omitted dropcapSize from JSON and the server
+  // merged the just-saved XL value straight back into the authoritative preview.
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  await openFirstParagraphSettings();
+  const authoritativeThemeSize = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 }).catch(() => null);
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap size");
+    const select = row?.querySelector<HTMLSelectElement>("select");
+    if (!select) throw new Error("Drop cap size selector missing");
+    select.value = "theme";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+      .find((button) => button.textContent?.trim() === "Done");
+    done?.click();
+  });
+  await authoritativeThemeSize;
+  await page.waitForFunction((themeSize) => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    return Boolean(cap && Math.abs(parseFloat(getComputedStyle(cap).fontSize) - Number(themeSize)) < 0.35);
+  }, {}, baseline.fontSize);
+  const restoredThemeDropcap = await measureDropcap();
+  check("Current theme size clears a persisted XL override",
+    Boolean(restoredThemeDropcap && Math.abs(restoredThemeDropcap.fontSize - baseline.fontSize) < 0.35),
+    JSON.stringify({ baseline: baseline.fontSize, restored: restoredThemeDropcap?.fontSize }));
+  if (!restoredThemeDropcap || Math.abs(restoredThemeDropcap.fontSize - baseline.fontSize) >= 0.35) {
+    throw new Error("Current theme size still revives the persisted drop-cap override");
+  }
+
   await page.click('button[data-command="design"]');
   await page.waitForSelector('.style-library[aria-label="Book style library"]');
+
+  // Reproduce the user's actual ugly combination: Grimoire frame + Jena Gotisch.
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".style-category-list button")]
+      .find((item) => item.textContent?.trim() === "Book Style");
+    if (!button) throw new Error("Book Style category missing");
+    button.click();
+  });
+  const grimoirePreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 }).catch(() => null);
+  await page.click('button[data-theme="grimoire"]');
+  await grimoirePreview;
+  await new Promise((resolve) => setTimeout(resolve, 650));
+
+  const grimoireHeadingBaseline = await page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
+    if (!heading || !doc?.defaultView) return null;
+    const style = doc.defaultView.getComputedStyle(heading);
+    return { fontFamily: style.fontFamily, fontWeight: style.fontWeight, lineHeight: style.lineHeight, fontSize: style.fontSize };
+  });
+  if (!grimoireHeadingBaseline) throw new Error("Grimoire heading baseline unavailable");
+
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".style-category-list button")]
       .find((item) => item.textContent?.trim() === "Chapter Heading");
@@ -580,6 +639,87 @@ try {
     .every((name) => chapterFontOptions.includes(name));
   check("Chapter Heading picker exposes all requested licensed fonts", chapterHasRequestedFonts, JSON.stringify(chapterFontOptions));
   if (!chapterHasRequestedFonts) throw new Error("Chapter Heading font picker is missing requested fonts");
+
+  const jenaPreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 }).catch(() => null);
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
+    const select = row?.querySelector<HTMLSelectElement>("select");
+    if (!select) throw new Error("Chapter heading typeface selector missing");
+    select.value = "Folio Jena Gotisch";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await jenaPreview;
+  await page.waitForFunction(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    return Boolean(doc && doc.fonts.status === "loaded" && doc.querySelector("section.chapter > h1"));
+  });
+
+  const jenaHeading = await page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
+    if (!heading || !doc?.defaultView) return null;
+    const style = doc.defaultView.getComputedStyle(heading);
+    return {
+      fontFamily: style.fontFamily,
+      fontWeight: style.fontWeight,
+      fontSize: parseFloat(style.fontSize),
+      lineHeight: parseFloat(style.lineHeight),
+      letterSpacing: parseFloat(style.letterSpacing),
+      clientWidth: heading.clientWidth,
+      scrollWidth: heading.scrollWidth,
+    };
+  });
+  const jenaNormalized = Boolean(jenaHeading &&
+    /Folio Jena Gotisch/i.test(jenaHeading.fontFamily) &&
+    Number(jenaHeading.fontWeight) <= 400 &&
+    jenaHeading.lineHeight >= jenaHeading.fontSize * 1.14 &&
+    jenaHeading.letterSpacing >= jenaHeading.fontSize * 0.045 &&
+    jenaHeading.scrollWidth <= jenaHeading.clientWidth + 2);
+  check("Jena Gotisch heading is optically normalized and contained by the theme frame",
+    jenaNormalized, JSON.stringify(jenaHeading));
+  if (!jenaNormalized) throw new Error("Jena Gotisch still breaks the chapter heading geometry");
+
+  const screenshotDir = path.join(ROOT, "build", "qa-illustrations-v4");
+  await fs.mkdir(screenshotDir, { recursive: true });
+  await page.screenshot({ path: path.join(screenshotDir, "v10-jena-grimoire.png"), fullPage: true });
+
+  // Persist Jena, then choose Theme default. The authoritative preview must
+  // return to Grimoire instead of merging the persisted Jena override back in.
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  const defaultHeadingPreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 }).catch(() => null);
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
+    const select = row?.querySelector<HTMLSelectElement>("select");
+    if (!select) throw new Error("Chapter heading typeface selector missing");
+    select.value = "";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await defaultHeadingPreview;
+  await page.waitForFunction(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
+    return Boolean(heading && !/Folio Jena Gotisch/i.test(getComputedStyle(heading).fontFamily));
+  });
+  const restoredHeadingFamily = await page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
+    return heading ? getComputedStyle(heading).fontFamily : "";
+  });
+  check("Theme default clears a persisted Jena heading override",
+    restoredHeadingFamily === grimoireHeadingBaseline.fontFamily,
+    JSON.stringify({ expected: grimoireHeadingBaseline.fontFamily, restored: restoredHeadingFamily }));
+  if (restoredHeadingFamily !== grimoireHeadingBaseline.fontFamily) {
+    throw new Error("Theme default still keeps the persisted chapter heading font");
+  }
+  await page.screenshot({ path: path.join(screenshotDir, "v10-theme-default-restored.png"), fullPage: true });
 
     await page.close();
 } catch (error) {
