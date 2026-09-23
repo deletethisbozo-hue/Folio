@@ -46,7 +46,10 @@ const archiveAssets = [
 
 const PACK_PARTS = [
   "folio-v10-font-pack.b64.001",
-  "folio-v10-font-pack.b64.002",
+  "folio-v10-font-pack.b64.002a",
+  "folio-v10-font-pack.b64.002b",
+  "folio-v10-font-pack.b64.002c",
+  "folio-v10-font-pack.b64.002d",
   "folio-v10-font-pack.b64.003",
   "folio-v10-font-pack.b64.004",
   "folio-v10-font-pack.b64.005",
