@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getBrowser, closeBrowser } from "../server/pipeline/render-pdf.ts";
 import { alignDropCaps } from "../server/pipeline/dropcap.ts";
+import { composeProfessionalParagraphs } from "../server/pipeline/compositor.ts";
 import { THEMES_DIR } from "../server/pipeline/paths.ts";
 
 let pass = 0;
@@ -23,12 +24,13 @@ const BODY =
   "thought to mention it. The rest of this paragraph is here so the capital has real lines " +
   "beside it and the text wraps the way it will on a finished page rather than in a toy fixture.";
 
-async function pageHtml(theme: string, print: boolean): Promise<string> {
+async function pageHtml(theme: string, print: boolean, printSize?: string): Promise<string> {
   const themeCss = await fs.readFile(path.join(THEMES_DIR, theme, "theme.css"), "utf8");
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 ${base}
 ${themeCss}
 ${print ? printBase : ""}
+${printSize ? `:root{--folio-dropcap-print-size:${printSize};}` : ""}
 body { width: 4.75in; margin: 0; padding: 20px; }
 </style></head><body class="book-formatter"><main class="book">
 <section class="level1 chapter"><h1>Chapter 3</h1>
@@ -114,6 +116,96 @@ for (const print of [false, true]) {
     check(`   ${theme} still seats ${print ? 3 : 2}+ lines beside the cap`, after.linesBeside >= (print ? 3 : 2), String(after.linesBeside));
     if (Math.abs(before.delta) > 0.5) check(`   ${theme} was actually corrected`, adjusted === 1);
   }
+}
+
+
+console.log("\nPrint compositor drop-cap size matrix");
+const printSizes = [
+  ["theme", undefined],
+  ["small", "5em"],
+  ["medium", "6em"],
+  ["large", "7em"],
+  ["xlarge", "8em"],
+] as const;
+
+for (const [label, size] of printSizes) {
+  await p.setContent(await pageHtml("decorative", true, size), { waitUntil: "load" });
+  await p.evaluate(async () => { try { await document.fonts.ready; } catch {} });
+  await alignDropCaps(p);
+  await composeProfessionalParagraphs(p, { typography: {} } as any);
+
+  const geometry = await p.evaluate(() => {
+    const cap = document.querySelector<HTMLElement>(".dropcap");
+    const para = cap?.closest<HTMLElement>("p");
+    if (!cap || !para) return null;
+
+    const capStyle = getComputedStyle(cap);
+    const capRect = cap.getBoundingClientRect();
+    const canvas = document.createElement("canvas").getContext("2d");
+    if (!canvas) return null;
+    canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+    const metrics = canvas.measureText(cap.textContent || "H");
+    const asc = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent;
+    const desc = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent;
+    const lineHeight = capStyle.lineHeight === "normal"
+      ? asc + desc
+      : parseFloat(capStyle.lineHeight) || asc + desc;
+    const baseline =
+      capRect.top +
+      parseFloat(capStyle.paddingTop || "0") +
+      (lineHeight - (asc + desc)) / 2 +
+      asc;
+    const inkTop = baseline - metrics.actualBoundingBoxAscent;
+    const inkBottom = baseline + metrics.actualBoundingBoxDescent;
+
+    const capLines = Number(cap.dataset.folioDropcapLines || para.dataset.folioDropcapLines || 0);
+    const wrappedLines = Number(cap.dataset.folioDropcapWrappedLines || 0);
+    const lines = [...para.querySelectorAll<HTMLElement>(".folio-composed-line")];
+    const offsets = lines.slice(0, capLines + 2).map((line) => parseFloat(getComputedStyle(line).marginLeft) || 0);
+    const collisions: number[] = [];
+
+    lines.forEach((line, index) => {
+      const content = line.querySelector<HTMLElement>(":scope > .folio-line-content") ?? line;
+      const rect = content.getBoundingClientRect();
+      const vertical = rect.bottom > inkTop + 0.5 && rect.top < inkBottom - 0.5;
+      const horizontal = rect.left < capRect.right - 0.5 && rect.right > capRect.left + 0.5;
+      if (vertical && horizontal) collisions.push(index);
+    });
+
+    return {
+      capLines,
+      wrappedLines,
+      offsets,
+      collisions,
+      fontSize: parseFloat(capStyle.fontSize),
+      cap: capRect.toJSON(),
+      inkTop,
+      inkBottom,
+    };
+  });
+
+  const firstLinesReserved = Boolean(
+    geometry &&
+    geometry.capLines >= 2 &&
+    geometry.offsets.slice(0, geometry.capLines).every((offset) => offset > 1)
+  );
+  const releasesImmediatelyAfterCap = Boolean(
+    geometry &&
+    geometry.offsets.length > geometry.capLines &&
+    geometry.offsets[geometry.capLines] <= 1
+  );
+  const safe = Boolean(
+    geometry &&
+    geometry.wrappedLines === geometry.capLines &&
+    firstLinesReserved &&
+    releasesImmediatelyAfterCap &&
+    geometry.collisions.length === 0
+  );
+
+  check(`Print compositor ${label} reserves exactly its measured lines with no text overlap`,
+    safe,
+    JSON.stringify(geometry));
+  if (!safe) throw new Error(`Print compositor drop cap failed for ${label}`);
 }
 
 await p.close();
