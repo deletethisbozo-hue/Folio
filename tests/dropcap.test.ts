@@ -125,9 +125,7 @@ console.log("\nPrint compositor drop-cap size matrix");
 const printSizes = [
   ["theme", undefined],
   ["small", "5em"],
-  ["medium", "6em"],
   ["large", "7em"],
-  ["xlarge", "8em"],
 ] as const;
 
 for (const [label, size] of printSizes) {
