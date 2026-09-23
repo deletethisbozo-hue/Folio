@@ -1016,9 +1016,12 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
   const visibleDepth = Math.max(1, capInkBottom - bodyLineBoxTop);
   const seatLines = Math.max(2, Math.min(5, Math.ceil((visibleDepth + 0.75) / Math.max(1, bodyLineHeight))));
 
-  // Keep the float's margin box through the last occupied line and release
-  // prose only at the next line-grid boundary.
-  const desiredFloatBottom = bodyLineBoxTop + seatLines * bodyLineHeight + 0.5;
+  // Keep the float through exactly the occupied lines, then release it a
+  // fraction BEFORE the next line starts. CSS float exclusion treats touching
+  // the next line box as an intersection; the old +0.5px pushed a visually
+  // two-line cap into a phantom third wrapped line.
+  const releaseEpsilon = 0.75;
+  const desiredFloatBottom = bodyLineBoxTop + seatLines * bodyLineHeight - releaseEpsilon;
   cap.style.marginBottom = `${desiredFloatBottom - seatedCapRect.bottom}px`;
   cap.dataset.folioDropcapLines = String(seatLines);
   cap.dataset.folioDropcapSeated = "true";
