@@ -375,7 +375,26 @@ try {
     const para = cap?.closest<HTMLElement>("p");
     if (!doc || !cap || !para) return null;
 
-    const lineRects: Array<{ top: number; left: number }> = [];
+    const capStyle = getComputedStyle(cap);
+    const canvas = doc.createElement("canvas").getContext("2d");
+    if (!canvas) return null;
+    canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+    const metrics = canvas.measureText(cap.textContent || "H");
+    const asc = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent;
+    const desc = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent;
+    const capLineHeight = capStyle.lineHeight === "normal"
+      ? asc + desc
+      : parseFloat(capStyle.lineHeight) || asc + desc;
+    const capRect = cap.getBoundingClientRect();
+    const baseline =
+      capRect.top +
+      parseFloat(capStyle.paddingTop || "0") +
+      (capLineHeight - (asc + desc)) / 2 +
+      asc;
+    const capInkTop = baseline - metrics.actualBoundingBoxAscent;
+    const capInkBottom = baseline + metrics.actualBoundingBoxDescent;
+
+    const lineRects: Array<{ top: number; bottom: number; left: number }> = [];
     const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const node = walker.currentNode as Text;
@@ -384,19 +403,19 @@ try {
       range.selectNodeContents(node);
       for (const rect of Array.from(range.getClientRects())) {
         if (rect.width <= 1 || rect.height <= 1) continue;
-        lineRects.push({ top: rect.top, left: rect.left });
+        lineRects.push({ top: rect.top, bottom: rect.bottom, left: rect.left });
       }
     }
 
-    const grouped = new Map<number, number>();
+    const grouped = new Map<number, { top: number; bottom: number; left: number }>();
     for (const rect of lineRects) {
-      const top = Math.round(rect.top * 2) / 2;
-      const previous = grouped.get(top);
-      grouped.set(top, previous == null ? rect.left : Math.min(previous, rect.left));
+      const key = Math.round(rect.top * 2) / 2;
+      const previous = grouped.get(key);
+      grouped.set(key, previous
+        ? { top: Math.min(previous.top, rect.top), bottom: Math.max(previous.bottom, rect.bottom), left: Math.min(previous.left, rect.left) }
+        : { top: rect.top, bottom: rect.bottom, left: rect.left });
     }
-    const lines = [...grouped.entries()]
-      .map(([top, left]) => ({ top, left }))
-      .sort((a, b) => a.top - b.top);
+    const lines = [...grouped.values()].sort((a, b) => a.top - b.top);
     if (lines.length < 3) return null;
 
     const normalLeft = Math.min(...lines.map((line) => line.left));
@@ -405,11 +424,22 @@ try {
       if (line.left > normalLeft + 1.5) wrappedLines++;
       else break;
     }
+
+    let inkIntersectingRows = 0;
+    for (const line of lines) {
+      const intersects = line.bottom > capInkTop + 0.5 && line.top < capInkBottom - 0.5;
+      if (intersects) inkIntersectingRows++;
+      else if (line.top >= capInkBottom - 0.5) break;
+    }
+
     return {
       wrappedLines,
       expectedLines: Number(cap.dataset.folioDropcapLines ?? 0),
+      inkIntersectingRows,
+      capInkTop,
+      capInkBottom,
       normalLeft,
-      lineLefts: lines.slice(0, 6).map((line) => line.left),
+      lines: lines.slice(0, 7),
     };
   });
 
@@ -430,7 +460,7 @@ try {
     smallHole &&
     smallHole.excessGap <= 2 &&
     smallWrap &&
-    smallWrap.wrappedLines === baseline.dropcapLines
+    smallWrap.wrappedLines === smallWrap.inkIntersectingRows
   );
   check("Small drop cap is optically seated and never enters prose",
     smallHealthy,
@@ -645,7 +675,7 @@ try {
       geometry.dropcapLines >= 2 &&
       geometry.dropcapLines <= 5 &&
       wrap &&
-      wrap.wrappedLines === geometry.dropcapLines
+      wrap.wrappedLines === wrap.inkIntersectingRows
     );
     const grows = Boolean(previousExplicit && geometry && geometry.fontSize > previousExplicit.fontSize * 1.08);
 
@@ -721,7 +751,7 @@ try {
     restoredThemeHole &&
     restoredThemeHole.excessGap <= 2 &&
     restoredThemeWrap &&
-    restoredThemeWrap.wrappedLines === restoredThemeDropcap.dropcapLines
+    restoredThemeWrap.wrappedLines === restoredThemeWrap.inkIntersectingRows
   );
   check("Theme default clears persisted XL and keeps full drop-cap geometry healthy",
     restoredThemeHealthy,
@@ -797,7 +827,7 @@ try {
       collision &&
       collision.collisions.length === 0 &&
       wrap &&
-      wrap.wrappedLines === geometry.dropcapLines &&
+      wrap.wrappedLines === wrap.inkIntersectingRows &&
       wrap.expectedLines === geometry.dropcapLines
     );
     check(`Grimoire + Jena Gotisch ${size} releases Reader text on the exact occupied line`,
