@@ -54,11 +54,20 @@ try {
     bookStyle?.click();
   });
   await page.waitForSelector('button[data-theme="aubade"]');
+  const aubadePreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 });
   await page.click('button[data-theme="aubade"]');
   await page.evaluate(() => {
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
       .find((button) => button.textContent?.trim() === "Done");
     done?.click();
+  });
+  await aubadePreview;
+  await page.waitForFunction(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    return getComputedStyle(doc?.body ?? document.body).backgroundColor === "rgb(255, 247, 234)";
   });
 
   const openFirstParagraphSettings = async () => {
@@ -141,6 +150,10 @@ try {
   if (!themeDefaultIsRealDropcap) throw new Error("Current theme size collapsed to body-text size");
 
   await openFirstParagraphSettings();
+  const smallPreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 });
   await page.evaluate(() => {
     const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
     const sizeRow = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap size");
@@ -148,28 +161,11 @@ try {
     if (!select) throw new Error("Drop cap size selector missing");
     select.value = "small";
     select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  await page.evaluate(() => {
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
       .find((button) => button.textContent?.trim() === "Done");
     done?.click();
   });
-
-  await page.waitForFunction((themeSize) => {
-    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
-    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
-    if (!cap) return false;
-    const current = parseFloat(getComputedStyle(cap).fontSize);
-    return Number.isFinite(current) && Math.abs(current - Number(themeSize)) >= 0.5;
-  }, {}, themeDefaultSize);
-  const explicitSmallSize = await measureDropcapFontSize();
-  check("Explicit Small overrides the current theme size",
-    Boolean(explicitSmallSize && Math.abs(explicitSmallSize - themeDefaultSize) >= 0.5),
-    JSON.stringify({ themeDefaultSize, explicitSmallSize }));
-  if (!explicitSmallSize || Math.abs(explicitSmallSize - themeDefaultSize) < 0.5) {
-    throw new Error("Explicit Small is still indistinguishable from Current theme size");
-  }
-
+  await smallPreview;
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
@@ -178,10 +174,18 @@ try {
     const capSize = parseFloat(getComputedStyle(cap).fontSize);
     const bodySize = parseFloat(getComputedStyle(para).fontSize);
     return Number.isFinite(capSize) && Number.isFinite(bodySize) &&
-      capSize >= bodySize * 2.5 &&
+      Math.abs(capSize - bodySize * 3) < 0.45 &&
       para.classList.contains("folio-native-dropcap") &&
+      cap.dataset.folioDropcapSeated === "true" &&
       getComputedStyle(cap).float === "left";
   });
+  const explicitSmallSize = await measureDropcapFontSize();
+  check("Explicit Small resolves to its final 3em size after authoritative preview",
+    Boolean(explicitSmallSize && Math.abs(explicitSmallSize - themeDefaultSize) >= 0.5),
+    JSON.stringify({ themeDefaultSize, explicitSmallSize }));
+  if (!explicitSmallSize || Math.abs(explicitSmallSize - themeDefaultSize) < 0.5) {
+    throw new Error("Explicit Small is still indistinguishable from Current theme size");
+  }
 
   const measureDropcap = async () => page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
@@ -252,7 +256,7 @@ try {
       firstLineGapAfterCap: firstLineLeftFromParagraph == null ? null : firstLineLeftFromParagraph - capRightFromParagraph,
       nextParagraphGap: nextPara ? nextPara.getBoundingClientRect().top - pr.bottom : null,
       paragraphHeight: pr.height,
-      dropcapLines: Number(para.dataset.folioDropcapLines ?? 0),
+      dropcapLines: Number(cap.dataset.folioDropcapLines ?? 0),
       opticalTopDelta,
       bodyLineHeight,
       paragraphClass: para.className,
@@ -536,7 +540,7 @@ try {
       const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
       const para = cap?.closest<HTMLElement>("p");
       return Boolean(cap && para?.classList.contains("folio-native-dropcap") &&
-        para.dataset.folioDropcapSeated === "true" &&
+        cap.dataset.folioDropcapSeated === "true" &&
         getComputedStyle(cap).float === "left");
     });
     await new Promise((resolve) => setTimeout(resolve, 120));
