@@ -126,6 +126,19 @@ try {
   ));
   const themeDefaultSize = await measureDropcapFontSize();
   if (!themeDefaultSize) throw new Error("Theme-default drop cap size unavailable");
+  const themeDefaultBodySize = await page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const para = doc?.querySelector<HTMLElement>("section.chapter > p");
+    return para ? parseFloat(getComputedStyle(para).fontSize) : null;
+  });
+  const themeDefaultIsRealDropcap = Boolean(
+    themeDefaultBodySize &&
+    themeDefaultSize >= themeDefaultBodySize * 2.5
+  );
+  check("Current theme size renders as an actual drop cap",
+    themeDefaultIsRealDropcap,
+    JSON.stringify({ themeDefaultSize, themeDefaultBodySize }));
+  if (!themeDefaultIsRealDropcap) throw new Error("Current theme size collapsed to body-text size");
 
   await openFirstParagraphSettings();
   await page.evaluate(() => {
