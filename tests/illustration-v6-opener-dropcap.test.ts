@@ -103,9 +103,9 @@ try {
   });
   const hasSeparateThemeAndSmall =
     pickerState.sizeValue === "theme" &&
-    pickerState.sizeOptions.some((option) => option.value === "theme" && option.text === "Current theme size") &&
+    pickerState.sizeOptions.some((option) => option.value === "theme" && option.text === "Theme default") &&
     pickerState.sizeOptions.some((option) => option.value === "small" && option.text === "Small");
-  check("Current theme size and Small are separate drop-cap states", hasSeparateThemeAndSmall, JSON.stringify(pickerState.sizeOptions));
+  check("Theme default and Small are separate drop-cap states", hasSeparateThemeAndSmall, JSON.stringify(pickerState.sizeOptions));
   if (!hasSeparateThemeAndSmall) throw new Error("Drop cap size picker still aliases theme default to Small");
 
   const requestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"];
@@ -144,10 +144,10 @@ try {
     themeDefaultBodySize &&
     themeDefaultSize >= themeDefaultBodySize * 2.5
   );
-  check("Current theme size renders as an actual drop cap",
+  check("Theme default renders as an actual drop cap",
     themeDefaultIsRealDropcap,
     JSON.stringify({ themeDefaultSize, themeDefaultBodySize }));
-  if (!themeDefaultIsRealDropcap) throw new Error("Current theme size collapsed to body-text size");
+  if (!themeDefaultIsRealDropcap) throw new Error("Theme default collapsed to body-text size");
 
   await openFirstParagraphSettings();
   const smallPreview = page.waitForResponse((response) => {
@@ -184,7 +184,7 @@ try {
     Boolean(explicitSmallSize && Math.abs(explicitSmallSize - themeDefaultSize) >= 0.5),
     JSON.stringify({ themeDefaultSize, explicitSmallSize }));
   if (!explicitSmallSize || Math.abs(explicitSmallSize - themeDefaultSize) < 0.5) {
-    throw new Error("Explicit Small is still indistinguishable from Current theme size");
+    throw new Error("Explicit Small is still indistinguishable from Theme default");
   }
 
   const measureDropcap = async () => page.evaluate(() => {
@@ -345,10 +345,55 @@ try {
     };
   });
 
+  const measureWrappedLineCount = async () => page.evaluate(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    const para = cap?.closest<HTMLElement>("p");
+    if (!doc || !cap || !para) return null;
+
+    const lineRects: Array<{ top: number; left: number }> = [];
+    const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const range = doc.createRange();
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        lineRects.push({ top: rect.top, left: rect.left });
+      }
+    }
+
+    const grouped = new Map<number, number>();
+    for (const rect of lineRects) {
+      const top = Math.round(rect.top * 2) / 2;
+      const previous = grouped.get(top);
+      grouped.set(top, previous == null ? rect.left : Math.min(previous, rect.left));
+    }
+    const lines = [...grouped.entries()]
+      .map(([top, left]) => ({ top, left }))
+      .sort((a, b) => a.top - b.top);
+    if (lines.length < 3) return null;
+
+    const normalLeft = Math.min(...lines.map((line) => line.left));
+    let wrappedLines = 0;
+    for (const line of lines) {
+      if (line.left > normalLeft + 1.5) wrappedLines++;
+      else break;
+    }
+    return {
+      wrappedLines,
+      expectedLines: Number(cap.dataset.folioDropcapLines ?? 0),
+      normalLeft,
+      lineLefts: lines.slice(0, 6).map((line) => line.left),
+    };
+  });
+
   const baseline = await measureDropcap();
   if (!baseline) throw new Error("Baseline drop cap geometry unavailable");
   const smallCollision = await measureCapLineCollisions();
   const smallHole = await measureUnderCapHole();
+  const smallWrap = await measureWrappedLineCount();
   const smallHealthy = Boolean(
     baseline.opticalTopDelta != null &&
     Math.abs(baseline.opticalTopDelta) <= 1.25 &&
@@ -359,11 +404,13 @@ try {
     smallCollision.position !== "absolute" &&
     smallCollision.collisions.length === 0 &&
     smallHole &&
-    smallHole.excessGap <= 2
+    smallHole.excessGap <= 2 &&
+    smallWrap &&
+    smallWrap.wrappedLines === baseline.dropcapLines
   );
   check("Small drop cap is optically seated and never enters prose",
     smallHealthy,
-    JSON.stringify({ geometry: baseline, collision: smallCollision, hole: smallHole }));
+    JSON.stringify({ geometry: baseline, collision: smallCollision, hole: smallHole, wrap: smallWrap }));
   if (!smallHealthy) throw new Error("Small drop cap failed full geometry qualification");
 
   // Insert normally, then use the same direct manipulation path a user uses to
@@ -554,6 +601,7 @@ try {
     const geometry = await measureDropcap();
     const collision = await measureCapLineCollisions();
     const hole = await measureUnderCapHole();
+    const wrap = await measureWrappedLineCount();
     sizeResults[size] = geometry;
 
     const visuallySeated = Boolean(
@@ -571,13 +619,15 @@ try {
       hole.excessGap <= 2 &&
       Math.abs((geometry.nextParagraphGap ?? 0) - (baseline.nextParagraphGap ?? 0)) < 1.5 &&
       geometry.dropcapLines >= 2 &&
-      geometry.dropcapLines <= 5
+      geometry.dropcapLines <= 5 &&
+      wrap &&
+      wrap.wrappedLines === geometry.dropcapLines
     );
     const grows = Boolean(previousExplicit && geometry && geometry.fontSize > previousExplicit.fontSize * 1.08);
 
     check(`${size} drop cap is optically seated, grows, and never enters prose`,
       visuallySeated && flowSafe && grows,
-      JSON.stringify({ geometry, collision, hole, previousSize: previousExplicit?.fontSize }));
+      JSON.stringify({ geometry, collision, hole, wrap, previousSize: previousExplicit?.fontSize }));
     if (!geometry || !visuallySeated || !flowSafe || !grows) {
       throw new Error(`${size} drop cap failed full geometry qualification`);
     }
@@ -599,7 +649,7 @@ try {
   }
 
   // Let autosave persist XL first. This reproduces the real regression where
-  // selecting "Current theme size" omitted dropcapSize from JSON and the server
+  // selecting "Theme default" omitted dropcapSize from JSON and the server
   // merged the just-saved XL value straight back into the authoritative preview.
   await new Promise((resolve) => setTimeout(resolve, 650));
   await openFirstParagraphSettings();
@@ -632,6 +682,7 @@ try {
   const restoredThemeDropcap = await measureDropcap();
   const restoredThemeCollision = await measureCapLineCollisions();
   const restoredThemeHole = await measureUnderCapHole();
+  const restoredThemeWrap = await measureWrappedLineCount();
   const restoredThemeHealthy = Boolean(
     restoredThemeDropcap &&
     Math.abs(restoredThemeDropcap.fontSize - themeDefaultSize) < 0.35 &&
@@ -644,13 +695,15 @@ try {
     restoredThemeCollision.position !== "absolute" &&
     restoredThemeCollision.collisions.length === 0 &&
     restoredThemeHole &&
-    restoredThemeHole.excessGap <= 2
+    restoredThemeHole.excessGap <= 2 &&
+    restoredThemeWrap &&
+    restoredThemeWrap.wrappedLines === restoredThemeDropcap.dropcapLines
   );
-  check("Current theme size clears persisted XL and keeps full drop-cap geometry healthy",
+  check("Theme default clears persisted XL and keeps full drop-cap geometry healthy",
     restoredThemeHealthy,
-    JSON.stringify({ themeDefaultSize, restored: restoredThemeDropcap, collision: restoredThemeCollision, hole: restoredThemeHole }));
+    JSON.stringify({ themeDefaultSize, restored: restoredThemeDropcap, collision: restoredThemeCollision, hole: restoredThemeHole, wrap: restoredThemeWrap }));
   if (!restoredThemeHealthy) {
-    throw new Error("Current theme size failed full drop-cap geometry qualification");
+    throw new Error("Theme default failed full drop-cap geometry qualification");
   }
 
   await page.click('button[data-command="design"]');
