@@ -38,7 +38,7 @@ interface RawConfig {
   exclude?: string[]; // glob patterns of markdown to keep out of the chapter list
   fonts?: Array<{ file: string; family: string; weight?: string | number; style?: string }>;
   styles?: Record<string, StyleDef>;
-  typography?: Typography;
+  typography?: Record<string, unknown>;
 }
 
 async function parseFonts(
@@ -71,6 +71,15 @@ async function isDir(p: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function normalizeTypography(raw: RawConfig["typography"]): Typography {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const normalized = { ...raw } as Record<string, unknown>;
+  const legacySize = normalized.dropcapSize;
+  if (legacySize === "medium" || legacySize === "xlarge") normalized.dropcapSize = "large";
+  else if (legacySize !== undefined && legacySize !== "small" && legacySize !== "large") delete normalized.dropcapSize;
+  return normalized as Typography;
 }
 
 function normalizeMeta(cfg: RawConfig, overrides?: Partial<BookMeta>): BookMeta {
@@ -495,7 +504,7 @@ export async function loadBook(inputPath: string, overrides?: Partial<BookMeta>)
     baseDir: abs,
     fonts: await parseFonts(cfg, abs, warnings),
     styles: cfg.styles ?? {},
-    typography: cfg.typography ?? {},
+    typography: normalizeTypography(cfg.typography),
   };
   if (meta.cover) {
     const coverAbs = path.resolve(abs, meta.cover);
