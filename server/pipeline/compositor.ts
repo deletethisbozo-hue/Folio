@@ -295,22 +295,38 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         // native-float line count left medium/XL caps with a phantom extra row
         // after composition because the composed rows land at slightly different
         // y coordinates.
-        let firstBodyRectTop = contentTop;
-        let firstBodyRectHeight = fontSize;
-        const probeWalker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
-        while (probeWalker.nextNode()) {
-          const node = probeWalker.currentNode as Text;
-          if (cap.contains(node) || !node.data.trim()) continue;
-          const range = document.createRange();
-          range.setStart(node, 0);
-          range.setEnd(node, Math.min(20, node.data.length));
-          const rect = range.getClientRects()[0];
-          if (rect) {
-            firstBodyRectTop = rect.top;
-            if (rect.height) firstBodyRectHeight = rect.height;
+        // Measure the text-ink inset using the SAME block-line geometry the
+        // compositor will render. Reading the original native paragraph here is
+        // subtly wrong: after composition, .folio-composed-line lands a few px
+        // differently, which used to turn a real 3-line Medium cap into a
+        // phantom 4-line reservation.
+        let composedTextInsetTop = 0;
+        let composedTextHeight = fontSize;
+        const gridProbe = document.createElement("span");
+        gridProbe.className = "folio-composed-line";
+        gridProbe.style.position = "absolute";
+        gridProbe.style.visibility = "hidden";
+        gridProbe.style.pointerEvents = "none";
+        gridProbe.style.left = "-10000px";
+        gridProbe.style.top = "0";
+        gridProbe.style.width = `${width}px`;
+        gridProbe.textContent = "Hg";
+        paragraph.append(gridProbe);
+        const probeText = gridProbe.firstChild as Text | null;
+        if (probeText) {
+          const probeRange = document.createRange();
+          probeRange.selectNodeContents(probeText);
+          const textRect = probeRange.getClientRects()[0];
+          const lineRect = gridProbe.getBoundingClientRect();
+          if (textRect) {
+            composedTextInsetTop = textRect.top - lineRect.top;
+            if (textRect.height) composedTextHeight = textRect.height;
           }
-          break;
         }
+        gridProbe.remove();
+
+        const firstBodyRectTop = contentTop + composedTextInsetTop;
+        const firstBodyRectHeight = composedTextHeight;
 
         let finalGridLines = 0;
         const canvas = document.createElement("canvas").getContext("2d");
