@@ -1016,14 +1016,60 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
   const visibleDepth = Math.max(1, capInkBottom - bodyLineBoxTop);
   const seatLines = Math.max(2, Math.min(5, Math.ceil((visibleDepth + 0.75) / Math.max(1, bodyLineHeight))));
 
-  // Keep the float through exactly the occupied lines, then release it a
-  // fraction BEFORE the next line starts. CSS float exclusion treats touching
-  // the next line box as an intersection; the old +0.5px pushed a visually
-  // two-line cap into a phantom third wrapped line.
-  const releaseEpsilon = 0.75;
+  // Native float exclusion is annoyingly sensitive to fractional line-box
+  // boundaries. A theoretically correct bottom can still make Chromium keep one
+  // extra prose line beside the cap, which is the visible "hole" reported in
+  // Reader preview. Calibrate against the lines the browser ACTUALLY wrapped.
+  const paragraphRect = paragraph.getBoundingClientRect();
+  const contentLeft =
+    paragraphRect.left +
+    pixels(bodyStyle.borderLeftWidth) +
+    pixels(bodyStyle.paddingLeft);
+
+  const wrappedLineCount = () => {
+    const lineLefts = new Map<number, number>();
+    const walker = doc.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const textRange = doc.createRange();
+      textRange.selectNodeContents(node);
+      for (const rect of Array.from(textRange.getClientRects())) {
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        const top = Math.round(rect.top * 2) / 2;
+        const previous = lineLefts.get(top);
+        lineLefts.set(top, previous == null ? rect.left : Math.min(previous, rect.left));
+      }
+    }
+
+    let wrapped = 0;
+    for (const [, left] of [...lineLefts.entries()].sort((a, b) => a[0] - b[0])) {
+      if (left > contentLeft + 1.25) wrapped++;
+      else break;
+    }
+    return wrapped;
+  };
+
+  const releaseEpsilon = 1.25;
   const desiredFloatBottom = bodyLineBoxTop + seatLines * bodyLineHeight - releaseEpsilon;
-  cap.style.marginBottom = `${desiredFloatBottom - seatedCapRect.bottom}px`;
+  let marginBottom = desiredFloatBottom - seatedCapRect.bottom;
+  cap.style.marginBottom = `${marginBottom}px`;
+  void paragraph.offsetHeight;
+
+  // Move the float boundary in small increments until the browser exposes
+  // exactly the number of lines occupied by visible glyph ink. This makes the
+  // result stable across blackletter fonts, zoom levels and fractional px grids.
+  const calibrationStep = Math.max(1, bodyLineHeight * 0.10);
+  let wrappedLines = wrappedLineCount();
+  for (let pass = 0; pass < 14 && wrappedLines !== seatLines; pass++) {
+    marginBottom += wrappedLines > seatLines ? -calibrationStep : calibrationStep;
+    cap.style.marginBottom = `${marginBottom}px`;
+    void paragraph.offsetHeight;
+    wrappedLines = wrappedLineCount();
+  }
+
   cap.dataset.folioDropcapLines = String(seatLines);
+  cap.dataset.folioDropcapWrappedLines = String(wrappedLines);
   cap.dataset.folioDropcapSeated = "true";
 }
 
