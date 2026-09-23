@@ -22,7 +22,9 @@ const printBase = await fs.readFile(path.join(THEMES_DIR, "print-base.css"), "ut
 const BODY =
   "he clock in the hallway struck an hour that does not exist, and nobody in the house " +
   "thought to mention it. The rest of this paragraph is here so the capital has real lines " +
-  "beside it and the text wraps the way it will on a finished page rather than in a toy fixture.";
+  "beside it and the text wraps the way it will on a finished page rather than in a toy fixture. " +
+  "There is deliberately enough additional prose here to continue beyond even the largest cap, " +
+  "so the test can prove the first line after the initial returns to the full text measure.";
 
 async function pageHtml(theme: string, print: boolean, printSize?: string): Promise<string> {
   const themeCss = await fs.readFile(path.join(THEMES_DIR, theme, "theme.css"), "utf8");
