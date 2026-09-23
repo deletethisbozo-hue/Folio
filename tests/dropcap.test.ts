@@ -143,54 +143,78 @@ for (const [label, size] of printSizes) {
 
     const capStyle = getComputedStyle(cap);
     const capRect = cap.getBoundingClientRect();
+    const paraRect = para.getBoundingClientRect();
     const canvas = document.createElement("canvas").getContext("2d");
     if (!canvas) return null;
     canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
     const metrics = canvas.measureText(cap.textContent || "H");
     const asc = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent;
     const desc = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent;
-    const lineHeight = capStyle.lineHeight === "normal"
+    const capLineHeight = capStyle.lineHeight === "normal"
       ? asc + desc
       : parseFloat(capStyle.lineHeight) || asc + desc;
     const baseline =
       capRect.top +
       parseFloat(capStyle.paddingTop || "0") +
-      (lineHeight - (asc + desc)) / 2 +
+      (capLineHeight - (asc + desc)) / 2 +
       asc;
     const inkTop = baseline - metrics.actualBoundingBoxAscent;
     const inkBottom = baseline + metrics.actualBoundingBoxDescent;
 
-    const capLines = Number(cap.dataset.folioDropcapLines || para.dataset.folioDropcapLines || 0);
-    const wrappedLines = Number(cap.dataset.folioDropcapWrappedLines || 0);
-    const lines = [...para.querySelectorAll<HTMLElement>(".folio-composed-line")];
-    const offsets = lines.slice(0, capLines + 2).map((line) => parseFloat(getComputedStyle(line).marginLeft) || 0);
-    const collisions: number[] = [];
-    const inkRows: number[] = [];
-    const rowRects: Array<{ index: number; top: number; bottom: number; left: number; right: number }> = [];
-
-    lines.forEach((line, index) => {
-      const content = line.querySelector<HTMLElement>(":scope > .folio-line-content") ?? line;
+    const lineRects: Array<{ top: number; bottom: number; left: number; right: number }> = [];
+    const walker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
       const range = document.createRange();
-      range.selectNodeContents(content);
-      const textRects = Array.from(range.getClientRects()).filter((rect) => rect.width > 1 && rect.height > 1);
-      const rect = textRects[0] ?? content.getBoundingClientRect();
-      rowRects.push({ index, top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
-      const vertical = rect.bottom > inkTop + 0.5 && rect.top < inkBottom - 0.5;
-      const horizontal = rect.left < capRect.right - 0.5 && rect.right > capRect.left + 0.5;
-      if (vertical) inkRows.push(index);
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        lineRects.push({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
+      }
+    }
+
+    const grouped = new Map<number, { top: number; bottom: number; left: number; right: number }>();
+    for (const rect of lineRects) {
+      const key = Math.round(rect.top * 2) / 2;
+      const prev = grouped.get(key);
+      grouped.set(key, prev
+        ? {
+            top: Math.min(prev.top, rect.top),
+            bottom: Math.max(prev.bottom, rect.bottom),
+            left: Math.min(prev.left, rect.left),
+            right: Math.max(prev.right, rect.right),
+          }
+        : rect);
+    }
+    const rows = [...grouped.values()].sort((a, b) => a.top - b.top);
+    const normalLeft = Math.min(...rows.map((row) => row.left));
+    let wrappedLines = 0;
+    for (const row of rows) {
+      if (row.left > normalLeft + 1.5) wrappedLines++;
+      else break;
+    }
+
+    let inkRows = 0;
+    const collisions: number[] = [];
+    rows.forEach((row, index) => {
+      const vertical = row.bottom > inkTop + 0.5 && row.top < inkBottom - 0.5;
+      const horizontal = row.left < capRect.right - 0.5 && row.right > capRect.left + 0.5;
+      if (vertical) inkRows++;
       if (vertical && horizontal) collisions.push(index);
     });
 
-    const paraRect = para.getBoundingClientRect();
     return {
-      capLines,
+      nativeFloat: capStyle.float,
+      position: capStyle.position,
+      composed: para.classList.contains("folio-composed"),
+      capLines: Number(cap.dataset.folioDropcapLines || 0),
       wrappedLines,
-      offsets,
-      collisions,
       inkRows,
-      rowRects: rowRects.slice(0, 7),
+      collisions,
+      rows: rows.slice(0, 8),
+      normalLeft,
       paragraph: paraRect.toJSON(),
-      paragraphLineHeight: parseFloat(getComputedStyle(para).lineHeight),
       fontSize: parseFloat(capStyle.fontSize),
       cap: capRect.toJSON(),
       inkTop,
@@ -198,29 +222,21 @@ for (const [label, size] of printSizes) {
     };
   });
 
-  const firstLinesReserved = Boolean(
-    geometry &&
-    geometry.capLines >= 2 &&
-    geometry.offsets.slice(0, geometry.capLines).every((offset) => offset > 1)
-  );
-  const releasesImmediatelyAfterCap = Boolean(
-    geometry &&
-    geometry.offsets.length > geometry.capLines &&
-    geometry.offsets[geometry.capLines] <= 1
-  );
   const safe = Boolean(
     geometry &&
+    geometry.nativeFloat === "left" &&
+    geometry.position !== "absolute" &&
+    geometry.composed === false &&
+    geometry.capLines >= 2 &&
     geometry.wrappedLines === geometry.capLines &&
-    geometry.inkRows.filter((index) => index < geometry.capLines + 2).length === geometry.capLines &&
-    firstLinesReserved &&
-    releasesImmediatelyAfterCap &&
+    geometry.wrappedLines === geometry.inkRows &&
     geometry.collisions.length === 0
   );
 
-  check(`Print compositor ${label} reserves exactly its measured lines with no text overlap`,
+  check(`Print native dropcap ${label} wraps exactly the visible ink rows with no text overlap`,
     safe,
     JSON.stringify(geometry));
-  if (!safe) throw new Error(`Print compositor drop cap failed for ${label}`);
+  if (!safe) throw new Error(`Print native drop cap failed for ${label}`);
 }
 
 await p.close();
