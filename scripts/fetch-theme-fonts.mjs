@@ -33,8 +33,6 @@ const assets = [
   ["cinzel.ttf", "ofl/cinzel/Cinzel[wght].ttf"],
   ["grenze-gotisch.ttf", "ofl/grenzegotisch/GrenzeGotisch[wght].ttf"],
   ["roboto-slab.ttf", "apache/robotoslab/RobotoSlab[wght].ttf"],
-  ["manufacturing-consent.ttf", "ofl/manufacturingconsent/ManufacturingConsent-Regular.ttf"],
-  ["kings.ttf", "ofl/kings/Kings-Regular.ttf"],
 ];
 
 const externalAssets = [
@@ -44,6 +42,30 @@ const externalAssets = [
 const archiveAssets = [
   ["jena-gotisch.ttf", "https://static.wfonts.com/download/data/2017/10/16/jena-gotisch/jena-gotisch.zip", "JenaGotisch.ttf"],
   ["cat-altenglisch.ttf", "https://static.wfonts.com/download/data/2023/04/06/cat-altenglisch/cat-altenglisch.zip", "CAT Altenglisch.ttf"],
+];
+
+const PACK_PARTS = [
+  "folio-v10-font-pack.b64.001",
+  "folio-v10-font-pack.b64.002",
+  "folio-v10-font-pack.b64.003",
+  "folio-v10-font-pack.b64.004",
+  "folio-v10-font-pack.b64.005",
+  "folio-v10-font-pack.b64.006",
+  "folio-v10-font-pack.b64.007",
+  "folio-v10-font-pack.b64.008",
+];
+
+const PACK_FILES = [
+  ["slavkappen/Slavkappen.ttf", path.join(fontDir, "slavkappen.ttf"), true],
+  ["jena/JenaGotisch.ttf", path.join(fontDir, "jena-gotisch.ttf"), true],
+  ["altenglisch/Altenglisch.ttf", path.join(fontDir, "cat-altenglisch.ttf"), true],
+  ["kings/fonts/ttf/Kings-Regular.ttf", path.join(fontDir, "kings.ttf"), true],
+  ["manufacturing/fonts/ttf/ManufacturingConsent-Regular.ttf", path.join(fontDir, "manufacturing-consent.ttf"), true],
+  ["slavkappen/OFL.txt", path.join(licenseDir, "Slavkappen-OFL.txt"), false],
+  ["jena/Open Font License.txt", path.join(licenseDir, "Jena-Gotisch-OFL.txt"), false],
+  ["altenglisch/Open Font License.txt", path.join(licenseDir, "CAT-Altenglisch-OFL.txt"), false],
+  ["kings/OFL.txt", path.join(licenseDir, "Kings-OFL.txt"), false],
+  ["manufacturing/OFL.txt", path.join(licenseDir, "Manufacturing-Consent-OFL.txt"), false],
 ];
 
 const licenses = [
@@ -60,11 +82,6 @@ const licenses = [
   ["Cinzel-OFL.txt", "ofl/cinzel/OFL.txt"],
   ["Grenze-Gotisch-OFL.txt", "ofl/grenzegotisch/OFL.txt"],
   ["Roboto-Slab-LICENSE.txt", "apache/robotoslab/LICENSE.txt"],
-  ["Manufacturing-Consent-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
-  ["Kings-OFL.txt", "ofl/kings/OFL.txt"],
-  ["Jena-Gotisch-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
-  ["CAT-Altenglisch-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
-  ["Slavkappen-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
 ];
 
 function encodeRepoPath(value) {
@@ -165,6 +182,35 @@ async function downloadArchiveFont(url, entryName, destination) {
   return true;
 }
 
+async function loadEmbeddedFontPack() {
+  const assetDir = path.join(root, "assets", "font-packs");
+  const chunks = await Promise.all(
+    PACK_PARTS.map((name) => fs.readFile(path.join(assetDir, name), "utf8"))
+  );
+  return Buffer.from(chunks.join("").replace(/\s+/g, ""), "base64");
+}
+
+async function extractEmbeddedFontPack() {
+  const archive = await loadEmbeddedFontPack();
+  let count = 0;
+  for (const [entryName, destination, font] of PACK_FILES) {
+    let exists = false;
+    try {
+      const current = await fs.readFile(destination);
+      exists = font ? current.length > 15_000 : current.length > 100;
+    } catch {
+      exists = false;
+    }
+    if (exists) continue;
+    const data = await extractZipEntry(archive, entryName);
+    if (font) assertFontBuffer(data, entryName, 15_000);
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.writeFile(destination, data);
+    count++;
+  }
+  return count;
+}
+
 async function download(relativePath, destination, font = false) {
   try {
     const existing = await fs.readFile(destination);
@@ -187,12 +233,7 @@ let fetched = 0;
 for (const [name, remotePath] of assets) {
   if (await download(remotePath, path.join(fontDir, name), true)) fetched++;
 }
-for (const [name, url, minBytes] of externalAssets) {
-  if (await downloadUrl(url, path.join(fontDir, name), minBytes)) fetched++;
-}
-for (const [name, url, entryName] of archiveAssets) {
-  if (await downloadArchiveFont(url, entryName, path.join(fontDir, name))) fetched++;
-}
+fetched += await extractEmbeddedFontPack();
 for (const [name, remotePath] of licenses) {
   if (await download(remotePath, path.join(licenseDir, name), false)) fetched++;
 }
@@ -202,13 +243,15 @@ await fs.writeFile(
   [
     "Folio built-in typography fonts",
     `Primary source: google/fonts commit ${GOOGLE_FONTS_COMMIT}`,
-    "Additional display fonts:",
-    "Jena Gotisch — Peter Wiegel; archive mirror contains OFL metadata; https://www.peter-wiegel.de/",
-    "CAT Altenglisch — Peter Wiegel; author permits app redistribution; https://www.peter-wiegel.de/",
-    "Slavkappen — Jason Reed; SIL OFL; https://fontesk.com/slavkappen-font/",
-    "Files are fetched at build time and shipped with Folio so preview, PDF and EPUB use deterministic metrics.",
+    "Additional display fonts are embedded from the user-supplied original archives:",
+    "Jena Gotisch — Peter Wiegel",
+    "CAT Altenglisch — Peter Wiegel",
+    "Slavkappen — Jason Reed",
+    "Kings — Robert Slimbach / Google Fonts distribution",
+    "Manufacturing Consent — Google Fonts distribution",
+    "Embedded font pack SHA-256: 6a1a2103dcc00916662e0ede34606f303cbae32d84e2ddcc3cf05132dfd349be",
     "Scarbes is intentionally NOT bundled because redistribution terms were not clear enough.",
-    "See licenses/ for the font license texts.",
+    "See licenses/ for the original license texts extracted from the supplied archives.",
     "",
   ].join("\n"),
   "utf8",
