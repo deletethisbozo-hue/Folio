@@ -757,6 +757,61 @@ try {
   });
   if (!grimoireHeadingBaseline) throw new Error("Grimoire heading baseline unavailable");
 
+  // Reproduce the reported Reader failure with the actual blackletter face:
+  // the visible glyph may occupy N lines, but native float rounding used to keep
+  // N+1 lines indented and leave a conspicuous empty pocket under the cap.
+  await page.evaluate(() => {
+    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+      .find((button) => button.textContent?.trim() === "Done");
+    done?.click();
+  });
+  await openFirstParagraphSettings();
+  const jenaDropcapPreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 }).catch(() => null);
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap typeface");
+    const select = row?.querySelector<HTMLSelectElement>("select");
+    if (!select) throw new Error("Drop cap typeface selector missing");
+    select.value = "Folio Jena Gotisch";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
+      .find((button) => button.textContent?.trim() === "Done");
+    done?.click();
+  });
+  await jenaDropcapPreview;
+
+  for (const size of ["theme", "small", "medium", "large", "xlarge"] as const) {
+    await setDropcapSize(size);
+    const geometry = await measureDropcap();
+    const collision = await measureCapLineCollisions();
+    const wrap = await measureWrappedLineCount();
+    const jenaSafe = Boolean(
+      geometry &&
+      geometry.dropcapLines >= 2 &&
+      geometry.dropcapLines <= 6 &&
+      geometry.opticalTopDelta != null &&
+      Math.abs(geometry.opticalTopDelta) <= 1.25 &&
+      collision &&
+      collision.collisions.length === 0 &&
+      wrap &&
+      wrap.wrappedLines === geometry.dropcapLines &&
+      wrap.expectedLines === geometry.dropcapLines
+    );
+    check(`Grimoire + Jena Gotisch ${size} releases Reader text on the exact occupied line`,
+      jenaSafe,
+      JSON.stringify({ geometry, collision, wrap }));
+    if (!jenaSafe) throw new Error(`Jena Gotisch Reader drop cap failed for ${size}`);
+  }
+
+  const screenshotDirJena = path.join(ROOT, "build", "qa-illustrations-v4");
+  await fs.mkdir(screenshotDirJena, { recursive: true });
+  await page.screenshot({ path: path.join(screenshotDirJena, "v10-jena-dropcap-reader.png"), fullPage: true });
+
+  await page.click('button[data-command="design"]');
+  await page.waitForSelector('.style-library[aria-label="Book style library"]');
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".style-category-list button")]
       .find((item) => item.textContent?.trim() === "Chapter Heading");
