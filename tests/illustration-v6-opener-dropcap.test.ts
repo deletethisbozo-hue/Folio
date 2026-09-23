@@ -343,11 +343,24 @@ try {
 
   const baseline = await measureDropcap();
   if (!baseline) throw new Error("Baseline drop cap geometry unavailable");
+  const smallCollision = await measureCapLineCollisions();
   const smallHole = await measureUnderCapHole();
-  check("Small drop cap has no artificial hole underneath",
-    Boolean(smallHole && smallHole.excessGap <= 2),
-    JSON.stringify(smallHole));
-  if (!smallHole || smallHole.excessGap > 2) throw new Error("Small drop cap leaves an artificial gap underneath");
+  const smallHealthy = Boolean(
+    baseline.opticalTopDelta != null &&
+    Math.abs(baseline.opticalTopDelta) <= 1.25 &&
+    baseline.dropcapLines >= 2 &&
+    baseline.dropcapLines <= 5 &&
+    smallCollision &&
+    smallCollision.float === "left" &&
+    smallCollision.position !== "absolute" &&
+    smallCollision.collisions.length === 0 &&
+    smallHole &&
+    smallHole.excessGap <= 2
+  );
+  check("Small drop cap is optically seated and never enters prose",
+    smallHealthy,
+    JSON.stringify({ geometry: baseline, collision: smallCollision, hole: smallHole }));
+  if (!smallHealthy) throw new Error("Small drop cap failed full geometry qualification");
 
   // Insert normally, then use the same direct manipulation path a user uses to
   // move the illustration to the very top of chapter body.
