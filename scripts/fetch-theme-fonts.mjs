@@ -145,8 +145,11 @@ function extractZipEntry(buffer, entryName) {
       let settled = false;
       zip.readEntry();
       zip.on("entry", (entry) => {
-        const base = path.basename(entry.fileName);
-        if (base.toLowerCase() !== entryName.toLowerCase()) {
+        const normalized = entry.fileName.replace(/\\/g, "/").toLowerCase();
+        const wanted = entryName.replace(/\\/g, "/").toLowerCase();
+        const base = path.basename(entry.fileName).toLowerCase();
+        const wantedBase = path.basename(entryName).toLowerCase();
+        if (normalized !== wanted && base !== wantedBase) {
           zip.readEntry();
           return;
         }
