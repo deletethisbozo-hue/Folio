@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import yauzl from "yauzl";
+import { createHash } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fontDir = path.join(root, "themes", "fonts");
@@ -195,6 +196,11 @@ async function loadEmbeddedFontPack() {
 
 async function extractEmbeddedFontPack() {
   const archive = await loadEmbeddedFontPack();
+  const digest = createHash("sha256").update(archive).digest("hex");
+  const expectedDigest = "6a1a2103dcc00916662e0ede34606f303cbae32d84e2ddcc3cf05132dfd349be";
+  if (digest !== expectedDigest) {
+    throw new Error(`Embedded V10 font pack checksum mismatch: expected ${expectedDigest}, got ${digest}`);
+  }
   let count = 0;
   for (const [entryName, destination, font] of PACK_FILES) {
     let exists = false;
