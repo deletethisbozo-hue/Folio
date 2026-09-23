@@ -165,12 +165,17 @@ for (const [label, size] of printSizes) {
     const lines = [...para.querySelectorAll<HTMLElement>(".folio-composed-line")];
     const offsets = lines.slice(0, capLines + 2).map((line) => parseFloat(getComputedStyle(line).marginLeft) || 0);
     const collisions: number[] = [];
+    const inkRows: number[] = [];
 
     lines.forEach((line, index) => {
       const content = line.querySelector<HTMLElement>(":scope > .folio-line-content") ?? line;
-      const rect = content.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(content);
+      const textRects = Array.from(range.getClientRects()).filter((rect) => rect.width > 1 && rect.height > 1);
+      const rect = textRects[0] ?? content.getBoundingClientRect();
       const vertical = rect.bottom > inkTop + 0.5 && rect.top < inkBottom - 0.5;
       const horizontal = rect.left < capRect.right - 0.5 && rect.right > capRect.left + 0.5;
+      if (vertical) inkRows.push(index);
       if (vertical && horizontal) collisions.push(index);
     });
 
@@ -179,6 +184,7 @@ for (const [label, size] of printSizes) {
       wrappedLines,
       offsets,
       collisions,
+      inkRows,
       fontSize: parseFloat(capStyle.fontSize),
       cap: capRect.toJSON(),
       inkTop,
@@ -199,6 +205,7 @@ for (const [label, size] of printSizes) {
   const safe = Boolean(
     geometry &&
     geometry.wrappedLines === geometry.capLines &&
+    geometry.inkRows.filter((index) => index < geometry.capLines + 2).length === geometry.capLines &&
     firstLinesReserved &&
     releasesImmediatelyAfterCap &&
     geometry.collisions.length === 0
