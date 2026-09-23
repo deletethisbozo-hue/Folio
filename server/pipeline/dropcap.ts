@@ -105,14 +105,35 @@ export async function alignDropCaps(page: Page): Promise<number> {
       // Same visual rule as Reader: reserve a row only when the painted glyph
       // actually intersects painted body text on that row. Leading is not ink
       // and must not create a phantom blank line below the initial.
+      // Read the actual native text rows instead of projecting them from the
+      // first row. Print fonts can quantise line boxes differently enough that a
+      // projected fourth row exists on paper while the compositor paints only
+      // three rows beside the glyph.
+      const nativeRows = new Map<number, { top: number; bottom: number }>();
+      const rowWalker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+      while (rowWalker.nextNode()) {
+        const node = rowWalker.currentNode as Text;
+        if (cap.contains(node) || !node.data.trim()) continue;
+        const rowRange = document.createRange();
+        rowRange.selectNodeContents(node);
+        for (const rect of Array.from(rowRange.getClientRects())) {
+          if (rect.width <= 1 || rect.height <= 1) continue;
+          const key = Math.round(rect.top * 2) / 2;
+          const previous = nativeRows.get(key);
+          nativeRows.set(key, previous
+            ? { top: Math.min(previous.top, rect.top), bottom: Math.max(previous.bottom, rect.bottom) }
+            : { top: rect.top, bottom: rect.bottom });
+        }
+      }
+      const sortedRows = [...nativeRows.values()].sort((a, b) => a.top - b.top);
       let intersectedInkLines = 0;
-      for (let line = 0; line < 7; line++) {
-        const lineTextTop = firstBodyRect.top + line * bodyLineHeight;
-        const lineTextBottom = lineTextTop + firstBodyRect.height;
+      for (let line = 0; line < Math.min(7, sortedRows.length); line++) {
+        const row = sortedRows[line];
         const intersectsInk =
-          capInkBottom > lineTextTop + 0.5 &&
-          capInkTop < lineTextBottom - 0.5;
+          capInkBottom > row.top + 0.5 &&
+          capInkTop < row.bottom - 0.5;
         if (intersectsInk) intersectedInkLines = line + 1;
+        else if (row.top >= capInkBottom - 0.5) break;
       }
       const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
 
