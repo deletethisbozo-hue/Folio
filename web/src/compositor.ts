@@ -1019,16 +1019,16 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
   // ink. Using the whole CSS line box made a cap that ended in inter-line
   // leading reserve one extra row, producing the obvious empty pocket under
   // blackletter initials.
-  const bodyInkAscent = bodyMetrics.actualBoundingBoxAscent;
-  const bodyInkDescent = bodyMetrics.actualBoundingBoxDescent;
   let intersectedInkLines = 0;
   for (let line = 0; line < 6; line++) {
-    const lineBaseline = bodyBaseline + line * bodyLineHeight;
-    const lineInkTop = lineBaseline - bodyInkAscent;
-    const lineInkBottom = lineBaseline + bodyInkDescent;
+    // Use the browser's actual text range rectangle rather than theoretical font
+    // ascent/descent. It matches what Chromium can physically paint on each row
+    // and prevents both false holes and real glyph/text collisions.
+    const lineTextTop = firstBodyRect.top + line * bodyLineHeight;
+    const lineTextBottom = lineTextTop + firstBodyRect.height;
     const intersectsInk =
-      capInkBottom > lineInkTop + 0.5 &&
-      capInkTop < lineInkBottom - 0.5;
+      capInkBottom > lineTextTop + 0.5 &&
+      capInkTop < lineTextBottom - 0.5;
     if (intersectsInk) intersectedInkLines = line + 1;
   }
   const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
