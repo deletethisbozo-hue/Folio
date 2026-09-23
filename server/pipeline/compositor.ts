@@ -288,16 +288,61 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       if (cap) {
         const capRect = cap.getBoundingClientRect();
         const capStyle = getComputedStyle(cap);
-
-        // alignDropCaps() measures resolved glyph ink and writes the exact number
-        // of body lines the cap occupies. Never hard-code this to two: the Print
-        // presets range from 5em to 8em and blackletter faces can extend much
-        // deeper than a conventional serif capital.
-        const measuredLines = Number(cap.dataset.folioDropcapLines ?? 0);
         capDepth = Math.max(0, capRect.bottom + px(capStyle.marginBottom) - contentTop);
-        capLines = Number.isFinite(measuredLines) && measuredLines >= 2
-          ? Math.max(2, Math.min(6, Math.round(measuredLines)))
-          : Math.max(2, Math.min(6, Math.ceil(capDepth / Math.max(1, lineHeight) - 0.08)));
+
+        // The compositor owns the FINAL vertical line grid, so it must decide how
+        // many lines sit beside the cap using that grid. Reusing alignDropCaps()'
+        // native-float line count left medium/XL caps with a phantom extra row
+        // after composition because the composed rows land at slightly different
+        // y coordinates.
+        let firstBodyRectHeight = fontSize;
+        const probeWalker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+        while (probeWalker.nextNode()) {
+          const node = probeWalker.currentNode as Text;
+          if (cap.contains(node) || !node.data.trim()) continue;
+          const range = document.createRange();
+          range.setStart(node, 0);
+          range.setEnd(node, Math.min(20, node.data.length));
+          const rect = range.getClientRects()[0];
+          if (rect?.height) firstBodyRectHeight = rect.height;
+          break;
+        }
+
+        let finalGridLines = 0;
+        const canvas = document.createElement("canvas").getContext("2d");
+        if (canvas) {
+          canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+          const metrics = canvas.measureText(cap.textContent || "H");
+          const asc = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent;
+          const desc = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent;
+          const capLineHeight = capStyle.lineHeight === "normal"
+            ? asc + desc
+            : px(capStyle.lineHeight) || asc + desc;
+          const baseline =
+            capRect.top +
+            px(capStyle.paddingTop) +
+            (capLineHeight - (asc + desc)) / 2 +
+            asc;
+          const inkTop = baseline - metrics.actualBoundingBoxAscent;
+          const inkBottom = baseline + metrics.actualBoundingBoxDescent;
+
+          for (let line = 0; line < 7; line++) {
+            const rowTop = contentTop + line * lineHeight;
+            const rowBottom = rowTop + firstBodyRectHeight;
+            const intersectsInk =
+              inkBottom > rowTop + 0.5 &&
+              inkTop < rowBottom - 0.5;
+            if (intersectsInk) finalGridLines = line + 1;
+            else if (rowTop >= inkBottom - 0.5) break;
+          }
+        }
+
+        const measuredLines = Number(cap.dataset.folioDropcapLines ?? 0);
+        capLines = finalGridLines >= 2
+          ? Math.max(2, Math.min(6, finalGridLines))
+          : Number.isFinite(measuredLines) && measuredLines >= 2
+            ? Math.max(2, Math.min(6, Math.round(measuredLines)))
+            : Math.max(2, Math.min(6, Math.ceil(capDepth / Math.max(1, lineHeight) - 0.08)));
 
         // The cap is anchored to the paragraph's content edge after composition;
         // use its physical width rather than any transient native-float x offset.
