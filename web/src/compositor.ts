@@ -921,6 +921,7 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
   // otherwise accumulate old inline corrections.
   cap.style.removeProperty("margin-top");
   cap.style.removeProperty("margin-bottom");
+  cap.style.removeProperty("font-size");
   delete cap.dataset.folioDropcapLines;
   delete cap.dataset.folioDropcapSeated;
   void paragraph.offsetHeight;
@@ -944,15 +945,6 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
   const canvas = doc.createElement("canvas").getContext("2d");
   if (!canvas) return;
 
-  const capStyle = getComputedStyle(cap);
-  canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
-  const capMetrics = canvas.measureText(cap.textContent || "H");
-  const capFontAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent;
-  const capFontDesc = capMetrics.fontBoundingBoxDescent || capMetrics.actualBoundingBoxDescent;
-  const capLineHeight = capStyle.lineHeight === "normal"
-    ? capFontAsc + capFontDesc
-    : pixels(capStyle.lineHeight) || capFontAsc + capFontDesc;
-
   const bodyStyle = getComputedStyle(paragraph);
   canvas.font = `${bodyStyle.fontStyle} ${bodyStyle.fontWeight} ${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
   const bodyMetrics = canvas.measureText("Hh");
@@ -961,6 +953,29 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
   const bodyLineHeight = bodyStyle.lineHeight === "normal"
     ? bodyFontAsc + bodyFontDesc
     : pixels(bodyStyle.lineHeight) || bodyFontAsc + bodyFontDesc;
+
+  let capStyle = getComputedStyle(cap);
+  const userSize = capStyle.getPropertyValue("--folio-dropcap-user-size").trim();
+  const themeSize = capStyle.getPropertyValue("--folio-dropcap-theme-size").trim();
+  const bodyFontSize = pixels(bodyStyle.fontSize);
+  const currentCapSize = pixels(capStyle.fontSize);
+
+  // A live theme switch can briefly leave the opening initial inheriting the
+  // body size even though the theme declares --folio-dropcap-theme-size.
+  // "Current theme size" must mean the theme's actual designed initial, not 1em.
+  if (!userSize && currentCapSize < bodyFontSize * 2.5) {
+    cap.style.fontSize = themeSize || "3em";
+    void paragraph.offsetHeight;
+    capStyle = getComputedStyle(cap);
+  }
+
+  canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+  const capMetrics = canvas.measureText(cap.textContent || "H");
+  const capFontAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent;
+  const capFontDesc = capMetrics.fontBoundingBoxDescent || capMetrics.actualBoundingBoxDescent;
+  const capLineHeight = capStyle.lineHeight === "normal"
+    ? capFontAsc + capFontDesc
+    : pixels(capStyle.lineHeight) || capFontAsc + capFontDesc;
 
   // Optical top: align visible ink, not the font's line box.
   const capRect0 = cap.getBoundingClientRect();
