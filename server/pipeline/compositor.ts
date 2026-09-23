@@ -288,11 +288,22 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       if (cap) {
         const capRect = cap.getBoundingClientRect();
         const capStyle = getComputedStyle(cap);
-        capIntrusion = Math.max(0, capRect.right + px(capStyle.marginRight) - contentLeft);
-        capIntrusion = Math.min(width * 0.46, capIntrusion);
+
+        // alignDropCaps() measures resolved glyph ink and writes the exact number
+        // of body lines the cap occupies. Never hard-code this to two: the Print
+        // presets range from 5em to 8em and blackletter faces can extend much
+        // deeper than a conventional serif capital.
+        const measuredLines = Number(cap.dataset.folioDropcapLines ?? 0);
         capDepth = Math.max(0, capRect.bottom + px(capStyle.marginBottom) - contentTop);
-        capLines = 2;
-        capLeft = capRect.left - (paragraphRect.left + borderLeft);
+        capLines = Number.isFinite(measuredLines) && measuredLines >= 2
+          ? Math.max(2, Math.min(6, Math.round(measuredLines)))
+          : Math.max(2, Math.min(6, Math.ceil(capDepth / Math.max(1, lineHeight) - 0.08)));
+
+        // The cap is anchored to the paragraph's content edge after composition;
+        // use its physical width rather than any transient native-float x offset.
+        capIntrusion = Math.max(0, capRect.width + px(capStyle.marginRight));
+        capIntrusion = Math.min(width * 0.46, capIntrusion);
+        capLeft = paddingLeft;
         capTop = capRect.top - (paragraphRect.top + borderTop);
       }
 
@@ -787,6 +798,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       paragraph.classList.add("folio-composed");
       if (cap) {
         paragraph.classList.add("folio-composed-dropcap");
+        paragraph.dataset.folioDropcapLines = String(capLines);
         paragraph.style.minHeight = `${Math.max(px(computed.minHeight), capDepth)}px`;
         cap.classList.add("folio-composed-cap");
         cap.style.left = `${capLeft}px`;
