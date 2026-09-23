@@ -859,10 +859,27 @@ try {
   check("Chapter Heading picker exposes all requested licensed fonts", chapterHasRequestedFonts, JSON.stringify(chapterFontOptions));
   if (!chapterHasRequestedFonts) throw new Error("Chapter Heading font picker is missing requested fonts");
 
+  // Force a real state transition before selecting Jena. Full-suite runs may
+  // inherit a previously persisted heading override; setting Jena -> Jena is a
+  // no-op in React and used to leave the old authoritative preview untouched.
+  const headingDefaultPreview = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
+  }, { timeout: 20000 });
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
+    const select = row?.querySelector<HTMLSelectElement>("select");
+    if (!select) throw new Error("Chapter heading typeface selector missing");
+    select.value = "";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await headingDefaultPreview;
+
   const jenaPreview = page.waitForResponse((response) => {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
-  }, { timeout: 20000 }).catch(() => null);
+  }, { timeout: 20000 });
   await page.evaluate(() => {
     const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
       .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
@@ -874,7 +891,13 @@ try {
   await jenaPreview;
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
-    return Boolean(doc && doc.fonts.status === "loaded" && doc.querySelector("section.chapter > h1"));
+    const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
+    return Boolean(
+      doc &&
+      doc.fonts.status === "loaded" &&
+      heading &&
+      /Folio Jena Gotisch/i.test(getComputedStyle(heading).fontFamily)
+    );
   });
 
   const jenaHeading = await page.evaluate(() => {
