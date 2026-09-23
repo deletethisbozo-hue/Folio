@@ -623,13 +623,18 @@ try {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
     return Boolean(cap && Math.abs(parseFloat(getComputedStyle(cap).fontSize) - Number(themeSize)) < 0.35);
-  }, {}, baseline.fontSize);
+  }, {}, themeDefaultSize);
+  await page.waitForFunction(() => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    return cap?.dataset.folioDropcapSeated === "true";
+  });
   const restoredThemeDropcap = await measureDropcap();
   const restoredThemeCollision = await measureCapLineCollisions();
   const restoredThemeHole = await measureUnderCapHole();
   const restoredThemeHealthy = Boolean(
     restoredThemeDropcap &&
-    Math.abs(restoredThemeDropcap.fontSize - baseline.fontSize) < 0.35 &&
+    Math.abs(restoredThemeDropcap.fontSize - themeDefaultSize) < 0.35 &&
     restoredThemeDropcap.opticalTopDelta != null &&
     Math.abs(restoredThemeDropcap.opticalTopDelta) <= 1.25 &&
     restoredThemeDropcap.dropcapLines >= 2 &&
@@ -643,7 +648,7 @@ try {
   );
   check("Current theme size clears persisted XL and keeps full drop-cap geometry healthy",
     restoredThemeHealthy,
-    JSON.stringify({ baseline: baseline.fontSize, restored: restoredThemeDropcap, collision: restoredThemeCollision, hole: restoredThemeHole }));
+    JSON.stringify({ themeDefaultSize, restored: restoredThemeDropcap, collision: restoredThemeCollision, hole: restoredThemeHole }));
   if (!restoredThemeHealthy) {
     throw new Error("Current theme size failed full drop-cap geometry qualification");
   }
