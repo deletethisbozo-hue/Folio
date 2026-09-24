@@ -141,15 +141,18 @@ async function setChapterDesign(page: any) {
   await pause(220);
   await page.evaluate(() => {
     const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
-    const setSelect = (label: string, value: string) => {
-      const row = rows.find((r) => r.querySelector(":scope > span")?.textContent?.trim() === label);
-      const select = row?.querySelector<HTMLSelectElement>("select");
-      if (select) { select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); }
-    };
-    setSelect("Typeface", "Folio Bodoni Moda");
-    setSelect("Size", "2.2em");
-    setSelect("Alignment", "center");
-    setSelect("Letter case", "uppercase");
+    let row = rows.find((r) => r.querySelector(":scope > span")?.textContent?.trim() === "Typeface");
+    let select = row?.querySelector<HTMLSelectElement>("select");
+    if (select) { select.value = "Folio Bodoni Moda"; select.dispatchEvent(new Event("change", { bubbles: true })); }
+    row = rows.find((r) => r.querySelector(":scope > span")?.textContent?.trim() === "Size");
+    select = row?.querySelector<HTMLSelectElement>("select");
+    if (select) { select.value = "2.2em"; select.dispatchEvent(new Event("change", { bubbles: true })); }
+    row = rows.find((r) => r.querySelector(":scope > span")?.textContent?.trim() === "Alignment");
+    select = row?.querySelector<HTMLSelectElement>("select");
+    if (select) { select.value = "center"; select.dispatchEvent(new Event("change", { bubbles: true })); }
+    row = rows.find((r) => r.querySelector(":scope > span")?.textContent?.trim() === "Letter case");
+    select = row?.querySelector<HTMLSelectElement>("select");
+    if (select) { select.value = "uppercase"; select.dispatchEvent(new Event("change", { bubbles: true })); }
   });
   await pause(420);
 }
