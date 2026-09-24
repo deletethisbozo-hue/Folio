@@ -209,8 +209,13 @@ try {
     const report = await page.evaluate((expected) => {
       const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")!.contentDocument!;
-      const corpusParagraph = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed")]
-        .find((paragraph) => helper?.(paragraph).includes(expected));
+      // The opening paragraph intentionally stays on native float layout when
+      // it carries a drop cap. Use it only to locate the corpus section; the
+      // professional-compositor metrics still evaluate the remaining composed
+      // paragraphs in that same section.
+      const corpusParagraph = [...doc.querySelectorAll<HTMLElement>(
+        "section.chapter > p.folio-composed, section.chapter > p.folio-native-dropcap"
+      )].find((paragraph) => helper?.(paragraph).includes(expected));
       const corpusSection = corpusParagraph?.closest("section");
       const paragraphs = [...(corpusSection?.querySelectorAll<HTMLElement>(":scope > p.folio-composed") ?? [])];
       let justifiedLines = 0;
@@ -453,12 +458,60 @@ try {
   const dropcapReport = await metrics("typesetting-polish-dropcap", polishNeedle);
   const dropcapOpening = await page.evaluate(() => {
     const doc = document.querySelector("iframe")!.contentDocument!;
-    const paragraph = doc.querySelector<HTMLElement>("section.chapter > p.folio-composed-dropcap");
-    const lines = [...(paragraph?.querySelectorAll<HTMLElement>(":scope > .folio-composed-line") ?? [])].slice(0, 2);
-    return lines.map((line) => ({ text: line.textContent ?? "", justified: line.classList.contains("folio-line-justified") }));
+    const paragraph = doc.querySelector<HTMLElement>("section.chapter > p.folio-native-dropcap");
+    const cap = paragraph?.querySelector<HTMLElement>(":scope > .dropcap");
+    if (!paragraph || !cap) return null;
+
+    const capRect = cap.getBoundingClientRect();
+    const capStyle = getComputedStyle(cap);
+    const paraStyle = getComputedStyle(paragraph);
+    const rows: Array<{ top: number; left: number }> = [];
+    const walker = doc.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const range = doc.createRange();
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        rows.push({ top: Math.round(rect.top * 2) / 2, left: rect.left });
+      }
+    }
+    const grouped = new Map<number, number>();
+    for (const row of rows) grouped.set(row.top, Math.min(grouped.get(row.top) ?? Infinity, row.left));
+    const lineLefts = [...grouped.entries()].sort((a, b) => a[0] - b[0]).map(([, left]) => left);
+    if (lineLefts.length < 3) return null;
+
+    const normalLeft = Math.min(...lineLefts);
+    let wrappedLines = 0;
+    for (const left of lineLefts) {
+      if (left > normalLeft + 1.5) wrappedLines++;
+      else break;
+    }
+    const occupiedLines = Number(cap.dataset.folioDropcapLines ?? 0);
+    const firstPairDelta = wrappedLines >= 2 ? Math.abs(lineLefts[0] - lineLefts[1]) : 0;
+    return {
+      float: capStyle.float,
+      position: capStyle.position,
+      textIndent: paraStyle.textIndent,
+      occupiedLines,
+      wrappedLines,
+      firstPairDelta,
+      cap: capRect.toJSON(),
+      lineLefts: lineLefts.slice(0, 7),
+    };
   });
-  if (dropcapOpening.length < 2 || dropcapOpening.some((line) => !line.justified)) {
-    throw new Error(`Drop-cap opening lines are not justified: ${JSON.stringify(dropcapOpening)}`);
+  const dropcapOpeningSafe = Boolean(
+    dropcapOpening &&
+    dropcapOpening.float === "left" &&
+    dropcapOpening.position !== "absolute" &&
+    Math.abs(Number.parseFloat(dropcapOpening.textIndent)) < 0.05 &&
+    dropcapOpening.occupiedLines >= 2 &&
+    dropcapOpening.wrappedLines === dropcapOpening.occupiedLines &&
+    dropcapOpening.firstPairDelta <= 1.5
+  );
+  if (!dropcapOpeningSafe) {
+    throw new Error(`Native drop-cap opening geometry failed QA: ${JSON.stringify(dropcapOpening)}`);
   }
 
   await setLanguage("en");
