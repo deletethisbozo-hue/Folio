@@ -204,6 +204,13 @@ section.level1 {
    predictable; the negative margin-bottom clamps it so exactly two lines wrap.
    The print path swaps this for CSS initial-letter (see print-base.css).
    Per-theme colour/face live in each theme.css. */
+.folio-native-dropcap {
+  /* A paragraph with a drop cap is already visually opened by the initial.
+     Keeping the normal fiction first-line indent creates a second, fake indent
+     to the right of the cap, especially obvious in Print/PDF. */
+  text-indent: 0 !important;
+}
+
 .dropcap {
   float: left;
   font-size: var(--folio-dropcap-user-size, var(--folio-dropcap-theme-size, 3em));
