@@ -184,13 +184,13 @@ async function softCut(page: any, midpointAction?: () => Promise<void>) {
   });
   await capture(page, 0.13, async (t) => {
     await page.evaluate((t: number) => {
-      document.getElementById("promo-dim")!.style.opacity = String(0.42 * smooth(t));
+      document.getElementById("promo-dim")!.style.opacity = String(0.42 * (t * t * (3 - 2 * t)));
     }, t);
   });
   if (midpointAction) await midpointAction();
   await capture(page, 0.13, async (t) => {
     await page.evaluate((t: number) => {
-      document.getElementById("promo-dim")!.style.opacity = String(0.42 * (1 - smooth(t)));
+      document.getElementById("promo-dim")!.style.opacity = String(0.42 * (1 - (t * t * (3 - 2 * t))));
     }, t);
   });
   await page.evaluate(() => {
