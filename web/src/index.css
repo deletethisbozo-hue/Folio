@@ -265,6 +265,61 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-witchlight { align-items:flex-end; text-align:right; }
 .theme-witchlight .sample-title { padding-right:9px; border-right:3px solid #745683; color:#60446f; font:italic 18px Baskerville,Georgia,serif; }
 .theme-ironbound .sample-title { padding:7px; border:3px solid #3e4749; font:700 16px Rockwell,Georgia,serif; text-transform:uppercase; }
+
+/* 30-theme expansion: new cards mirror each theme's structural grammar rather than one generic template. */
+.theme-event-horizon{align-items:stretch;text-align:left;background:radial-gradient(circle at 82% 26%,transparent 0 20px,#9aaabd 21px 22px,transparent 23px 31px,#d2d9e0 32px 33px,transparent 34px),#f5f7fa}
+.theme-event-horizon .sample-chapter{align-self:flex-start;margin-top:30px;font:700 7px "Folio Source Sans 3",sans-serif;letter-spacing:.28em}
+.theme-event-horizon .sample-title{margin-top:22px;padding:9px 8px;border:1px solid #74879a;font:700 18px "Folio Barlow Condensed",sans-serif;font-style:normal;text-transform:uppercase;letter-spacing:.08em}
+.theme-signal{align-items:stretch;text-align:left;background:repeating-linear-gradient(0deg,rgba(43,93,98,.045) 0 1px,transparent 1px 11px),#f7faf9}
+.theme-signal .sample-chapter{margin-top:26px;padding-bottom:6px;border-bottom:1px solid #8ca3a5;font:700 7px "Folio Source Sans 3",sans-serif;letter-spacing:.18em}
+.theme-signal .sample-title{font:650 17px "Folio Source Sans 3",sans-serif;font-style:normal;color:#1f555a}
+.theme-nova .sample-chapter{margin-top:26px;font-size:22px;color:#d7d7e8}
+.theme-nova .sample-title{margin-top:-7px;font:italic 500 20px "Folio Bodoni Moda",serif;color:#505692}
+.theme-nova .sample-ornament{font-size:20px;color:#777caf}
+.theme-redline{align-items:stretch;text-align:left}
+.theme-redline .sample-chapter{margin:27px -17px 0;padding:7px 9px;background:#a32828;color:#fff;font:900 11px "Folio Barlow Condensed",sans-serif}
+.theme-redline .sample-title{margin:0 -17px;padding:10px 12px;background:#1f2022;color:#fff;font:900 20px "Folio Barlow Condensed",sans-serif;font-style:normal;text-transform:uppercase}
+.theme-redline .sample-ornament{display:none}
+.theme-intercept{align-items:stretch;text-align:left}
+.theme-intercept .sample-chapter{margin-top:27px;padding:7px;border:2px solid #475159;font:800 7px "Folio Source Sans 3",sans-serif;letter-spacing:.15em}
+.theme-intercept .sample-title{margin-top:0;padding:10px 8px;border:2px solid #475159;border-top:0;font:650 17px "Folio Source Sans 3",sans-serif;font-style:normal}
+.theme-intercept .sample-title::after{content:"RESTRICTED";float:right;transform:rotate(-5deg);padding:2px;border:1px solid #7d4141;color:#7d4141;font-size:6px}
+.theme-black-ice{align-items:stretch;text-align:right;border-right:7px solid #303b41}
+.theme-black-ice .sample-chapter{align-self:flex-start;margin-top:27px;writing-mode:vertical-rl;transform:rotate(180deg);font:700 8px "Folio Source Sans 3",sans-serif}
+.theme-black-ice .sample-title{margin-top:-16px;padding-right:8px;font:400 19px "Folio Barlow Condensed",sans-serif;font-style:normal;text-transform:uppercase;letter-spacing:.14em}
+.theme-noir{align-items:stretch}
+.theme-noir .sample-chapter{margin:27px -17px 0;padding:7px;background:#1d1d1d;color:#d0cbc2;font:700 7px "Folio Barlow Condensed",sans-serif}
+.theme-noir .sample-title{margin:0 -17px;padding:10px;background:#1d1d1d;color:#fff;font:650 20px "Folio Bodoni Moda",serif;font-style:normal}
+.theme-noir .sample-ornament{margin:0 -17px 9px;padding:4px;background:#1d1d1d;color:#fff}
+.theme-dread{align-items:stretch;text-align:left}
+.theme-dread .sample-chapter{margin-top:19px;font:900 40px/1 "Folio Barlow Condensed",sans-serif;color:#cabfc1;letter-spacing:-.04em}
+.theme-dread .sample-title{margin-top:-6px;padding:0 0 7px 10px;border-bottom:5px solid #4a2227;font:700 17px "Folio Barlow Condensed",sans-serif;font-style:normal;text-transform:uppercase}
+.theme-seance .sample-chapter{display:grid;place-items:center;width:42px;height:42px;margin:23px auto 2px;border:1px solid #765f79;border-radius:50%;box-shadow:0 0 0 5px #f7f1e8,0 0 0 6px #b5a6b7;font:600 9px "Folio EB Garamond",serif}
+.theme-seance .sample-title{margin-top:16px;font:500 18px "Folio Cinzel",serif;font-style:normal;text-transform:uppercase;letter-spacing:.09em}
+.theme-seance .sample-ornament{letter-spacing:.25em}
+.theme-velvet{align-items:stretch;text-align:right;border-right:1px solid #c98b9e}
+.theme-velvet .sample-chapter{align-self:flex-start;margin-top:31px;font:650 7px "Folio Source Sans 3",sans-serif}
+.theme-velvet .sample-title{font:italic 500 21px "Folio Bodoni Moda",serif;color:#984f68}
+.theme-velvet .sample-ornament{align-self:flex-start;font-size:24px;color:#d5a0b0}
+.theme-amour .sample-chapter{margin-top:27px}
+.theme-amour .sample-title{padding:12px 7px;border:4px double #9b6b6d;font:550 18px "Folio Bodoni Moda",serif;font-style:normal;color:#7f5053}
+.theme-amour .sample-ornament{color:#9b6b6d;letter-spacing:.2em}
+.theme-hearth .sample-title{padding:11px 8px;border:1px solid #c8a877;border-radius:14px 3px 14px 3px;background:#f5e7ca;font:650 18px "Folio Source Serif 4",serif;font-style:normal;color:#765136}
+.theme-hearth .sample-chapter{margin-top:27px;color:#9b7148}
+.theme-regency .sample-chapter{margin-top:24px;font:500 28px "Folio Bodoni Moda",serif;color:#8e7a61;letter-spacing:.04em}
+.theme-regency .sample-title{margin-top:1px;font:500 15px "Folio Cinzel",serif;font-style:normal;text-transform:uppercase;letter-spacing:.12em}
+.theme-voyager .sample-chapter{display:grid;place-items:center;width:47px;height:47px;margin:22px auto 3px;border:2px solid #4d747c;border-radius:50%;font:700 7px "Folio Source Sans 3",sans-serif}
+.theme-voyager .sample-title{font:700 18px "Folio Barlow Condensed",sans-serif;font-style:normal;text-transform:uppercase;color:#2f5962}
+.theme-afterglow{align-items:stretch;text-align:left}
+.theme-afterglow .sample-chapter{margin-top:20px;font:800 38px/1 "Folio Source Sans 3",sans-serif;color:#efd7dd;letter-spacing:-.05em}
+.theme-afterglow .sample-title{margin-top:-8px;padding-left:26px;border-bottom:2px solid #d99fac;font:550 18px "Folio Source Sans 3",sans-serif;font-style:normal;color:#8c5360}
+.theme-academia{align-items:stretch;text-align:left}
+.theme-academia .sample-chapter{width:52px;margin-top:27px;padding:7px 6px;border-right:3px double #756655;font:700 7px "Folio Libre Caslon Text",serif;line-height:1.35}
+.theme-academia .sample-title{margin-top:-32px;padding:9px 0 9px 62px;border-top:1px solid #756655;border-bottom:1px solid #756655;font:600 16px "Folio Cinzel",serif;font-style:normal;text-transform:uppercase}
+.theme-memoir{align-items:stretch;text-align:left}
+.theme-memoir .sample-chapter{margin-top:30px;font:700 7px "Folio Source Sans 3",sans-serif;letter-spacing:.18em}
+.theme-memoir .sample-title{padding:13px 0 6px;border-bottom:1px solid #7f8c93;font:500 19px "Folio Source Serif 4",serif;font-style:normal;color:#3e4d55}
+
 .style-library-footer { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 0 14px 0 18px; border-top: 1px solid #c9c8c3; background: linear-gradient(#f4f3ef,#e8e7e2); }
 .style-library-footer>div { min-width: 0; display: flex; flex-direction: column; }
 .style-library-footer strong { font-size: 10px; }

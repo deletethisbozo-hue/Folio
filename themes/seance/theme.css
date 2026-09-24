@@ -1,0 +1,12 @@
+/* Séance — a ceremonial circle, not another serif-with-lines gothic theme. */
+body{font-family:"Folio EB Garamond",Georgia,serif;line-height:1.58;color:#302a31;background:#f7f1e8}
+main.book{counter-reset:seance-chapter}
+section.chapter{counter-increment:seance-chapter}
+section.chapter>h1{position:relative;text-align:center;margin:1.45em 0 3em;padding:4.35em .8em .75em;font-family:"Folio Cinzel",Georgia,serif;font-size:1.72em;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#59435d}
+section.chapter>h1::before{content:counter(seance-chapter,upper-roman);position:absolute;top:.15em;left:50%;transform:translateX(-50%);display:grid;place-items:center;width:3.15em;height:3.15em;border:1px solid #765f79;border-radius:50%;font-family:"Folio EB Garamond",serif;font-size:.72em;font-weight:600;letter-spacing:.12em;color:#66506a;box-shadow:0 0 0 .35em #f7f1e8,0 0 0 .39em #b5a6b7}
+section.chapter>h1::after{content:"☾   ·   ☽";display:block;margin-top:.9em;font-family:"Folio Source Serif 4",serif;font-size:.35em;letter-spacing:.28em;color:#7b647e}
+.chapter-subtitle{margin:-2.35em 0 2.4em}.chapter-subtitle p{font-size:.88em;font-style:italic;color:#756778}
+.dropcap{font-family:"Folio Cinzel",serif;color:#654c69;font-size:3.1em}.scene-break{font-size:1.05em;letter-spacing:.52em;color:#765d7b}
+section.titlepage>h1{padding:1em;border:1px solid #79627b;border-radius:50%/18%;font-family:"Folio Cinzel",serif;font-size:2.2em;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#59435d}.tp-subtitle{color:#806e82}.tp-author{font-variant:small-caps;letter-spacing:.16em}
+section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:"Folio Cinzel",serif;font-size:1.3em;letter-spacing:.09em;text-transform:uppercase}
+@media print{section.chapter>h1{margin-top:1.7in}}

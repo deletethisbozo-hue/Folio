@@ -28,7 +28,24 @@ export type ThemeName =
   | "wyrmwood"
   | "runestone"
   | "witchlight"
-  | "ironbound";
+  | "ironbound"
+  | "event-horizon"
+  | "signal"
+  | "nova"
+  | "redline"
+  | "intercept"
+  | "black-ice"
+  | "noir"
+  | "dread"
+  | "seance"
+  | "velvet"
+  | "amour"
+  | "hearth"
+  | "regency"
+  | "voyager"
+  | "afterglow"
+  | "academia"
+  | "memoir";
 export type PresetName = "kdp" | "universal";
 
 export interface BookMeta {
