@@ -258,8 +258,17 @@ try {
   await begin("03-wrap-contour");
   await record(page, 1.55);
 
-  // --- THEMES: fresh sample, clean chapter opener, same page for every theme.
-  await openSample(page);
+  // --- THEMES: clean the temporary illustration, then use the same stable sample.
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const fig = editor?.querySelector<HTMLElement>(".editor-illustration");
+    if (fig && editor) {
+      fig.remove();
+      editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+    }
+    document.body.click();
+  });
+  await pause(320);
   await ensureFormat(page);
   await firstChapter(page);
   await setPreview(page, "print");
