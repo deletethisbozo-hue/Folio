@@ -4,6 +4,7 @@ import { printCss, THEMES_DIR } from "./paths.ts";
 import { BOOK_TEMPLATE, cleanup, commonArgs, makeWorkspace, runPandoc } from "./pandoc.ts";
 import { buildDocCss } from "./doc-css.ts";
 import { buildThemeRuntimeCss } from "./theme-fonts.ts";
+import { applyIllustrationContours } from "./illustration-shapes.ts";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
@@ -20,7 +21,11 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
   const ws = await makeWorkspace(book, target);
   try {
     const md = assembleMarkdown(book, target);
-    const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, target === "print" ? "print" : "html");
+    const runtimeTheme = await buildThemeRuntimeCss(
+      book.meta.theme,
+      target === "print" ? "print" : "html",
+      [book.typography.headingFont, book.typography.dropcapFont].filter((value): value is string => Boolean(value)),
+    );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.themeCss, "utf8");
     const css = [path.join(THEMES_DIR, "base.css"), path.join(THEMES_DIR, "image-page.css"), runtimeThemePath];
@@ -44,7 +49,7 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
       `--metadata=lang:${book.meta.language}`,
       ...css.map((c) => `--css=${c}`),
     ];
-    const rendered = await runPandoc(args, md);
+    const rendered = applyIllustrationContours(await runPandoc(args, md), "safe-box");
     if (!runtimeTheme.fontCss.trim()) return rendered;
     const fontStyle = `<style id="folio-theme-fonts">${runtimeTheme.fontCss}</style>`;
     const headClose = rendered.lastIndexOf("</head>");

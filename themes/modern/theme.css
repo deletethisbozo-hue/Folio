@@ -75,7 +75,7 @@ section.titlepage > h1 {
 /* A sans drop cap only reads as intentional at bold weight; re-seated for the
    1.6 body leading ((0.7 + 1.6) / 0.7 ≈ 3.2em). */
 .dropcap {
-  font-size: 3.2em;
+  --folio-dropcap-theme-size: 3.2em;
   font-weight: 700;
 }
 

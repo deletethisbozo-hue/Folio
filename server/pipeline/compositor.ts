@@ -234,6 +234,22 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
       ) continue;
 
+      const paragraphRectForFloat = paragraph.getBoundingClientRect();
+      const sectionForFloat = paragraph.closest<HTMLElement>("section.chapter,section.backmatter,section.frontmatter");
+      const overlapsFloat = sectionForFloat
+        ? Array.from(sectionForFloat.querySelectorAll<HTMLElement>(".folio-illustration-block.folio-wrap-left,.folio-illustration-block.folio-wrap-right"))
+            .some((illustration) => {
+              const rect = illustration.getBoundingClientRect();
+              return rect.width > 0 && rect.height > 0 &&
+                rect.bottom > paragraphRectForFloat.top + 0.5 &&
+                rect.top < paragraphRectForFloat.bottom - 0.5;
+            })
+        : false;
+      if (overlapsFloat) {
+        paragraph.classList.add("folio-float-native");
+        continue;
+      }
+
       const computed = getComputedStyle(paragraph);
       const fontSize = px(computed.fontSize) || 16;
       const paragraphRect = paragraph.getBoundingClientRect();
@@ -264,6 +280,20 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const indent = Math.max(0, px(computed.textIndent));
       const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
 
+      // Print drop-cap paragraphs stay on Chromium's native float layout.
+      // alignDropCaps() has already optically seated and calibrated the float
+      // before this compositor runs. Converting that stable float into Folio's
+      // synthetic line boxes reintroduces a second, slightly different vertical
+      // grid and is the source of the repeated 3-vs-4 line phantom gap/overlap
+      // regressions. Keep professional composition for every other paragraph.
+      const keepNativeDropcap = Boolean(cap);
+      if (keepNativeDropcap) {
+        paragraph.classList.add("folio-native-dropcap");
+        paragraph.classList.remove("folio-composed", "folio-composed-dropcap");
+        paragraph.style.removeProperty("min-height");
+        continue;
+      }
+
       let capLines = 0;
       let capIntrusion = 0;
       let capLeft = 0;
@@ -272,11 +302,87 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       if (cap) {
         const capRect = cap.getBoundingClientRect();
         const capStyle = getComputedStyle(cap);
-        capIntrusion = Math.max(0, capRect.right + px(capStyle.marginRight) - contentLeft);
-        capIntrusion = Math.min(width * 0.46, capIntrusion);
         capDepth = Math.max(0, capRect.bottom + px(capStyle.marginBottom) - contentTop);
-        capLines = 2;
-        capLeft = capRect.left - (paragraphRect.left + borderLeft);
+
+        // The compositor owns the FINAL vertical line grid, so it must decide how
+        // many lines sit beside the cap using that grid. Reusing alignDropCaps()'
+        // native-float line count left medium/XL caps with a phantom extra row
+        // after composition because the composed rows land at slightly different
+        // y coordinates.
+        // Measure the text-ink inset using the SAME block-line geometry the
+        // compositor will render. Reading the original native paragraph here is
+        // subtly wrong: after composition, .folio-composed-line lands a few px
+        // differently, which used to turn a real 3-line Medium cap into a
+        // phantom 4-line reservation.
+        let composedTextInsetTop = 0;
+        let composedTextHeight = fontSize;
+        const gridProbe = document.createElement("span");
+        gridProbe.className = "folio-composed-line";
+        gridProbe.style.position = "absolute";
+        gridProbe.style.visibility = "hidden";
+        gridProbe.style.pointerEvents = "none";
+        gridProbe.style.left = "-10000px";
+        gridProbe.style.top = "0";
+        gridProbe.style.width = `${width}px`;
+        gridProbe.textContent = "Hg";
+        paragraph.append(gridProbe);
+        const probeText = gridProbe.firstChild as Text | null;
+        if (probeText) {
+          const probeRange = document.createRange();
+          probeRange.selectNodeContents(probeText);
+          const textRect = probeRange.getClientRects()[0];
+          const lineRect = gridProbe.getBoundingClientRect();
+          if (textRect) {
+            composedTextInsetTop = textRect.top - lineRect.top;
+            if (textRect.height) composedTextHeight = textRect.height;
+          }
+        }
+        gridProbe.remove();
+
+        const firstBodyRectTop = contentTop + composedTextInsetTop;
+        const firstBodyRectHeight = composedTextHeight;
+
+        let finalGridLines = 0;
+        const canvas = document.createElement("canvas").getContext("2d");
+        if (canvas) {
+          canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+          const metrics = canvas.measureText(cap.textContent || "H");
+          const asc = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent;
+          const desc = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent;
+          const capLineHeight = capStyle.lineHeight === "normal"
+            ? asc + desc
+            : px(capStyle.lineHeight) || asc + desc;
+          const baseline =
+            capRect.top +
+            px(capStyle.paddingTop) +
+            (capLineHeight - (asc + desc)) / 2 +
+            asc;
+          const inkTop = baseline - metrics.actualBoundingBoxAscent;
+          const inkBottom = baseline + metrics.actualBoundingBoxDescent;
+
+          for (let line = 0; line < 7; line++) {
+            const rowTop = firstBodyRectTop + line * lineHeight;
+            const rowBottom = rowTop + firstBodyRectHeight;
+            const intersectsInk =
+              inkBottom > rowTop + 0.5 &&
+              inkTop < rowBottom - 0.5;
+            if (intersectsInk) finalGridLines = line + 1;
+            else if (rowTop >= inkBottom - 0.5) break;
+          }
+        }
+
+        const measuredLines = Number(cap.dataset.folioDropcapLines ?? 0);
+        capLines = finalGridLines >= 2
+          ? Math.max(2, Math.min(6, finalGridLines))
+          : Number.isFinite(measuredLines) && measuredLines >= 2
+            ? Math.max(2, Math.min(6, Math.round(measuredLines)))
+            : Math.max(2, Math.min(6, Math.ceil(capDepth / Math.max(1, lineHeight) - 0.08)));
+
+        // The cap is anchored to the paragraph's content edge after composition;
+        // use its physical width rather than any transient native-float x offset.
+        capIntrusion = Math.max(0, capRect.width + px(capStyle.marginRight));
+        capIntrusion = Math.min(width * 0.46, capIntrusion);
+        capLeft = paddingLeft;
         capTop = capRect.top - (paragraphRect.top + borderTop);
       }
 
@@ -771,6 +877,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       paragraph.classList.add("folio-composed");
       if (cap) {
         paragraph.classList.add("folio-composed-dropcap");
+        paragraph.dataset.folioDropcapLines = String(capLines);
         paragraph.style.minHeight = `${Math.max(px(computed.minHeight), capDepth)}px`;
         cap.classList.add("folio-composed-cap");
         cap.style.left = `${capLeft}px`;

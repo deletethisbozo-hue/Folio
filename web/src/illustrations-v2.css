@@ -1,0 +1,286 @@
+/* Illustration V3 — direct manipulation + contour-aware text wrapping. */
+
+.folio-shell[data-ui-tone] .editor-illustration {
+  position: relative;
+  box-sizing: border-box;
+  min-width: 18%;
+  max-width: 100%;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: 2px !important;
+  background: transparent !important;
+  text-align: initial !important;
+  transition: box-shadow 100ms ease, border-color 100ms ease, opacity 100ms ease;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-wrap-left { float: left; }
+.folio-shell[data-ui-tone] .editor-illustration.folio-wrap-right { float: right; }
+.folio-shell[data-ui-tone] .editor-illustration.folio-wrap-none { float: none; }
+
+/* A body-first illustration is a chapter-opening object. Keep its visual
+ * left/center/right alignment, but never let it float into the first paragraph:
+ * the first paragraph may contain a drop cap, and two competing floats change
+ * its line geometry. */
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor {
+  float: none !important;
+  clear: both;
+  shape-outside: none !important;
+  shape-margin: 0 !important;
+  margin-top: .18em !important;
+  margin-bottom: .55em !important;
+}
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor.folio-wrap-left {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor.folio-wrap-right {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+.folio-shell[data-ui-tone] .editor-illustration.folio-chapter-opener-editor.folio-wrap-none {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration > img[data-folio-asset] {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto;
+  max-height: none !important;
+  margin: 0 !important;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-dragging > img[data-folio-asset] {
+  cursor: grabbing;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-selected,
+.folio-shell[data-ui-tone] .editor-illustration:focus-within {
+  border-color: color-mix(in srgb, var(--studio-accent) 72%, var(--studio-rule)) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--studio-accent) 17%, transparent);
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-dragging {
+  opacity: .82;
+  box-shadow: 0 5px 18px rgba(30, 26, 22, .18);
+}
+
+.folio-illustration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  overflow: visible;
+  pointer-events: none;
+  contain: none;
+  transform: none;
+}
+
+.folio-illustration-overlay .folio-image-inspector {
+  position: fixed !important;
+  z-index: 1;
+  pointer-events: auto;
+  left: 12px;
+  top: 12px;
+  width: max-content;
+  max-width: min(720px, calc(100vw - 24px));
+  min-height: 29px;
+  display: none !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0 !important;
+  padding: 5px 6px !important;
+  border: 1px solid var(--studio-rule-strong) !important;
+  border-radius: 5px !important;
+  background: color-mix(in srgb, var(--studio-surface) 98%, transparent) !important;
+  box-shadow: 0 7px 20px rgba(30,26,22,.16);
+  color: var(--studio-ink);
+  font: 10px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+}
+
+.folio-illustration-overlay .folio-image-inspector[data-open="true"] {
+  display: flex !important;
+}
+
+.folio-illustration-overlay .folio-wrap-group,
+.folio-illustration-overlay .folio-shape-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--studio-rule);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.folio-illustration-overlay .folio-wrap-group button,
+.folio-illustration-overlay .folio-shape-group button,
+.folio-illustration-overlay .folio-image-inspector > button,
+.folio-illustration-overlay .folio-image-inspector select {
+  height: 22px !important;
+  min-width: 0 !important;
+  padding: 0 7px !important;
+  border: 0 !important;
+  border-right: 1px solid var(--studio-rule) !important;
+  border-radius: 0 !important;
+  background: var(--studio-control) !important;
+  color: var(--studio-ink) !important;
+  box-shadow: none !important;
+  font: 600 9.5px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+}
+
+.folio-illustration-overlay .folio-wrap-group button:last-child,
+.folio-illustration-overlay .folio-shape-group button:last-child { border-right: 0 !important; }
+
+.folio-illustration-overlay .folio-wrap-group button.active,
+.folio-illustration-overlay .folio-shape-group button.active,
+.folio-illustration-overlay .folio-image-inspector button.active {
+  background: var(--studio-accent-soft) !important;
+  color: var(--studio-accent) !important;
+}
+
+.folio-illustration-overlay .folio-image-inspector .folio-size-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 92px;
+  color: var(--studio-muted);
+}
+
+.folio-illustration-overlay .folio-image-inspector .folio-size-slider input[type="range"] {
+  width: 58px;
+  margin: 0;
+}
+
+.folio-illustration-overlay .folio-image-inspector .folio-gap-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 88px;
+  color: var(--studio-muted);
+}
+
+.folio-illustration-overlay .folio-image-inspector .folio-gap-slider input[type="range"] {
+  width: 54px;
+  margin: 0;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-shape-contour.folio-wrap-left,
+.folio-shell[data-ui-tone] .editor-illustration.folio-shape-contour.folio-wrap-right {
+  /* The real exclusion contour is applied inline from the image source.
+   * This class exists for selection/diagnostics and format round-tripping. */
+  isolation: auto;
+}
+
+.folio-illustration-overlay .folio-image-inspector .crop-axis {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 62px;
+}
+
+.folio-illustration-overlay .folio-image-inspector .crop-axis input[type="range"] {
+  width: 52px;
+  margin: 0;
+}
+
+.folio-illustration-overlay .folio-image-inspector :disabled {
+  opacity: .32;
+}
+
+.folio-illustration-overlay .folio-image-size {
+  min-width: 30px;
+  text-align: right;
+  color: var(--studio-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.folio-shell[data-ui-tone] .folio-image-resize {
+  position: absolute;
+  z-index: 10;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  padding: 0 !important;
+  display: none;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  touch-action: none;
+}
+
+.folio-shell[data-ui-tone] .folio-image-resize::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  left: 6px;
+  top: 6px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--studio-surface);
+  background: var(--studio-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--studio-accent) 70%, #000 30%);
+}
+
+.folio-shell[data-ui-tone] .folio-image-resize-nw { left: -10px; top: -10px; cursor: nwse-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-n  { left: calc(50% - 10px); top: -10px; cursor: ns-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-ne { right: -10px; top: -10px; cursor: nesw-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-e  { right: -10px; top: calc(50% - 10px); cursor: ew-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-se { right: -10px; bottom: -10px; cursor: nwse-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-s  { left: calc(50% - 10px); bottom: -10px; cursor: ns-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-sw { left: -10px; bottom: -10px; cursor: nesw-resize; }
+.folio-shell[data-ui-tone] .folio-image-resize-w  { left: -10px; top: calc(50% - 10px); cursor: ew-resize; }
+
+.folio-shell[data-ui-tone] .folio-image-resize-n::after,
+.folio-shell[data-ui-tone] .folio-image-resize-s::after {
+  width: 12px;
+  height: 5px;
+  left: 4px;
+  top: 7.5px;
+}
+
+.folio-shell[data-ui-tone] .folio-image-resize-e::after,
+.folio-shell[data-ui-tone] .folio-image-resize-w::after {
+  width: 5px;
+  height: 12px;
+  left: 7.5px;
+  top: 4px;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-selected .folio-image-resize,
+.folio-shell[data-ui-tone] .editor-illustration:focus-within .folio-image-resize {
+  display: block;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-resizing {
+  user-select: none;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-resizing > img[data-folio-asset] {
+  cursor: inherit !important;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration-remove {
+  top: 5px !important;
+  right: 5px !important;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.folio-shell[data-ui-tone] .editor-illustration.folio-image-selected .editor-illustration-remove,
+.folio-shell[data-ui-tone] .editor-illustration:hover .editor-illustration-remove {
+  opacity: 1;
+}
+
+/* Let author-selected wraps affect following prose in the editor. */
+.folio-shell .rich-editor h1,
+.folio-shell .rich-editor h2,
+.folio-shell .rich-editor h3,
+.folio-shell .rich-editor .editor-scene-break {
+  clear: both;
+}
+

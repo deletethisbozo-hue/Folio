@@ -120,15 +120,27 @@ function bodyMeta(req: Request): Partial<BookMeta> {
   return overrides;
 }
 
-/** Merge UI typography overrides onto the loaded book before rendering. */
+/**
+ * The editor sends the COMPLETE current typography override state.
+ *
+ * Missing keys therefore mean "use the theme default", not "keep whatever was
+ * previously saved in book.yaml". Merging here made every Theme default control
+ * sticky: JSON omits undefined keys, so an old body/heading/drop-cap override
+ * was resurrected from disk during the very next preview render.
+ */
 function applyTypography(book: { typography: any }, req: Request): void {
   const ty = req.body?.typography;
-  if (!ty || typeof ty !== "object") return;
-  const cur = book.typography ?? {};
+  if (!ty || typeof ty !== "object" || Array.isArray(ty)) return;
+  const normalized = { ...ty };
+  if (normalized.dropcapSize === "medium" || normalized.dropcapSize === "xlarge") normalized.dropcapSize = "large";
+  else if (normalized.dropcapSize !== undefined && normalized.dropcapSize !== "small" && normalized.dropcapSize !== "large") {
+    delete normalized.dropcapSize;
+  }
   book.typography = {
-    ...cur,
-    ...ty,
-    chapterTitle: { ...(cur.chapterTitle ?? {}), ...(ty.chapterTitle ?? {}) },
+    ...normalized,
+    ...(normalized.chapterTitle && typeof normalized.chapterTitle === "object" && !Array.isArray(normalized.chapterTitle)
+      ? { chapterTitle: { ...normalized.chapterTitle } }
+      : {}),
   };
 }
 

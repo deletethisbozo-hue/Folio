@@ -12,6 +12,7 @@ import {
 import { hyphenatePreviewDocument } from "./hyphenation";
 import { composePreviewDocument } from "./compositor";
 import { calibratePreviewFrame, updatePreviewPageCounts } from "./preview-runtime";
+import { applySafeContours } from "./contour-wrap";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
@@ -79,11 +80,42 @@ function lastPreviewProse(section: Element | null): HTMLElement | null {
   return nested.at(-1) ?? null;
 }
 
-function applyDraftDropcap(section: Element, enabled: boolean): void {
+function markDraftChapterOpener(section: Element): void {
+  section.classList.remove("folio-has-chapter-opener");
+  const heading = Array.from(section.children).find((node) => node.tagName === "H1") as HTMLElement | undefined;
+  heading?.classList.remove("folio-has-chapter-opener");
+  section.querySelectorAll<HTMLElement>(":scope > .folio-illustration-block").forEach((figure) => {
+    figure.classList.remove("folio-chapter-opener");
+  });
+  const firstAuthored = Array.from(section.children).find((node) =>
+    node.tagName !== "H1" && !node.classList.contains("chapter-subtitle")
+  );
+  if (firstAuthored?.classList.contains("folio-illustration-block")) {
+    firstAuthored.classList.add("folio-chapter-opener");
+    section.classList.add("folio-has-chapter-opener");
+    heading?.classList.add("folio-has-chapter-opener");
+  }
+}
+
+function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography["dropcapSize"], font?: string): void {
+  const screenSizes: Record<NonNullable<Typography["dropcapSize"]>, string> = {
+    small: "3em",
+    large: "4.5em",
+  };
+  const selectedSize = size ? screenSizes[size] : undefined;
+  if (selectedSize) (section as HTMLElement).style.setProperty("--folio-dropcap-user-size", selectedSize);
+  else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-size");
+  if (font) (section as HTMLElement).style.setProperty("--folio-dropcap-user-font", font);
+  else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-font");
   if (!enabled || !section.classList.contains("chapter")) return;
   const paragraph = Array.from(section.querySelectorAll<HTMLElement>(":scope > p:not(.scene-break)"))
     .find((candidate) => Boolean(candidate.textContent?.trim()));
-  if (!paragraph || paragraph.querySelector(".dropcap")) return;
+  if (!paragraph) return;
+  const existingCap = paragraph.querySelector<HTMLElement>(".dropcap");
+  if (existingCap) {
+    existingCap.style.fontFamily = font ?? "";
+    return;
+  }
   const walker = paragraph.ownerDocument.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
@@ -95,6 +127,7 @@ function applyDraftDropcap(section: Element, enabled: boolean): void {
     const span = paragraph.ownerDocument.createElement("span");
     span.className = "dropcap";
     span.textContent = match[1] + match[2];
+    if (font) span.style.fontFamily = font;
     node.data = node.data.slice(match[0].length);
     // Keep the float as a direct child of the paragraph. Nesting it inside an
     // opening <em>/<strong> creates a separate inline formatting context and
@@ -129,6 +162,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [focusMode, setFocusMode] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
+  const [writeZoom, setWriteZoom] = useState(() => {
+    const stored = Number(window.localStorage.getItem("folio-write-zoom"));
+    return Number.isFinite(stored) ? Math.max(0.7, Math.min(2, stored)) : 1;
+  });
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(() => window.localStorage.getItem("folio-spellcheck-enabled") !== "false");
   const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
@@ -379,7 +416,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
-    }, previewDraft.length > 250_000 ? 650 : 220);
+    }, previewDraft.length > 250_000 ? 1100 : previewDraft.length > 100_000 ? 850 : 520);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
@@ -509,9 +546,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const ornament = typography.sceneOrnament ?? theme?.sceneOrnament ?? "❦";
     template.innerHTML = markdownToPreviewHtml(liveDraft, ornament, (asset) => project ? `/api/projects/${encodeURIComponent(project.projectId)}/asset?path=${encodeURIComponent(asset)}` : asset);
     section.appendChild(template.content);
+    if (document.kind === "chapter") markDraftChapterOpener(section);
+    void applySafeContours(previewDocument);
     livePreviewDraftRef.current = liveDraft;
     if (previewScroller) previewScroller.scrollTop = preservedScrollTop;
-    applyDraftDropcap(section, document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false));
+    applyDraftDropcap(
+      section,
+      document.kind === "chapter" && (typography.dropcap ?? theme?.dropcap ?? false),
+      typography.dropcapSize,
+      typography.dropcapFont,
+    );
     if (typography.bodyAlign !== "left") hyphenatePreviewDocument(previewDocument, meta?.language || "en");
     void composePreviewDocument(previewDocument, typography.bodyAlign !== "left");
     return "rebuilt";
@@ -524,7 +568,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => {
     const frame = window.requestAnimationFrame(applyLiveDraftToPreview);
     return () => window.cancelAnimationFrame(frame);
-  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
+  }, [workspaceMode, previewDraft, document?.id, document?.subtitle, selectedId, typography.sceneOrnament, typography.dropcap, typography.dropcapSize, typography.dropcapFont, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, meta?.theme, meta?.language, themes]);
 
   useEffect(() => {
     if (!dirty || !document?.editable || !project || !selectedId) return;
@@ -817,24 +861,31 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   async function insertIllustration(file: File) {
-    if (!project || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter") return;
+    if (!project || !document?.editable || document.id !== selectedSection?.id) return;
     const targetSectionId = selectedSection.id;
     if (!editorRef.current) return;
     setBusy(true); setError(null);
     try {
       const uploaded = await api.uploadIllustration(project.projectId, file);
-      if (selectedRef.current !== targetSectionId) throw new Error("The illustration target changed while the image was uploading. Select the front-matter page and insert it again.");
+      if (selectedRef.current !== targetSectionId) throw new Error("The illustration target changed while the image was uploading. Select the target section and insert it again.");
       const editor = editorRef.current;
-      if (!editor) throw new Error("The front-matter editor is still loading. Try inserting the illustration again.");
+      if (!editor) throw new Error("The editor is still loading. Try inserting the illustration again.");
       const alt = "Illustration";
       const figure = window.document.createElement("figure");
       figure.className = "editor-illustration";
       figure.setAttribute("data-folio-illustration", "true");
-      figure.dataset.folioScale = "100";
+      figure.dataset.folioScale = "42";
       figure.dataset.folioCrop = "false";
       figure.dataset.folioRatio = "4-3";
       figure.dataset.folioX = "50";
       figure.dataset.folioY = "50";
+      // A fresh image starts as a centered block. Wrapping is an explicit
+      // author action (drag left/right or choose a wrap control), never a side
+      // effect of insertion that can make the editor appear to cover prose.
+      figure.dataset.folioWrap = "none";
+      const isTransparentPng = file.type === "image/png" || /\.png$/i.test(file.name);
+      figure.dataset.folioShape = isTransparentPng ? "contour" : "box";
+      figure.dataset.folioGap = "45";
       figure.contentEditable = "false";
       const image = window.document.createElement("img");
       image.src = uploaded.url;
@@ -846,16 +897,28 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       remove.setAttribute("aria-label", "Remove illustration");
       remove.title = "Remove illustration";
       remove.textContent = "×";
-      const controls = window.document.createElement("div");
-      controls.className = "editor-illustration-controls";
-      controls.contentEditable = "false";
-      controls.innerHTML = `<label><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="5" value="100"></label><button type="button" data-folio-control="crop" aria-pressed="false">Crop</button><select data-folio-control="ratio" aria-label="Crop ratio" disabled><option value="1-1">1:1</option><option value="4-3" selected>4:3</option><option value="3-2">3:2</option><option value="2-3">2:3</option><option value="16-9">16:9</option></select><label class="crop-axis"><span>X</span><input data-folio-control="x" type="range" min="0" max="100" step="5" value="50" disabled></label><label class="crop-axis"><span>Y</span><input data-folio-control="y" type="range" min="0" max="100" step="5" value="50" disabled></label>`;
-      figure.append(image,  controls, remove);
+      figure.append(image, remove);
 
-      editor.replaceChildren(figure);
+      const savedRange = illustrationRangeRef.current;
+      let anchor: HTMLElement | null = null;
+      if (savedRange && editor.contains(savedRange.commonAncestorContainer)) {
+        const rawNode = savedRange.startContainer;
+        const element = rawNode.nodeType === Node.ELEMENT_NODE
+          ? rawNode as Element
+          : rawNode.parentElement;
+        anchor = element?.closest<HTMLElement>("p,h1,h2,h3,h4,h5,h6,blockquote,ul,ol,.editor-scene-break,.editor-illustration") ?? null;
+        if (anchor && !editor.contains(anchor)) anchor = null;
+      }
+
+      // Images are block-level anchored objects. Never guess "before or after"
+      // from the caret's vertical pixel position inside a multi-line paragraph:
+      // that can reorder prose and create apparent page-break jumps. Insert
+      // deterministically after the semantic block containing the caret.
+      if (anchor) anchor.insertAdjacentElement("afterend", figure);
+      else editor.appendChild(figure);
       illustrationRangeRef.current = null;
 
-      // Commit the illustration synchronously from the live front-matter DOM.
+      // Commit the anchored illustration synchronously from the live editor DOM.
       // The generic editor input queue is deliberately lazy for huge chapters;
       // using it for an uploaded image created a window where React could swap
       // sections before the figure reached the draft. Image insertion is a
@@ -949,6 +1012,50 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const flush = splitFlushRef.current;
     return flush ? flush() : true;
   }
+
+  function changeWriteZoom(delta: number | "reset") {
+    setWriteZoom((current) => {
+      const next = delta === "reset"
+        ? 1
+        : Math.max(0.7, Math.min(2, Math.round((current + delta) * 10) / 10));
+      window.localStorage.setItem("folio-write-zoom", String(next));
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (workspaceMode !== "write") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = event.key;
+      if (key === "+" || key === "=" || key === "Add") {
+        event.preventDefault();
+        changeWriteZoom(0.1);
+      } else if (key === "-" || key === "_" || key === "Subtract") {
+        event.preventDefault();
+        changeWriteZoom(-0.1);
+      } else if (key === "0") {
+        event.preventDefault();
+        changeWriteZoom("reset");
+      }
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest(".editor-paper,.writing-split-paper")) return;
+      event.preventDefault();
+      changeWriteZoom(event.deltaY < 0 ? 0.1 : -0.1);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("wheel", onWheel, true);
+    };
+  }, [workspaceMode]);
 
   async function changeWorkspaceMode(next: WorkspaceMode) {
     if (next === workspaceMode) return;
@@ -1308,6 +1415,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (!geometryOnly || typeof restoreScroll === "number") {
         doc.scrollingElement?.scrollTo(0, targetScroll);
       }
+      if (previewMode !== "print") void applySafeContours(doc);
       updatePreviewPageCounts(frame);
       const pendingWord = pendingPreviewWordRef.current;
       if (pendingWord) window.setTimeout(() => highlightPreviewWord(pendingWord), 70);
@@ -1643,7 +1751,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   );
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom), "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
         <nav aria-label="Application commands">
@@ -1678,12 +1786,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
-          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration into front matter">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id || selectedSection?.kind !== "frontmatter"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
+          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration at cursor">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => !value)}><UiIcon name="focus"/></button></>}
         </div>
-        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} onKeyUp={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} onKeyUp={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
       </section>
 
       {splitView && <WritingSplitPane
@@ -1692,6 +1800,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         ornament={writingOrnament}
         typewriterMode={typewriterMode}
         spellcheckEnabled={spellcheckEnabled}
+        writeZoom={writeZoom}
         onClose={() => setSplitView(false)}
         onError={(message) => setError(message)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
@@ -1709,7 +1818,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{coverSelected ? (project.hasCover ? <div className="cover-preview-surface"><img src={`/api/projects/${project.projectId}/cover?v=${coverVersion}`} alt={`${meta.title} cover`}/></div> : <div className="cover-preview-empty"><strong>No cover yet</strong><span>Add a PNG or JPEG from the Cover workspace.</span></div>) : selectedId ? <iframe key={`${project.projectId}:${selectedId}:${previewMode === "print" ? "print" : "reader"}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
-      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{workspaceMode === "write" ? (splitView ? "Write · Split" : "Write") : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
+      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
         <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
@@ -1826,6 +1935,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
   const { category, typography: ty, setTypography: setTy, printOptions, setPrintOptions } = props;
   const row = (label: string, control: React.ReactNode) => <label className="customize-row"><span>{label}</span>{control}</label>;
   const fonts = <><option value="">Theme default</option><option value="Georgia, serif">Georgia</option><option value="Garamond, Georgia, serif">Garamond</option><option value="Baskerville, Georgia, serif">Baskerville</option><option value="Palatino, Georgia, serif">Palatino</option><option value="Cambria, Georgia, serif">Cambria</option><option value="Segoe UI, Arial, sans-serif">Segoe UI</option></>;
+  const displayFonts = <><option value="">Theme default</option><optgroup label="New display fonts"><option value="Folio Jena Gotisch">Jena Gotisch</option><option value="Folio Manufacturing Consent">Manufacturing Consent</option><option value="Folio Kings">Kings</option><option value="Folio CAT Altenglisch">CAT Altenglisch</option><option value="Folio Slavkappen">Slavkappen</option></optgroup><optgroup label="Folio built-ins"><option value="Folio Cinzel">Cinzel</option><option value="Folio Grenze Gotisch">Grenze Gotisch</option><option value="Folio Bodoni Moda">Bodoni Moda</option><option value="Folio EB Garamond">EB Garamond</option><option value="Folio Libre Baskerville">Libre Baskerville</option><option value="Folio Barlow Condensed">Barlow Condensed</option></optgroup></>;
   const clearTypographyKeys = (...keys: Array<keyof Typography>) => {
     const next = { ...ty };
     for (const key of keys) delete next[key];
@@ -1840,7 +1950,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
         clearTypographyKeys("headingFont", "chapterTitle");
         return;
       case "First Paragraph":
-        clearTypographyKeys("dropcap");
+        clearTypographyKeys("dropcap", "dropcapSize", "dropcapFont");
         return;
       case "Paragraph After Break":
         clearTypographyKeys("paragraphAfterBreakIndent");
@@ -1871,13 +1981,17 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     {category === "Chapter Heading" && <>
       {row("Show theme label", <input type="checkbox" checked={ty.chapterTitle?.showLabel ?? true} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, showLabel: e.target.checked } })}/>)}
       {row("Label text", <input value={ty.chapterTitle?.labelText ?? ""} disabled={ty.chapterTitle?.showLabel === false} placeholder="CHAPTER → CHAPTER 1, CHAPTER 2…" title="Folio automatically appends the chapter number in current book order" onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, labelText: e.target.value || undefined } })}/>)}
-      {row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{fonts}</select>)}
+      {row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{displayFonts}</select>)}
       {row("Size", <select value={ty.chapterTitle?.size ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, size: e.target.value || undefined } })}><option value="">Theme default</option><option value="1.4em">Compact</option><option value="1.8em">Standard</option><option value="2.2em">Large</option></select>)}
       {row("Alignment", <select value={ty.chapterTitle?.align ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, align: (e.target.value || undefined) as "left" | "center" | "right" | undefined } })}><option value="">Theme default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>)}
       {row("Letter case", <select value={ty.chapterTitle?.case ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, case: (e.target.value || undefined) as "normal" | "smallcaps" | "uppercase" | undefined } })}><option value="">Theme default</option><option value="normal">Normal</option><option value="smallcaps">Small caps</option><option value="uppercase">Uppercase</option></select>)}
       {row("Style", <select value={ty.chapterTitle?.style ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, style: (e.target.value || undefined) as "normal" | "italic" | undefined } })}><option value="">Theme default</option><option value="normal">Roman</option><option value="italic">Italic</option></select>)}
     </>}
-    {category === "First Paragraph" && row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
+    {category === "First Paragraph" && <>
+      {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
+      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small</option><option value="large">Large</option></select>)}
+      {row("Drop cap typeface", <select value={ty.dropcapFont ?? ""} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapFont: e.target.value || undefined })}>{displayFonts}</select>)}
+    </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
     {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}

@@ -123,7 +123,8 @@ section > h1 + p,
 h1 + p,
 .scene-break + p,
 hr + p,
-blockquote > p:first-child {
+blockquote > p:first-child,
+.folio-illustration-block.folio-chapter-opener + p {
   text-indent: 0;
 }
 
@@ -203,18 +204,23 @@ section.level1 {
    predictable; the negative margin-bottom clamps it so exactly two lines wrap.
    The print path swaps this for CSS initial-letter (see print-base.css).
    Per-theme colour/face live in each theme.css. */
+.folio-native-dropcap {
+  /* A paragraph with a drop cap is already visually opened by the initial.
+     Keeping the normal fiction first-line indent creates a second, fake indent
+     to the right of the cap, especially obvious in Print/PDF. */
+  text-indent: 0 !important;
+}
+
 .dropcap {
   float: left;
-  font-size: 3em;
+  font-size: var(--folio-dropcap-user-size, var(--folio-dropcap-theme-size, 3em));
   line-height: 1;
   padding: 0 0.10em 0 0;
-  /* A floated cap aligns its BOX to the line top, but the glyph sits on its
-     baseline with the ascender above it, so the capital lands low. This lifts it
-     by roughly (ascender − cap-height) for a serif face. It is a default, not an
-     exact answer: the true value depends on the font that resolves, and the PDF
-     paths measure each cap and override this (see pipeline/dropcap.ts). EPUB has
-     no browser to measure in, so it keeps the constant. */
-  margin: -0.06em 0 0 0;
+  /* Restore the pre-compositor seating that existed before the 2026-09
+     typesetting refactor: without a negative bottom margin the float's line box
+     continues below the visible capital and leaves a false hole under it.
+     The adjustment is size-aware because em resolves against the cap itself. */
+  margin: -0.06em 0 var(--folio-dropcap-bottom-seat, -0.08em) 0;
 }
 
 /* --- Title page --- */
@@ -307,6 +313,107 @@ img.folio-illustration,
   margin: 1.4em auto;
   object-fit: contain;
   break-inside: avoid;
+}
+
+.folio-illustration-block {
+  display: block;
+  max-width: 100%;
+  margin: 1.2em auto;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.folio-illustration-block > img.folio-illustration {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: auto;
+  max-height: 76vh;
+  margin: 0;
+}
+.folio-illustration-block.folio-wrap-left {
+  float: left;
+  margin: 0.22em 1.05em 0.8em 0;
+}
+.folio-illustration-block.folio-wrap-right {
+  float: right;
+  margin: 0.22em 0 0.8em 1.05em;
+}
+
+/* Chapter-opening illustrations sit between the chapter heading and the first
+ * prose paragraph. They may be aligned left/center/right, but they must never
+ * share the paragraph's float context: the first paragraph may carry a drop cap
+ * and its metrics must be invariant with or without the opening illustration. */
+.folio-illustration-block.folio-chapter-opener {
+  float: none !important;
+  clear: both;
+  shape-outside: none !important;
+  shape-margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: .68em !important;
+}
+/* Tighten the CHAPTER HEADING itself when artwork is the opening device.
+ * V6 only nudged the image, while most themes keep 1.5–3em on the heading. */
+section.chapter.folio-has-chapter-opener > h1,
+section.chapter > h1.folio-has-chapter-opener {
+  margin-bottom: .5em !important;
+}
+section.chapter.folio-has-chapter-opener > h1::after,
+section.chapter > h1.folio-has-chapter-opener::after {
+  margin-bottom: .18em !important;
+}
+section.chapter.folio-has-chapter-opener > .chapter-subtitle {
+  margin-bottom: .5em !important;
+}
+section.chapter.folio-has-chapter-opener > .chapter-subtitle::after {
+  margin-bottom: .18em !important;
+}
+.folio-illustration-block.folio-chapter-opener.folio-wrap-left {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+.folio-illustration-block.folio-chapter-opener.folio-wrap-right {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+.folio-illustration-block.folio-chapter-opener:not(.folio-wrap-left):not(.folio-wrap-right) {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Contour wrapping uses the actual alpha channel supplied by render-html /
+ * EPUB post-processing. Keep the rectangular gutter tiny here; shape-margin
+ * becomes the true text-to-artwork distance when CSS Shapes is supported. */
+.folio-illustration-block.folio-shape-contour.folio-wrap-left {
+  margin: 0.18em 0.18em 0.72em 0;
+  shape-image-threshold: .08;
+  shape-margin: .65em;
+}
+.folio-illustration-block.folio-shape-contour.folio-wrap-right {
+  margin: 0.18em 0 0.72em 0.18em;
+  shape-image-threshold: .08;
+  shape-margin: .65em;
+}
+section.chapter > h2,
+section.chapter > h3,
+section.backmatter > h2,
+section.backmatter > h3,
+.scene-break {
+  clear: both;
+}
+section.chapter::after,
+section.frontmatter::after,
+section.backmatter::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+@media (max-width: 280px) {
+  .folio-illustration-block.folio-wrap-left,
+  .folio-illustration-block.folio-wrap-right {
+    float: none;
+    width: min(100%, 18em) !important;
+    margin: 1.1em auto;
+  }
 }
 
 /* ============================================================

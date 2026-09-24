@@ -54,6 +54,21 @@ const FONTS = {
   slab: { family: "Folio Roboto Slab", faces: [
     { file: "roboto-slab.ttf", weight: "100 900", style: "normal" },
   ] },
+  jenaGotisch: { family: "Folio Jena Gotisch", faces: [
+    { file: "jena-gotisch.ttf", weight: "400", style: "normal" },
+  ] },
+  manufacturingConsent: { family: "Folio Manufacturing Consent", faces: [
+    { file: "manufacturing-consent.ttf", weight: "400", style: "normal" },
+  ] },
+  kings: { family: "Folio Kings", faces: [
+    { file: "kings.ttf", weight: "400", style: "normal" },
+  ] },
+  altenglisch: { family: "Folio CAT Altenglisch", faces: [
+    { file: "cat-altenglisch.ttf", weight: "400", style: "normal" },
+  ] },
+  slavkappen: { family: "Folio Slavkappen", faces: [
+    { file: "slavkappen.ttf", weight: "400", style: "normal" },
+  ] },
 } satisfies Record<string, FontSpec>;
 
 type FontKey = keyof typeof FONTS;
@@ -191,6 +206,7 @@ async function fontFaceCss(spec: FontSpec, target: FontTarget): Promise<string> 
 export async function buildThemeRuntimeCss(
   theme: ThemeName,
   target: FontTarget,
+  requestedFamilies: string[] = [],
 ): Promise<{ css: string; themeCss: string; fontCss: string; fontFiles: string[]; families: string[] }> {
   const source = await fs.readFile(themeCss(theme), "utf8");
   const normalized = normalizeThemeFontFamilies(source);
@@ -200,7 +216,13 @@ export async function buildThemeRuntimeCss(
     normalized.css += `\nbody{font-family:${family},serif;}\n.dropcap{font-family:${family},serif;}\n`;
     normalized.used.add(bodyFontOverride);
   }
-  const keys = [...normalized.used];
+  const requested = new Set<FontKey>();
+  for (const family of requestedFamilies) {
+    const match = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
+      .find(([, spec]) => spec.family === family);
+    if (match) requested.add(match[0]);
+  }
+  const keys = [...new Set<FontKey>([...normalized.used, ...requested])];
   const faces = await Promise.all(keys.map((key) => fontFaceCss(FONTS[key], target)));
   const fontCss = faces.join("\n");
   const fontFiles = [...new Set(keys.flatMap((key) => FONTS[key].faces.map((face) => path.join(THEME_FONTS_DIR, face.file))))];

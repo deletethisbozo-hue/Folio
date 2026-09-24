@@ -8,6 +8,7 @@ import { buildDocCss, epubFontFiles } from "./doc-css.ts";
 import { buildThemeRuntimeCss } from "./theme-fonts.ts";
 import { getPreset } from "../presets.ts";
 import { readEpubEntries, writeEpub, reorderSpineToc } from "./epub-zip.ts";
+import { applyIllustrationContours } from "./illustration-shapes.ts";
 
 export interface EpubResult {
   buffer: Buffer;
@@ -41,6 +42,24 @@ async function reorderToc(buffer: Buffer, book: Book): Promise<Buffer> {
   }
 }
 
+async function applyEpubIllustrationContours(buffer: Buffer): Promise<Buffer> {
+  try {
+    const entries = await readEpubEntries(buffer);
+    let changed = false;
+    for (const entry of entries) {
+      if (!/\.xhtml$/i.test(entry.name)) continue;
+      const source = Buffer.from(entry.data).toString("utf8");
+      const shaped = applyIllustrationContours(source);
+      if (shaped === source) continue;
+      entry.data = Buffer.from(shaped, "utf8");
+      changed = true;
+    }
+    return changed ? Buffer.from(writeEpub(entries)) : buffer;
+  } catch {
+    return buffer;
+  }
+}
+
 function xmlEscape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -61,7 +80,11 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
   const outPath = path.join(ws.dir, "book.epub");
   try {
     const md = assembleMarkdown(book, "epub");
-    const runtimeTheme = await buildThemeRuntimeCss(book.meta.theme, "epub");
+    const runtimeTheme = await buildThemeRuntimeCss(
+      book.meta.theme,
+      "epub",
+      [book.typography.headingFont, book.typography.dropcapFont].filter((value): value is string => Boolean(value)),
+    );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.css, "utf8");
     const cssFiles = [path.join(THEMES_DIR, "base.css"), path.join(THEMES_DIR, "image-page.css"), runtimeThemePath];
@@ -100,6 +123,7 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
     await runPandoc(args, md);
     let buffer: Buffer = await fs.readFile(outPath);
     buffer = await reorderToc(buffer, book);
+    buffer = await applyEpubIllustrationContours(buffer);
     return { buffer, bytes: buffer.length, preset: presetName };
   } finally {
     await cleanup(ws);

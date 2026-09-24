@@ -91,6 +91,7 @@ function restore(paragraph: HTMLElement): void {
   paragraph.classList.remove(
     "folio-composed",
     "folio-composed-dropcap",
+    "folio-native-dropcap",
     "folio-compositor-safe-fallback",
   );
   delete paragraph.dataset.folioCompositionLanguage;
@@ -103,7 +104,7 @@ function ensureCompositionStyle(document: Document): void {
     style.id = "folio-compositor-fallback";
     document.head.appendChild(style);
   }
-  const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed)`).join(",");
+  const pending = PROSE_SELECTORS.map((selector) => `${selector}:not(.folio-composed):not(.folio-native-dropcap)`).join(",");
   style.textContent = `
 ${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important;text-wrap:pretty!important}
 .folio-composed{position:relative!important;text-indent:0!important;text-align:left!important;text-align-last:left!important;overflow:visible!important}
@@ -872,9 +873,20 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
   const capStyle = getComputedStyle(cap);
   const marginRight = pixels(capStyle.marginRight);
   const marginBottom = pixels(capStyle.marginBottom);
-  const capIntrusion = Math.max(0, capRect.right + marginRight - contentLeft);
+
+  // The compositor owns drop-cap placement. Do not derive horizontal intrusion
+  // from the float's current x-position: a preceding opening illustration can
+  // change native-float placement before composition and V7 then baked that
+  // transient displacement into every first line. Use the cap's physical box
+  // width instead, anchored at the paragraph's content edge.
+  const capIntrusion = Math.max(0, capRect.width + marginRight);
+  const capTop = capRect.top - (paragraphRect.top + borderTop);
   const capDepth = Math.max(0, capRect.bottom + marginBottom - contentTop);
-  const capLines = 2;
+
+  // V7 hard-coded every cap to two lines. Larger user presets therefore grew
+  // over line 3/4 instead of reserving those lines. Derive the occupied line
+  // count from the rendered cap depth after fonts have settled.
+  const capLines = Math.max(2, Math.ceil(capDepth / Math.max(1, lineHeight) - 0.12));
 
   return {
     width,
@@ -882,10 +894,200 @@ function measureGeometry(paragraph: HTMLElement, style: CSSStyleDeclaration): Ge
     cap,
     capLines,
     capIntrusion: Math.min(width * 0.46, capIntrusion),
-    capLeft: capRect.left - (paragraphRect.left + borderLeft),
-    capTop: capRect.top - (paragraphRect.top + borderTop),
+    capLeft: 0,
+    capTop,
     capDepth,
   };
+}
+
+function overlapsWrappedIllustration(paragraph: HTMLElement): boolean {
+  const section = paragraph.closest<HTMLElement>("section.chapter,section.backmatter,section.frontmatter");
+  if (!section) return false;
+  const paragraphRect = paragraph.getBoundingClientRect();
+  for (const illustration of Array.from(section.querySelectorAll<HTMLElement>(".folio-illustration-block.folio-wrap-left:not(.folio-chapter-opener),.folio-illustration-block.folio-wrap-right:not(.folio-chapter-opener)"))) {
+    const rect = illustration.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    if (rect.bottom > paragraphRect.top + 0.5 && rect.top < paragraphRect.bottom - 0.5) return true;
+  }
+  return false;
+}
+
+function seatNativeDropCap(paragraph: HTMLElement): void {
+  const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
+  const doc = paragraph.ownerDocument;
+  if (!cap || !doc.defaultView) return;
+
+  // Start from stylesheet defaults on every pass. Size/theme/font changes can
+  // otherwise accumulate old inline corrections.
+  cap.style.removeProperty("margin-top");
+  cap.style.removeProperty("margin-bottom");
+  cap.style.removeProperty("font-size");
+  delete cap.dataset.folioDropcapLines;
+  delete cap.dataset.folioDropcapSeated;
+  void paragraph.offsetHeight;
+
+  const bodyTextWalker = doc.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+  let bodyText: Text | null = null;
+  while (bodyTextWalker.nextNode()) {
+    const node = bodyTextWalker.currentNode as Text;
+    if (cap.contains(node) || !node.data.trim()) continue;
+    bodyText = node;
+    break;
+  }
+  if (!bodyText) return;
+
+  const range = doc.createRange();
+  range.setStart(bodyText, 0);
+  range.setEnd(bodyText, Math.min(20, bodyText.data.length));
+  const firstBodyRect = range.getClientRects()[0];
+  if (!firstBodyRect) return;
+
+  const canvas = doc.createElement("canvas").getContext("2d");
+  if (!canvas) return;
+
+  const bodyStyle = getComputedStyle(paragraph);
+  canvas.font = `${bodyStyle.fontStyle} ${bodyStyle.fontWeight} ${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
+  const bodyMetrics = canvas.measureText("Hh");
+  const bodyFontAsc = bodyMetrics.fontBoundingBoxAscent || bodyMetrics.actualBoundingBoxAscent;
+  const bodyFontDesc = bodyMetrics.fontBoundingBoxDescent || bodyMetrics.actualBoundingBoxDescent;
+  const bodyLineHeight = bodyStyle.lineHeight === "normal"
+    ? bodyFontAsc + bodyFontDesc
+    : pixels(bodyStyle.lineHeight) || bodyFontAsc + bodyFontDesc;
+
+  let capStyle = getComputedStyle(cap);
+  const userSize = capStyle.getPropertyValue("--folio-dropcap-user-size").trim();
+  const themeSize = capStyle.getPropertyValue("--folio-dropcap-theme-size").trim();
+  const bodyFontSize = pixels(bodyStyle.fontSize);
+  const currentCapSize = pixels(capStyle.fontSize);
+
+  // A live theme switch can briefly leave the opening initial inheriting the
+  // body size even though the theme declares --folio-dropcap-theme-size.
+  // "Current theme size" must mean the theme's actual designed initial, not 1em.
+  if (!userSize && currentCapSize < bodyFontSize * 2.5) {
+    cap.style.fontSize = themeSize || "3em";
+    void paragraph.offsetHeight;
+    capStyle = getComputedStyle(cap);
+  }
+
+  canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+  const capMetrics = canvas.measureText(cap.textContent || "H");
+  const capFontAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent;
+  const capFontDesc = capMetrics.fontBoundingBoxDescent || capMetrics.actualBoundingBoxDescent;
+  const capLineHeight = capStyle.lineHeight === "normal"
+    ? capFontAsc + capFontDesc
+    : pixels(capStyle.lineHeight) || capFontAsc + capFontDesc;
+
+  // Optical top: align visible ink, not the font's line box.
+  const capRect0 = cap.getBoundingClientRect();
+  const capBaseline0 =
+    capRect0.top +
+    pixels(capStyle.paddingTop) +
+    (capLineHeight - (capFontAsc + capFontDesc)) / 2 +
+    capFontAsc;
+  const capInkTop0 = capBaseline0 - capMetrics.actualBoundingBoxAscent;
+
+  const bodyBaseline =
+    firstBodyRect.top +
+    (bodyLineHeight - (bodyFontAsc + bodyFontDesc)) / 2 +
+    bodyFontAsc;
+  const bodyInkTop = bodyBaseline - bodyMetrics.actualBoundingBoxAscent;
+  const topDelta = capInkTop0 - bodyInkTop;
+  const baseTopMargin = pixels(capStyle.marginTop);
+  if (Math.abs(topDelta) > 0.25) {
+    cap.style.marginTop = `${baseTopMargin - topDelta}px`;
+    void paragraph.offsetHeight;
+  }
+
+  // Optical depth: derive the occupied line count from the VISIBLE glyph's
+  // bottom edge after top seating. Rounding the glyph height (V10 draft 1)
+  // could classify a medium cap as two lines even when its ink still entered
+  // line three. Ceil against the actual body line grid instead.
+  const bodyRect = range.getClientRects()[0] ?? firstBodyRect;
+  const bodyLineBoxTop = bodyRect.top - Math.max(0, (bodyLineHeight - bodyRect.height) / 2);
+
+  const seatedCapStyle = getComputedStyle(cap);
+  const seatedCapRect = cap.getBoundingClientRect();
+  const seatedBaseline =
+    seatedCapRect.top +
+    pixels(seatedCapStyle.paddingTop) +
+    (capLineHeight - (capFontAsc + capFontDesc)) / 2 +
+    capFontAsc;
+  const capInkTop = seatedBaseline - capMetrics.actualBoundingBoxAscent;
+  const capInkBottom = seatedBaseline + capMetrics.actualBoundingBoxDescent;
+
+  // Reserve only body rows whose VISIBLE text ink intersects the VISIBLE cap
+  // ink. Using the whole CSS line box made a cap that ended in inter-line
+  // leading reserve one extra row, producing the obvious empty pocket under
+  // blackletter initials.
+  let intersectedInkLines = 0;
+  for (let line = 0; line < 6; line++) {
+    // Use the browser's actual text range rectangle rather than theoretical font
+    // ascent/descent. It matches what Chromium can physically paint on each row
+    // and prevents both false holes and real glyph/text collisions.
+    const lineTextTop = firstBodyRect.top + line * bodyLineHeight;
+    const lineTextBottom = lineTextTop + firstBodyRect.height;
+    const intersectsInk =
+      capInkBottom > lineTextTop + 0.5 &&
+      capInkTop < lineTextBottom - 0.5;
+    if (intersectsInk) intersectedInkLines = line + 1;
+  }
+  const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
+
+  // Native float exclusion is annoyingly sensitive to fractional line-box
+  // boundaries. A theoretically correct bottom can still make Chromium keep one
+  // extra prose line beside the cap, which is the visible "hole" reported in
+  // Reader preview. Calibrate against the lines the browser ACTUALLY wrapped.
+  const paragraphRect = paragraph.getBoundingClientRect();
+  const contentLeft =
+    paragraphRect.left +
+    pixels(bodyStyle.borderLeftWidth) +
+    pixels(bodyStyle.paddingLeft);
+
+  const wrappedLineCount = () => {
+    const lineLefts = new Map<number, number>();
+    const walker = doc.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const textRange = doc.createRange();
+      textRange.selectNodeContents(node);
+      for (const rect of Array.from(textRange.getClientRects())) {
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        const top = Math.round(rect.top * 2) / 2;
+        const previous = lineLefts.get(top);
+        lineLefts.set(top, previous == null ? rect.left : Math.min(previous, rect.left));
+      }
+    }
+
+    let wrapped = 0;
+    for (const [, left] of [...lineLefts.entries()].sort((a, b) => a[0] - b[0])) {
+      if (left > contentLeft + 1.25) wrapped++;
+      else break;
+    }
+    return wrapped;
+  };
+
+  const releaseEpsilon = 1.25;
+  const desiredFloatBottom = bodyLineBoxTop + seatLines * bodyLineHeight - releaseEpsilon;
+  let marginBottom = desiredFloatBottom - seatedCapRect.bottom;
+  cap.style.marginBottom = `${marginBottom}px`;
+  void paragraph.offsetHeight;
+
+  // Move the float boundary in small increments until the browser exposes
+  // exactly the number of lines occupied by visible glyph ink. This makes the
+  // result stable across blackletter fonts, zoom levels and fractional px grids.
+  const calibrationStep = Math.max(1, bodyLineHeight * 0.10);
+  let wrappedLines = wrappedLineCount();
+  for (let pass = 0; pass < 14 && wrappedLines !== seatLines; pass++) {
+    marginBottom += wrappedLines > seatLines ? -calibrationStep : calibrationStep;
+    cap.style.marginBottom = `${marginBottom}px`;
+    void paragraph.offsetHeight;
+    wrappedLines = wrappedLineCount();
+  }
+
+  cap.dataset.folioDropcapLines = String(seatLines);
+  cap.dataset.folioDropcapWrappedLines = String(wrappedLines);
+  cap.dataset.folioDropcapSeated = "true";
 }
 
 function composeParagraph(paragraph: HTMLElement, language: string, sectionStats: SectionHyphenStats): void {
@@ -893,7 +1095,27 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
     paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
     paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
   ) return;
+
   if (paragraph.dataset.folioOriginalHtml !== undefined) restore(paragraph);
+
+  // Drop caps deliberately stay on the browser's native float layout.
+  // Chromium already reserves exactly as many text lines as the cap's physical
+  // height needs, for every user-selected size. The custom line compositor used
+  // to convert the cap to absolute positioning and then guess that geometry,
+  // which caused both overlapping prose and phantom gaps after opener images.
+  if (paragraph.querySelector(":scope > .dropcap")) {
+    paragraph.classList.add("folio-native-dropcap");
+    paragraph.classList.remove("folio-float-native");
+    paragraph.style.removeProperty("min-height");
+    seatNativeDropCap(paragraph);
+    return;
+  }
+
+  if (overlapsWrappedIllustration(paragraph)) {
+    paragraph.classList.add("folio-float-native");
+    return;
+  }
+  paragraph.classList.remove("folio-float-native");
 
   const style = getComputedStyle(paragraph);
   const fontSize = pixels(style.fontSize) || 16;
@@ -973,7 +1195,16 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
   const cap = geometry.cap;
   if (cap) {
     paragraph.classList.add("folio-composed-dropcap");
-    paragraph.style.minHeight = `${Math.max(pixels(style.minHeight), geometry.capDepth)}px`;
+    paragraph.dataset.folioDropcapLines = String(geometry.capLines);
+    // Only force extra block height when the prose is genuinely shorter than
+    // the cap. Long first paragraphs already provide enough natural height;
+    // forcing capDepth unconditionally made the post-dropcap whitespace look
+    // detached from the paragraph in some opener layouts.
+    if (lines.length < geometry.capLines) {
+      paragraph.style.minHeight = `${Math.max(pixels(style.minHeight), geometry.capDepth)}px`;
+    } else {
+      paragraph.style.removeProperty("min-height");
+    }
     cap.classList.add("folio-composed-cap");
     cap.style.left = `${geometry.capLeft}px`;
     cap.style.top = `${geometry.capTop}px`;

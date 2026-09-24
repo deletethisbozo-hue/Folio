@@ -1,91 +1,202 @@
 import type { Page } from "puppeteer";
 
 /**
- * Seat every drop cap so the top of the capital lines up with the top of the
- * first line of body text.
+ * Seat every drop cap against the visible body-text ink and make the float
+ * exclude exactly the body lines occupied by visible glyph ink.
  *
- * A floated drop cap aligns its BOX to the top of the line box, but the glyph
- * sits on its baseline with the font's ascender above it — so the visible cap
- * lands below the body text by (ascender − cap-height), which at 5em is roughly
- * two-thirds of a body line. That is the sink you can see on a chapter opener.
- *
- * The correction is a negative margin, but it can't be a constant: it depends on
- * the ascender-to-cap-height ratio of whichever font actually resolved. The
- * three themes use three different stacks, and a book may supply its own font in
- * book.yaml, so this measures each cap in place and nudges it by exactly what it
- * turns out to need. Static CSS gets a reasonable default for the EPUB, which
- * has no browser to measure in.
- *
- * Runs before pagination, since it changes line wrapping around the float.
- *
- * NB: no named functions inside page.evaluate — esbuild rewrites them to call a
- * __name helper that doesn't exist in the browser, and puppeteer's isolated
- * world can't see a shim installed on the page.
+ * This runs before Print pagination. It deliberately measures the resolved font
+ * in Chromium instead of assuming a fixed two/three-line cap: blackletter faces
+ * and user size presets have wildly different ascent/descent geometry.
  */
 export async function alignDropCaps(page: Page): Promise<number> {
+  // tsx/esbuild annotates nested helpers with __name while serialising the
+  // evaluate callback. Puppeteer's isolated page world does not inherit that
+  // helper from Node, so provide the same harmless shim used by the compositor.
+  await page.evaluate("globalThis.__name = globalThis.__name || function(target){ return target; }");
   return page.evaluate(() => {
     const caps = Array.from(document.querySelectorAll<HTMLElement>(".dropcap"));
     if (caps.length === 0) return 0;
 
-    // Clear any previous correction so re-runs measure from a known state.
-    for (const c of caps) c.style.marginTop = "";
+    for (const cap of caps) {
+      cap.style.removeProperty("margin-top");
+      cap.style.removeProperty("margin-bottom");
+      delete cap.dataset.folioDropcapLines;
+      delete cap.dataset.folioDropcapWrappedLines;
+      delete cap.dataset.folioDropcapSeated;
+    }
     void document.body.offsetHeight;
 
-    const cv = document.createElement("canvas").getContext("2d")!;
+    const canvas = document.createElement("canvas").getContext("2d");
+    if (!canvas) return 0;
     let adjusted = 0;
 
     for (const cap of caps) {
-      const para = cap.closest("p");
+      const para = cap.closest<HTMLElement>("p");
       if (!para) continue;
 
-      // --- ink top of the cap ---
-      const csC = getComputedStyle(cap);
-      cv.font = `${csC.fontStyle} ${csC.fontWeight} ${csC.fontSize} ${csC.fontFamily}`;
-      const mC = cv.measureText(cap.textContent || "H");
-      const ascC = mC.fontBoundingBoxAscent;
-      const descC = mC.fontBoundingBoxDescent;
-      const lhC = csC.lineHeight === "normal" ? ascC + descC : parseFloat(csC.lineHeight);
-      const rC = cap.getBoundingClientRect();
-      const baseC = rC.top + parseFloat(csC.paddingTop || "0") + (lhC - (ascC + descC)) / 2 + ascC;
-      const inkC = baseC - mC.actualBoundingBoxAscent;
+      // Apply the no-indent drop-cap paragraph rule before measuring. Otherwise
+      // Print can calibrate against an indented first row and preserve the very
+      // gap we are trying to remove.
+      para.classList.add("folio-native-dropcap");
+      void para.offsetHeight;
 
-      // --- ink top of the first body line beside it ---
-      const it = document.createNodeIterator(para, NodeFilter.SHOW_TEXT);
+      const bodyWalker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
       let body: Text | null = null;
-      let n: Node | null;
-      while ((n = it.nextNode())) {
-        const t = n as Text;
-        if (cap.contains(t)) continue; // skip the cap's own letter
-        if (t.data.trim().length > 2) {
-          body = t;
-          break;
-        }
+      while (bodyWalker.nextNode()) {
+        const node = bodyWalker.currentNode as Text;
+        if (cap.contains(node) || !node.data.trim()) continue;
+        body = node;
+        break;
       }
       if (!body) continue;
-      const rg = document.createRange();
-      rg.setStart(body, 0);
-      rg.setEnd(body, Math.min(20, body.data.length));
-      const rB = rg.getClientRects()[0];
-      if (!rB) continue;
 
-      const csB = getComputedStyle(para);
-      cv.font = `${csB.fontStyle} ${csB.fontWeight} ${csB.fontSize} ${csB.fontFamily}`;
-      const mB = cv.measureText("Hh");
-      const ascB = mB.fontBoundingBoxAscent;
-      const descB = mB.fontBoundingBoxDescent;
-      const lhB = csB.lineHeight === "normal" ? ascB + descB : parseFloat(csB.lineHeight);
-      const baseB = rB.top + (lhB - (ascB + descB)) / 2 + ascB;
-      const inkB = baseB - mB.actualBoundingBoxAscent;
+      const bodyRange = document.createRange();
+      bodyRange.setStart(body, 0);
+      bodyRange.setEnd(body, Math.min(20, body.data.length));
+      const firstBodyRect = bodyRange.getClientRects()[0];
+      if (!firstBodyRect) continue;
 
-      // Adjust RELATIVE to the margin already in the stylesheet. Writing
-      // -delta absolutely would discard that margin, and since it is what the
-      // cap was measured against, the cap would move by the wrong amount.
-      const delta = inkC - inkB;
-      if (Math.abs(delta) > 0.25) {
-        cap.style.marginTop = `${parseFloat(csC.marginTop || "0") - delta}px`;
-        adjusted++;
+      const bodyStyle = getComputedStyle(para);
+      canvas.font = `${bodyStyle.fontStyle} ${bodyStyle.fontWeight} ${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
+      const bodyMetrics = canvas.measureText("Hh");
+      const bodyAsc = bodyMetrics.fontBoundingBoxAscent || bodyMetrics.actualBoundingBoxAscent;
+      const bodyDesc = bodyMetrics.fontBoundingBoxDescent || bodyMetrics.actualBoundingBoxDescent;
+      const bodyLineHeight = bodyStyle.lineHeight === "normal"
+        ? bodyAsc + bodyDesc
+        : Number.parseFloat(bodyStyle.lineHeight) || bodyAsc + bodyDesc;
+      const bodyBaseline =
+        firstBodyRect.top +
+        (bodyLineHeight - (bodyAsc + bodyDesc)) / 2 +
+        bodyAsc;
+      const bodyInkTop = bodyBaseline - bodyMetrics.actualBoundingBoxAscent;
+
+      let capStyle = getComputedStyle(cap);
+      canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+      const capMetrics = canvas.measureText(cap.textContent || "H");
+      const capAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent;
+      const capDesc = capMetrics.fontBoundingBoxDescent || capMetrics.actualBoundingBoxDescent;
+      const capLineHeight = capStyle.lineHeight === "normal"
+        ? capAsc + capDesc
+        : Number.parseFloat(capStyle.lineHeight) || capAsc + capDesc;
+
+      const capRect0 = cap.getBoundingClientRect();
+      const capBaseline0 =
+        capRect0.top +
+        Number.parseFloat(capStyle.paddingTop || "0") +
+        (capLineHeight - (capAsc + capDesc)) / 2 +
+        capAsc;
+      const capInkTop0 = capBaseline0 - capMetrics.actualBoundingBoxAscent;
+      const topDelta = capInkTop0 - bodyInkTop;
+      let capAdjusted = false;
+
+      if (Math.abs(topDelta) > 0.25) {
+        cap.style.marginTop = `${Number.parseFloat(capStyle.marginTop || "0") - topDelta}px`;
+        void para.offsetHeight;
+        capAdjusted = true;
       }
+
+      // Work from the visible glyph bottom after optical top seating.
+      capStyle = getComputedStyle(cap);
+      const capRect = cap.getBoundingClientRect();
+      const capBaseline =
+        capRect.top +
+        Number.parseFloat(capStyle.paddingTop || "0") +
+        (capLineHeight - (capAsc + capDesc)) / 2 +
+        capAsc;
+      const capInkTop = capBaseline - capMetrics.actualBoundingBoxAscent;
+      const capInkBottom = capBaseline + capMetrics.actualBoundingBoxDescent;
+      const bodyLineBoxTop =
+        firstBodyRect.top - Math.max(0, (bodyLineHeight - firstBodyRect.height) / 2);
+
+      // Same visual rule as Reader: reserve a row only when the painted glyph
+      // actually intersects painted body text on that row. Leading is not ink
+      // and must not create a phantom blank line below the initial.
+      // Read the actual native text rows instead of projecting them from the
+      // first row. Print fonts can quantise line boxes differently enough that a
+      // projected fourth row exists on paper while the compositor paints only
+      // three rows beside the glyph.
+      const nativeRows = new Map<number, { top: number; bottom: number }>();
+      const rowWalker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+      while (rowWalker.nextNode()) {
+        const node = rowWalker.currentNode as Text;
+        if (cap.contains(node) || !node.data.trim()) continue;
+        const rowRange = document.createRange();
+        rowRange.selectNodeContents(node);
+        for (const rect of Array.from(rowRange.getClientRects())) {
+          if (rect.width <= 1 || rect.height <= 1) continue;
+          const key = Math.round(rect.top * 2) / 2;
+          const previous = nativeRows.get(key);
+          nativeRows.set(key, previous
+            ? { top: Math.min(previous.top, rect.top), bottom: Math.max(previous.bottom, rect.bottom) }
+            : { top: rect.top, bottom: rect.bottom });
+        }
+      }
+      const sortedRows = [...nativeRows.values()].sort((a, b) => a.top - b.top);
+      let intersectedInkLines = 0;
+      for (let line = 0; line < Math.min(7, sortedRows.length); line++) {
+        const row = sortedRows[line];
+        const intersectsInk =
+          capInkBottom > row.top + 0.5 &&
+          capInkTop < row.bottom - 0.5;
+        if (intersectsInk) intersectedInkLines = line + 1;
+        else if (row.top >= capInkBottom - 0.5) break;
+      }
+      const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
+
+      const paraRect = para.getBoundingClientRect();
+      const contentLeft =
+        paraRect.left +
+        Number.parseFloat(bodyStyle.borderLeftWidth || "0") +
+        Number.parseFloat(bodyStyle.paddingLeft || "0");
+
+      const wrappedLineCount = () => {
+        const lineLefts = new Map<number, number>();
+        const walker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const node = walker.currentNode as Text;
+          if (cap.contains(node) || !node.data.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of Array.from(range.getClientRects())) {
+            if (rect.width <= 1 || rect.height <= 1) continue;
+            const top = Math.round(rect.top * 2) / 2;
+            const previous = lineLefts.get(top);
+            lineLefts.set(top, previous == null ? rect.left : Math.min(previous, rect.left));
+          }
+        }
+
+        let wrapped = 0;
+        for (const [, left] of [...lineLefts.entries()].sort((a, b) => a[0] - b[0])) {
+          if (left > contentLeft + 1.25) wrapped++;
+          else break;
+        }
+        return wrapped;
+      };
+
+      // Put the float boundary just before the first line that should return to
+      // the normal measure, then calibrate against Chromium's actual wrap.
+      const desiredFloatBottom =
+        bodyLineBoxTop + seatLines * bodyLineHeight - 1.25;
+      let marginBottom = desiredFloatBottom - capRect.bottom;
+      cap.style.marginBottom = `${marginBottom}px`;
+      void para.offsetHeight;
+
+      const step = Math.max(1, bodyLineHeight * 0.10);
+      let wrappedLines = wrappedLineCount();
+      for (let pass = 0; pass < 16 && wrappedLines !== seatLines; pass++) {
+        marginBottom += wrappedLines > seatLines ? -step : step;
+        cap.style.marginBottom = `${marginBottom}px`;
+        void para.offsetHeight;
+        wrappedLines = wrappedLineCount();
+        capAdjusted = true;
+      }
+
+      cap.dataset.folioDropcapLines = String(seatLines);
+      cap.dataset.folioDropcapWrappedLines = String(wrappedLines);
+      cap.dataset.folioDropcapSeated = "true";
+      if (capAdjusted) adjusted++;
     }
+
     return adjusted;
   });
 }

@@ -73,10 +73,10 @@ try {
     const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
     let status = 0; let body = "";
     if (image?.src) { try { const response = await fetch(image.src); status = response.status; if (!response.ok) body = (await response.text()).slice(0, 240); } catch (error) { body = String(error); } }
-    return { ok: Boolean(figure?.querySelector(".editor-illustration-controls") && image?.complete && image.naturalWidth > 0), controls: Boolean(figure?.querySelector(".editor-illustration-controls")), src: image?.src ?? "", complete: image?.complete ?? false, naturalWidth: image?.naturalWidth ?? 0, asset: image?.dataset.folioAsset ?? "", markdown: (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "", status, body, error: document.querySelector(".global-error")?.textContent ?? "" };
+    return { ok: Boolean(figure && image?.complete && image.naturalWidth > 0), resizeHandles: figure?.querySelectorAll(".folio-image-resize").length ?? 0, src: image?.src ?? "", complete: image?.complete ?? false, naturalWidth: image?.naturalWidth ?? 0, asset: image?.dataset.folioAsset ?? "", markdown: (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "", status, body, error: document.querySelector(".global-error")?.textContent ?? "" };
   });
   if (!first.ok) throw new Error("illustration preview diagnostic: " + JSON.stringify(first));
-  check("illustration gets visible scale/crop controls", true);
+  check("illustration hydrates before controls are portal-mounted", true);
 
   await page.waitForFunction(() => {
     const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
@@ -85,8 +85,12 @@ try {
   }, { timeout: 30000 });
   check("new front-matter illustration is visible in live preview", true);
 
+  await page.click(".editor-illustration img[data-folio-asset]");
+  await page.waitForSelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]');
+  check("V2 selects illustration before exposing crop controls", true);
+
   await page.$eval<HTMLInputElement>('[data-folio-control="scale"]', (control) => {
-    control.value = "65";
+    control.value = "60";
     control.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await page.click('[data-folio-control="crop"]');
@@ -97,15 +101,17 @@ try {
   await page.$eval<HTMLInputElement>('[data-folio-control="x"]', (control) => {
     control.value = "25";
     control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.$eval<HTMLInputElement>('[data-folio-control="y"]', (control) => {
     control.value = "75";
     control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
   await page.waitForFunction(() => {
     const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
-    return markdown.includes("width=65%")
+    return markdown.includes("width=60%")
       && markdown.includes(".folio-crop")
       && markdown.includes(".folio-ratio-1-1")
       && markdown.includes("data-folio-x=25")
@@ -119,7 +125,7 @@ try {
     const image = figure?.querySelector<HTMLImageElement>("img");
     return Boolean(
       figure &&
-      Math.abs(parseFloat(figure.style.width || "0") - 65) < 1 &&
+      Math.abs(parseFloat(figure.style.width || "0") - 60) < 1 &&
       image?.style.objectFit === "cover" &&
       (image.style.aspectRatio === "1 / 1" || image.style.aspectRatio === "1/1")
     );
@@ -136,10 +142,10 @@ try {
   });
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
-    const scale = figure?.querySelector<HTMLInputElement>('[data-folio-control="scale"]')?.value;
-    const ratio = figure?.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]')?.value;
+    const scale = figure?.dataset.folioScale;
+    const ratio = figure?.dataset.folioRatio;
     const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
-    return Boolean(figure?.dataset.folioCrop === "true" && scale === "65" && ratio === "1-1" && image?.naturalWidth);
+    return Boolean(figure?.dataset.folioCrop === "true" && scale === "60" && ratio === "1-1" && image?.naturalWidth);
   });
   check("crop and scale survive autosave plus project reload", true);
 } catch (error) {

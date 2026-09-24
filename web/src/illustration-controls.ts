@@ -1,4 +1,44 @@
-function clamp(value: string | undefined, min: number, max: number, fallback: number): number {
+import { applySafeContourToFigure } from "./contour-wrap";
+
+type WrapMode = "none" | "left" | "right";
+type ShapeMode = "box" | "contour";
+
+type DragState = {
+  kind: "move";
+  figure: HTMLElement;
+  editor: HTMLElement;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  moved: boolean;
+};
+
+type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+type ResizeState = {
+  kind: "resize";
+  figure: HTMLElement;
+  editor: HTMLElement;
+  pointerId: number;
+  handle: ResizeHandle;
+  startX: number;
+  startY: number;
+  startWidth: number;
+  startHeight: number;
+  startScale: number;
+  percentBasisWidth: number;
+};
+
+type InteractionState = DragState | ResizeState;
+
+let interaction: InteractionState | null = null;
+let selectedFigure: HTMLElement | null = null;
+let selectedAsset: string | null = null;
+let pendingDirtyFrame = 0;
+let floatingLayer: HTMLElement | null = null;
+let floatingInspector: HTMLElement | null = null;
+
+function clamp(value: string | number | undefined, min: number, max: number, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
 }
@@ -11,9 +51,29 @@ function ratioCss(value: string): string {
   return "4 / 3";
 }
 
-function controlsMarkup(): string {
-  return `<div class="editor-illustration-controls" contenteditable="false">
-    <label><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="5"></label>
+function wrapMode(figure: HTMLElement): WrapMode {
+  if (figure.dataset.folioWrap === "left") return "left";
+  if (figure.dataset.folioWrap === "right") return "right";
+  return "none";
+}
+
+function shapeMode(figure: HTMLElement): ShapeMode {
+  return figure.dataset.folioShape === "contour" ? "contour" : "box";
+}
+
+function inspectorMarkup(): string {
+  return `<div class="editor-illustration-controls folio-image-inspector" contenteditable="false" role="toolbar" aria-label="Illustration">
+    <div class="folio-wrap-group" role="group" aria-label="Text wrap">
+      <button type="button" data-folio-wrap-choice="left" title="Wrap text on the right">Left</button>
+      <button type="button" data-folio-wrap-choice="none" title="Center without text wrap">Center</button>
+      <button type="button" data-folio-wrap-choice="right" title="Wrap text on the left">Right</button>
+    </div>
+    <label class="folio-size-slider" title="Illustration width"><span>Size</span><input data-folio-control="scale" type="range" min="25" max="100" step="1"></label>
+    <div class="folio-shape-group" role="group" aria-label="Wrap shape">
+      <button type="button" data-folio-shape-choice="box" title="Wrap around the image rectangle">Box</button>
+      <button type="button" data-folio-shape-choice="contour" title="Wrap around transparent PNG pixels">Contour</button>
+    </div>
+    <label class="folio-gap-slider" title="Distance between text and illustration contour"><span>Gap</span><input data-folio-control="gap" type="range" min="25" max="200" step="5"></label>
     <button type="button" data-folio-control="crop" aria-pressed="false">Crop</button>
     <select data-folio-control="ratio" aria-label="Crop ratio">
       <option value="1-1">1:1</option>
@@ -22,104 +82,576 @@ function controlsMarkup(): string {
       <option value="2-3">2:3</option>
       <option value="16-9">16:9</option>
     </select>
-    <label class="crop-axis"><span>X</span><input data-folio-control="x" type="range" min="0" max="100" step="5"></label>
-    <label class="crop-axis"><span>Y</span><input data-folio-control="y" type="range" min="0" max="100" step="5"></label>
+    <label class="crop-axis" title="Crop horizontal focus"><span>X</span><input data-folio-control="x" type="range" min="0" max="100" step="5"></label>
+    <label class="crop-axis" title="Crop vertical focus"><span>Y</span><input data-folio-control="y" type="range" min="0" max="100" step="5"></label>
+    <span class="folio-image-size" aria-live="polite"></span>
   </div>`;
+}
+
+function ensureFloatingInspector(): HTMLElement | null {
+  if (floatingInspector?.isConnected && floatingLayer?.isConnected) return floatingInspector;
+
+  const shell = document.querySelector<HTMLElement>(".folio-shell[data-ui-tone], .folio-shell");
+  if (!shell || !document.body) return null;
+
+  const layer = document.createElement("div");
+  layer.className = "folio-illustration-overlay";
+  layer.setAttribute("aria-live", "off");
+  layer.contentEditable = "false";
+  layer.insertAdjacentHTML("beforeend", inspectorMarkup());
+  document.body.appendChild(layer);
+
+  const inspector = layer.querySelector<HTMLElement>(".folio-image-inspector");
+  if (!inspector) {
+    layer.remove();
+    return null;
+  }
+
+  // The portal lives under <body>, outside every transformed/clipped editor and
+  // preview pane. Copy only the studio theme tokens it needs.
+  const computed = getComputedStyle(shell);
+  for (const token of [
+    "--studio-accent",
+    "--studio-accent-soft",
+    "--studio-rule",
+    "--studio-rule-strong",
+    "--studio-surface",
+    "--studio-control",
+    "--studio-ink",
+    "--studio-muted",
+  ]) {
+    const value = computed.getPropertyValue(token);
+    if (value) layer.style.setProperty(token, value);
+  }
+
+  floatingLayer = layer;
+  floatingInspector = inspector;
+  return inspector;
+}
+
+function positionInspector(figure: HTMLElement | null): void {
+  if (!figure?.isConnected || selectedFigure !== figure) return;
+  const inspector = ensureFloatingInspector();
+  if (!inspector) return;
+  const rect = figure.getBoundingClientRect();
+  const editor = figure.closest<HTMLElement>(".rich-editor");
+  const editorRect = editor?.getBoundingClientRect();
+  const leftBoundary = Math.max(8, editorRect?.left ?? 8);
+  const rightBoundary = Math.min(window.innerWidth - 8, editorRect?.right ?? window.innerWidth - 8);
+  const availableWidth = Math.max(220, rightBoundary - leftBoundary);
+  const width = Math.min(720, availableWidth);
+  inspector.style.setProperty("position", "fixed", "important");
+  inspector.style.setProperty("width", "max-content", "important");
+  inspector.style.setProperty("max-width", `${width}px`, "important");
+  const measured = inspector.getBoundingClientRect();
+  const inspectorWidth = Math.min(width, Math.max(220, measured.width || width));
+  const left = Math.max(leftBoundary, Math.min(rightBoundary - inspectorWidth, rect.left));
+  const above = rect.top - Math.max(42, measured.height + 8);
+  const top = above >= 8 ? above : Math.min(window.innerHeight - Math.max(44, measured.height) - 8, rect.bottom + 8);
+  const desiredLeft = Math.round(left);
+  const desiredTop = Math.round(Math.max(8, top));
+  inspector.style.setProperty("left", `${desiredLeft}px`, "important");
+  inspector.style.setProperty("top", `${desiredTop}px`, "important");
+
+}
+
+function selectFigure(figure: HTMLElement | null): void {
+  const inspector = ensureFloatingInspector();
+  if (selectedFigure === figure) {
+    if (figure) {
+      selectedAsset = figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? selectedAsset;
+      inspector?.setAttribute("data-open", "true");
+      refreshFigure(figure);
+      requestAnimationFrame(() => positionInspector(figure));
+    } else {
+      inspector?.removeAttribute("data-open");
+    }
+    return;
+  }
+  selectedFigure?.classList.remove("folio-image-selected");
+  selectedFigure = figure;
+  selectedAsset = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? null;
+  selectedFigure?.classList.add("folio-image-selected");
+
+  if (figure) {
+    inspector?.setAttribute("data-open", "true");
+    refreshFigure(figure);
+    requestAnimationFrame(() => positionInspector(figure));
+  } else {
+    inspector?.removeAttribute("data-open");
+  }
+}
+
+function applyWrapLayout(figure: HTMLElement, image: HTMLImageElement): void {
+  const wrap = wrapMode(figure);
+  const shape = shapeMode(figure);
+  const gap = clamp(figure.dataset.folioGap, 25, 200, 65);
+  const crop = figure.dataset.folioCrop === "true";
+  figure.classList.toggle("folio-wrap-left", wrap === "left");
+  figure.classList.toggle("folio-wrap-right", wrap === "right");
+  figure.classList.toggle("folio-wrap-none", wrap === "none");
+  figure.classList.toggle("folio-shape-contour", shape === "contour");
+
+  const opener = figure.classList.contains("folio-chapter-opener-editor");
+  if (opener) {
+    // Chapter-opening artwork is alignment-only. Never start a float or contour
+    // pass here: either can make the first paragraph enter the image's geometry.
+    figure.style.float = "none";
+    figure.style.removeProperty("shape-outside");
+    figure.style.removeProperty("shape-image-threshold");
+    figure.style.removeProperty("shape-margin");
+    delete figure.dataset.folioContourReady;
+    if (wrap === "left") figure.style.margin = "0 auto .55em 0";
+    else if (wrap === "right") figure.style.margin = "0 0 .55em auto";
+    else figure.style.margin = "0 auto .55em";
+    return;
+  }
+
+  figure.style.float = wrap === "none" ? "none" : wrap;
+
+  /* V4 never trusts browser alpha wrapping directly. Until the safety polygon
+   * is ready, keep a conservative rectangle. The async contour pass then
+   * replaces it with a dilated polygon that cannot touch visible artwork. */
+  const useContour = wrap !== "none" && shape === "contour" && !crop;
+  if (useContour) {
+    figure.style.margin = wrap === "left" ? "0.16em 1.05em .72em 0" : "0.16em 0 .72em 1.05em";
+    // Editor safety rule: never let manuscript glyphs enter the image's
+    // bounding box. Reader/Print/PDF still receive the stored contour metadata
+    // and calculate the professional alpha contour there.
+    figure.style.setProperty("shape-outside", "inset(0)");
+    figure.style.setProperty("shape-margin", "0px");
+    figure.style.removeProperty("shape-image-threshold");
+    delete figure.dataset.folioContourReady;
+  } else {
+    figure.style.removeProperty("shape-outside");
+    figure.style.removeProperty("shape-image-threshold");
+    figure.style.removeProperty("shape-margin");
+    delete figure.dataset.folioContourReady;
+    if (wrap === "left") figure.style.margin = "0.22em 1.05em .8em 0";
+    else if (wrap === "right") figure.style.margin = "0.22em 0 .8em 1.05em";
+    else figure.style.margin = "1em auto";
+  }
 }
 
 function refreshFigure(figure: HTMLElement): void {
   const image = figure.querySelector<HTMLImageElement>("img[data-folio-asset]");
   if (!image) return;
-  const scale = clamp(figure.dataset.folioScale, 25, 100, 100);
+
+  const wrap = wrapMode(figure);
+  const maxScale = wrap === "none" ? 100 : 60;
+  const scale = clamp(figure.dataset.folioScale, 18, maxScale, 42);
   const crop = figure.dataset.folioCrop === "true";
   const ratio = figure.dataset.folioRatio || "4-3";
   const x = clamp(figure.dataset.folioX, 0, 100, 50);
   const y = clamp(figure.dataset.folioY, 0, 100, 50);
+  const shape = shapeMode(figure);
+  const gap = clamp(figure.dataset.folioGap, 25, 200, 65);
 
-  figure.dataset.folioScale = String(scale);
+  figure.dataset.folioScale = String(Math.round(scale));
   figure.dataset.folioCrop = String(crop);
   figure.dataset.folioRatio = ratio;
-  figure.dataset.folioX = String(x);
-  figure.dataset.folioY = String(y);
+  figure.dataset.folioX = String(Math.round(x));
+  figure.dataset.folioY = String(Math.round(y));
+  figure.dataset.folioWrap = wrap;
+  figure.dataset.folioShape = shape;
+  figure.dataset.folioGap = String(Math.round(gap));
   figure.style.width = `${scale}%`;
+  applyWrapLayout(figure, image);
 
+  image.draggable = false;
   image.style.width = "100%";
   image.style.height = "auto";
   image.style.aspectRatio = crop ? ratioCss(ratio) : "auto";
   image.style.objectFit = crop ? "cover" : "contain";
   image.style.objectPosition = crop ? `${x}% ${y}%` : "50% 50%";
 
-  const scaleInput = figure.querySelector<HTMLInputElement>('[data-folio-control="scale"]');
-  const ratioInput = figure.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]');
-  const xInput = figure.querySelector<HTMLInputElement>('[data-folio-control="x"]');
-  const yInput = figure.querySelector<HTMLInputElement>('[data-folio-control="y"]');
-  const cropButton = figure.querySelector<HTMLButtonElement>('[data-folio-control="crop"]');
-  if (scaleInput) scaleInput.value = String(scale);
-  if (ratioInput) { ratioInput.value = ratio; ratioInput.disabled = !crop; }
-  if (xInput) { xInput.value = String(x); xInput.disabled = !crop; }
-  if (yInput) { yInput.value = String(y); yInput.disabled = !crop; }
-  if (cropButton) {
-    // MutationObserver watches child-list changes. Assigning textContent on every
-    // hydration creates a self-triggering microtask loop that can freeze the UI
-    // immediately after an illustration is inserted. Keep DOM writes idempotent.
-    const label = crop ? "Crop on" : "Crop";
-    if (cropButton.textContent !== label) cropButton.textContent = label;
-    if (cropButton.getAttribute("aria-pressed") !== String(crop)) cropButton.setAttribute("aria-pressed", String(crop));
+  figure.querySelectorAll<HTMLButtonElement>("[data-folio-wrap-choice]").forEach((button) => {
+    const active = button.dataset.folioWrapChoice === wrap;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  figure.querySelectorAll<HTMLButtonElement>("[data-folio-shape-choice]").forEach((button) => {
+    const active = button.dataset.folioShapeChoice === shape;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+    button.disabled = crop && button.dataset.folioShapeChoice === "contour";
+  });
+
+  const inspector = selectedFigure === figure ? ensureFloatingInspector() : null;
+  const scaleInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="scale"]') ?? null;
+  const gapInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="gap"]') ?? null;
+  const ratioInput = inspector?.querySelector<HTMLSelectElement>('[data-folio-control="ratio"]') ?? null;
+  const xInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="x"]') ?? null;
+  const yInput = inspector?.querySelector<HTMLInputElement>('[data-folio-control="y"]') ?? null;
+  const cropButton = inspector?.querySelector<HTMLButtonElement>('[data-folio-control="crop"]') ?? null;
+  const size = inspector?.querySelector<HTMLElement>(".folio-image-size") ?? null;
+
+  if (scaleInput) scaleInput.value = String(Math.round(scale));
+  if (gapInput) {
+    gapInput.value = String(Math.round(gap));
+    gapInput.disabled = wrap === "none" || shape !== "contour" || crop;
   }
+  if (ratioInput) {
+    ratioInput.value = ratio;
+    ratioInput.disabled = !crop;
+  }
+  if (xInput) {
+    xInput.value = String(Math.round(x));
+    xInput.disabled = !crop;
+  }
+  if (yInput) {
+    yInput.value = String(Math.round(y));
+    yInput.disabled = !crop;
+  }
+  if (cropButton) {
+    cropButton.setAttribute("aria-pressed", String(crop));
+    cropButton.classList.toggle("active", crop);
+  }
+  if (size) { const label = `${Math.round(scale)}%`; if (size.textContent !== label) size.textContent = label; }
+  if (scaleInput) scaleInput.max = wrap === "none" ? "100" : "60";
+  if (figure.classList.contains("folio-image-selected")) requestAnimationFrame(() => positionInspector(figure));
 }
 
 function hydrateFigure(figure: HTMLElement): void {
-  if (!figure.dataset.folioScale) figure.dataset.folioScale = "100";
+  if (!figure.dataset.folioScale) figure.dataset.folioScale = "42";
   if (!figure.dataset.folioCrop) figure.dataset.folioCrop = "false";
   if (!figure.dataset.folioRatio) figure.dataset.folioRatio = "4-3";
   if (!figure.dataset.folioX) figure.dataset.folioX = "50";
   if (!figure.dataset.folioY) figure.dataset.folioY = "50";
-  if (!figure.querySelector(".editor-illustration-controls")) {
-    figure.insertAdjacentHTML("beforeend", controlsMarkup());
+  if (!figure.dataset.folioWrap) figure.dataset.folioWrap = "right";
+  if (!figure.dataset.folioShape) figure.dataset.folioShape = "box";
+  if (!figure.dataset.folioGap) figure.dataset.folioGap = "65";
+
+  // V5 used to inject the inspector into the contenteditable <figure>. That
+  // makes position:fixed vulnerable to editor transforms, overflow clipping and
+  // preview stacking contexts. Remove legacy copies; the real inspector is a
+  // single body-level portal created by ensureFloatingInspector().
+  figure.querySelectorAll(".editor-illustration-controls").forEach((controls) => controls.remove());
+
+  if (!figure.querySelector(".folio-image-resize")) {
+    const handles: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+    for (const handleName of handles) {
+      const resize = document.createElement("button");
+      resize.type = "button";
+      resize.className = `folio-image-resize folio-image-resize-${handleName}`;
+      resize.dataset.folioResize = handleName;
+      resize.setAttribute("aria-label", `Resize illustration ${handleName}`);
+      resize.title = "Drag to resize";
+      resize.contentEditable = "false";
+      figure.appendChild(resize);
+    }
   }
+
+  figure.setAttribute("tabindex", "0");
   refreshFigure(figure);
+
+  // React can replace the entire editable figure after a DOM -> Markdown ->
+  // DOM round-trip. Preserve selection by the stable project asset so resize
+  // handles do not disappear under the user's pointer.
+  const asset = figure.querySelector<HTMLImageElement>("img[data-folio-asset]")?.dataset.folioAsset ?? null;
+  if (selectedAsset && asset === selectedAsset && selectedFigure !== figure) {
+    if (!selectedFigure?.isConnected || selectedFigure.dataset.folioIllustration === "true") {
+      selectedFigure?.classList.remove("folio-image-selected");
+      selectedFigure = figure;
+      figure.classList.add("folio-image-selected");
+    }
+  }
+}
+
+function syncChapterOpener(editor: HTMLElement, refreshChanged = true): void {
+  const blocks = Array.from(editor.children).filter((node): node is HTMLElement => {
+    if (!(node instanceof HTMLElement) || node.classList.contains("folio-drag-placeholder")) return false;
+    if (node.tagName === "P" && !(node.textContent?.trim()) && !node.querySelector("img")) return false;
+    return true;
+  });
+  const opener = blocks[0]?.classList.contains("editor-illustration") ? blocks[0] : null;
+  editor.querySelectorAll<HTMLElement>(":scope > .editor-illustration").forEach((figure) => {
+    const shouldBeOpener = figure === opener;
+    const changed = figure.classList.contains("folio-chapter-opener-editor") !== shouldBeOpener;
+    figure.classList.toggle("folio-chapter-opener-editor", shouldBeOpener);
+    if (changed && refreshChanged && figure.querySelector("img[data-folio-asset]")) refreshFigure(figure);
+  });
 }
 
 function hydrateAll(): void {
+  // Classification must happen BEFORE hydration. V6 hydrated a new top image as
+  // a normal float/contour and only afterwards called it an opener.
+  document.querySelectorAll<HTMLElement>(".rich-editor").forEach((editor) => syncChapterOpener(editor, false));
   document.querySelectorAll<HTMLElement>(".rich-editor .editor-illustration").forEach(hydrateFigure);
 }
 
-function markDirty(figure: HTMLElement): void {
-  refreshFigure(figure);
+function dispatchDirty(figure: HTMLElement, immediate = false): void {
   const editor = figure.closest<HTMLElement>(".rich-editor");
-  editor?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatSetBlockTextDirection" }));
+  if (!editor) return;
+  const fire = () => {
+    pendingDirtyFrame = 0;
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertReplacementText" }));
+  };
+  if (immediate) {
+    if (pendingDirtyFrame) cancelAnimationFrame(pendingDirtyFrame);
+    fire();
+    return;
+  }
+  if (!pendingDirtyFrame) pendingDirtyFrame = requestAnimationFrame(fire);
 }
 
-function updateFromControl(control: HTMLElement, figure: HTMLElement): void {
+function setWrap(figure: HTMLElement, wrap: WrapMode, dirty = true): void {
+  figure.dataset.folioWrap = wrap;
+  refreshFigure(figure);
+  if (dirty) dispatchDirty(figure);
+}
+
+function updateControl(control: HTMLElement, figure: HTMLElement, commit: boolean): void {
   const kind = control.dataset.folioControl;
-  if (kind === "scale" && control instanceof HTMLInputElement) figure.dataset.folioScale = String(clamp(control.value, 25, 100, 100));
+  if (kind === "scale" && control instanceof HTMLInputElement) figure.dataset.folioScale = String(clamp(control.value, 25, 100, 42));
+  if (kind === "gap" && control instanceof HTMLInputElement) figure.dataset.folioGap = String(clamp(control.value, 25, 200, 65));
   if (kind === "ratio" && control instanceof HTMLSelectElement) figure.dataset.folioRatio = control.value || "4-3";
   if (kind === "x" && control instanceof HTMLInputElement) figure.dataset.folioX = String(clamp(control.value, 0, 100, 50));
   if (kind === "y" && control instanceof HTMLInputElement) figure.dataset.folioY = String(clamp(control.value, 0, 100, 50));
-  markDirty(figure);
+  refreshFigure(figure);
+  if (commit) dispatchDirty(figure, true);
+}
+
+function topLevelBlocks(editor: HTMLElement, figure: HTMLElement): HTMLElement[] {
+  return Array.from(editor.children)
+    .filter((node): node is HTMLElement => node instanceof HTMLElement && node !== figure && !node.classList.contains("folio-drag-placeholder"));
+}
+
+function reanchorAtPointer(editor: HTMLElement, figure: HTMLElement, clientY: number): void {
+  const blocks = topLevelBlocks(editor, figure);
+  let target: HTMLElement | null = null;
+  let after = false;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const block of blocks) {
+    const rect = block.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    const distance = Math.abs(clientY - mid);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      target = block;
+      after = clientY >= mid;
+    }
+  }
+
+  if (!target) {
+    editor.appendChild(figure);
+    syncChapterOpener(editor);
+    return;
+  }
+  if (after) target.insertAdjacentElement("afterend", figure);
+  else editor.insertBefore(figure, target);
+  syncChapterOpener(editor);
+}
+
+function wrapFromPointer(editor: HTMLElement, clientX: number): WrapMode {
+  const rect = editor.getBoundingClientRect();
+  const t = (clientX - rect.left) / Math.max(1, rect.width);
+  if (t < 0.44) return "left";
+  if (t > 0.56) return "right";
+  return "none";
+}
+
+function beginMove(event: PointerEvent, figure: HTMLElement, editor: HTMLElement): void {
+  selectFigure(figure);
+  interaction = {
+    kind: "move",
+    figure,
+    editor,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    moved: false,
+  };
+  figure.setPointerCapture?.(event.pointerId);
+}
+
+function moveIllustration(event: PointerEvent, state: DragState): void {
+  const distance = Math.hypot(event.clientX - state.startX, event.clientY - state.startY);
+  if (!state.moved && distance < 4) return;
+  state.moved = true;
+  state.figure.classList.add("folio-image-dragging");
+
+  reanchorAtPointer(state.editor, state.figure, event.clientY);
+  setWrap(state.figure, wrapFromPointer(state.editor, event.clientX), false);
+}
+
+function resizeIllustration(event: PointerEvent, state: ResizeState): void {
+  const wrap = wrapMode(state.figure);
+  const dx = event.clientX - state.startX;
+  const dy = event.clientY - state.startY;
+  const aspect = Math.max(0.05, state.startWidth / Math.max(1, state.startHeight));
+  const horizontalDirection = state.handle.includes("w") ? -1 : state.handle.includes("e") ? 1 : 0;
+  const verticalDirection = state.handle.includes("n") ? -1 : state.handle.includes("s") ? 1 : 0;
+
+  const widthFromX = horizontalDirection
+    ? state.startWidth + dx * horizontalDirection
+    : state.startWidth;
+  const widthFromY = verticalDirection
+    ? state.startWidth + dy * verticalDirection * aspect
+    : state.startWidth;
+
+  let widthPx = state.startWidth;
+  if (horizontalDirection && verticalDirection) {
+    // Corners preserve the image's intrinsic proportions and use whichever
+    // pointer axis represents the stronger intentional resize.
+    const xDelta = Math.abs(widthFromX - state.startWidth);
+    const yDelta = Math.abs(widthFromY - state.startWidth);
+    widthPx = xDelta >= yDelta ? widthFromX : widthFromY;
+  } else if (horizontalDirection) {
+    widthPx = widthFromX;
+  } else if (verticalDirection) {
+    widthPx = widthFromY;
+  }
+
+  const maxPercent = wrap === "none" ? 100 : 76;
+  const percent = clamp((widthPx / Math.max(1, state.percentBasisWidth)) * 100, 20, maxPercent, state.startScale);
+  state.figure.dataset.folioScale = String(Math.round(percent * 10) / 10);
+  refreshFigure(state.figure);
+}
+
+function finishInteraction(event: PointerEvent): void {
+  if (!interaction || interaction.pointerId !== event.pointerId) return;
+  const state = interaction;
+  interaction = null;
+  state.figure.classList.remove("folio-image-dragging", "folio-image-resizing");
+  state.figure.releasePointerCapture?.(event.pointerId);
+  dispatchDirty(state.figure, true);
 }
 
 export function installIllustrationControls(): void {
   const observer = new MutationObserver(hydrateAll);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   requestAnimationFrame(hydrateAll);
+  const repositionSelected = () => positionInspector(selectedFigure);
+  window.addEventListener("resize", repositionSelected);
+  document.addEventListener("scroll", repositionSelected, true);
+
+  document.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement | null;
+    const resize = target?.closest<HTMLElement>(".folio-image-resize");
+    const fromInspector = Boolean(target?.closest(".folio-image-inspector"));
+    const figure = fromInspector ? selectedFigure : target?.closest<HTMLElement>(".editor-illustration") ?? null;
+    const editor = figure?.closest<HTMLElement>(".rich-editor");
+    if (!figure || !editor) return;
+
+    if (resize) {
+      event.preventDefault();
+      event.stopPropagation();
+      selectFigure(figure);
+      const handle = (resize.dataset.folioResize || "se") as ResizeHandle;
+      const rect = figure.getBoundingClientRect();
+      interaction = {
+        kind: "resize",
+        figure,
+        editor,
+        pointerId: event.pointerId,
+        handle,
+        startX: event.clientX,
+        startY: event.clientY,
+        startWidth: rect.width,
+        startHeight: rect.height,
+        startScale: clamp(figure.dataset.folioScale, 20, 100, 42),
+        percentBasisWidth: rect.width / Math.max(0.01, clamp(figure.dataset.folioScale, 20, 100, 42) / 100),
+      };
+      figure.classList.add("folio-image-resizing");
+      figure.setPointerCapture?.(event.pointerId);
+      return;
+    }
+
+    if (target?.closest(".folio-image-inspector,.editor-illustration-remove")) {
+      selectFigure(figure);
+      return;
+    }
+
+    if (target?.matches("img[data-folio-asset]")) {
+      event.preventDefault();
+      beginMove(event, figure, editor);
+      return;
+    }
+
+    selectFigure(figure);
+  }, true);
+
+  document.addEventListener("pointermove", (event) => {
+    if (!interaction || interaction.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    if (interaction.kind === "move") moveIllustration(event, interaction);
+    else resizeIllustration(event, interaction);
+  }, true);
+
+  document.addEventListener("pointerup", finishInteraction, true);
+  document.addEventListener("pointercancel", finishInteraction, true);
 
   document.addEventListener("click", (event) => {
     const target = event.target as HTMLElement | null;
-    const control = target?.closest<HTMLElement>('[data-folio-control="crop"]');
-    const figure = control?.closest<HTMLElement>(".editor-illustration");
-    if (!control || !figure) return;
-    event.preventDefault();
-    figure.dataset.folioCrop = figure.dataset.folioCrop === "true" ? "false" : "true";
-    markDirty(figure);
+    const fromInspector = Boolean(target?.closest(".folio-image-inspector"));
+    const figure = fromInspector ? selectedFigure : target?.closest<HTMLElement>(".editor-illustration") ?? null;
+
+    const wrapButton = target?.closest<HTMLButtonElement>("[data-folio-wrap-choice]");
+    if (figure && wrapButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      const mode = wrapButton.dataset.folioWrapChoice;
+      setWrap(figure, mode === "left" ? "left" : mode === "right" ? "right" : "none");
+      selectFigure(figure);
+      return;
+    }
+
+    const shapeButton = target?.closest<HTMLButtonElement>("[data-folio-shape-choice]");
+    if (figure && shapeButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (shapeButton.disabled) return;
+      figure.dataset.folioShape = shapeButton.dataset.folioShapeChoice === "contour" ? "contour" : "box";
+      refreshFigure(figure);
+      dispatchDirty(figure, true);
+      selectFigure(figure);
+      return;
+    }
+
+    const cropButton = target?.closest<HTMLButtonElement>('[data-folio-control="crop"]');
+    if (figure && cropButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      figure.dataset.folioCrop = figure.dataset.folioCrop === "true" ? "false" : "true";
+      if (figure.dataset.folioCrop === "true" && figure.dataset.folioShape === "contour") figure.dataset.folioShape = "box";
+      refreshFigure(figure);
+      dispatchDirty(figure, true);
+      selectFigure(figure);
+      return;
+    }
+
+    if (figure) {
+      selectFigure(figure);
+      return;
+    }
+    if (!target?.closest(".illustration-button,.illustration-input")) selectFigure(null);
   }, true);
 
   const onValue = (event: Event) => {
     const control = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-folio-control]");
-    const figure = control?.closest<HTMLElement>(".editor-illustration");
+    const figure = control?.closest(".folio-image-inspector") ? selectedFigure : control?.closest<HTMLElement>(".editor-illustration") ?? null;
     if (!control || !figure || control.dataset.folioControl === "crop") return;
-    updateFromControl(control, figure);
+    // The inspector is portal-mounted outside contenteditable. Stop propagation
+    // anyway so only the explicit synthetic editor input commits manuscript
+    // state when the user releases the control.
+    event.stopPropagation();
+    updateControl(control, figure, event.type === "change");
   };
   document.addEventListener("input", onValue, true);
   document.addEventListener("change", onValue, true);
+
+  document.addEventListener("keydown", (event) => {
+    if (!selectedFigure || (event.key !== "Delete" && event.key !== "Backspace")) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.matches("input,textarea,select") || target?.closest("input,textarea,select")) return;
+    event.preventDefault();
+    const figure = selectedFigure;
+    selectFigure(null);
+    const editor = figure.closest<HTMLElement>(".rich-editor");
+    figure.remove();
+    editor?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+  }, true);
 }

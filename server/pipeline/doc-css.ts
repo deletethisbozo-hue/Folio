@@ -96,6 +96,18 @@ function typographyCss(book: Book): string {
   const ty = book.typography ?? {};
   const out: string[] = [];
 
+  const dropcapSizes = {
+    small: { screen: "3em", print: "5em" },
+    large: { screen: "4.5em", print: "7em" },
+  } as const;
+  if (ty.dropcapSize) {
+    const size = dropcapSizes[ty.dropcapSize];
+    out.push(`:root { --folio-dropcap-user-size: ${size.screen}; --folio-dropcap-print-size: ${size.print}; }`);
+  }
+  if (ty.dropcapFont) {
+    out.push(`.dropcap { font-family: ${familyValue(ty.dropcapFont)} !important; }`);
+  }
+
   const bodyDecls: string[] = [];
   if (ty.bodyFont) bodyDecls.push(`font-family: ${familyValue(ty.bodyFont)} !important;`);
   // !important so the author's size/leading survive the print path, where
@@ -148,6 +160,27 @@ function typographyCss(book: Book): string {
 
   if (ty.headingFont) {
     out.push(`h1, h2, h3, section.chapter > h1, h1.chapter { font-family: ${familyValue(ty.headingFont)} !important; }`);
+
+    // Jena Gotisch has unusually generous swashes/overhangs and very tight
+    // built-in spacing. Theme heading rules written for ordinary display faces
+    // (notably Grimoire's 500 weight + 1.05 leading) make it collide with itself
+    // and visibly escape decorative frames. Keep the theme's size/alignment,
+    // but give this face sane optical metrics and disable synthetic medium bold.
+    if (ty.headingFont === "Folio Jena Gotisch") {
+      out.push(`
+h1, h2, h3, section.chapter > h1, h1.chapter {
+  font-weight: 400 !important;
+  font-kerning: none;
+  letter-spacing: 0.055em !important;
+  line-height: 1.16 !important;
+}
+section.chapter > h1, h1.chapter {
+  box-sizing: border-box;
+  padding-left: 1em !important;
+  padding-right: 1em !important;
+  text-wrap: balance;
+}`);
+    }
   }
 
   const ct = ty.chapterTitle;
