@@ -202,10 +202,18 @@ for (const [label, size] of printSizes) {
       if (vertical && horizontal) collisions.push(index);
     });
 
+    const paraStyle = getComputedStyle(para);
+    const firstWrappedLeftDelta =
+      rows.length >= 2 && wrappedLines >= 2
+        ? Math.abs(rows[0].left - rows[1].left)
+        : 0;
+
     return {
       nativeFloat: capStyle.float,
       position: capStyle.position,
       composed: para.classList.contains("folio-composed"),
+      textIndent: paraStyle.textIndent,
+      firstWrappedLeftDelta,
       capLines: Number(cap.dataset.folioDropcapLines || 0),
       wrappedLines,
       inkRows,
@@ -225,6 +233,8 @@ for (const [label, size] of printSizes) {
     geometry.nativeFloat === "left" &&
     geometry.position !== "absolute" &&
     geometry.composed === false &&
+    Math.abs(parseFloat(geometry.textIndent)) < 0.05 &&
+    geometry.firstWrappedLeftDelta <= 1.5 &&
     geometry.capLines >= 2 &&
     geometry.wrappedLines === geometry.capLines &&
     geometry.wrappedLines === geometry.inkRows &&
