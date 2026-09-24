@@ -1,0 +1,386 @@
+/* Folio 2.2 — unified light UI
+ * Loaded last. This layer only owns product chrome; book/theme rendering stays untouched.
+ */
+
+.folio-shell[data-ui-tone="ivory"] {
+  --studio-bg: #f2f3f5;
+  --studio-chrome: #fbfcfe;
+  --studio-sidebar: #e9ebf0;
+  --studio-surface: #ffffff;
+  --studio-paper: #ffffff;
+  --studio-editor-canvas: #f3f5f8;
+  --studio-preview: #eef1f4;
+  --studio-preview-chrome: #fbfcfe;
+  --studio-preview-ink: #14161a;
+  --studio-preview-muted: #6a717c;
+  --studio-preview-rule: #d5d9e0;
+  --studio-preview-control: #ffffff;
+  --studio-preview-hover: #eef0ff;
+  --studio-preview-scrollbar: #aeb6c3;
+  --studio-ink: #14161a;
+  --studio-muted: #6a717c;
+  --studio-faint: #98a1b0;
+  --studio-rule: #d5d9e0;
+  --studio-rule-strong: #c7cdd8;
+  --studio-accent: #5b5ce2;
+  --studio-accent-soft: #eef0ff;
+  --studio-danger: #b84b52;
+  --studio-control: #ffffff;
+
+  --mockup-app: #f2f3f5;
+  --mockup-chrome: #fbfcfe;
+  --mockup-sidebar: #e9ebf0;
+  --mockup-paper: #ffffff;
+  --mockup-canvas: #f3f5f8;
+  --mockup-preview: #eef1f4;
+  --mockup-rule: #d5d9e0;
+  --mockup-rule-strong: #c7cdd8;
+  --mockup-ink: #14161a;
+  --mockup-muted: #6a717c;
+  --mockup-faint: #98a1b0;
+  --mockup-accent: #5b5ce2;
+  --mockup-accent-soft: #eef0ff;
+  --mockup-danger: #b84b52;
+  --mockup-control: #ffffff;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar,
+.folio-shell[data-ui-tone="ivory"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"] .section-titlebar,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar,
+.folio-shell[data-ui-tone="ivory"] .preview-topbar,
+.folio-shell[data-ui-tone="ivory"] .device-toolbar,
+.folio-shell[data-ui-tone="ivory"] .writing-split-header,
+.folio-shell[data-ui-tone="ivory"] .writing-split-toolbar {
+  background: #fbfcfe !important;
+  border-color: #d5d9e0 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-pane {
+  background: #e9ebf0 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-pane,
+.folio-shell[data-ui-tone="ivory"] .style-content,
+.folio-shell[data-ui-tone="ivory"] .dialog-body {
+  background: #ffffff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-pane,
+.folio-shell[data-ui-tone="ivory"] .preview-stage {
+  background: #eef1f4 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row {
+  color: #5f6774 !important;
+  border-radius: 6px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row:hover {
+  background: #f4f5fa !important;
+  color: #262a31 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected {
+  background: #e7e9ff !important;
+  color: #20222b !important;
+  box-shadow: inset 3px 0 0 #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .chapter-number,
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .folio-nav-icon,
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .chapter-grip {
+  color: #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch {
+  border-color: #d5d9e0 !important;
+  background: #f3f5f8 !important;
+  border-radius: 8px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button.active {
+  background: #ffffff !important;
+  color: #4f50d3 !important;
+  box-shadow: 0 0 0 1px #cfd3ff, 0 2px 5px rgba(36, 39, 70, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav button:focus-visible,
+.folio-shell[data-ui-tone="ivory"] .tone-toggle:focus-visible,
+.folio-shell[data-ui-tone="ivory"] button:focus-visible,
+.folio-shell[data-ui-tone="ivory"] input:focus-visible,
+.folio-shell[data-ui-tone="ivory"] textarea:focus-visible,
+.folio-shell[data-ui-tone="ivory"] select:focus-visible {
+  outline: 2px solid rgba(91, 92, 226, .35) !important;
+  outline-offset: 2px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-title-input,
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-input,
+.folio-shell[data-ui-tone="ivory"] .dialog-field input,
+.folio-shell[data-ui-tone="ivory"] .dialog-field textarea,
+.folio-shell[data-ui-tone="ivory"] .dialog-field select,
+.folio-shell[data-ui-tone="ivory"] .setting-control input,
+.folio-shell[data-ui-tone="ivory"] .setting-control select,
+.folio-shell[data-ui-tone="ivory"] .customize-row select,
+.folio-shell[data-ui-tone="ivory"] .customize-row input:not([type="checkbox"]),
+.folio-shell[data-ui-tone="ivory"] .writing-split-title select,
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select {
+  border-color: #c7cdd8 !important;
+  background: #ffffff !important;
+  color: #14161a !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-title-input:focus,
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-input:focus,
+.folio-shell[data-ui-tone="ivory"] .dialog-field input:focus,
+.folio-shell[data-ui-tone="ivory"] .dialog-field textarea:focus,
+.folio-shell[data-ui-tone="ivory"] .customize-row select:focus,
+.folio-shell[data-ui-tone="ivory"] .customize-row input:focus {
+  border-color: #7778ed !important;
+  box-shadow: 0 0 0 3px rgba(91, 92, 226, .13) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button {
+  min-height: 34px !important;
+  padding-inline: 13px !important;
+  border: 1px solid #c7cdd8 !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  color: #20242b !important;
+  box-shadow: 0 1px 2px rgba(20, 22, 26, .04) !important;
+  font-weight: 620 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button:hover:not(:disabled) {
+  border-color: #aeb6c3 !important;
+  background: #f7f8fb !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button.primary {
+  border-color: #5b5ce2 !important;
+  background: #5b5ce2 !important;
+  color: #ffffff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button.primary:hover:not(:disabled) {
+  border-color: #4d4eca !important;
+  background: #4d4eca !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button {
+  border-color: #20242b !important;
+  background: #20242b !important;
+  color: #ffffff !important;
+  border-radius: 7px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button:hover {
+  border-color: #111317 !important;
+  background: #111317 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog,
+.folio-shell[data-ui-tone="ivory"] .style-library {
+  border-color: #c7cdd8 !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  box-shadow: 0 24px 70px rgba(33, 38, 54, .18) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog > header,
+.folio-shell[data-ui-tone="ivory"] .folio-dialog > footer,
+.folio-shell[data-ui-tone="ivory"] .style-library-header,
+.folio-shell[data-ui-tone="ivory"] .style-library-footer,
+.folio-shell[data-ui-tone="ivory"] .style-category-list {
+  background: #f7f8fb !important;
+  border-color: #d5d9e0 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-category-list button {
+  border-radius: 6px !important;
+  color: #5f6774 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-category-list button.active {
+  background: #e7e9ff !important;
+  color: #4546bf !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .theme-sample.selected,
+.folio-shell[data-ui-tone="ivory"] .ornament-picker button.selected {
+  border-color: #5b5ce2 !important;
+  box-shadow: 0 0 0 3px rgba(91, 92, 226, .15) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .settings-row input[type="checkbox"] {
+  accent-color: #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .settings-copy small,
+.folio-shell[data-ui-tone="ivory"] .style-library-header p,
+.folio-shell[data-ui-tone="ivory"] .customize-panel > p,
+.folio-shell[data-ui-tone="ivory"] .customize-row > span,
+.folio-shell[data-ui-tone="ivory"] .word-count,
+.folio-shell[data-ui-tone="ivory"] .save-indicator {
+  color: #6a717c !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-delete {
+  color: #6a717c !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-delete:hover {
+  background: #f2f3ff !important;
+  color: #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section {
+  border-color: #c7cdd8 !important;
+  background: #ffffff !important;
+  color: #24272e !important;
+  border-radius: 7px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section:hover {
+  border-color: #aeb6c3 !important;
+  background: #f7f8fb !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section > span:first-child {
+  color: #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .topbar-icon:hover,
+.folio-shell[data-ui-tone="ivory"] .tiny-footer-button:hover,
+.folio-shell[data-ui-tone="ivory"] .section-move:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle:hover,
+.folio-shell[data-ui-tone="ivory"] .library-collapse-button:hover {
+  background: #eef0ff !important;
+  color: #4f50d3 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-menu {
+  border-color: #c7cdd8 !important;
+  background: #ffffff !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 36, 51, .16) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-menu button {
+  border-radius: 5px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-menu button:hover {
+  background: #eef0ff !important;
+  color: #4546bf !important;
+}
+
+/* Dashboard uses exactly the same light system as the workspace. */
+.start-shell[data-ui-tone="ivory"] {
+  --start-bg: #f2f3f5;
+  --start-panel: #ffffff;
+  --start-line: #d5d9e0;
+  --start-line-strong: #c7cdd8;
+  --start-text: #14161a;
+  --start-muted: #6a717c;
+  --start-soft: #98a1b0;
+  --start-accent: #5b5ce2;
+  background: #f2f3f5;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-windowbar {
+  background: #fbfcfe !important;
+  border-color: #d5d9e0 !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-button {
+  min-height: 36px;
+  border-color: #c7cdd8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #20242b;
+  box-shadow: 0 1px 2px rgba(20, 22, 26, .04);
+}
+
+.start-shell[data-ui-tone="ivory"] .start-button:hover:not(:disabled) {
+  border-color: #aeb6c3;
+  background: #f7f8fb;
+  transform: none;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-button.primary {
+  border-color: #5b5ce2;
+  background: #5b5ce2;
+  color: #ffffff;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-button.primary:hover:not(:disabled) {
+  border-color: #4d4eca;
+  background: #4d4eca;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-heading {
+  border-color: #c7cdd8;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-row {
+  border-color: #d5d9e0;
+  border-radius: 8px;
+  margin: 2px 0;
+  padding-inline: 8px;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-row:hover {
+  background: #f8f9fc;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-cover {
+  border-color: #d5d9e0;
+  background: #ffffff;
+  box-shadow: 0 5px 13px rgba(35, 39, 52, .07);
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-meta strong,
+.start-shell[data-ui-tone="ivory"] .recent-empty h3 {
+  color: #14161a;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-path b {
+  color: #6a717c;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-remove:hover {
+  background: #eef0ff;
+  color: #4f50d3;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-modal {
+  border-color: #c7cdd8;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(31, 36, 51, .2);
+}
+
+.start-shell[data-ui-tone="ivory"] .start-folder-summary,
+.start-shell[data-ui-tone="ivory"] .start-field input {
+  border-color: #c7cdd8;
+  background: #f7f8fb;
+  border-radius: 6px;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-field input:focus {
+  border-color: #7778ed;
+  box-shadow: 0 0 0 3px rgba(91, 92, 226, .13);
+  outline: 0;
+}
+
+.start-shell[data-ui-tone="ivory"] button:focus-visible,
+.start-shell[data-ui-tone="ivory"] input:focus-visible {
+  outline: 2px solid rgba(91, 92, 226, .35);
+  outline-offset: 2px;
+}

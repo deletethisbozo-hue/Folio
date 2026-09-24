@@ -14,8 +14,8 @@ console.log("\nPersistent Recent Books");
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "folio-recents-test-"));
 process.env.FOLIO_WRITABLE_ROOT = root;
 try {
-  await rememberRecentProject("C:\\Books\\One", "One", "Writer", 1000);
-  await rememberRecentProject("C:\\Books\\Two", "Two", "Writer", 2000);
+  await rememberRecentProject("C:\\Books\\One.folio", "One", "Writer", 1000);
+  await rememberRecentProject("C:\\Books\\Two.folio", "Two", "Writer", 2000);
   const firstRead = await readRecentProjects();
   check("stores recent books outside browser origin storage", firstRead.length === 2 && firstRead[0].title === "Two");
 
@@ -24,11 +24,15 @@ try {
   const disk = JSON.parse(await fs.readFile(path.join(root, "recent-projects.json"), "utf8"));
   check("writes a durable recent-projects.json file", Array.isArray(disk) && disk.length === 2);
 
-  await rememberRecentProject("c:\\books\\one\\", "One Revised", "New Writer", 3000);
+  await rememberRecentProject("C:\\Users\\User\\AppData\\Roaming\\folio-book-formatter\\temp\\folio-work-adCOHU", "Temp", "Writer", 2500);
+  const withoutTemp = await readRecentProjects();
+  check("temporary working copies never enter persistent recents", withoutTemp.length === 2 && withoutTemp.every((item) => /\.folio$/i.test(item.path)));
+
+  await rememberRecentProject("c:\\books\\one.folio", "One Revised", "New Writer", 3000);
   const deduped = await readRecentProjects();
   check("deduplicates Windows paths in persistent history", deduped.length === 2 && deduped[0].title === "One Revised");
 
-  await forgetRecentProject("C:\\BOOKS\\TWO");
+  await forgetRecentProject("C:\\BOOKS\\TWO.FOLIO");
   const removed = await readRecentProjects();
   check("removing a recent book persists", removed.length === 1 && removed[0].title === "One Revised");
 } finally {

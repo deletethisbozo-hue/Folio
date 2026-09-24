@@ -38,6 +38,12 @@ const afterLegacyFolder = mergeRecentProjects(recent, {
 }, 3500);
 check("does not treat a legacy folder as a normal recent project", afterLegacyFolder === recent);
 
+const afterTemp = mergeRecentProjects(recent, summary("C:\\Users\\User\\AppData\\Roaming\\folio-book-formatter\\temp\\folio-work-n5ZFbn", "Temp"), 3600);
+check("does not put temporary working copies in recents", afterTemp === recent);
+
+const afterWrongExtension = mergeRecentProjects(recent, summary("C:\\Books\\Novel.md", "Markdown"), 3700);
+check("recents accept only .folio project files", afterWrongExtension === recent);
+
 for (let i = 0; i < 10; i++) {
   recent = mergeRecentProjects(recent, summary(`C:\\Books\\Book-${i}.folio`, `Book ${i}`), 4000 + i);
 }

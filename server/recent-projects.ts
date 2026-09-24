@@ -20,12 +20,15 @@ function storeDir(): string {
 
 function storeFile(): string { return path.join(storeDir(), "recent-projects.json"); }
 function pathKey(projectPath: string): string { return projectPath.replace(/[\\/]+$/, "").toLocaleLowerCase(); }
+function isFolioProjectFile(projectPath: string): boolean {
+  return /\.folio$/i.test(projectPath.trim().replace(/[\\/]+$/, ""));
+}
 
 function normaliseRecord(value: unknown): RecentProjectRecord | null {
   if (!value || typeof value !== "object") return null;
   const item = value as Partial<RecentProjectRecord> & { folder?: unknown };
   const projectPath = typeof item.path === "string" ? item.path : typeof item.folder === "string" ? item.folder : null;
-  if (!projectPath || typeof item.title !== "string" || typeof item.author !== "string" || typeof item.lastOpened !== "number") return null;
+  if (!projectPath || !isFolioProjectFile(projectPath) || typeof item.title !== "string" || typeof item.author !== "string" || typeof item.lastOpened !== "number") return null;
   return { path: projectPath, title: item.title, author: item.author, lastOpened: item.lastOpened };
 }
 
@@ -59,6 +62,7 @@ function serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
 export async function rememberRecentProject(projectPath: string, title: string, author: string, now = Date.now()): Promise<RecentProjectRecord[]> {
   return serializeMutation(async () => {
     const current = await readRecentProjects();
+    if (!isFolioProjectFile(projectPath)) return current;
     const key = pathKey(projectPath);
     const entry: RecentProjectRecord = {
       path: projectPath,

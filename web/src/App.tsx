@@ -1764,7 +1764,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
             <button type="button" className={workspaceMode === "format" ? "active" : ""} aria-pressed={workspaceMode === "format"} onClick={() => void changeWorkspaceMode("format")}>Format</button>
           </span>
         </nav>
-        <button className="tone-toggle" onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")} aria-label={uiTone === "ivory" ? "Use Midnight Editorial" : "Use Ivory and Ink"}>{uiTone === "ivory" ? "Midnight" : "Ivory"}</button>
+        <button className="tone-toggle" onClick={() => setUiTone((tone) => tone === "ivory" ? "midnight" : "ivory")} aria-label={uiTone === "ivory" ? "Use Midnight" : "Use Light"}>{uiTone === "ivory" ? "Midnight" : "Light"}</button>
       </header>
       <aside className="library-pane">
         <div className="library-toolbar"><span className="pane-label">Manuscript</span>{workspaceMode === "write" && !focusMode && <button type="button" className="library-collapse-button" aria-label="Hide manuscript sidebar" title="Hide manuscript sidebar" onClick={() => setWriteSidebarOpen(false)}>×</button>}</div>
