@@ -239,9 +239,7 @@ try {
   await setPreview(page, "tablet-11"); await record(page, 0.82);
 
   // PRINT: selected chapter, not table of contents. First chapter opener, then a body page.
-  await setSidebar(page, true);
   await chooseFirstChapter(page);
-  await setSidebar(page, false);
   await setPreview(page, "print");
   await scrollPrintToChapter(page, false);
   await begin("09-print-chapter-opener");
