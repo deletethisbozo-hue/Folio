@@ -74,7 +74,7 @@
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
       "package.json",
-      "assets/folio.ico"
+      "assets/folio-icon.png"
     ],
     "extraResources": [
       {
@@ -115,13 +115,12 @@
         "ext": "folio",
         "name": "Folio Project",
         "description": "Folio book project",
-        "role": "Editor",
-        "icon": "assets/folio.ico"
+        "role": "Editor"
       }
     ],
     "win": {
       "executableName": "Folio",
-      "icon": "assets/folio.ico",
+      "icon": "assets/folio-icon.png",
       "target": [
         "nsis",
         "portable"
@@ -133,10 +132,7 @@
       "allowToChangeInstallationDirectory": true,
       "artifactName": "Folio-${version}-setup.exe",
       "shortcutName": "Folio",
-      "uninstallDisplayName": "Folio",
-      "installerIcon": "assets/folio.ico",
-      "uninstallerIcon": "assets/folio.ico",
-      "installerHeaderIcon": "assets/folio.ico"
+      "uninstallDisplayName": "Folio"
     },
     "portable": {
       "artifactName": "Folio-${version}-portable.exe"
