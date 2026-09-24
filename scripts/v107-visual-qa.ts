@@ -205,7 +205,11 @@ try {
     await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed")));
   };
 
-  const metrics = async (label: string, needle: string) => {
+  const metrics = async (
+    label: string,
+    needle: string,
+    minimums: { paragraphs: number; justifiedLines: number } = { paragraphs: 2, justifiedLines: 6 },
+  ) => {
     const report = await page.evaluate((expected) => {
       const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")!.contentDocument!;
@@ -435,7 +439,7 @@ try {
     const qualification = { ...report, measurePx, hyphenRateLimit };
     await fs.writeFile(path.join(qa, `${label}.json`), JSON.stringify(qualification, null, 2) + "\n", "utf8");
     if (
-      report.paragraphCount < 2 || report.justifiedLines < 6 || report.maxRightErrorPx > 1.75 || report.maxRightProtrusionPx > 4.51 ||
+      report.paragraphCount < minimums.paragraphs || report.justifiedLines < minimums.justifiedLines || report.maxRightErrorPx > 1.75 || report.maxRightProtrusionPx > 4.51 ||
       report.maxWordSpacingEm > 0.121 || report.maxStrictWordSpacingEm > 0.101 || report.maxRelaxedWordSpacingEm > 0.121 ||
       report.relaxedLines > 2 || report.maxTrackingEm > 0.0056 || report.maxGlyphScaleDelta > 0.0201 ||
       report.maxAdjacentGlyphScaleDelta > 0.0121 || report.maxSemanticGapEm > 0.37 ||
@@ -455,7 +459,15 @@ try {
 
   await setDropcap(true);
   await screen.screenshot({ path: path.join(qa, "reader-polish-dropcap.png") });
-  const dropcapReport = await metrics("typesetting-polish-dropcap", polishNeedle);
+  // One of the two corpus paragraphs is intentionally native-float when the
+  // drop cap is enabled, so only the remaining composed paragraph contributes
+  // professional compositor metrics. Keep every quality ceiling unchanged; only
+  // adjust the minimum sample count to the geometry we deliberately render.
+  const dropcapReport = await metrics(
+    "typesetting-polish-dropcap",
+    polishNeedle,
+    { paragraphs: 1, justifiedLines: 4 },
+  );
   const dropcapOpening = await page.evaluate(() => {
     const doc = document.querySelector("iframe")!.contentDocument!;
     const paragraph = doc.querySelector<HTMLElement>("section.chapter > p.folio-native-dropcap");
