@@ -49,12 +49,38 @@ try {
   await page.goto(base, { waitUntil: "networkidle0" });
   check("dashboard has no redundant standalone F mark", (await page.$(".start-mark")) === null);
 
+  const dashboardPalette = await page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>(".start-shell");
+    const primary = document.querySelector<HTMLElement>(".start-button.primary");
+    if (!shell || !primary) return null;
+    return {
+      background: getComputedStyle(shell).backgroundColor,
+      accent: getComputedStyle(primary).backgroundColor,
+    };
+  });
+  check("dashboard uses Folio 2.2 cool light background", dashboardPalette?.background === "rgb(242, 243, 245)", JSON.stringify(dashboardPalette));
+  check("dashboard primary accent is blue-violet", dashboardPalette?.accent === "rgb(91, 92, 226)", JSON.stringify(dashboardPalette));
+
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.includes("Open Sample"));
     if (!button) throw new Error("Open Sample button is missing");
     button.click();
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
+
+  const workspacePalette = await page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>(".folio-shell");
+    if (!shell) return null;
+    const style = getComputedStyle(shell);
+    return {
+      accent: style.getPropertyValue("--mockup-accent").trim(),
+      sidebar: style.getPropertyValue("--mockup-sidebar").trim(),
+      app: style.getPropertyValue("--mockup-app").trim(),
+    };
+  });
+  check("workspace shares the Folio 2.2 light design tokens",
+    workspacePalette?.accent === "#5b5ce2" && workspacePalette?.sidebar === "#e9ebf0" && workspacePalette?.app === "#f2f3f5",
+    JSON.stringify(workspacePalette));
 
   check("workspace exposes New Project in the masthead", Boolean(await page.$('[data-command="new-project"]')));
   check("workspace wordmark is a real dashboard control", await page.$eval(".command-wordmark", (node) => node.getAttribute("aria-label") === "Back to dashboard"));
