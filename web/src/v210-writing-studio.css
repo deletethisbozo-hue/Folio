@@ -302,6 +302,74 @@
   background: var(--mockup-canvas, var(--studio-editor-canvas)) !important;
 }
 
+/* Keep the layout controls reachable when the manuscript sidebar reduces the
+ * Write editor width. The left formatting cluster may become denser, but the
+ * Split / Typewriter / Focus controls are never allowed to be clipped. */
+.folio-shell[data-workspace-mode="write"] .format-toolbar {
+  min-width: 0 !important;
+  overflow: hidden;
+}
+
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .toolbar-group {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .history-tools {
+  flex: 0 0 auto;
+}
+
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .toolbar-spacer {
+  min-width: 0;
+  flex: 1 1 4px;
+}
+
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .search-pill,
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .editor-search,
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .editor-layout-rule,
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .editor-split-toggle,
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .editor-typewriter-toggle,
+.folio-shell[data-workspace-mode="write"] .format-toolbar > .editor-focus-toggle {
+  flex-shrink: 0 !important;
+}
+
+/* Sidebar-open density. Labels that already have tooltips collapse to icons,
+ * preserving every action while avoiding a second toolbar row. */
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar {
+  padding-inline: 10px !important;
+  gap: 5px !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar .toolbar-group {
+  gap: 1px !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar .toolbar-group + .toolbar-group {
+  padding-left: 4px !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar .scene-break-button,
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar .illustration-button {
+  width: 32px !important;
+  min-width: 32px !important;
+  padding-inline: 0 !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar .scene-break-button span,
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar .illustration-button span {
+  display: none !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar .writing-clear-format {
+  min-width: 36px !important;
+  padding-inline: 4px !important;
+  font-size: 9.5px !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .editor-layout-rule {
+  margin-inline: 2px !important;
+}
+
 .folio-shell[data-workspace-mode="write"] .rich-editor.typewriter-active {
   scroll-behavior: auto !important;
 }

@@ -169,6 +169,45 @@ try {
     || openSidebarGeometry.closeLabel !== "Hide manuscript sidebar") {
     throw new Error(`Write sidebar must push the editor and remain closable: ${JSON.stringify({ closedEditorLeft, ...openSidebarGeometry })}`);
   }
+
+  const sidebarToolbarGeometry = await page.evaluate(() => {
+    const toolbar = document.querySelector<HTMLElement>(".format-toolbar");
+    const controls = [
+      document.querySelector<HTMLElement>(".search-pill"),
+      document.querySelector<HTMLElement>(".editor-split-toggle"),
+      document.querySelector<HTMLElement>(".editor-typewriter-toggle"),
+      document.querySelector<HTMLElement>(".editor-focus-toggle"),
+    ];
+    if (!toolbar || controls.some((control) => !control)) throw new Error("Write layout controls missing with sidebar open");
+    const toolbarRect = toolbar.getBoundingClientRect();
+    return {
+      toolbarLeft: toolbarRect.left,
+      toolbarRight: toolbarRect.right,
+      controls: controls.map((control) => {
+        const element = control!;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          className: element.className,
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          display: style.display,
+          visibility: style.visibility,
+        };
+      }),
+    };
+  });
+  const clippedLayoutControl = sidebarToolbarGeometry.controls.find((control) =>
+    control.display === "none"
+    || control.visibility === "hidden"
+    || control.width < 20
+    || control.left < sidebarToolbarGeometry.toolbarLeft - 1
+    || control.right > sidebarToolbarGeometry.toolbarRight + 1
+  );
+  if (clippedLayoutControl) {
+    throw new Error(`Write toolbar clipped a layout control with sidebar open: ${JSON.stringify(sidebarToolbarGeometry)}`);
+  }
   await settle(220);
   await page.screenshot({ path: path.join(qa, "03b-write-sidebar-open.png") });
 
