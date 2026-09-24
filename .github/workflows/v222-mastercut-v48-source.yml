@@ -1,0 +1,59 @@
+name: Capture Folio V4.8 Action Source
+
+on:
+  push:
+    branches:
+      - promo/v2.2.2-mastercut
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-2025
+    timeout-minutes: 70
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install Pandoc
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip" -OutFile build\pandoc.zip
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+      - name: Install Chromium
+        shell: pwsh
+        run: npx puppeteer browsers install chrome-headless-shell
+      - run: npm run build
+      - name: Capture V4.8 source
+        run: node --import tsx scripts/v222-mastercut-v48-source.ts
+      - name: Ensure FFmpeg
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) { choco install ffmpeg -y --no-progress }
+      - name: Encode clips
+        shell: pwsh
+        run: |
+          $root = "build/promo-v48-source"
+          Get-ChildItem $root -Directory | ForEach-Object {
+            $name = $_.Name
+            ffmpeg -y -framerate 24 -i "$($_.FullName)/frame-%05d.jpg" -c:v libx264 -preset medium -crf 16 -pix_fmt yuv420p -movflags +faststart "$root/$name.mp4"
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Folio-V4.8-Action-Source
+          path: build/promo-v48-source/*.mp4
+          compression-level: 0
+          if-no-files-found: error
