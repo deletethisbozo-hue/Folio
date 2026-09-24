@@ -1,0 +1,85 @@
+name: Capture Folio 2.2.2 Promo
+
+on:
+  push:
+    branches:
+      - promo/v2.2.2-video-capture
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-v222-promo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+
+    steps:
+      - name: Check out Folio
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install pinned Pandoc 3.11
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable missing." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+
+      - name: Install Chromium runtime
+        shell: pwsh
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Build Folio
+        run: npm run build
+
+      - name: Capture real Folio UI promo frames
+        run: node --import tsx scripts/v222-promo-capture.ts
+
+      - name: Ensure FFmpeg
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg -y --no-progress
+          }
+          ffmpeg -version | Select-Object -First 1
+
+      - name: Encode 1080p promo
+        shell: pwsh
+        run: |
+          ffmpeg -y -framerate 15 -i "build/promo-v222/frames/frame-%05d.jpg" -vf "fps=30,format=yuv420p" -c:v libx264 -preset medium -crf 18 -movflags +faststart "build/promo-v222/Folio-2.2.2-Promo.mp4"
+          $size = (Get-Item "build/promo-v222/Folio-2.2.2-Promo.mp4").Length
+          if ($size -lt 1000000) { throw "Promo video is unexpectedly small: $size bytes" }
+
+      - name: Upload promo
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-2.2.2-Promo
+          path: |
+            build/promo-v222/Folio-2.2.2-Promo.mp4
+            build/promo-v222/poster.png
+            build/promo-v222/frame-count.txt
+          if-no-files-found: error
+          compression-level: 0
