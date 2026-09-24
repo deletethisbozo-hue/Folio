@@ -74,7 +74,6 @@
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
       "package.json",
-      "assets/folio-icon.png",
       "assets/folio.ico"
     ],
     "extraResources": [
