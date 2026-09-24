@@ -26,7 +26,7 @@ try {
 
   await rememberRecentProject("C:\\Users\\User\\AppData\\Roaming\\folio-book-formatter\\temp\\folio-work-adCOHU", "Temp", "Writer", 2500);
   const withoutTemp = await readRecentProjects();
-  check("temporary working copies never enter persistent recents", withoutTemp.length === 2 && withoutTemp.every((item) => /\\.folio$/i.test(item.path)));
+  check("temporary working copies never enter persistent recents", withoutTemp.length === 2 && withoutTemp.every((item) => /\.folio$/i.test(item.path)));
 
   await rememberRecentProject("c:\\books\\one.folio", "One Revised", "New Writer", 3000);
   const deduped = await readRecentProjects();
