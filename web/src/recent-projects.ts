@@ -15,12 +15,16 @@ function pathKey(projectPath: string): string {
   return projectPath.replace(/[\\/]+$/, "").toLocaleLowerCase();
 }
 
+function isFolioProjectFile(projectPath: string): boolean {
+  return /\.folio$/i.test(projectPath.trim().replace(/[\\/]+$/, ""));
+}
+
 export function mergeRecentProjects(
   current: RecentProject[],
   summary: ProjectSummary,
   now = Date.now(),
 ): RecentProject[] {
-  if (summary.source !== "folio" || !summary.projectFile) return current;
+  if (summary.source !== "folio" || !summary.projectFile || !isFolioProjectFile(summary.projectFile)) return current;
   const key = pathKey(summary.projectFile);
   const entry: RecentProject = {
     path: summary.projectFile,
@@ -51,7 +55,7 @@ export function readRecentProjects(): RecentProject[] {
       .filter((item): item is RecentProject => {
         if (!item || typeof item !== "object") return false;
         const value = item as Partial<RecentProject>;
-        return typeof value.path === "string" && typeof value.title === "string" &&
+        return typeof value.path === "string" && isFolioProjectFile(value.path) && typeof value.title === "string" &&
           typeof value.author === "string" && typeof value.lastOpened === "number";
       })
       .sort((a, b) => b.lastOpened - a.lastOpened)
