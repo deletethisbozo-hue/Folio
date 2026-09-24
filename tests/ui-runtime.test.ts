@@ -637,7 +637,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       ok: command.height >= 46 && library.width >= 190 && preview.width >= 390 && preview.width <= 470 &&
         manuscript.width < editorPane.width - 20 && manuscript.left > editorPane.left + 10 &&
         Number.parseFloat(title.fontSize) >= 18 && sidebar.backgroundImage === "none" &&
-        selected.borderRadius === "5px" && shell.bottom <= innerHeight + 1,
+        selected.borderRadius === "6px" && shell.bottom <= innerHeight + 1,
       command: command.height,
       library: library.width,
       preview: preview.width,
@@ -648,7 +648,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       selectedRadius: selected.borderRadius,
     };
   });
-  check("2.0.7 keeps a legible professional preview beside the manuscript", studioGeometry.ok, JSON.stringify(studioGeometry));
+  check("2.2 keeps a legible professional preview beside the manuscript", studioGeometry.ok, JSON.stringify(studioGeometry));
   await stage("ornament remains centered under justification", () => page.waitForFunction(() => {
     const ornament = document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break");
     return ornament ? getComputedStyle(ornament).textAlign === "center" && getComputedStyle(ornament).textAlignLast === "center" : false;
