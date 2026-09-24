@@ -23,11 +23,11 @@ app.use(express.static(path.join(ROOT, "web", "dist")));
 app.get("*", (_request, response) => response.sendFile(path.join(ROOT, "web", "dist", "index.html")));
 const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
-const base = \`http://127.0.0.1:\${(server.address() as AddressInfo).port}\`;
+const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
 let frame = 0;
 function framePath() {
-  return path.join(frames, \`frame-\${String(frame++).padStart(5, "0")}.jpg\`);
+  return path.join(frames, `frame-${String(frame++).padStart(5, "0")}.jpg`);
 }
 async function shot(page: any) {
   await page.screenshot({ path: framePath(), type: "jpeg", quality: 82, captureBeyondViewport: false });
@@ -62,8 +62,8 @@ async function setCursor(page: any, x: number, y: number, down = false) {
   await page.evaluate(({ x, y, down }: { x: number; y: number; down: boolean }) => {
     const c = document.getElementById("folio-promo-cursor");
     if (!c) return;
-    c.style.left = \`\${x}px\`;
-    c.style.top = \`\${y}px\`;
+    c.style.left = `${x}px`;
+    c.style.top = `${y}px`;
     c.dataset.down = down ? "true" : "false";
   }, { x, y, down });
 }
@@ -91,12 +91,12 @@ async function overlay(page: any, title: string, subtitle: string, footer = "") 
       el.id = "folio-promo-overlay";
       document.body.appendChild(el);
     }
-    el.innerHTML = \`
+    el.innerHTML = `
       <div class="promo-lockup">
-        <div class="promo-title">\${title}</div>
-        <div class="promo-subtitle">\${subtitle}</div>
-        \${footer ? \`<div class="promo-footer">\${footer}</div>\` : ""}
-      </div>\`;
+        <div class="promo-title">${title}</div>
+        <div class="promo-subtitle">${subtitle}</div>
+        ${footer ? `<div class="promo-footer">${footer}</div>` : ""}
+      </div>`;
     el.style.display = "grid";
     el.style.opacity = "1";
   }, { title, subtitle, footer });
@@ -117,7 +117,7 @@ async function injectPromoChrome(page: any) {
   await page.evaluate(() => {
     const style = document.createElement("style");
     style.id = "folio-promo-style";
-    style.textContent = \`
+    style.textContent = `
       html, body { overflow: hidden !important; }
       #folio-promo-overlay {
         position: fixed; inset: 0; z-index: 2147483645; display: none; place-items: center;
@@ -148,7 +148,7 @@ async function injectPromoChrome(page: any) {
         border-radius: 999px; left: -12px; top: -11px; opacity: 0; transform: scale(.55);
       }
       #folio-promo-cursor[data-down="true"]::after { opacity: 1; transform: scale(1); }
-    \`;
+    `;
     document.head.appendChild(style);
     const cursor = document.createElement("div");
     cursor.id = "folio-promo-cursor";
