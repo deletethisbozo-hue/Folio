@@ -34,6 +34,12 @@ export async function alignDropCaps(page: Page): Promise<number> {
       const para = cap.closest<HTMLElement>("p");
       if (!para) continue;
 
+      // Apply the no-indent drop-cap paragraph rule before measuring. Otherwise
+      // Print can calibrate against an indented first row and preserve the very
+      // gap we are trying to remove.
+      para.classList.add("folio-native-dropcap");
+      void para.offsetHeight;
+
       const bodyWalker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
       let body: Text | null = null;
       while (bodyWalker.nextNode()) {
