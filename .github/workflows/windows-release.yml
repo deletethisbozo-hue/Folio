@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.2.1 version consistency
+      - name: Verify Folio 2.2.2 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.2.1") { throw "Windows release is scoped to Folio 2.2.1, found $version." }
+          if ($version -ne "2.2.2") { throw "Windows release is scoped to Folio 2.2.2, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -221,4 +221,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.2.1 fixes the Write toolbar when the manuscript sidebar is open. Formatting controls switch to a denser icon-first layout so Find, Split View, Typewriter and Focus remain visible and clickable instead of being clipped off the right edge. Publishing compositor, manuscript data, preview rendering and export behavior are unchanged. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.2.2 replaces the Windows application branding with the corrected multi-resolution Folio icon across the executable, installer, uninstaller, file association, installer header and application window. Application behavior, publishing compositor, manuscript data, preview rendering and export behavior are unchanged. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
