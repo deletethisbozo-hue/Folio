@@ -116,7 +116,7 @@ async function scrollPrintToChapter(page: any) {
     );
     if (idx < 0) idx = pages.findIndex((p) => Boolean(p.querySelector("section.chapter")));
     if (idx < 0) idx = 0;
-    pages[idx]?.scrollIntoView({ block: "center", behavior: "auto" });
+    pages[idx]?.scrollIntoView({ block: "start", behavior: "auto" });
   }, title);
   await pause(600);
 }
