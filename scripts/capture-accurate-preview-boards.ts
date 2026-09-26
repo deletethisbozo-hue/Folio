@@ -141,12 +141,18 @@ try {
   await firstChapter(page);
   await ensureFormat(page);
 
-  // 1) Real Tablet 8" device preview from the app.
-  await setPreview(page, "tablet-8");
-  await shotPane(page, "tablet-8");
-  await shotFull(page, "tablet-8");
+  // Real device previews from the app.
+  for (const [value, slug] of [
+    ["tablet-8", "tablet-8"],
+    ["phone-6-1", "phone-6.1"],
+    ["phone-6-7", "phone-6.7"],
+  ] as const) {
+    await setPreview(page, value);
+    await shotPane(page, slug);
+    await shotFull(page, slug);
+  }
 
-  // 2-4) Real Folio themes in Print · Pages / 6 × 9.
+  // Real Folio themes in Print · Pages / 6 × 9.
   await setPreview(page, "print");
   await setTrim6x9(page);
 
