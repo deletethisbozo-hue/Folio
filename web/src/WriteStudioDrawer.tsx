@@ -122,9 +122,14 @@ export default function WriteStudioDrawer(props: Props) {
     setCompareRevision(null);
   }, [props.selectedId, props.project.projectId]);
 
+  const projectSectionIdentity = useMemo(
+    () => props.project.sections.map((section) => section.id).join("\u0000"),
+    [props.project.sections],
+  );
+
   useEffect(() => {
     setBookDocs(null);
-  }, [props.project.projectId]);
+  }, [props.project.projectId, projectSectionIdentity]);
 
   useEffect(() => {
     if (!props.selectedId || props.document?.id !== props.selectedId) return;
