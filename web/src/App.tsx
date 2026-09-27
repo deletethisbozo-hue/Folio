@@ -2062,6 +2062,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onClose={() => setWriteStudioOpen(false)}
         onCaptureSelection={captureEditorSelection}
         onGetCurrentMarkdown={currentMarkdownForStudio}
+        onSaveCurrent={saveCurrent}
         onRevealText={revealTextInEditor}
         onNavigateText={navigateText}
         onReplaceCurrent={replaceCurrentFromStudio}
