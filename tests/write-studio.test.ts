@@ -12,11 +12,14 @@ import {
 } from "../web/src/write-studio.ts";
 import {
   addResearchImage,
+  createBookSnapshot,
   createResearchNote,
   createSnapshot,
   createWritingComment,
   readResearchImage,
+  readWritingWordCounts,
   readWriteStudio,
+  restoreBookSnapshot,
   setWritingTargets,
 } from "../server/write-studio.ts";
 import { closeProject, createProjectFromFolderPath } from "../server/projects.ts";
@@ -92,12 +95,25 @@ await test("Write Studio project data persists beside the manuscript", async () 
     state = await createSnapshot(projectId, "chapter-one", "# Chapter One\n\nA raven crossed the tower.\n", "Before rewrite");
     assert.equal(state.revisions.some((item) => item.kind === "snapshot" && item.label === "Before rewrite"), true);
 
+    const counts = await readWritingWordCounts(projectId);
+    assert.equal(counts.total > 0, true);
+    assert.equal(typeof counts.sections["chapter-one"], "number");
+
+    state = await createBookSnapshot(projectId, "Whole book checkpoint");
+    const bookSnapshot = state.revisions.find((item) => item.scope === "book" && item.label === "Whole book checkpoint");
+    assert.ok(bookSnapshot);
+    await fs.writeFile(path.join(root, "chapters", "01.md"), "# Chapter One\n\nDestroyed content.\n", "utf8");
+    const restored = await restoreBookSnapshot(projectId, bookSnapshot.id);
+    assert.equal(restored.restored, 1);
+    assert.equal((await fs.readFile(path.join(root, "chapters", "01.md"), "utf8")).includes("A raven crossed the tower."), true);
+
     const reopened = await readWriteStudio(projectId);
     assert.equal(reopened.targets.daily, 1500);
     assert.equal(reopened.research.length, 1);
     assert.equal(reopened.researchImages.length, 1);
     assert.equal(reopened.comments.length, 1);
-    assert.equal(reopened.revisions.length, 1);
+    assert.equal(reopened.revisions.length, 2);
+    assert.equal(reopened.revisions.some((item) => item.scope === "book"), true);
 
     const metadata = JSON.parse(await fs.readFile(path.join(root, ".folio-data", "write-studio.json"), "utf8")) as { version?: number };
     assert.equal(metadata.version, 1);
