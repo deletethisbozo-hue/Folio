@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import { projectInfo, writableBookDir } from "./projects.ts";
+import { loadProject, projectInfo, writableBookDir } from "./projects.ts";
 
 export type RevisionKind = "auto" | "snapshot";
 
@@ -224,6 +224,18 @@ async function appendRevision(
   state.revisions.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   await trimAutoRevisions(projectId, state);
   return summary;
+}
+
+export async function readWritingWordCounts(projectId: string): Promise<{ total: number; sections: Record<string, number> }> {
+  const { book } = await loadProject(projectId);
+  const sections: Record<string, number> = {};
+  let total = 0;
+  for (const section of book.sections) {
+    const count = wordCount(section.markdown);
+    sections[section.id] = count;
+    if (section.kind === "chapter" || section.kind === "backmatter") total += count;
+  }
+  return { total, sections };
 }
 
 export async function readWriteStudio(projectId: string): Promise<WriteStudioState> {
