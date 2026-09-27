@@ -311,6 +311,7 @@ export async function createResearchNote(projectId: string, title: string, body:
       createdAt: now,
       updatedAt: now,
     });
+    state.research.sort((a, b) => Number(b.pinned) - Number(a.pinned) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     return state;
   });
 }
