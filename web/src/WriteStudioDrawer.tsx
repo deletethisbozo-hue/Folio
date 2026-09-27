@@ -96,6 +96,7 @@ export default function WriteStudioDrawer(props: Props) {
   const [bookDocs, setBookDocs] = useState<SectionDocument[] | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [analysisWindow, setAnalysisWindow] = useState(80);
+  const [analysisScope, setAnalysisScope] = useState<SearchScope>("chapter");
   const [imageBusy, setImageBusy] = useState(false);
   const [exactCounts, setExactCounts] = useState<{ total: number; sections: Record<string, number> } | null>(null);
 
@@ -126,13 +127,17 @@ export default function WriteStudioDrawer(props: Props) {
   const today = todayKey();
   const todayProgress = props.state?.dailyProgress[today] ?? 0;
   const chapterTarget = props.selectedId ? targetDraft.chapters[props.selectedId] ?? null : null;
+  const analysisSeparator = useMemo(() => Array.from({ length: 200 }, (_, index) => String(1000000 + index)).join(" "), []);
+  const analysisSource = analysisScope === "book"
+    ? (bookDocs ? bookDocs.map((doc) => doc.id === props.selectedId ? props.draft : doc.markdown).join("\n\n" + analysisSeparator + "\n\n") : "")
+    : props.draft;
   const selectedKind = props.project.sections.find((section) => section.id === props.selectedId)?.kind;
   const selectedSavedWords = props.selectedId ? exactCounts?.sections[props.selectedId] ?? props.currentWords : 0;
   const exactBookWords = exactCounts
     ? exactCounts.total + ((selectedKind === "chapter" || selectedKind === "backmatter") ? props.currentWords - selectedSavedWords : 0)
     : props.totalWords;
-  const repeated = useMemo(() => repeatedWords(props.draft, props.language), [props.draft, props.language]);
-  const nearby = useMemo(() => nearbyRepetitions(props.draft, props.language, analysisWindow), [props.draft, props.language, analysisWindow]);
+  const repeated = useMemo(() => repeatedWords(analysisSource, props.language), [analysisSource, props.language]);
+  const nearby = useMemo(() => nearbyRepetitions(analysisSource, props.language, analysisWindow), [analysisSource, props.language, analysisWindow]);
   const revisions = useMemo(() => (props.state?.revisions ?? []).filter((item) => item.scope === "book" || item.sectionId === props.selectedId), [props.state?.revisions, props.selectedId]);
   const comments = useMemo(() => (props.state?.comments ?? []).filter((item) => item.sectionId === props.selectedId).sort((a, b) => Number(a.resolved) - Number(b.resolved) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [props.state?.comments, props.selectedId]);
 
@@ -310,6 +315,18 @@ export default function WriteStudioDrawer(props: Props) {
     finally { setSearchBusy(false); }
   }
 
+  async function inspectAnalysisWord(word: string) {
+    if (analysisScope === "book" && !bookDocs) {
+      try { await scanBook(); }
+      catch (error) { props.onError(error instanceof Error ? error.message : String(error)); return; }
+    }
+    setQuery(word);
+    setReplacement("");
+    setSearchOptions({ caseSensitive: false, wholeWord: true, regex: false });
+    setScope(analysisScope);
+    props.setActiveTab("find");
+  }
+
   async function bookMatches() {
     if (!query || searchError) return [];
     try {
@@ -466,11 +483,14 @@ export default function WriteStudioDrawer(props: Props) {
 
       {props.state && props.activeTab === "analysis" && <div className="write-studio-section">
         <div className="write-section-heading"><div><h3>Repetition analysis</h3><p>Diagnostics only. Folio never rewrites your prose.</p></div></div>
-        <h4>Repeated words</h4>
-        <div className="analysis-list">{repeated.map((item) => <button key={item.word} onClick={() => props.onRevealText(item.word)}><span>{item.word}</span><strong>{item.count}</strong></button>)}{!repeated.length && <div className="write-studio-empty">No notable repetitions in this section.</div>}</div>
-        <div className="analysis-window"><label>Nearby window <input type="range" min="30" max="180" step="10" value={analysisWindow} onChange={(event) => setAnalysisWindow(Number(event.target.value))}/><span>{analysisWindow} words</span></label></div>
-        <h4>Nearby repetitions</h4>
-        <div className="analysis-list nearby">{nearby.map((item) => <button key={item.word} onClick={() => props.onRevealText(item.word)}><span>{item.word}</span><strong>{item.count}× / {item.windowWords}</strong></button>)}{!nearby.length && <div className="write-studio-empty">Nothing repeated three times inside this window.</div>}</div>
+        <div className="search-scope analysis-scope"><button className={analysisScope === "chapter" ? "active" : ""} onClick={() => setAnalysisScope("chapter")}>Chapter</button><button className={analysisScope === "book" ? "active" : ""} onClick={() => { setAnalysisScope("book"); if (!bookDocs) void scanBook().catch((error) => props.onError(error instanceof Error ? error.message : String(error))); }}>Entire book</button></div>
+        {analysisScope === "book" && !bookDocs ? <div className="write-studio-empty">{searchBusy ? "Scanning manuscript…" : "Open Entire Book to scan the manuscript."}</div> : <>
+          <h4>Repeated words</h4>
+          <div className="analysis-list">{repeated.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}</strong></button>)}{!repeated.length && <div className="write-studio-empty">No notable repetitions in this scope.</div>}</div>
+          <div className="analysis-window"><label>Nearby window <input type="range" min="30" max="180" step="10" value={analysisWindow} onChange={(event) => setAnalysisWindow(Number(event.target.value))}/><span>{analysisWindow} words</span></label></div>
+          <h4>Nearby repetitions</h4>
+          <div className="analysis-list nearby">{nearby.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}× / {item.windowWords}</strong></button>)}{!nearby.length && <div className="write-studio-empty">Nothing repeated three times inside this window.</div>}</div>
+        </>}
       </div>}
     </div>
   </aside>;
