@@ -2150,7 +2150,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onNavigateText={navigateText}
         onReplaceCurrent={replaceCurrentFromStudio}
         onRestoreMarkdown={restoreMarkdownFromStudio}
-        onProjectUpdate={(summary) => { setProject(summary); setMeta(summary.meta); }}
+        onProjectUpdate={(summary) => {
+          const liveMeta = meta ?? summary.meta;
+          setProject({ ...summary, meta: liveMeta, typography });
+          setMeta(liveMeta);
+        }}
         onBookRestored={refreshAfterBookRestore}
         onError={(message) => setError(message)}
       />}
