@@ -248,14 +248,15 @@ export default function WriteStudioDrawer(props: Props) {
       return;
     }
 
-    if (!props.selectedId || typeof compareRevision.markdown !== "string") return;
+    const revisionMarkdown = compareRevision.markdown;
+    if (!props.selectedId || typeof revisionMarkdown !== "string") return;
     if (!window.confirm("Restore this revision? Folio will create a snapshot of the current chapter first.")) return;
     setHistoryBusy(true);
     try {
       const current = await props.onGetCurrentMarkdown();
       const backedUp = await api.createSnapshot(props.project.projectId, props.selectedId, current, "Before restore");
       props.onState(backedUp);
-      await props.onRestoreMarkdown(compareRevision.markdown);
+      await props.onRestoreMarkdown(revisionMarkdown);
       const refreshed = await api.writeStudio(props.project.projectId);
       props.onState(refreshed);
       setCompareRevision(null);
