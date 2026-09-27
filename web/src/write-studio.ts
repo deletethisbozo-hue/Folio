@@ -16,6 +16,14 @@ export interface ResearchNote {
   updatedAt: string;
 }
 
+export interface ResearchImage {
+  id: string;
+  filename: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
+  storedName: string;
+  createdAt: string;
+}
+
 export interface WritingComment {
   id: string;
   sectionId: string;
@@ -42,6 +50,7 @@ export interface WriteStudioState {
   targets: WritingTargets;
   dailyProgress: Record<string, number>;
   research: ResearchNote[];
+  researchImages: ResearchImage[];
   comments: WritingComment[];
   revisions: RevisionSummary[];
 }
