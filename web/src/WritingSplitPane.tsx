@@ -18,6 +18,7 @@ type WritingSplitPaneProps = {
   onWordDelta: (delta: number) => void;
   onLiveWordCount: (sectionId: string, count: number) => void;
   onWritingActivity: () => void;
+  onContentChanged: (sectionId: string) => void;
   onRegisterFlush: (flush: (() => Promise<boolean>) | null) => void;
 };
 
@@ -148,6 +149,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
     const currentDocument = documentRef.current;
     if (!currentDocument?.editable) return;
     props.onWritingActivity();
+    props.onContentChanged(currentDocument.id);
     const editor = editorRef.current;
     if (editor) {
       const nextWords = editor.innerText.trim().match(/\S+/g)?.length ?? 0;
