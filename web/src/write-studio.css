@@ -194,3 +194,26 @@
   .write-studio-drawer { width: min(390px, 96vw); }
   .write-target-grid, .write-stat-grid, .analysis-list { grid-template-columns: 1fr 1fr; }
 }
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-tools-toggle {
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: var(--mockup-muted, var(--studio-muted)) !important;
+  box-shadow: none !important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-tools-toggle:hover,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-tools-toggle.active {
+  background: var(--mockup-accent-soft, var(--studio-accent-soft)) !important;
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar .editor-tools-toggle .ui-icon {
+  width: 17px !important;
+  height: 17px !important;
+}
