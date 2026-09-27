@@ -81,6 +81,9 @@ jobs:
       - name: Writing Studio browser smoke
         run: node --import tsx tests/write-studio-ui.test.ts
 
+      - name: Generate multiresolution Windows icon
+        run: npm run icon:win
+
       - name: Build installer and portable candidate
         run: npx electron-builder --win nsis portable --x64 --publish never
 
