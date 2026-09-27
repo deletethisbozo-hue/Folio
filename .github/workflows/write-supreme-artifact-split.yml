@@ -22,12 +22,12 @@ jobs:
           name: Folio-Write-Supreme-Windows
           path: candidate
           github-token: ${{ github.token }}
-          run-id: 36291939372
+          run-id: 36315161221
 
       - name: Verify expected files
         run: |
-          test -s candidate/Folio-2.2.2-setup.exe
-          test -s candidate/Folio-2.2.2-portable.exe
+          test -s candidate/Folio-2.3.0-setup.exe
+          test -s candidate/Folio-2.3.0-portable.exe
           test -s candidate/write-supreme-sha256.txt
           cat candidate/write-supreme-sha256.txt
 
@@ -38,7 +38,7 @@ jobs:
           retention-days: 14
           compression-level: 0
           path: |
-            candidate/Folio-2.2.2-portable.exe
+            candidate/Folio-2.3.0-portable.exe
             candidate/write-supreme-sha256.txt
 
       - name: Upload installer separately
@@ -48,5 +48,5 @@ jobs:
           retention-days: 14
           compression-level: 0
           path: |
-            candidate/Folio-2.2.2-setup.exe
+            candidate/Folio-2.3.0-setup.exe
             candidate/write-supreme-sha256.txt
