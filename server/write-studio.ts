@@ -510,11 +510,15 @@ export async function restoreBookSnapshot(projectId: string, revisionId: string)
     }
     let targetId = match.id;
     if (saved.kind === "chapter" && (match.title !== saved.title || (match.subtitle ?? "") !== (saved.subtitle ?? ""))) {
-      const renamed = await updateSectionHeadingDocument(projectId, match.id, {
+      const previousSectionId = match.id;
+      const renamed = await updateSectionHeadingDocument(projectId, previousSectionId, {
         title: saved.title,
         subtitle: saved.subtitle ?? "",
       });
       targetId = renamed.id;
+      if (targetId !== previousSectionId) {
+        await migrateWriteStudioSectionId(projectId, previousSectionId, targetId);
+      }
     }
     await writeSectionDocument(projectId, targetId, saved.markdown);
     restored++;
