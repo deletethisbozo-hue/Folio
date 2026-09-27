@@ -170,6 +170,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [writeStudioTab, setWriteStudioTab] = useState<WriteStudioTab>("session");
   const [writeStudioState, setWriteStudioState] = useState<WriteStudioState | null>(null);
   const [liveSectionWordCounts, setLiveSectionWordCounts] = useState<Record<string, number>>({});
+  const [splitEditRevision, setSplitEditRevision] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats>({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
   const [writeZoom, setWriteZoom] = useState(() => {
     const stored = Number(window.localStorage.getItem("folio-write-zoom"));
@@ -2124,6 +2125,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           : { ...current, deleted: current.deleted + Math.abs(delta) })}
         onLiveWordCount={(sectionId, count) => setLiveSectionWordCounts((current) => current[sectionId] === count ? current : { ...current, [sectionId]: count })}
         onWritingActivity={noteWritingActivity}
+        onContentChanged={() => setSplitEditRevision((value) => value + 1)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
       />}
 
@@ -2138,6 +2140,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         currentWords={draftWords}
         totalWords={totalWords}
         liveSectionWordCounts={liveSectionWordCounts}
+        externalEditRevision={splitEditRevision}
         language={meta.language || "en"}
         session={sessionStats}
         state={writeStudioState}
