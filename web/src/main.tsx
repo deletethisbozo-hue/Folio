@@ -30,6 +30,7 @@ import "./v220-unified-light.css";
 import "./write-studio.css";
 import "./v230-brand-refresh.css";
 import "./v231-micro-polish.css";
+import "./v232-device-shells.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
