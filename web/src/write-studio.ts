@@ -81,6 +81,7 @@ export interface SelectionCapture {
 
 export interface SessionStats {
   startedAt: number;
+  activeMs: number;
   gross: number;
   deleted: number;
 }
