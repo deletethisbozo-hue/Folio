@@ -193,11 +193,7 @@ export function replacementForMatch(source: string, match: RegExpMatchArray, rep
   const position = match.index ?? 0;
   const captures = match.slice(1);
   const groups = match.groups;
-  return replacement.replace(/\$([export function replaceMatches(text: string, query: string, replacement: string, options: SearchOptions): string {
-  return text.replace(buildSearchRegex(query, options, true), replacement);
-}
-
-`']|\d{1,2}|<[^>]+>)/g, (token, pattern: string) => {
+  return replacement.replace(/\$([\$&`']|\d{1,2}|<[^>]+>)/g, (token, pattern: string) => {
     if (pattern === "$") return "$";
     if (pattern === "&") return matched;
     if (pattern === "`") return source.slice(0, position);
