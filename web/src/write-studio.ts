@@ -39,8 +39,10 @@ export interface WritingComment {
 export interface RevisionSummary {
   id: string;
   sectionId: string;
+  scope: "section" | "book";
   kind: "auto" | "snapshot";
   label?: string;
+  sectionCount?: number;
   createdAt: string;
   wordCount: number;
   chars: number;
@@ -59,7 +61,16 @@ export interface WriteStudioState {
 
 export interface RevisionPayload {
   revision: RevisionSummary;
-  markdown: string;
+  markdown?: string;
+  sections?: Array<{
+    id: string;
+    kind: string;
+    title: string;
+    subtitle?: string;
+    source: string;
+    sourceOrdinal?: number;
+    markdown: string;
+  }>;
 }
 
 export interface SelectionCapture {
