@@ -28,6 +28,7 @@ interface Props {
   draft: string;
   currentWords: number;
   totalWords: number;
+  liveSectionWordCounts: Record<string, number>;
   language: string;
   session: SessionStats;
   state: WriteStudioState | null;
@@ -137,10 +138,13 @@ export default function WriteStudioDrawer(props: Props) {
   const analysisSource = analysisScope === "book"
     ? (bookDocs ? bookDocs.map((doc) => doc.id === props.selectedId ? props.draft : doc.markdown).join("\n\n" + analysisSeparator + "\n\n") : "")
     : props.draft;
-  const selectedKind = props.project.sections.find((section) => section.id === props.selectedId)?.kind;
-  const selectedSavedWords = props.selectedId ? exactCounts?.sections[props.selectedId] ?? props.currentWords : 0;
   const exactBookWords = exactCounts
-    ? exactCounts.total + ((selectedKind === "chapter" || selectedKind === "backmatter") ? props.currentWords - selectedSavedWords : 0)
+    ? exactCounts.total + Object.entries(props.liveSectionWordCounts).reduce((delta, [sectionId, liveCount]) => {
+        const kind = props.project.sections.find((section) => section.id === sectionId)?.kind;
+        if (kind !== "chapter" && kind !== "backmatter") return delta;
+        const savedCount = exactCounts.sections[sectionId];
+        return savedCount === undefined ? delta : delta + liveCount - savedCount;
+      }, 0)
     : props.totalWords;
   const repeated = useMemo(() => repeatedWords(analysisSource, props.language), [analysisSource, props.language]);
   const nearby = useMemo(() => nearbyRepetitions(analysisSource, props.language, analysisWindow), [analysisSource, props.language, analysisWindow]);
