@@ -105,18 +105,6 @@
   --folio-screen-bg: #f0f0e8;
 }
 
-.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-6::after {
-  content: "kobo";
-  position: absolute;
-  left: 50%;
-  bottom: 6px;
-  transform: translateX(-50%);
-  color: rgba(255,255,255,.42);
-  font: 500 7px/1 "Segoe UI",sans-serif;
-  letter-spacing: .08em;
-  text-transform: lowercase;
-  pointer-events: none;
-}
 
 .folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-7::before,
 .folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-8::before {
