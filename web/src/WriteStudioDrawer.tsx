@@ -42,6 +42,7 @@ interface Props {
   onReplaceCurrent: (markdown: string) => void;
   onRestoreMarkdown: (markdown: string) => Promise<void>;
   onProjectUpdate: (summary: ProjectSummary) => void;
+  onBookRestored: (summary: ProjectSummary) => void;
   onError: (message: string) => void;
 }
 
@@ -284,8 +285,10 @@ export default function WriteStudioDrawer(props: Props) {
         props.onState(safety);
         const result = await api.restoreBookSnapshot(props.project.projectId, compareRevision.revision.id);
         const summary = await api.reload(props.project.projectId);
-        props.onProjectUpdate(summary);
+        props.onBookRestored(summary);
         props.onState(await api.writeStudio(props.project.projectId));
+        setBookDocs(null);
+        setExactCounts(null);
         setCompareRevision(null);
         if (result.skipped.length) props.onError("Book restored, but " + result.skipped.length + " section(s) could not be matched.");
       } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
