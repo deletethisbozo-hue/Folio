@@ -56,13 +56,22 @@ try {
       const shell = document.querySelector<HTMLElement>(".reader-device.device-" + mode);
       const screen = shell?.querySelector<HTMLElement>(".reader-screen");
       const stage = document.querySelector<HTMLElement>(".preview-stage.device-stage");
-      if (!shell || !screen || !stage) throw new Error("Missing shell, screen or stage for " + mode);
+      const frame = shell?.querySelector<HTMLIFrameElement>(".preview-frame");
+      const frameDoc = frame?.contentDocument;
+      const frameWindow = frame?.contentWindow;
+      if (!shell || !screen || !stage || !frame || !frameDoc || !frameWindow) throw new Error("Missing shell, screen, stage or preview frame for " + mode);
       const s = shell.getBoundingClientRect();
       const r = screen.getBoundingClientRect();
       const p = stage.getBoundingClientRect();
       const shellStyle = getComputedStyle(shell);
       const before = getComputedStyle(shell, "::before");
       const after = getComputedStyle(shell, "::after");
+      const scrolling = frameDoc.scrollingElement as HTMLElement | null;
+      const originalScroll = scrolling?.scrollTop ?? 0;
+      const maxScroll = Math.max(0, (scrolling?.scrollHeight ?? 0) - (scrolling?.clientHeight ?? 0));
+      if (scrolling && maxScroll > 0) scrolling.scrollTo(0, Math.min(40, maxScroll));
+      const hiddenScrollbarStillScrolls = maxScroll <= 0 || (scrolling?.scrollTop ?? 0) > 0;
+      if (scrolling) scrolling.scrollTo(0, originalScroll);
       return {
         mode,
         shellWidth: s.width,
@@ -77,6 +86,9 @@ try {
         radius: shellStyle.borderRadius,
         beforeContent: before.content,
         afterContent: after.content,
+        iframeScrollbarWidth: Math.max(0, frameWindow.innerWidth - frameDoc.documentElement.clientWidth),
+        scrollbarWidthCss: getComputedStyle(frameDoc.documentElement).scrollbarWidth,
+        hiddenScrollbarStillScrolls,
       };
     }, {
       mode: profile.value,
@@ -96,6 +108,20 @@ try {
         profile.value + " screen aspect drifted: " +
         measurement.screenAspect.toFixed(4) + " vs " + measurement.expectedAspect.toFixed(4)
       );
+    }
+
+    if (measurement.iframeScrollbarWidth !== 0 || measurement.scrollbarWidthCss !== "none") {
+      throw new Error(
+        profile.value + " exposes a physical preview scrollbar: " +
+        measurement.iframeScrollbarWidth + "px / " + measurement.scrollbarWidthCss
+      );
+    }
+    if (!measurement.hiddenScrollbarStillScrolls) {
+      throw new Error(profile.value + " hid the scrollbar by disabling reader scrolling.");
+    }
+    if ((profile.family === "kindle" || profile.family === "kobo") &&
+        /kindle|kobo/i.test(String(measurement.beforeContent) + String(measurement.afterContent))) {
+      throw new Error(profile.value + " still exposes device branding on the physical shell.");
     }
 
     if (profile.family === "phone" && parseFloat(measurement.radius) < 30) {
