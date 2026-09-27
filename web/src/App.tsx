@@ -1331,9 +1331,18 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   function refreshAfterBookRestore(summary: ProjectSummary) {
     const liveMeta = meta ?? summary.meta;
     const liveTypography = typography;
+    const previousSelectedId = selectedRef.current;
+    const previousIndex = project?.sections.findIndex((section) => section.id === previousSelectedId) ?? -1;
+    const restoredSelection = summary.sections.find((section) => section.id === previousSelectedId)
+      ?? (previousIndex >= 0 ? summary.sections[previousIndex] : undefined)
+      ?? summary.sections.find((section) => section.kind === "chapter")
+      ?? summary.sections[0]
+      ?? null;
     setProject({ ...summary, meta: liveMeta, typography: liveTypography });
     setMeta(liveMeta);
     setTypography(liveTypography);
+    setSelectedId(restoredSelection?.id ?? null);
+    selectedRef.current = restoredSelection?.id ?? null;
     setDocument(null);
     setDirty(false);
     setSaveState("idle");
