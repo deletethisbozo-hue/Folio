@@ -13,6 +13,7 @@
   margin: auto !important;
   overflow: visible !important;
   padding: var(--folio-shell-padding, 18px) !important;
+  aspect-ratio: auto !important;
   border: 1px solid var(--folio-shell-border, #202124) !important;
   border-radius: var(--folio-shell-radius, 14px) !important;
   background: var(--folio-shell-finish, #242528) !important;
@@ -26,7 +27,8 @@
 .folio-shell .preview-stage.device-stage .reader-device:not(.device-print) .reader-screen {
   position: relative !important;
   width: 100% !important;
-  height: 100% !important;
+  height: auto !important;
+  aspect-ratio: var(--folio-device-aspect, .72) !important;
   overflow: hidden !important;
   border-radius: var(--folio-screen-radius, 2px) !important;
   background: var(--folio-screen-bg, #f2f1e9) !important;
@@ -40,8 +42,7 @@
 /* Kindle family: charcoal e-reader bodies with a slightly deeper lower chin. */
 .folio-shell .reader-device.device-kindle-6 {
   width: min(calc(100% - 12px), 350px, 56cqh) !important;
-  aspect-ratio: .684 !important;
-  --folio-shell-padding: 17px 14px 27px;
+  --folio-shell-padding: 17px 14px 57px;
   --folio-shell-radius: 11px;
   --folio-screen-radius: 2px;
   --folio-shell-border: #111214;
@@ -51,8 +52,7 @@
 
 .folio-shell .reader-device.device-kindle-6-8 {
   width: min(calc(100% - 12px), 382px, 63cqh) !important;
-  aspect-ratio: .715 !important;
-  --folio-shell-padding: 14px 13px 25px;
+  --folio-shell-padding: 14px 13px 39px;
   --folio-shell-radius: 13px;
   --folio-screen-radius: 3px;
   --folio-shell-border: #111214;
@@ -62,8 +62,7 @@
 
 .folio-shell .reader-device.device-kindle-7 {
   width: min(calc(100% - 12px), 398px, 66cqh) !important;
-  aspect-ratio: .72 !important;
-  --folio-shell-padding: 13px 12px 23px;
+  --folio-shell-padding: 13px 12px 42px;
   --folio-shell-radius: 13px;
   --folio-screen-radius: 3px;
   --folio-shell-border: #101113;
@@ -88,8 +87,7 @@
  * recognisable broad side-grip silhouette rather than a Kindle-shaped body. */
 .folio-shell .reader-device.device-kobo-6 {
   width: min(calc(100% - 12px), 352px, 57cqh) !important;
-  aspect-ratio: .70 !important;
-  --folio-shell-padding: 15px 14px 22px;
+  --folio-shell-padding: 15px 14px 50px;
   --folio-shell-radius: 9px;
   --folio-screen-radius: 1px;
   --folio-shell-border: #17181a;
@@ -99,8 +97,7 @@
 
 .folio-shell .reader-device.device-kobo-7 {
   width: min(calc(100% - 8px), 438px, 80cqh) !important;
-  aspect-ratio: .895 !important;
-  --folio-shell-padding: 14px 47px 14px 13px;
+  --folio-shell-padding: 14px 72px 14px 13px;
   --folio-shell-radius: 12px;
   --folio-screen-radius: 2px;
   --folio-shell-border: #17181a;
@@ -110,8 +107,7 @@
 
 .folio-shell .reader-device.device-kobo-8 {
   width: min(calc(100% - 8px), 452px, 83cqh) !important;
-  aspect-ratio: .885 !important;
-  --folio-shell-padding: 13px 51px 13px 13px;
+  --folio-shell-padding: 13px 72px 13px 13px;
   --folio-shell-radius: 12px;
   --folio-screen-radius: 2px;
   --folio-shell-border: #17181a;
@@ -154,8 +150,7 @@
  * The two sizes remain visibly different in the same preview stage. */
 .folio-shell .reader-device.device-phone-6-1 {
   width: min(76%, 270px, 40cqh) !important;
-  aspect-ratio: .485 !important;
-  --folio-shell-padding: 6px;
+  --folio-shell-padding: 5px 8px;
   --folio-shell-radius: 36px;
   --folio-screen-radius: 30px;
   --folio-shell-border: #0b0c0e;
@@ -165,8 +160,7 @@
 
 .folio-shell .reader-device.device-phone-6-7 {
   width: min(80%, 292px, 46cqh) !important;
-  aspect-ratio: .485 !important;
-  --folio-shell-padding: 6px;
+  --folio-shell-padding: 5px 8px;
   --folio-shell-radius: 39px;
   --folio-screen-radius: 33px;
   --folio-shell-border: #0a0b0d;
@@ -214,8 +208,7 @@
  * front camera. 8", 11" and 13" use progressively larger silhouettes. */
 .folio-shell .reader-device.device-tablet-8 {
   width: min(calc(100% - 12px), 348px, 57cqh) !important;
-  aspect-ratio: .69 !important;
-  --folio-shell-padding: 11px;
+  --folio-shell-padding: 10px 14px;
   --folio-shell-radius: 22px;
   --folio-screen-radius: 13px;
   --folio-shell-border: #777c84;
@@ -225,8 +218,7 @@
 
 .folio-shell .reader-device.device-tablet-11 {
   width: min(calc(100% - 10px), 405px, 64cqh) !important;
-  aspect-ratio: .711 !important;
-  --folio-shell-padding: 9px;
+  --folio-shell-padding: 8px 10px;
   --folio-shell-radius: 19px;
   --folio-screen-radius: 11px;
   --folio-shell-border: #737880;
@@ -236,8 +228,7 @@
 
 .folio-shell .reader-device.device-tablet-13 {
   width: min(calc(100% - 8px), 448px, 73cqh) !important;
-  aspect-ratio: .765 !important;
-  --folio-shell-padding: 8px;
+  --folio-shell-padding: 7px 9px;
   --folio-shell-radius: 17px;
   --folio-screen-radius: 10px;
   --folio-shell-border: #70757d;
