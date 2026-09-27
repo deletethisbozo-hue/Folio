@@ -151,6 +151,9 @@ try {
     return { rects, collisions };
   });
   if (footer.collisions.length) throw new Error("Status bar overlap: " + footer.collisions.join("; "));
+  if (footer.rects.some((item: any) => /Chapter\s+\d+\s+·/i.test(item.text))) {
+    throw new Error("Legacy chapter/word metrics are still being injected into the footer.");
+  }
   await fs.writeFile(path.join(outDir, "write-statusbar.json"), JSON.stringify(footer, null, 2));
   await page.screenshot({ path: path.join(outDir, "write-statusbar.png"), fullPage: false });
 
