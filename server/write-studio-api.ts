@@ -15,6 +15,7 @@ import {
   readRevisionMarkdown,
   readWritingWordCounts,
   readWriteStudio,
+  restoreBookSnapshot,
   setWritingTargets,
   updateResearchNote,
   updateWritingComment,
