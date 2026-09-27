@@ -105,6 +105,18 @@ export interface NearbyRepeat {
 
 const COMMON_EN = new Set("the a an and or but if then than of to in on at by for from with without into onto is are was were be been being it its this that these those i you he she they we me him her them us my your his their our as not no do does did have has had can could would should will just very so".split(" "));
 const COMMON_PL = new Set("i a ale albo lub oraz że to ten ta te tego tej tych w we z ze do na o od po za dla przy przez bez pod nad jest są był była było były być nie tak jak co czy się ja ty on ona oni one my wy mi ci mu jej im mnie ciebie go ją nas was mój moja moje twój twoja twoje jego ich nasz wasz".split(" "));
+const COMMON_DE = new Set("der die das ein eine einer eines einen einem und oder aber wenn dann als von zu in im an auf bei für aus mit ohne ist sind war waren sein gewesen es dies diese dieser dieses ich du er sie wir ihr ihnen mein dein sein ihr unser euer nicht kein keine auch so wie was wer".split(" "));
+const COMMON_FR = new Set("le la les un une des et ou mais si alors de du au aux en dans sur sous avec sans est sont était étaient être été ce cette ces ceci cela je tu il elle nous vous ils elles mon ma mes ton ta tes son sa ses notre votre leur ne pas".split(" "));
+const COMMON_ES = new Set("el la los las un una unos unas y o pero si entonces de del al en sobre con sin por para desde es son era eran ser sido esto esta este estos estas yo tú tu él ella nosotros nosotras vosotros vosotras ellos ellas mi mis tu tus su sus nuestro nuestra no".split(" "));
+
+function stopWords(language: string): Set<string> {
+  const code = language.toLowerCase();
+  if (code.startsWith("pl")) return COMMON_PL;
+  if (code.startsWith("de")) return COMMON_DE;
+  if (code.startsWith("fr")) return COMMON_FR;
+  if (code.startsWith("es")) return COMMON_ES;
+  return COMMON_EN;
+}
 
 export function wordCount(text: string): number {
   return text.trim().match(/\S+/g)?.length ?? 0;
@@ -124,7 +136,7 @@ function tokenise(text: string): string[] {
 }
 
 export function repeatedWords(text: string, language = "en"): RepeatedWord[] {
-  const stop = language.toLowerCase().startsWith("pl") ? COMMON_PL : COMMON_EN;
+  const stop = stopWords(language);
   const counts = new Map<string, number>();
   for (const word of tokenise(text)) {
     if (word.length < 3 || stop.has(word) || /^\d+$/.test(word)) continue;
@@ -138,7 +150,7 @@ export function repeatedWords(text: string, language = "en"): RepeatedWord[] {
 }
 
 export function nearbyRepetitions(text: string, language = "en", windowWords = 80): NearbyRepeat[] {
-  const stop = language.toLowerCase().startsWith("pl") ? COMMON_PL : COMMON_EN;
+  const stop = stopWords(language);
   const words = tokenise(text);
   const positions = new Map<string, number[]>();
   const best = new Map<string, number>();
@@ -162,7 +174,7 @@ export function nearbyRepetitions(text: string, language = "en", windowWords = 8
 export function buildSearchRegex(query: string, options: SearchOptions, global = true): RegExp {
   if (!query) throw new Error("Enter text to find.");
   const source = options.regex ? query : query.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&");
-  const wrapped = options.wholeWord ? "\\b(?:" + source + ")\\b" : source;
+  const wrapped = options.wholeWord ? "(?<![\\p{L}\\p{N}_])(?:" + source + ")(?![\\p{L}\\p{N}_])" : source;
   return new RegExp(wrapped, (global ? "g" : "") + (options.caseSensitive ? "" : "i") + "u");
 }
 
