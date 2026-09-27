@@ -1,0 +1,278 @@
+/* Folio art direction pass
+ * Goal: keep the approved Folio layout and brand, remove generic "component library"
+ * styling, and make the workspace read as a native editorial tool.
+ * No compositor, preview document, manuscript data, or feature behavior changes.
+ */
+
+.folio-shell[data-ui-tone="ivory"] {
+  --folio-brand: #5b5ce2;
+  --folio-brand-deep: #4d4eca;
+  --folio-brand-mid: #7779e8;
+  --folio-brand-soft: #eef0ff;
+  --folio-brand-selected: #e7e9ff;
+
+  --folio-ad-sidebar: #e6e9ef;
+  --folio-ad-sidebar-chrome: #e9ecf2;
+  --folio-ad-workspace: #fbfbfc;
+  --folio-ad-paper: #ffffff;
+  --folio-ad-preview: #e9edf2;
+  --folio-ad-preview-chrome: #f2f4f7;
+  --folio-ad-rule: #cfd4dd;
+  --folio-ad-rule-soft: #dde1e8;
+  --folio-ad-ink: #17191f;
+  --folio-ad-muted: #687181;
+  --folio-ad-faint: #929aa8;
+}
+
+/* Masthead: same Folio purple family, but nearly flat instead of a SaaS hero gradient. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  background: linear-gradient(
+    90deg,
+    #5758d8 0%,
+    #5b5ce2 34%,
+    #6163e4 62%,
+    #595bda 100%
+  ) !important;
+  border-bottom-color: rgba(41, 43, 142, .32) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch {
+  border: 1px solid rgba(255,255,255,.17) !important;
+  border-radius: 4px !important;
+  background: rgba(39, 40, 144, .18) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button {
+  border-radius: 2px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button.active {
+  background: rgba(255,255,255,.92) !important;
+  color: #4d4eca !important;
+  box-shadow: none !important;
+}
+
+/* Three real work zones instead of three nearly identical pale divs. */
+.folio-shell[data-ui-tone="ivory"] .library-pane {
+  background: var(--folio-ad-sidebar) !important;
+  border-right: 1px solid #c7ccd5 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-toolbar,
+.folio-shell[data-ui-tone="ivory"] .library-footer {
+  background: var(--folio-ad-sidebar-chrome) !important;
+  border-color: var(--folio-ad-rule) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-pane,
+.folio-shell[data-ui-tone="ivory"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"] .section-titlebar,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar {
+  background: var(--folio-ad-workspace) !important;
+  border-color: var(--folio-ad-rule-soft) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-pane,
+.folio-shell[data-ui-tone="ivory"] .preview-stage {
+  background: var(--folio-ad-preview) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-topbar,
+.folio-shell[data-ui-tone="ivory"] .device-toolbar {
+  background: var(--folio-ad-preview-chrome) !important;
+  border-color: var(--folio-ad-rule) !important;
+}
+
+/* Sidebar selection is navigation, not a button. */
+.folio-shell[data-ui-tone="ivory"] .contents-row {
+  border-radius: 0 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected {
+  background: #dde1ff !important;
+  box-shadow: inset 3px 0 0 #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected::after {
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row:hover {
+  background: rgba(91,92,226,.075) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section {
+  border-color: #bfc5d0 !important;
+  border-radius: 3px !important;
+  background: rgba(255,255,255,.56) !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section:hover {
+  border-color: #9fa7b6 !important;
+  background: rgba(255,255,255,.82) !important;
+}
+
+/* Chapter identity: the title leads, the number and metadata recede. */
+.folio-shell[data-ui-tone="ivory"] .section-titlebar {
+  background: #fcfcfd !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-index {
+  color: #858d9b !important;
+  font-weight: 560 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-title,
+.folio-shell[data-ui-tone="ivory"] .section-title-button,
+.folio-shell[data-ui-tone="ivory"] .section-title-input {
+  color: var(--folio-ad-ink) !important;
+  font-weight: 680 !important;
+  letter-spacing: -.025em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-button,
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-input {
+  color: #8b93a1 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-topbar-right,
+.folio-shell[data-ui-tone="ivory"] .word-count,
+.folio-shell[data-ui-tone="ivory"] .save-indicator {
+  color: #8a92a0 !important;
+}
+
+/* Toolbar: functional clusters, no little bordered component capsules. */
+.folio-shell[data-ui-tone="ivory"] .format-toolbar {
+  gap: 0 !important;
+  border-bottom: 1px solid var(--folio-ad-rule-soft) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar > .toolbar-group {
+  position: relative;
+  gap: 2px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar > .toolbar-group:first-child {
+  padding-left: 0 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar > .toolbar-group + .toolbar-group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: #d5dae2;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button {
+  border-radius: 3px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .insert-tools {
+  padding-right: 8px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .illustration-button {
+  min-width: auto !important;
+  margin-left: 0 !important;
+  padding-inline: 7px !important;
+  color: #545d6b !important;
+  font-family: var(--folio-ui-font) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button span {
+  color: inherit !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .illustration-button:hover:not(:disabled) {
+  color: #4f50d3 !important;
+}
+
+/* In Format, the manuscript is the workspace itself, not a floating card. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .editor-paper {
+  padding: 0 !important;
+  background: var(--folio-ad-paper) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .manuscript-editor:not(.folio-image-page-editor) {
+  width: min(790px, calc(100% - 84px)) !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  padding: 28px 0 78px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Preview is a studio surface. Device selection reads as a tool, not a pill. */
+.folio-shell[data-ui-tone="ivory"] .device-toolbar {
+  border-bottom: 1px solid var(--folio-ad-rule) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select {
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  min-width: 132px !important;
+  padding-inline: 10px 30px !important;
+  border: 1px solid #bdc4cf !important;
+  border-radius: 2px !important;
+  background: #f8f9fb !important;
+  color: #3f4652 !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select:focus,
+.folio-shell[data-ui-tone="ivory"] .trim-select:focus {
+  border-color: #7779e8 !important;
+  box-shadow: 0 0 0 2px rgba(91,92,226,.10) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button {
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border: 1px solid #4d4eca !important;
+  border-radius: 3px !important;
+  background: #5b5ce2 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  font-weight: 650 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button:hover {
+  background: #5152d4 !important;
+  border-color: #4546bb !important;
+  box-shadow: none !important;
+}
+
+/* Keep interactive feedback quiet and desktop-like. */
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .device-nav button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .section-move:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .tiny-footer-button:hover {
+  background: rgba(91,92,226,.085) !important;
+  color: #4f50d3 !important;
+}
+
+@media (max-width: 1180px) {
+  .folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .manuscript-editor:not(.folio-image-page-editor) {
+    width: calc(100% - 54px) !important;
+  }
+
+  .folio-shell[data-ui-tone="ivory"] .format-toolbar > .toolbar-group {
+    padding-inline: 7px !important;
+  }
+}
