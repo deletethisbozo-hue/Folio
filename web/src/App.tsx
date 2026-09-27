@@ -273,6 +273,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
   useEffect(() => {
     fastInputBurstRef.current = false;
+    lastEditorSelectionRef.current = null;
+    illustrationRangeRef.current = null;
     if (fastInputBurstTimerRef.current !== null) {
       window.clearTimeout(fastInputBurstTimerRef.current);
       fastInputBurstTimerRef.current = null;
@@ -1295,10 +1297,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     editor.scrollTo({ top: Math.max(0, editor.scrollTop + rect.top - hostRect.top - editor.clientHeight * .42), behavior: "smooth" });
   }
 
-  async function navigateText(sectionId: string, text: string) {
-    pendingRevealRef.current = { sectionId, text };
+  async function navigateText(sectionId: string, text: string, prefix?: string, suffix?: string) {
+    pendingRevealRef.current = { sectionId, text, prefix, suffix };
     if (sectionId !== selectedRef.current) await selectSection(sectionId);
-    else window.requestAnimationFrame(() => revealTextInEditor(text));
+    else window.requestAnimationFrame(() => revealTextInEditor(text, prefix, suffix));
   }
 
   function replaceCurrentFromStudio(markdown: string) {
