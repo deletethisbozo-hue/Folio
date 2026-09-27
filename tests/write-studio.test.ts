@@ -19,6 +19,7 @@ import {
   readResearchImage,
   readWritingWordCounts,
   readWriteStudio,
+  migrateWriteStudioSectionId,
   restoreBookSnapshot,
   setWritingTargets,
 } from "../server/write-studio.ts";
@@ -46,6 +47,8 @@ await test("advanced find supports literal, case-sensitive, whole-word and regex
   assert.equal(countMatches(text, "c.t", { caseSensitive: false, wholeWord: true, regex: true }), 4);
   assert.equal(replaceMatches(text, "cat", "dog", { caseSensitive: true, wholeWord: true, regex: false }).startsWith("Cat dog category"), true);
   assert.throws(() => buildSearchRegex("(", { caseSensitive: false, wholeWord: false, regex: true }), /Invalid regular expression/);
+  const polish = "żaba żabą zażaba ŻABA";
+  assert.equal(countMatches(polish, "żaba", { caseSensitive: false, wholeWord: true, regex: false }), 2);
 });
 
 await test("repetition analysis ignores common stop words and ranks repeated terms", () => {
@@ -54,6 +57,8 @@ await test("repetition analysis ignores common stop words and ranks repeated ter
   const nearby = nearbyRepetitions("glass one two glass three four glass five six seven tower tower tower", "en", 8);
   assert.equal(nearby.some((item) => item.word === "glass" && item.count >= 3), true);
   assert.equal(nearby.some((item) => item.word === "tower" && item.count >= 3), true);
+  const german = repeatedWords("der der der turm turm turm", "de");
+  assert.deepEqual(german, [{ word: "turm", count: 3 }]);
 });
 
 await test("revision diff preserves unchanged lines and marks additions/removals", () => {
@@ -100,6 +105,14 @@ await test("Write Studio project data persists beside the manuscript", async () 
 
     state = await createSnapshot(projectId, "chapter-one", "# Chapter One\n\nA raven crossed the tower.\n", "Before rewrite");
     assert.equal(state.revisions.some((item) => item.kind === "snapshot" && item.label === "Before rewrite"), true);
+
+    state = await migrateWriteStudioSectionId(projectId, "chapter-one", "renamed-chapter");
+    assert.equal(state.targets.chapters["renamed-chapter"], 4500);
+    assert.equal(state.targets.chapters["chapter-one"], undefined);
+    assert.equal(state.comments.every((item) => item.sectionId !== "chapter-one"), true);
+    assert.equal(state.comments.some((item) => item.sectionId === "renamed-chapter"), true);
+    assert.equal(state.revisions.filter((item) => item.scope === "section").every((item) => item.sectionId === "renamed-chapter"), true);
+    state = await migrateWriteStudioSectionId(projectId, "renamed-chapter", "chapter-one");
 
     const counts = await readWritingWordCounts(projectId);
     assert.equal(counts.total > 0, true);
