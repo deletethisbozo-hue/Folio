@@ -160,11 +160,13 @@ await test("whole-book snapshots restore chapters embedded in one combined manus
     assert.equal(snapshot.sectionCount, 2);
 
     await fs.writeFile(path.join(root, "manuscript.md"), [
-      "# First",
+      "# Broken First",
+      "",
+      "## Wrong subtitle",
       "",
       "Broken first chapter.",
       "",
-      "# Second",
+      "# Broken Second",
       "",
       "Broken second chapter.",
       "",
@@ -176,6 +178,9 @@ await test("whole-book snapshots restore chapters embedded in one combined manus
     const restored = await fs.readFile(path.join(root, "manuscript.md"), "utf8");
     assert.equal(restored.includes("Original first chapter."), true);
     assert.equal(restored.includes("Original second chapter."), true);
+    assert.equal(restored.includes("# First"), true);
+    assert.equal(restored.includes("# Second"), true);
+    assert.equal(restored.includes("Wrong subtitle"), false);
     assert.equal(restored.includes("Broken first chapter."), false);
     assert.equal(restored.includes("Broken second chapter."), false);
   } finally {
