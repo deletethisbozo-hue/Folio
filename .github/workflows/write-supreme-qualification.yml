@@ -32,5 +32,7 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
+      - name: Write Studio logic and persistence tests
+        run: node --import tsx tests/write-studio.test.ts
       - name: Build
         run: npm run build
