@@ -1,0 +1,660 @@
+/* Folio studio shell v3
+ * Deliberately breaks with the old dashboard-like chrome while keeping Folio's
+ * purple identity and every existing workflow intact.
+ */
+
+:root,
+.start-shell,
+.folio-shell {
+  --folio-masthead-height: 50px !important;
+  --folio-sidebar-width: 248px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] {
+  --folio-brand: #5b5ce2;
+  --folio-brand-deep: #4d4eca;
+  --folio-brand-mid: #7779e8;
+  --folio-brand-soft: #eceeff;
+  --studio-rail: #34355f;
+  --studio-rail-hover: #45467a;
+  --studio-rail-text: #c8c9dc;
+  --studio-line: #d7dbe2;
+  --studio-line-strong: #c8cdd6;
+  --studio-ink: #17191f;
+  --studio-muted: #6e7581;
+  --studio-faint: #979eaa;
+  --studio-sidebar: #f4f5f7;
+  --studio-canvas: #eceef2;
+  --studio-paper: #ffffff;
+  --studio-preview: #2d3038;
+  --studio-preview-line: #434751;
+  --studio-preview-toolbar: #f7f8fa;
+}
+
+/* Real application shell ------------------------------------------------ */
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="format"] {
+  grid-template-columns: 58px var(--folio-sidebar-width) minmax(500px, 1fr) minmax(360px, .78fr) !important;
+  grid-template-rows: var(--folio-masthead-height) minmax(0, 1fr) 24px !important;
+  grid-template-areas:
+    "command command command command"
+    "rail sidebar editor preview"
+    "rail status status status" !important;
+  background: #e7e9ee !important;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar { grid-area: command !important; }
+.folio-shell[data-ui-tone] .app-rail { grid-area: rail !important; }
+.folio-shell[data-ui-tone] .library-pane { grid-area: sidebar !important; }
+.folio-shell[data-ui-tone] .editor-pane { grid-area: editor !important; }
+.folio-shell[data-ui-tone] .preview-pane { grid-area: preview !important; }
+.folio-shell[data-ui-tone] .folio-statusbar { grid-area: status !important; }
+
+/* Write keeps the new rail instead of reverting to the old one-panel shell. */
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"] {
+  grid-template-columns: 58px minmax(0, 1fr) !important;
+  grid-template-rows: var(--folio-masthead-height) minmax(0, 1fr) 24px !important;
+  grid-template-areas:
+    "command command"
+    "rail editor"
+    "rail status" !important;
+}
+
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-write-sidebar="open"] {
+  grid-template-columns: 58px var(--folio-sidebar-width) minmax(0, 1fr) !important;
+  grid-template-areas:
+    "command command command"
+    "rail sidebar editor"
+    "rail status status" !important;
+}
+
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] {
+  grid-template-columns: 58px minmax(0, 1fr) minmax(0, 1fr) !important;
+  grid-template-areas:
+    "command command command"
+    "rail editor split"
+    "rail status status" !important;
+}
+
+.folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"][data-write-sidebar="open"][data-split-view="true"] {
+  grid-template-columns: 58px var(--folio-sidebar-width) minmax(0, 1fr) minmax(0, 1fr) !important;
+  grid-template-areas:
+    "command command command command"
+    "rail sidebar editor split"
+    "rail status status status" !important;
+}
+
+/* Top command strip: light app chrome, brand becomes identity rather than paint. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  height: var(--folio-masthead-height) !important;
+  min-height: var(--folio-masthead-height) !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: 214px minmax(180px, 1fr) auto auto !important;
+  align-items: stretch !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--studio-line-strong) !important;
+  background: #fbfbfc !important;
+  background-image: none !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.8) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] button.command-wordmark {
+  box-sizing: border-box !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  padding: 0 20px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  border: 0 !important;
+  border-right: 1px solid var(--studio-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--folio-brand-deep) !important;
+  font-size: 27px !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .command-project {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 16px;
+  color: var(--studio-ink);
+  overflow: hidden;
+}
+
+.folio-shell[data-ui-tone="ivory"] .command-project strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--folio-ui-font);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.folio-shell[data-ui-tone="ivory"] .command-project span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--studio-faint);
+  font-size: 10px;
+}
+
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch {
+  align-self: stretch !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: stretch !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-left: 1px solid var(--studio-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .workspace-mode-switch button {
+  position: relative;
+  min-width: 74px !important;
+  height: 100% !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #747b86 !important;
+  font-size: 11.5px !important;
+  font-weight: 630 !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .workspace-mode-switch button:hover {
+  color: var(--studio-ink) !important;
+  background: #f1f2f5 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .workspace-mode-switch button.active {
+  color: var(--folio-brand-deep) !important;
+  background: #fff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .workspace-mode-switch button.active::after {
+  content: "";
+  display: block !important;
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  background: var(--folio-brand);
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle {
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 17px !important;
+  border: 0 !important;
+  border-left: 1px solid var(--studio-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #7b828d !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle:hover {
+  background: #f1f2f5 !important;
+  color: var(--studio-ink) !important;
+}
+
+/* Vertical application rail -------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"] .app-rail {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px 5px 7px;
+  overflow: hidden;
+  border-right: 1px solid #2b2c51;
+  background: var(--studio-rail);
+  color: var(--studio-rail-text);
+}
+
+.folio-shell[data-ui-tone="ivory"] .app-rail button {
+  width: 48px;
+  height: 52px;
+  margin: 0 auto 4px;
+  padding: 5px 2px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--studio-rail-text);
+  font-family: var(--folio-ui-font);
+  font-size: 8.5px;
+  font-weight: 560;
+  line-height: 1;
+}
+
+.folio-shell[data-ui-tone="ivory"] .app-rail .ui-icon {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.6;
+}
+
+.folio-shell[data-ui-tone="ivory"] .app-rail button:hover:not(:disabled) {
+  background: var(--studio-rail-hover);
+  color: #fff;
+}
+
+.folio-shell[data-ui-tone="ivory"] .app-rail button:active:not(:disabled) {
+  background: #50518a;
+}
+
+.folio-shell[data-ui-tone="ivory"] .app-rail-spacer { flex: 1 1 auto; }
+
+/* Manuscript browser ---------------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"] .library-pane {
+  min-width: 0 !important;
+  width: auto !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-right: 1px solid var(--studio-line-strong) !important;
+  background: var(--studio-sidebar) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-toolbar {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 16px !important;
+  border-bottom: 1px solid var(--studio-line) !important;
+  background: #f8f9fa !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .pane-label {
+  color: #5e6672 !important;
+  font-size: 10.5px !important;
+  font-weight: 690 !important;
+  letter-spacing: .055em !important;
+  text-transform: uppercase !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .book-identity {
+  padding: 16px 16px 13px !important;
+  border-bottom: 1px solid var(--studio-line) !important;
+  background: #f4f5f7 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .book-title {
+  color: var(--studio-ink) !important;
+  font-size: 13px !important;
+  font-weight: 690 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .book-author {
+  margin-top: 4px !important;
+  color: #8a919c !important;
+  font-size: 10px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-list {
+  padding: 8px 0 12px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-heading {
+  margin: 13px 16px 5px !important;
+  color: #9aa1ab !important;
+  font-size: 9.5px !important;
+  font-weight: 720 !important;
+  letter-spacing: .085em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row {
+  height: 34px !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #626a76 !important;
+  line-height: 34px !important;
+  font-size: 11px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row:hover {
+  background: #eaecf0 !important;
+  color: #292e36 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected {
+  background: #fff !important;
+  color: #252a33 !important;
+  box-shadow: inset 3px 0 0 var(--folio-brand) !important;
+  font-weight: 630 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected::after {
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .chapter-number,
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .chapter-grip {
+  color: var(--folio-brand-deep) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section {
+  margin: 8px 12px 10px !important;
+  min-height: 36px !important;
+  border: 1px solid #c7ccd5 !important;
+  border-radius: 4px !important;
+  background: #fbfbfc !important;
+  color: #343943 !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section:hover {
+  border-color: #aeb5c0 !important;
+  background: #fff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-footer {
+  height: 26px !important;
+  min-height: 26px !important;
+  border-top: 1px solid var(--studio-line) !important;
+  background: #f1f2f5 !important;
+}
+
+/* Editor ---------------------------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"] .editor-pane {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-right: 1px solid var(--studio-line-strong) !important;
+  background: var(--studio-canvas) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-titlebar {
+  height: 68px !important;
+  min-height: 68px !important;
+  padding: 0 16px 0 24px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--studio-line) !important;
+  background: #fff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-titlebar-main {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-titlebar-side {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-topbar-right {
+  margin: 0 !important;
+  gap: 7px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .save-indicator,
+.folio-shell[data-ui-tone="ivory"] .word-count {
+  color: #9aa1ac !important;
+  font-size: 9px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-index {
+  color: #a0a6b0 !important;
+  font-size: 11px !important;
+  font-weight: 560 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-title,
+.folio-shell[data-ui-tone="ivory"] .section-title-button,
+.folio-shell[data-ui-tone="ivory"] .section-title-input {
+  color: var(--studio-ink) !important;
+  font-size: 21px !important;
+  font-weight: 690 !important;
+  letter-spacing: -.027em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-button,
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-input {
+  color: #a0a6b0 !important;
+  font-size: 10px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar {
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 0 15px !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--studio-line) !important;
+  background: #f8f9fa !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar > .toolbar-group {
+  position: relative;
+  gap: 1px !important;
+  padding: 0 8px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar > .toolbar-group:first-child {
+  padding-left: 0 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar > .toolbar-group + .toolbar-group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 1px;
+  background: #d5d9df;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button {
+  height: 27px !important;
+  min-width: 27px !important;
+  padding: 0 6px !important;
+  border: 0 !important;
+  border-radius: 3px !important;
+  background: transparent !important;
+  color: #5d6571 !important;
+  font-size: 10px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:hover:not(:disabled) {
+  background: #eceef2 !important;
+  color: #232832 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .illustration-button {
+  min-width: auto !important;
+  margin-left: 0 !important;
+  padding-inline: 7px !important;
+  color: #5d6571 !important;
+  font-family: var(--folio-ui-font) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button span {
+  color: inherit !important;
+}
+
+/* The manuscript is now visibly a page on a professional canvas, not a rounded card. */
+.folio-shell[data-ui-tone="ivory"] .editor-paper {
+  padding: 0 !important;
+  background: var(--studio-canvas) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .manuscript-editor:not(.folio-image-page-editor) {
+  width: min(760px, calc(100% - 64px)) !important;
+  height: calc(100% - 34px) !important;
+  margin: 17px auto !important;
+  padding: 34px 46px 80px !important;
+  border: 1px solid #d8dce3 !important;
+  border-radius: 0 !important;
+  background: var(--studio-paper) !important;
+  box-shadow: 0 8px 26px rgba(41,45,54,.07), 0 1px 2px rgba(41,45,54,.05) !important;
+}
+
+/* Preview becomes a real studio bay ------------------------------------ */
+.folio-shell[data-ui-tone="ivory"] .preview-pane {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  background: var(--studio-preview) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-commandbar {
+  height: 48px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px 0 14px;
+  border-bottom: 1px solid var(--studio-line-strong);
+  background: var(--studio-preview-toolbar);
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-pane-title {
+  flex: 0 0 auto;
+  color: #444b56 !important;
+  font-size: 11px !important;
+  font-weight: 690 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select {
+  height: 29px !important;
+  min-height: 29px !important;
+  max-height: 29px !important;
+  min-width: 118px !important;
+  padding: 0 27px 0 8px !important;
+  border: 1px solid #c4cad3 !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  color: #343a44 !important;
+  box-shadow: none !important;
+  font-size: 10px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-nav {
+  flex: 0 0 auto;
+  gap: 2px !important;
+  color: #7e8590 !important;
+  font-size: 9.5px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-nav button {
+  width: 27px !important;
+  height: 27px !important;
+  border-radius: 3px !important;
+  color: #555d69 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-wrap { flex: 0 0 auto; }
+
+.folio-shell[data-ui-tone="ivory"] .generate-button {
+  height: 29px !important;
+  min-height: 29px !important;
+  padding: 0 13px !important;
+  border: 1px solid var(--folio-brand-deep) !important;
+  border-radius: 3px !important;
+  background: var(--folio-brand) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  font-size: 10px !important;
+  font-weight: 680 !important;
+  text-decoration: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button:hover {
+  border-color: #4344b7 !important;
+  background: #5051d2 !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-menu {
+  top: 35px !important;
+  right: 0 !important;
+  border-radius: 4px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-stage,
+.folio-shell[data-ui-tone="ivory"] .preview-stage.device-stage {
+  padding: 26px 22px 30px !important;
+  background: var(--studio-preview) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .reader-device:not(.device-print) {
+  width: min(382px, calc(100% - 12px)) !important;
+  max-width: 382px !important;
+  padding: 10px !important;
+  border: 1px solid #1d1f24 !important;
+  border-radius: 10px !important;
+  background: #202228 !important;
+  box-shadow: 0 16px 34px rgba(0,0,0,.32) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .reader-screen {
+  border-radius: 1px !important;
+  background: #fdfbf5 !important;
+}
+
+/* Footer --------------------------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"] .folio-statusbar {
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-top: 1px solid var(--studio-line-strong) !important;
+  background: #f8f9fa !important;
+  color: #939aa5 !important;
+  font-size: 9px !important;
+}
+
+@media (max-width: 1220px) {
+  .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="format"] {
+    grid-template-columns: 54px 220px minmax(430px, 1fr) minmax(330px, .78fr) !important;
+  }
+  .folio-shell[data-ui-tone="ivory"] .app-rail button {
+    width: 44px;
+  }
+  .folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+    grid-template-columns: 190px minmax(120px, 1fr) auto auto !important;
+  }
+  .folio-shell[data-ui-tone="ivory"] .command-project span { display: none; }
+}
