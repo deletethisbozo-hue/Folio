@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import type { ProjectSummary, SectionDocument } from "./types";
 import {
@@ -98,6 +98,7 @@ export default function WriteStudioDrawer(props: Props) {
   const [snapshotScope, setSnapshotScope] = useState<"chapter" | "book">("chapter");
   const [compareRevision, setCompareRevision] = useState<RevisionPayload | null>(null);
   const [historyBusy, setHistoryBusy] = useState(false);
+  const revisionLoadTokenRef = useRef(0);
   const [query, setQuery] = useState("");
   const [replacement, setReplacement] = useState("");
   const [searchOptions, setSearchOptions] = useState<SearchOptions>({ caseSensitive: false, wholeWord: false, regex: false });
@@ -119,6 +120,7 @@ export default function WriteStudioDrawer(props: Props) {
   }, [props.state?.targets]);
 
   useEffect(() => {
+    revisionLoadTokenRef.current++;
     setCompareRevision(null);
   }, [props.selectedId, props.project.projectId]);
 
@@ -129,6 +131,7 @@ export default function WriteStudioDrawer(props: Props) {
 
   useEffect(() => {
     setBookDocs(null);
+    setExactCounts(null);
   }, [props.project.projectId, projectSectionIdentity]);
 
   useEffect(() => {
@@ -257,11 +260,16 @@ export default function WriteStudioDrawer(props: Props) {
   }
 
   async function loadRevision(id: string) {
+    const token = ++revisionLoadTokenRef.current;
     setHistoryBusy(true);
     try {
-      setCompareRevision(await api.revision(props.project.projectId, id));
-    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
-    finally { setHistoryBusy(false); }
+      const revision = await api.revision(props.project.projectId, id);
+      if (revisionLoadTokenRef.current === token) setCompareRevision(revision);
+    } catch (error) {
+      if (revisionLoadTokenRef.current === token) props.onError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (revisionLoadTokenRef.current === token) setHistoryBusy(false);
+    }
   }
 
   async function restoreRevision() {
@@ -450,7 +458,7 @@ export default function WriteStudioDrawer(props: Props) {
           <div><span>Gross</span><strong>+{props.session.gross.toLocaleString()}</strong></div>
           <div><span>Deleted</span><strong>−{props.session.deleted.toLocaleString()}</strong></div>
           <div><span>Net</span><strong>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()}</strong></div>
-          <div><span>Words/min</span><strong>{Math.max(0, Math.round(props.session.gross / Math.max(1, props.session.activeMs / 60000)))}</strong></div>
+          <div><span>Words/min</span><strong>{props.session.activeMs < 1000 ? 0 : Math.max(0, Math.round(props.session.gross / (props.session.activeMs / 60000)))}</strong></div>
           <div><span>Chapter</span><strong>{props.currentWords.toLocaleString()}</strong></div>
         </div>
       </div>}
