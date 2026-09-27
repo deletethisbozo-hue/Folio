@@ -2,8 +2,11 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { loadProject, projectInfo, writableBookDir } from "./projects.ts";
+import { writeSectionDocument } from "./section-editor.ts";
 
 export type RevisionKind = "auto" | "snapshot";
+export type RevisionScope = "section" | "book";
+const BOOK_REVISION_ID = "__book__";
 
 export interface WritingTargets {
   book: number | null;
@@ -44,8 +47,10 @@ export interface WritingComment {
 export interface RevisionSummary {
   id: string;
   sectionId: string;
+  scope: RevisionScope;
   kind: RevisionKind;
   label?: string;
+  sectionCount?: number;
   createdAt: string;
   wordCount: number;
   chars: number;
@@ -100,7 +105,9 @@ function normaliseState(value: Partial<WriteStudioState> | null | undefined): Wr
     research: Array.isArray(value?.research) ? value!.research! : [],
     researchImages: Array.isArray(value?.researchImages) ? value!.researchImages! : [],
     comments: Array.isArray(value?.comments) ? value!.comments! : [],
-    revisions: Array.isArray(value?.revisions) ? value!.revisions! : [],
+    revisions: Array.isArray(value?.revisions)
+      ? value!.revisions!.map((item) => ({ ...item, scope: item.scope ?? "section" }))
+      : [],
   };
 }
 
@@ -212,6 +219,7 @@ async function appendRevision(
   const summary: RevisionSummary = {
     id: crypto.randomUUID(),
     sectionId,
+    scope: "section",
     kind,
     label: label?.trim() || undefined,
     createdAt: now,
@@ -402,6 +410,87 @@ export async function createSnapshot(projectId: string, sectionId: string, markd
   });
 }
 
+type BookSnapshotEntry = {
+  id: string;
+  kind: string;
+  title: string;
+  subtitle?: string;
+  source: string;
+  sourceOrdinal?: number;
+  markdown: string;
+};
+
+export async function createBookSnapshot(projectId: string, label?: string): Promise<WriteStudioState> {
+  return mutateState(projectId, async (state) => {
+    const info = projectInfo(projectId);
+    if (!info.folder) throw new Error("Project folder not available.");
+    const { book } = await loadProject(projectId);
+    const root = path.resolve(info.folder);
+    const entries: BookSnapshotEntry[] = book.sections
+      .filter((section) => !section.generated && section.sourcePath)
+      .map((section) => ({
+        id: section.id,
+        kind: section.kind,
+        title: section.title,
+        subtitle: section.subtitle,
+        source: path.relative(root, path.resolve(section.sourcePath!)).split(path.sep).join("/"),
+        sourceOrdinal: section.sourceOrdinal,
+        markdown: section.markdown,
+      }));
+
+    const payload = JSON.stringify({ sections: entries });
+    const summary: RevisionSummary = {
+      id: crypto.randomUUID(),
+      sectionId: BOOK_REVISION_ID,
+      scope: "book",
+      kind: "snapshot",
+      label: label?.trim() || undefined,
+      createdAt: new Date().toISOString(),
+      wordCount: entries.reduce((sum, item) => sum + wordCount(item.markdown), 0),
+      chars: payload.length,
+      hash: revisionHash(payload),
+      sectionCount: entries.length,
+    };
+    const { historyDir } = await writablePaths(projectId);
+    await fs.writeFile(path.join(historyDir, summary.id + ".json"), payload, "utf8");
+    state.revisions.push(summary);
+    state.revisions.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    return state;
+  });
+}
+
+export async function restoreBookSnapshot(projectId: string, revisionId: string): Promise<{ restored: number; skipped: string[] }> {
+  const state = await readWriteStudio(projectId);
+  const revision = state.revisions.find((item) => item.id === revisionId && item.scope === "book");
+  if (!revision) throw new Error("Book snapshot not found.");
+
+  const info = projectInfo(projectId);
+  if (!info.folder) throw new Error("Project folder not available.");
+  const raw = await fs.readFile(path.join(info.folder, DATA_DIR, HISTORY_DIR, revisionId + ".json"), "utf8");
+  const parsed = JSON.parse(raw) as { sections?: BookSnapshotEntry[] };
+  if (!Array.isArray(parsed.sections)) throw new Error("Book snapshot data is invalid.");
+
+  let restored = 0;
+  const skipped: string[] = [];
+  for (const saved of parsed.sections) {
+    const current = await loadProject(projectId);
+    const root = path.resolve(projectInfo(projectId).folder!);
+    const match = current.book.sections.find((section) =>
+      !section.generated
+      && section.sourcePath
+      && path.relative(root, path.resolve(section.sourcePath)).split(path.sep).join("/") === saved.source
+      && section.sourceOrdinal === saved.sourceOrdinal,
+    );
+    if (!match) {
+      skipped.push(saved.title);
+      continue;
+    }
+    await writeSectionDocument(projectId, match.id, saved.markdown);
+    restored++;
+  }
+  return { restored, skipped };
+}
+
 export async function maybeRecordAutoRevision(projectId: string, sectionId: string, markdown: string): Promise<void> {
   if (!markdown.trim()) return;
   await mutateState(projectId, async (state) => {
@@ -418,14 +507,18 @@ export async function maybeRecordAutoRevision(projectId: string, sectionId: stri
   });
 }
 
-export async function readRevisionMarkdown(projectId: string, revisionId: string): Promise<{ revision: RevisionSummary; markdown: string }> {
+export async function readRevisionMarkdown(projectId: string, revisionId: string): Promise<{ revision: RevisionSummary; markdown?: string; sections?: BookSnapshotEntry[] }> {
   const state = await readWriteStudio(projectId);
   const revision = state.revisions.find((item) => item.id === revisionId);
   if (!revision) throw new Error("Revision not found.");
   const folder = projectInfo(projectId).folder;
   if (!folder) throw new Error("Project folder not available.");
   const raw = await fs.readFile(path.join(folder, DATA_DIR, HISTORY_DIR, revisionId + ".json"), "utf8");
-  const parsed = JSON.parse(raw) as { markdown?: unknown };
+  const parsed = JSON.parse(raw) as { markdown?: unknown; sections?: unknown };
+  if (revision.scope === "book") {
+    if (!Array.isArray(parsed.sections)) throw new Error("Book revision data is invalid.");
+    return { revision, sections: parsed.sections as BookSnapshotEntry[] };
+  }
   if (typeof parsed.markdown !== "string") throw new Error("Revision data is invalid.");
   return { revision, markdown: parsed.markdown };
 }
