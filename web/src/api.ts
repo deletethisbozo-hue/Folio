@@ -52,6 +52,9 @@ export const api = {
   writeStudio: (projectId: string) =>
     fetch(`/api/projects/${projectId}/write-studio`).then((r) => json<WriteStudioState>(r)),
 
+  writingWordCounts: (projectId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/word-counts`).then((r) => json<{ total: number; sections: Record<string, number> }>(r)),
+
   saveWritingTargets: (projectId: string, targets: Partial<WritingTargets>) =>
     fetch(`/api/projects/${projectId}/write-studio/targets`, {
       method: "PUT",
