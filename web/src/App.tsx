@@ -2041,6 +2041,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         writeZoom={writeZoom}
         onClose={() => setSplitView(false)}
         onError={(message) => setError(message)}
+        onWordDelta={(delta) => setSessionStats((current) => delta > 0
+          ? { ...current, gross: current.gross + delta }
+          : { ...current, deleted: current.deleted + Math.abs(delta) })}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
       />}
 
