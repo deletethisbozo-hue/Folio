@@ -264,8 +264,8 @@ export default function WriteStudioDrawer(props: Props) {
     finally { setHistoryBusy(false); }
   }
 
-  async function scanBook(): Promise<SectionDocument[]> {
-    if (bookDocs) return bookDocs;
+  async function scanBook(force = false): Promise<SectionDocument[]> {
+    if (bookDocs && !force) return bookDocs;
     setSearchBusy(true);
     try {
       const docs = (await Promise.all(props.project.sections.map((section) => api.section(props.project.projectId, section.id))))
@@ -287,10 +287,14 @@ export default function WriteStudioDrawer(props: Props) {
     }
 
     try {
-      const docs = await scanBook();
+      const saved = await props.onSaveCurrent();
+      if (!saved) throw new Error("Current chapter could not be saved before Replace All.");
+      const safety = await api.createBookSnapshot(props.project.projectId, "Before Replace All");
+      props.onState(safety);
+      const docs = await scanBook(true);
       const affected = docs.filter((doc) => countMatches(doc.markdown, query, searchOptions) > 0);
       if (!affected.length) return;
-      if (!window.confirm("Replace all matches in " + affected.length + " section" + (affected.length === 1 ? "" : "s") + "?")) return;
+      if (!window.confirm("Replace all matches in " + affected.length + " section" + (affected.length === 1 ? "" : "s") + "? A safety snapshot has already been created.")) return;
       setSearchBusy(true);
       let currentReplacement: string | null = null;
       for (const doc of affected) {
@@ -334,9 +338,10 @@ export default function WriteStudioDrawer(props: Props) {
 
   const [searchHits, setSearchHits] = useState<Array<{ sectionId: string; title: string; text: string; snippet: string }>>([]);
   useEffect(() => {
-    if (!query || scope === "book") { setSearchHits([]); return; }
+    if (!query) { setSearchHits([]); return; }
+    if (scope === "book" && !bookDocs) { setSearchHits([]); return; }
     void bookMatches().then(setSearchHits);
-  }, [query, scope, searchOptions.caseSensitive, searchOptions.wholeWord, searchOptions.regex, props.draft, props.selectedId]);
+  }, [query, scope, searchOptions.caseSensitive, searchOptions.wholeWord, searchOptions.regex, props.draft, props.selectedId, bookDocs]);
 
   if (!props.open) return null;
 
