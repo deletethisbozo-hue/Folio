@@ -48,3 +48,4 @@ if (JSON.stringify(encodedSizes) !== JSON.stringify(sizes)) {
   throw new Error("ICO directory mismatch: " + encodedSizes.join(", "));
 }
 console.log("Generated Folio Windows icon:", outPath, encodedSizes.map((size) => size + "x" + size).join(", "));
+process.exit(0);
