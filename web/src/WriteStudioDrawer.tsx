@@ -30,7 +30,6 @@ interface Props {
   totalWords: number;
   language: string;
   session: SessionStats;
-  sessionNow: number;
   state: WriteStudioState | null;
   onState: (state: WriteStudioState) => void;
   onClose: () => void;
@@ -417,11 +416,11 @@ export default function WriteStudioDrawer(props: Props) {
 
         <h3 className="write-subheading">Session stats</h3>
         <div className="write-stat-grid">
-          <div><span>Time</span><strong>{formatDuration(props.sessionNow - props.session.startedAt)}</strong></div>
+          <div><span>Active time</span><strong>{formatDuration(props.session.activeMs)}</strong></div>
           <div><span>Gross</span><strong>+{props.session.gross.toLocaleString()}</strong></div>
           <div><span>Deleted</span><strong>−{props.session.deleted.toLocaleString()}</strong></div>
           <div><span>Net</span><strong>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()}</strong></div>
-          <div><span>Words/min</span><strong>{Math.max(0, Math.round(props.session.gross / Math.max(1, (props.sessionNow - props.session.startedAt) / 60000)))}</strong></div>
+          <div><span>Words/min</span><strong>{Math.max(0, Math.round(props.session.gross / Math.max(1, props.session.activeMs / 60000)))}</strong></div>
           <div><span>Chapter</span><strong>{props.currentWords.toLocaleString()}</strong></div>
         </div>
       </div>}
