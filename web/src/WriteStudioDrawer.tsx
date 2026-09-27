@@ -154,7 +154,7 @@ export default function WriteStudioDrawer(props: Props) {
       .then((counts) => { if (!cancelled) setExactCounts(counts); })
       .catch((error) => { if (!cancelled) props.onError(error instanceof Error ? error.message : String(error)); });
     return () => { cancelled = true; };
-  }, [props.open, props.activeTab, props.project.projectId]);
+  }, [props.open, props.activeTab, props.project.projectId, projectSectionIdentity]);
 
   const sessionNet = props.session.gross - props.session.deleted;
   const today = todayKey();
@@ -361,6 +361,7 @@ export default function WriteStudioDrawer(props: Props) {
       const summary = await api.reload(props.project.projectId);
       props.onProjectUpdate(summary);
       setBookDocs(null);
+      setExactCounts(null);
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setSearchBusy(false); }
   }
