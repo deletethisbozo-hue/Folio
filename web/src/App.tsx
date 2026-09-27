@@ -931,7 +931,30 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       await flushEditorDom();
       const liveDraft = draftRef.current;
       const draftChangedDuringSave = liveDraft !== draftAtStart;
-      if (updated.id !== selectedId) { undoRef.current = []; redoRef.current = []; }
+      if (updated.id !== selectedId) {
+        undoRef.current = [];
+        redoRef.current = [];
+        setWriteStudioState((current) => {
+          if (!current) return current;
+          const chapters = { ...current.targets.chapters };
+          if (chapters[selectedId] !== undefined) {
+            if (chapters[updated.id] === undefined) chapters[updated.id] = chapters[selectedId];
+            delete chapters[selectedId];
+          }
+          return {
+            ...current,
+            targets: { ...current.targets, chapters },
+            comments: current.comments.map((item) => item.sectionId === selectedId ? { ...item, sectionId: updated.id } : item),
+            revisions: current.revisions.map((item) => item.scope === "section" && item.sectionId === selectedId ? { ...item, sectionId: updated.id } : item),
+          };
+        });
+        setLiveSectionWordCounts((current) => {
+          if (current[selectedId] === undefined) return current;
+          const next = { ...current, [updated.id]: current[selectedId] };
+          delete next[selectedId];
+          return next;
+        });
+      }
       // updateSectionHeading already re-ingests the authoritative source. A
       // second full-project reload made large books pause and briefly removed
       // the editor after every rename. Update only the summary row that changed.
