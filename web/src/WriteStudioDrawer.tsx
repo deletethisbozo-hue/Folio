@@ -34,6 +34,7 @@ interface Props {
   onState: (state: WriteStudioState) => void;
   onClose: () => void;
   onCaptureSelection: () => string | null;
+  onGetCurrentMarkdown: () => Promise<string>;
   onRevealText: (text: string) => void;
   onNavigateText: (sectionId: string, text: string) => Promise<void>;
   onReplaceCurrent: (markdown: string) => void;
@@ -173,7 +174,8 @@ export default function WriteStudioDrawer(props: Props) {
     if (!props.selectedId || !props.document?.editable) return;
     setHistoryBusy(true);
     try {
-      const state = await api.createSnapshot(props.project.projectId, props.selectedId, props.draft, snapshotLabel.trim() || undefined);
+      const markdown = await props.onGetCurrentMarkdown();
+      const state = await api.createSnapshot(props.project.projectId, props.selectedId, markdown, snapshotLabel.trim() || undefined);
       props.onState(state);
       setSnapshotLabel("");
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
@@ -193,7 +195,8 @@ export default function WriteStudioDrawer(props: Props) {
     if (!window.confirm("Restore this revision? Folio will create a snapshot of the current chapter first.")) return;
     setHistoryBusy(true);
     try {
-      const backedUp = await api.createSnapshot(props.project.projectId, props.selectedId, props.draft, "Before restore");
+      const current = await props.onGetCurrentMarkdown();
+      const backedUp = await api.createSnapshot(props.project.projectId, props.selectedId, current, "Before restore");
       props.onState(backedUp);
       await props.onRestoreMarkdown(compareRevision.markdown);
       const refreshed = await api.writeStudio(props.project.projectId);
