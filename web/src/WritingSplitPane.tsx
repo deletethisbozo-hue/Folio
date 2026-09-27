@@ -145,14 +145,15 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
   }, []);
 
   function recordInput() {
-    if (!documentRef.current?.editable) return;
+    const currentDocument = documentRef.current;
+    if (!currentDocument?.editable) return;
     props.onWritingActivity();
     const editor = editorRef.current;
     if (editor) {
       const nextWords = editor.innerText.trim().match(/\S+/g)?.length ?? 0;
       const previousWords = liveWordCountRef.current;
       liveWordCountRef.current = nextWords;
-      props.onLiveWordCount(documentRef.current.id, nextWords);
+      props.onLiveWordCount(currentDocument.id, nextWords);
       if (previousWords !== null && nextWords !== previousWords) props.onWordDelta(nextWords - previousWords);
     }
     dirtyRef.current = true;
