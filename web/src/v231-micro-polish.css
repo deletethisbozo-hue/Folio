@@ -57,18 +57,6 @@
   letter-spacing: .055em !important;
 }
 
-.folio-shell[data-ui-tone="ivory"] .pane-label::after,
-.folio-shell[data-ui-tone="ivory"] .preview-pane-title::after {
-  content: "";
-  display: inline-block;
-  width: 18px;
-  height: 2px;
-  margin-left: 8px;
-  border-radius: 999px;
-  background: #5b5ce2;
-  vertical-align: middle;
-  opacity: .72;
-}
 
 .folio-shell[data-ui-tone="ivory"] .contents-heading {
   color: #777f8d !important;
