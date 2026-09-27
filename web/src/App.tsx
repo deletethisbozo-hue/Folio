@@ -18,7 +18,7 @@ import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import WritingSplitPane from "./WritingSplitPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
-import { todayKey, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
+import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -217,8 +217,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const reportedSessionNetRef = useRef(0);
   const progressSyncTimerRef = useRef<number | null>(null);
   const progressSyncInFlightRef = useRef(false);
-  const lastEditorSelectionRef = useRef<string | null>(null);
-  const pendingRevealRef = useRef<{ sectionId: string; text: string } | null>(null);
+  const lastEditorSelectionRef = useRef<SelectionCapture | null>(null);
+  const pendingRevealRef = useRef<{ sectionId: string; text: string; prefix?: string; suffix?: string } | null>(null);
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);
   const draftWordCountCacheRef = useRef<{ text: string; count: number }>({ text: "", count: 0 });
@@ -482,7 +482,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const pending = pendingRevealRef.current;
     if (!pending || document?.id !== pending.sectionId || selectedId !== pending.sectionId) return;
     const frame = window.requestAnimationFrame(() => {
-      revealTextInEditor(pending.text);
+      revealTextInEditor(pending.text, pending.prefix, pending.suffix);
       if (pendingRevealRef.current === pending) pendingRevealRef.current = null;
     });
     return () => window.cancelAnimationFrame(frame);
@@ -1196,22 +1196,39 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     setWriteStudioOpen(true);
   }
 
-  function rememberEditorSelection(): string | null {
+  function rememberEditorSelection(): SelectionCapture | null {
     const editor = editorRef.current;
     const selection = window.getSelection();
     if (!editor || !selection || selection.rangeCount === 0 || selection.isCollapsed) return lastEditorSelectionRef.current;
     const range = selection.getRangeAt(0);
     if (!editor.contains(range.commonAncestorContainer)) return lastEditorSelectionRef.current;
-    const text = selection.toString().trim();
-    if (text) lastEditorSelectionRef.current = text.slice(0, 2000);
+
+    const raw = selection.toString();
+    const quote = raw.trim();
+    if (!quote) return lastEditorSelectionRef.current;
+
+    const beforeRange = window.document.createRange();
+    beforeRange.selectNodeContents(editor);
+    beforeRange.setEnd(range.startContainer, range.startOffset);
+    const afterRange = window.document.createRange();
+    afterRange.selectNodeContents(editor);
+    afterRange.setStart(range.endContainer, range.endOffset);
+
+    const leading = raw.slice(0, raw.length - raw.trimStart().length);
+    const trailing = raw.slice(raw.trimEnd().length);
+    lastEditorSelectionRef.current = {
+      quote: quote.slice(0, 2000),
+      prefix: (beforeRange.toString() + leading).slice(-160),
+      suffix: (trailing + afterRange.toString()).slice(0, 160),
+    };
     return lastEditorSelectionRef.current;
   }
 
-  function captureEditorSelection(): string | null {
+  function captureEditorSelection(): SelectionCapture | null {
     return rememberEditorSelection();
   }
 
-  function revealTextInEditor(text: string) {
+  function revealTextInEditor(text: string, prefix?: string, suffix?: string) {
     const editor = editorRef.current;
     if (!editor || !text) return;
     const walker = window.document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
@@ -1225,8 +1242,36 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       nodes.push({ node, start, end: full.length });
       current = walker.nextNode();
     }
-    const index = full.toLocaleLowerCase().indexOf(text.toLocaleLowerCase());
-    if (index < 0) return;
+
+    const lower = full.toLocaleLowerCase();
+    const needle = text.toLocaleLowerCase();
+    const candidates: number[] = [];
+    let cursor = 0;
+    while (cursor <= lower.length - needle.length) {
+      const found = lower.indexOf(needle, cursor);
+      if (found < 0) break;
+      candidates.push(found);
+      cursor = found + Math.max(1, needle.length);
+    }
+    if (!candidates.length) return;
+
+    const prefixLower = prefix?.toLocaleLowerCase() ?? "";
+    const suffixLower = suffix?.toLocaleLowerCase() ?? "";
+    const overlapScore = (left: string, right: string, fromEnd: boolean) => {
+      const max = Math.min(left.length, right.length);
+      for (let size = max; size > 0; size--) {
+        if (fromEnd ? left.slice(-size) === right.slice(-size) : left.slice(0, size) === right.slice(0, size)) return size;
+      }
+      return 0;
+    };
+    let index = candidates[0];
+    let bestScore = -1;
+    for (const candidate of candidates) {
+      const before = lower.slice(Math.max(0, candidate - prefixLower.length), candidate);
+      const after = lower.slice(candidate + needle.length, candidate + needle.length + suffixLower.length);
+      const score = overlapScore(before, prefixLower, true) + overlapScore(after, suffixLower, false);
+      if (score > bestScore) { bestScore = score; index = candidate; }
+    }
     const endIndex = index + text.length;
     const startNode = nodes.find((item) => index >= item.start && index <= item.end);
     const endNode = nodes.find((item) => endIndex >= item.start && endIndex <= item.end) ?? nodes[nodes.length - 1];
