@@ -143,3 +143,99 @@
 .folio-shell[data-ui-tone="ivory"] .preview-stage {
   box-shadow: inset 1px 0 0 rgba(199, 205, 216, .35) !important;
 }
+
+
+/* 5) Visible polish pass: still the same Folio, but the workspace layers read at a glance. */
+.folio-shell[data-ui-tone="ivory"] .library-toolbar {
+  background: #e5e8ee !important;
+  border-bottom: 1px solid #cfd4de !important;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .55) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"] .preview-topbar {
+  background: #f7f8fc !important;
+  border-bottom-color: #c7cdd8 !important;
+  box-shadow: 0 2px 6px rgba(35, 39, 58, .065) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar,
+.folio-shell[data-ui-tone="ivory"] .device-toolbar {
+  background: #f2f4f8 !important;
+  border-bottom-color: #c7cdd8 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .82),
+    0 2px 5px rgba(35, 39, 58, .045) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-titlebar {
+  border-bottom-color: #cfd4de !important;
+  box-shadow: 0 2px 5px rgba(35, 39, 58, .035) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .pane-label,
+.folio-shell[data-ui-tone="ivory"] .preview-pane-title {
+  color: #4f50d3 !important;
+  font-weight: 720 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected {
+  background: #e3e6ff !important;
+  box-shadow:
+    inset 3px 0 0 #5b5ce2,
+    inset 0 0 0 1px rgba(91, 92, 226, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle.active {
+  background: #e1e4ff !important;
+  color: #4f50d3 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(91, 92, 226, .22),
+    0 1px 2px rgba(50, 52, 120, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button {
+  color: #596170 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button span {
+  color: #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select {
+  border-color: #b9c0cc !important;
+  background: #fdfdff !important;
+  color: #4f50d3 !important;
+  box-shadow:
+    0 1px 2px rgba(31, 36, 51, .05),
+    inset 0 0 0 1px rgba(91, 92, 226, .025) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-nav button {
+  border: 1px solid transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-nav button:not(:disabled):hover {
+  border-color: rgba(91, 92, 226, .15) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .manuscript-editor {
+  border-color: #c8ced9 !important;
+  box-shadow:
+    0 1px 2px rgba(31, 36, 51, .05),
+    0 10px 28px rgba(31, 36, 51, .09) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-stage {
+  box-shadow:
+    inset 1px 0 0 rgba(190, 197, 210, .55),
+    inset 0 1px 0 rgba(255, 255, 255, .7) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button:not(.primary),
+.folio-shell[data-ui-tone="ivory"] .library-add-section {
+  border-color: #bcc3cf !important;
+  box-shadow: 0 1px 2px rgba(31, 36, 51, .05) !important;
+}
