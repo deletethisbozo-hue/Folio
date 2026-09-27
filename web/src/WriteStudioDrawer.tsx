@@ -87,6 +87,7 @@ function NumberTarget({ label, value, onChange, placeholder }: { label: string; 
 
 export default function WriteStudioDrawer(props: Props) {
   const [targetDraft, setTargetDraft] = useState<WritingTargets>({ book: null, daily: null, session: null, chapters: {} });
+  const [targetsDirty, setTargetsDirty] = useState(false);
   const [researchTitle, setResearchTitle] = useState("");
   const [researchBody, setResearchBody] = useState("");
   const [editingResearch, setEditingResearch] = useState<string | null>(null);
@@ -112,13 +113,26 @@ export default function WriteStudioDrawer(props: Props) {
   const [exactCounts, setExactCounts] = useState<{ total: number; sections: Record<string, number> } | null>(null);
 
   useEffect(() => {
-    if (props.state) setTargetDraft({
-      book: props.state.targets.book,
-      daily: props.state.targets.daily,
-      session: props.state.targets.session,
-      chapters: { ...props.state.targets.chapters },
-    });
-  }, [props.state?.targets]);
+    if (!props.state) return;
+    const serverSignature = JSON.stringify(props.state.targets);
+    const draftSignature = JSON.stringify(targetDraft);
+    if (targetsDirty) {
+      if (serverSignature === draftSignature) setTargetsDirty(false);
+      return;
+    }
+    if (serverSignature !== draftSignature) {
+      setTargetDraft({
+        book: props.state.targets.book,
+        daily: props.state.targets.daily,
+        session: props.state.targets.session,
+        chapters: { ...props.state.targets.chapters },
+      });
+    }
+  }, [props.state?.targets, targetDraft, targetsDirty]);
+
+  useEffect(() => {
+    setTargetsDirty(false);
+  }, [props.project.projectId]);
 
   useEffect(() => {
     revisionLoadTokenRef.current++;
@@ -440,14 +454,15 @@ export default function WriteStudioDrawer(props: Props) {
       {props.state && props.activeTab === "session" && <div className="write-studio-section">
         <div className="write-section-heading"><div><h3>Writing targets</h3><p>Project data, stored inside the .folio file.</p></div><button className="write-small-button primary" onClick={() => void saveTargets()}>Save</button></div>
         <div className="write-target-grid">
-          <NumberTarget label="Book" value={targetDraft.book} placeholder="90000" onChange={(book) => setTargetDraft({ ...targetDraft, book })}/>
-          <NumberTarget label="Daily" value={targetDraft.daily} placeholder="1500" onChange={(daily) => setTargetDraft({ ...targetDraft, daily })}/>
-          <NumberTarget label="Session" value={targetDraft.session} placeholder="1000" onChange={(session) => setTargetDraft({ ...targetDraft, session })}/>
+          <NumberTarget label="Book" value={targetDraft.book} placeholder="90000" onChange={(book) => { setTargetsDirty(true); setTargetDraft({ ...targetDraft, book }); }}/>
+          <NumberTarget label="Daily" value={targetDraft.daily} placeholder="1500" onChange={(daily) => { setTargetsDirty(true); setTargetDraft({ ...targetDraft, daily }); }}/>
+          <NumberTarget label="Session" value={targetDraft.session} placeholder="1000" onChange={(session) => { setTargetsDirty(true); setTargetDraft({ ...targetDraft, session }); }}/>
           <NumberTarget label="Chapter" value={chapterTarget} placeholder="5000" onChange={(value) => {
             if (!props.selectedId) return;
             const chapters = { ...targetDraft.chapters };
             if (value === null) delete chapters[props.selectedId];
             else chapters[props.selectedId] = value;
+            setTargetsDirty(true);
             setTargetDraft({ ...targetDraft, chapters });
           }}/>
         </div>
