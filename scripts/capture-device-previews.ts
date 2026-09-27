@@ -121,7 +121,64 @@ try {
     throw new Error("Device shells collapsed back toward universal sizing: " + JSON.stringify(widths));
   }
   await fs.writeFile(path.join(outDir, "measurements.json"), JSON.stringify(results, null, 2));
-  console.log(JSON.stringify(results, null, 2));
+
+  // Footer regression: every visible child must have its own horizontal lane.
+  const footer = await page.evaluate(() => {
+    const bar = document.querySelector<HTMLElement>(".folio-statusbar");
+    if (!bar) throw new Error("Status bar missing.");
+    const rects = [...bar.children].map((node) => {
+      const r = (node as HTMLElement).getBoundingClientRect();
+      return { text: (node.textContent ?? "").trim(), left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    }).filter((item) => item.right > item.left);
+    const collisions: string[] = [];
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i], b = rects[j];
+        const x = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (x > 1 && y > 1) collisions.push(a.text + " <> " + b.text);
+      }
+    }
+    return { rects, collisions };
+  });
+  if (footer.collisions.length) throw new Error("Status bar overlap: " + footer.collisions.join("; "));
+  await page.screenshot({ path: path.join(outDir, "write-statusbar.png"), fullPage: false });
+
+  // Design modal must be a centred light surface, not the old dark inset frame.
+  await clickButtonByText(page, "button", "Design");
+  await page.waitForSelector(".style-library");
+  const modal = await page.evaluate(() => {
+    const overlay = document.querySelector<HTMLElement>(".style-overlay");
+    const library = document.querySelector<HTMLElement>(".style-library");
+    if (!overlay || !library) throw new Error("Design modal missing.");
+    const o = getComputedStyle(overlay);
+    const l = getComputedStyle(library);
+    return {
+      overlayBackground: o.backgroundColor,
+      overlayLeft: overlay.getBoundingClientRect().left,
+      overlayRight: overlay.getBoundingClientRect().right,
+      libraryRadius: l.borderRadius,
+      libraryBackground: l.backgroundColor,
+      libraryWidth: library.getBoundingClientRect().width,
+    };
+  });
+  if (modal.overlayLeft > 2 || modal.overlayRight < 1466) throw new Error("Design overlay is still inset into one pane.");
+  if (parseFloat(modal.libraryRadius) < 10) throw new Error("Design surface lost polished radius.");
+  if (modal.libraryWidth < 760) throw new Error("Design library is unexpectedly narrow.");
+  await page.screenshot({ path: path.join(outDir, "design-library.png"), fullPage: false });
+
+  await clickButtonByText(page, ".style-category-list button", "Chapter Heading");
+  await page.waitForSelector(".customize-reset-button");
+  const reset = await page.evaluate(() => {
+    const button = document.querySelector<HTMLElement>(".customize-reset-button");
+    if (!button) throw new Error("Theme reset button missing.");
+    const style = getComputedStyle(button);
+    return { radius: style.borderRadius, background: style.backgroundColor, color: style.color, height: button.getBoundingClientRect().height };
+  });
+  if (parseFloat(reset.radius) < 6 || reset.height < 28) throw new Error("Theme reset control fell back to browser-default styling.");
+  await page.screenshot({ path: path.join(outDir, "design-chapter-heading.png"), fullPage: false });
+
+  console.log(JSON.stringify({ devices: results, footer, modal, reset }, null, 2));
 } finally {
   server.close();
   await closeBrowser();
