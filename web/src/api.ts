@@ -126,6 +126,18 @@ export const api = {
       body: JSON.stringify({ sectionId, markdown, label }),
     }).then((r) => json<WriteStudioState>(r)),
 
+  createBookSnapshot: (projectId: string, label?: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/snapshots/book`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  restoreBookSnapshot: (projectId: string, revisionId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/revisions/${encodeURIComponent(revisionId)}/restore-book`, {
+      method: "POST",
+    }).then((r) => json<{ restored: number; skipped: string[] }>(r)),
+
   revision: (projectId: string, revisionId: string) =>
     fetch(`/api/projects/${projectId}/write-studio/revisions/${encodeURIComponent(revisionId)}`)
       .then((r) => json<RevisionPayload>(r)),
