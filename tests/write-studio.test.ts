@@ -31,10 +31,10 @@ async function test(name: string, fn: () => Promise<void> | void) {
 
 await test("advanced find supports literal, case-sensitive, whole-word and regex modes", () => {
   const text = "Cat cat category CAT\ncat-boat";
-  assert.equal(countMatches(text, "cat", { caseSensitive: false, wholeWord: false, regex: false }), 6);
+  assert.equal(countMatches(text, "cat", { caseSensitive: false, wholeWord: false, regex: false }), 5);
   assert.equal(countMatches(text, "cat", { caseSensitive: true, wholeWord: false, regex: false }), 3);
-  assert.equal(countMatches(text, "cat", { caseSensitive: false, wholeWord: true, regex: false }), 5);
-  assert.equal(countMatches(text, "c.t", { caseSensitive: false, wholeWord: true, regex: true }), 5);
+  assert.equal(countMatches(text, "cat", { caseSensitive: false, wholeWord: true, regex: false }), 4);
+  assert.equal(countMatches(text, "c.t", { caseSensitive: false, wholeWord: true, regex: true }), 4);
   assert.equal(replaceMatches(text, "cat", "dog", { caseSensitive: true, wholeWord: true, regex: false }).startsWith("Cat dog category"), true);
   assert.throws(() => buildSearchRegex("(", { caseSensitive: false, wholeWord: false, regex: true }), /Invalid regular expression/);
 });
