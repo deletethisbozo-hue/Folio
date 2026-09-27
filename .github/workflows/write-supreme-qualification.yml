@@ -6,6 +6,7 @@ on:
     paths:
       - "web/**"
       - "server/**"
+      - "tests/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/write-supreme-qualification.yml"
