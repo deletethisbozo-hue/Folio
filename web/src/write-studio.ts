@@ -216,6 +216,27 @@ export function replacementForMatch(source: string, match: RegExpMatchArray, rep
   });
 }
 
+export function markdownToReadableSnapshotText(markdown: string): string {
+  return markdown
+    .replace(/\r\n?/g, "\n")
+    .replace(/^\s*!\[([^\]]*)\]\([^)]+\)(?:\{[^}]*\})?\s*$/gm, (_match, alt: string) => alt?.trim() ? "[Illustration: " + alt.trim() + "]" : "[Illustration]")
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/)?[^)]+\)/g, "$1")
+    .replace(/<\/?(?:u|span|mark|strong|em|s|code)(?:\s+[^>]*)?>/gi, "")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/^\s*[-+*]\s+/gm, "• ")
+    .replace(/^\s*\d+[.)]\s+/gm, "• ")
+    .replace(/^\s*(?:---|\* \* \*)\s*$/gm, "• • •")
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+    .replace(/__([^_\n]+)__/g, "$1")
+    .replace(/~~([^~\n]+)~~/g, "$1")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1$2")
+    .replace(/(^|[^_])_([^_\n]+)_/g, "$1$2")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 export type DiffLine = { kind: "same" | "add" | "remove"; text: string };
 
 export function diffLines(before: string, after: string): DiffLine[] {
