@@ -74,7 +74,7 @@
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
       "package.json",
-      "assets/folio-icon.ico"
+      "assets/folio-icon.png"
     ],
     "extraResources": [
       {
@@ -120,7 +120,7 @@
     ],
     "win": {
       "executableName": "Folio",
-      "icon": "assets/folio-icon.ico",
+      "icon": "assets/folio-icon.png",
       "target": [
         "nsis",
         "portable"
