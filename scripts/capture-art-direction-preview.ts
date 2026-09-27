@@ -43,6 +43,13 @@ try {
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode") === "format");
   await new Promise((resolve) => setTimeout(resolve, 500));
 
+  // Linux CI does not ship Folio's Windows conversion helper. Keep the capture
+  // focused on the UI pass while retaining the already-rendered preview page.
+  await page.evaluate(() => {
+    document.querySelectorAll<HTMLElement>(".preview-error, .global-error")
+      .forEach((element) => { element.style.display = "none"; });
+  });
+
   const visual = await page.evaluate(() => {
     const shell = document.querySelector<HTMLElement>(".folio-shell");
     const bar = document.querySelector<HTMLElement>(".folio-commandbar");
