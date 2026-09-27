@@ -72,18 +72,6 @@
   --folio-screen-bg: #efefe7;
 }
 
-.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[class*="device-kindle-"]::after {
-  content: "kindle";
-  position: absolute;
-  left: 50%;
-  bottom: 7px;
-  transform: translateX(-50%);
-  color: rgba(255,255,255,.46);
-  font: 500 8px/1 "Segoe UI",sans-serif;
-  letter-spacing: .02em;
-  text-transform: lowercase;
-  pointer-events: none;
-}
 
 /* Kobo 6 remains compact and symmetrical. Larger Kobo presets use the
  * recognisable broad side-grip silhouette rather than a Kindle-shaped body. */
