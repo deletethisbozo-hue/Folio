@@ -82,6 +82,8 @@ export default function WriteStudioDrawer(props: Props) {
   const [editResearchTitle, setEditResearchTitle] = useState("");
   const [editResearchBody, setEditResearchBody] = useState("");
   const [commentBody, setCommentBody] = useState("");
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editCommentBody, setEditCommentBody] = useState("");
   const [snapshotLabel, setSnapshotLabel] = useState("");
   const [compareRevision, setCompareRevision] = useState<RevisionPayload | null>(null);
   const [historyBusy, setHistoryBusy] = useState(false);
@@ -363,8 +365,9 @@ export default function WriteStudioDrawer(props: Props) {
         <div className="write-card-list">
           {comments.map((comment) => <article className={"write-card comment-card " + (comment.resolved ? "resolved" : "")} key={comment.id}>
             <button className="comment-quote" onClick={() => props.onRevealText(comment.quote, comment.prefix, comment.suffix)}>“{comment.quote}”</button>
-            {comment.body && <p>{comment.body}</p>}
-            <div className="write-card-actions"><button onClick={() => void api.updateWritingComment(props.project.projectId, comment.id, { resolved: !comment.resolved }).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>{comment.resolved ? "Reopen" : "Resolve"}</button><button className="danger" onClick={() => void api.deleteWritingComment(props.project.projectId, comment.id).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>Delete</button></div>
+            {editingComment === comment.id
+              ? <><textarea className="comment-edit-body" value={editCommentBody} onChange={(event) => setEditCommentBody(event.target.value)}/><div className="write-card-actions"><button onClick={() => setEditingComment(null)}>Cancel</button><button className="primary" onClick={() => void api.updateWritingComment(props.project.projectId, comment.id, { body: editCommentBody }).then((state) => { props.onState(state); setEditingComment(null); }).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>Save</button></div></>
+              : <>{comment.body && <p>{comment.body}</p>}<div className="write-card-actions"><button onClick={() => { setEditingComment(comment.id); setEditCommentBody(comment.body); }}>Edit</button><button onClick={() => void api.updateWritingComment(props.project.projectId, comment.id, { resolved: !comment.resolved }).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>{comment.resolved ? "Reopen" : "Resolve"}</button><button className="danger" onClick={() => void api.deleteWritingComment(props.project.projectId, comment.id).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>Delete</button></div></>}
           </article>)}
           {!comments.length && <div className="write-studio-empty">No comments in this section.</div>}
         </div>
