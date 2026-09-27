@@ -22,7 +22,13 @@ import {
   restoreBookSnapshot,
   setWritingTargets,
 } from "../server/write-studio.ts";
-import { closeProject, createProjectFromFolderPath } from "../server/projects.ts";
+import {
+  closeProject,
+  createProjectFromFolderPath,
+  createProjectFromFolioFile,
+  flushProjectContainer,
+  importFolderAsFolioProject,
+} from "../server/projects.ts";
 
 let passed = 0;
 let failed = 0;
@@ -174,6 +180,50 @@ await test("whole-book snapshots restore chapters embedded in one combined manus
     assert.equal(restored.includes("Broken second chapter."), false);
   } finally {
     if (projectId) await closeProject(projectId);
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+
+await test("Write Studio metadata survives closing and reopening one .folio file", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "folio-write-studio-container-"));
+  const source = path.join(root, "source");
+  const projectFile = path.join(root, "Persistent Novel.folio");
+  let projectId = "";
+  let reopenedId = "";
+  try {
+    await fs.mkdir(path.join(source, "chapters"), { recursive: true });
+    await fs.writeFile(path.join(source, "book.yaml"), [
+      'title: "Persistent Write Studio"',
+      'author: "Folio QA"',
+      'language: en',
+      'theme: literary',
+      'chapters: chapters',
+      "",
+    ].join("\n"), "utf8");
+    await fs.writeFile(path.join(source, "chapters", "01.md"), "# One\n\nPersistent manuscript text.\n", "utf8");
+
+    projectId = await importFolderAsFolioProject(source, projectFile);
+    let state = await setWritingTargets(projectId, { book: 70000, daily: 1200, session: 600 });
+    state = await createResearchNote(projectId, "Persistent note", "This must survive a reopen.");
+    state = await createWritingComment(projectId, "one", "Persistent manuscript", "Keep this comment.", "One ", " text.");
+    state = await createBookSnapshot(projectId, "Persistent checkpoint");
+    assert.equal(state.revisions.some((item) => item.scope === "book"), true);
+
+    await flushProjectContainer(projectId);
+    await closeProject(projectId);
+    projectId = "";
+
+    reopenedId = await createProjectFromFolioFile(projectFile);
+    const reopened = await readWriteStudio(reopenedId);
+    assert.equal(reopened.targets.book, 70000);
+    assert.equal(reopened.targets.daily, 1200);
+    assert.equal(reopened.research.some((item) => item.title === "Persistent note"), true);
+    assert.equal(reopened.comments.some((item) => item.body === "Keep this comment."), true);
+    assert.equal(reopened.revisions.some((item) => item.scope === "book" && item.label === "Persistent checkpoint"), true);
+  } finally {
+    if (projectId) await closeProject(projectId);
+    if (reopenedId) await closeProject(reopenedId);
     await fs.rm(root, { recursive: true, force: true });
   }
 });
