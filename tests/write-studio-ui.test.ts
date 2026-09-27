@@ -25,6 +25,8 @@ async function clickButtonByText(page: any, selector: string, text: string) {
   if (!clicked) throw new Error(`Button not found: ${text}`);
 }
 
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 console.log("\nWrite Studio browser smoke");
 
 const app = express();
@@ -84,7 +86,7 @@ try {
     inputs[1].dispatchEvent(new Event("input", { bubbles: true }));
   });
   await clickButtonByText(page, ".write-section-heading button", "Save");
-  await page.waitForTimeout(150);
+  await sleep(150);
 
   // Capture a real editor selection before moving focus into the drawer.
   const selected = await page.evaluate(() => {
@@ -135,7 +137,7 @@ try {
     editor.appendChild(p);
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "spectrometer" }));
   });
-  await page.waitForTimeout(250);
+  await sleep(250);
 
   await clickButtonByText(page, ".write-studio-tabs button", "Analysis");
   await page.waitForFunction(() => [...document.querySelectorAll(".analysis-list button span")].some((item) => item.textContent?.trim() === "spectrometer"));
