@@ -1231,7 +1231,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   function rememberEditorSelection(): SelectionCapture | null {
     const editor = editorRef.current;
     const selection = window.getSelection();
-    if (!editor || !selection || selection.rangeCount === 0 || selection.isCollapsed) return lastEditorSelectionRef.current;
+    if (!editor || !selection || selection.rangeCount === 0) return lastEditorSelectionRef.current;
+    if (selection.isCollapsed) {
+      if (selection.focusNode && editor.contains(selection.focusNode)) {
+        lastEditorSelectionRef.current = null;
+        return null;
+      }
+      return lastEditorSelectionRef.current;
+    }
     const range = selection.getRangeAt(0);
     if (!editor.contains(range.commonAncestorContainer)) return lastEditorSelectionRef.current;
 
@@ -1321,9 +1328,17 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   async function navigateText(sectionId: string, text: string, prefix?: string, suffix?: string) {
-    pendingRevealRef.current = { sectionId, text, prefix, suffix };
-    if (sectionId !== selectedRef.current) await selectSection(sectionId);
-    else window.requestAnimationFrame(() => revealTextInEditor(text, prefix, suffix));
+    const pending = { sectionId, text, prefix, suffix };
+    pendingRevealRef.current = pending;
+    if (sectionId !== selectedRef.current) {
+      await selectSection(sectionId);
+      if (selectedRef.current !== sectionId && pendingRevealRef.current === pending) pendingRevealRef.current = null;
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      revealTextInEditor(text, prefix, suffix);
+      if (pendingRevealRef.current === pending) pendingRevealRef.current = null;
+    });
   }
 
   function replaceCurrentFromStudio(markdown: string) {
