@@ -1,0 +1,109 @@
+/* Folio 2.3 — regression fixes after UI/device polish
+ * Keeps the current visual system, but fixes footer collisions, modal framing
+ * and unstyled theme reset controls.
+ */
+
+/* Footer/status line: never let session stats collide with book/device metadata. */
+.folio-shell[data-ui-tone] .folio-statusbar {
+  display: grid !important;
+  grid-template-columns: auto minmax(120px, 1fr) auto auto auto auto !important;
+  align-items: center !important;
+  column-gap: 14px !important;
+  overflow: hidden !important;
+}
+
+.folio-shell[data-ui-tone] .folio-statusbar > * {
+  min-width: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  white-space: nowrap !important;
+}
+
+.folio-shell[data-ui-tone] .folio-statusbar > span:first-child {
+  margin-right: 0 !important;
+}
+
+.folio-shell[data-ui-tone] .write-session-chip {
+  justify-self: start !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  padding-inline: 8px !important;
+}
+
+.folio-shell[data-ui-tone] .folio-statusbar > span:nth-last-child(-n+4) {
+  justify-self: end !important;
+}
+
+/* Modal treatment: one clean floating surface, not a dark inset frame. */
+.folio-shell[data-ui-tone="ivory"] .style-overlay {
+  inset: 60px 0 32px !important;
+  place-items: center !important;
+  padding: 22px !important;
+  background: rgba(20, 22, 26, .10) !important;
+  backdrop-filter: blur(3px) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-library {
+  width: min(920px, calc(100vw - 64px)) !important;
+  height: min(720px, calc(100vh - 132px)) !important;
+  border: 1px solid #c7cdd8 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 18px 48px rgba(31, 36, 51, .16),
+    0 2px 8px rgba(31, 36, 51, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .dialog-overlay {
+  background: rgba(20, 22, 26, .10) !important;
+  backdrop-filter: blur(3px) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog {
+  border: 1px solid #c7cdd8 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 18px 48px rgba(31, 36, 51, .15),
+    0 2px 8px rgba(31, 36, 51, .07) !important;
+}
+
+/* Theme-reset control: intentional Folio secondary action, not browser default. */
+.folio-shell[data-ui-tone="ivory"] .customize-reset-button {
+  min-height: 30px !important;
+  padding: 0 11px !important;
+  border: 1px solid #c7cdd8 !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  color: #4f50d3 !important;
+  box-shadow: 0 1px 2px rgba(31, 36, 51, .04) !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 10.5px !important;
+  font-weight: 620 !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .customize-reset-button:hover {
+  border-color: #aeb6c3 !important;
+  background: #eef0ff !important;
+  color: #4546bf !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .customize-reset-button:active {
+  background: #e7e9ff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .customize-heading {
+  align-items: center !important;
+}
+
+/* Snapshot compare should read like manuscript prose, not source code. */
+.folio-shell[data-ui-tone] .revision-compare-grid .previous,
+.folio-shell[data-ui-tone] .revision-compare-grid .current {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 10.5px !important;
+  line-height: 1.5 !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+}
