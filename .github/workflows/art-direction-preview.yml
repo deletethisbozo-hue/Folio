@@ -1,0 +1,45 @@
+name: Folio art direction preview
+
+on:
+  push:
+    branches: ["design/folio-art-direction-pass"]
+    paths:
+      - "web/**"
+      - "scripts/capture-art-direction-preview.ts"
+      - ".github/workflows/art-direction-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-art-direction-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Writing Studio smoke
+        run: node --import tsx tests/write-studio-ui.test.ts
+      - name: Capture real Folio art direction preview
+        run: node --import tsx scripts/capture-art-direction-preview.ts
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-art-direction-preview
+          path: artifacts/folio-art-direction-preview.png
+          if-no-files-found: error
+          retention-days: 14
