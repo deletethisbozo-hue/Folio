@@ -127,6 +127,18 @@ export default function WriteStudioDrawer(props: Props) {
   }, [props.project.projectId]);
 
   useEffect(() => {
+    if (!props.selectedId || props.document?.id !== props.selectedId) return;
+    setBookDocs((current) => {
+      if (!current) return current;
+      const index = current.findIndex((doc) => doc.id === props.selectedId);
+      if (index < 0 || current[index].markdown === props.draft) return current;
+      const next = current.slice();
+      next[index] = { ...current[index], markdown: props.draft };
+      return next;
+    });
+  }, [props.draft, props.selectedId, props.document?.id]);
+
+  useEffect(() => {
     if (!props.open || props.activeTab !== "session") return;
     let cancelled = false;
     api.writingWordCounts(props.project.projectId)
