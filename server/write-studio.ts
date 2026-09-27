@@ -260,6 +260,24 @@ export async function readWriteStudio(projectId: string): Promise<WriteStudioSta
   return state;
 }
 
+export async function migrateWriteStudioSectionId(projectId: string, previousSectionId: string, nextSectionId: string): Promise<WriteStudioState> {
+  if (!previousSectionId || !nextSectionId || previousSectionId === nextSectionId) return readWriteStudio(projectId);
+  return mutateState(projectId, (state) => {
+    const previousTarget = state.targets.chapters[previousSectionId];
+    if (previousTarget !== undefined) {
+      if (state.targets.chapters[nextSectionId] === undefined) state.targets.chapters[nextSectionId] = previousTarget;
+      delete state.targets.chapters[previousSectionId];
+    }
+    state.comments = state.comments.map((item) =>
+      item.sectionId === previousSectionId ? { ...item, sectionId: nextSectionId } : item,
+    );
+    state.revisions = state.revisions.map((item) =>
+      item.scope === "section" && item.sectionId === previousSectionId ? { ...item, sectionId: nextSectionId } : item,
+    );
+    return state;
+  });
+}
+
 export async function setWritingTargets(projectId: string, targets: Partial<WritingTargets>): Promise<WriteStudioState> {
   return mutateState(projectId, (state) => {
     state.targets = {
