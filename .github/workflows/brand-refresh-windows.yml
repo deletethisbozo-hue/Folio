@@ -12,7 +12,7 @@ on:
       - "themes/**"
       - "templates/**"
       - "assets/**"
-      - "scripts/generate-windows-icon.cjs"
+      - "scripts/generate-windows-icon.ps1"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:
