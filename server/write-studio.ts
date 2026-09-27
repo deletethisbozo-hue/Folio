@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { loadProject, projectInfo, writableBookDir } from "./projects.ts";
-import { writeSectionDocument } from "./section-editor.ts";
+import { updateSectionHeadingDocument, writeSectionDocument } from "./section-editor.ts";
 
 export type RevisionKind = "auto" | "snapshot";
 export type RevisionScope = "section" | "book";
@@ -485,7 +485,15 @@ export async function restoreBookSnapshot(projectId: string, revisionId: string)
       skipped.push(saved.title);
       continue;
     }
-    await writeSectionDocument(projectId, match.id, saved.markdown);
+    let targetId = match.id;
+    if (saved.kind === "chapter" && (match.title !== saved.title || (match.subtitle ?? "") !== (saved.subtitle ?? ""))) {
+      const renamed = await updateSectionHeadingDocument(projectId, match.id, {
+        title: saved.title,
+        subtitle: saved.subtitle ?? "",
+      });
+      targetId = renamed.id;
+    }
+    await writeSectionDocument(projectId, targetId, saved.markdown);
     restored++;
   }
   return { restored, skipped };
