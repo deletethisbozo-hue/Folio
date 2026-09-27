@@ -168,6 +168,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [writeStudioOpen, setWriteStudioOpen] = useState(false);
   const [writeStudioTab, setWriteStudioTab] = useState<WriteStudioTab>("session");
   const [writeStudioState, setWriteStudioState] = useState<WriteStudioState | null>(null);
+  const [liveSectionWordCounts, setLiveSectionWordCounts] = useState<Record<string, number>>({});
   const [sessionStats, setSessionStats] = useState<SessionStats>({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
   const [writeZoom, setWriteZoom] = useState(() => {
     const stored = Number(window.localStorage.getItem("folio-write-zoom"));
@@ -286,6 +287,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     let cancelled = false;
     const projectId = project.projectId;
     setWriteStudioState(null);
+    setLiveSectionWordCounts({});
     setSessionStats({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
     sessionTrackRef.current = { sectionId: null, words: 0 };
     lastWritingActivityRef.current = null;
@@ -404,6 +406,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
   useEffect(() => {
     if (workspaceMode !== "write" || !selectedId || document?.id !== selectedId || !document?.editable) return;
+    setLiveSectionWordCounts((current) => current[selectedId] === draftWords ? current : { ...current, [selectedId]: draftWords });
     const previous = sessionTrackRef.current;
     if (previous.sectionId !== selectedId) {
       sessionTrackRef.current = { sectionId: selectedId, words: draftWords };
@@ -2049,6 +2052,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onWordDelta={(delta) => setSessionStats((current) => delta > 0
           ? { ...current, gross: current.gross + delta }
           : { ...current, deleted: current.deleted + Math.abs(delta) })}
+        onLiveWordCount={(sectionId, count) => setLiveSectionWordCounts((current) => current[sectionId] === count ? current : { ...current, [sectionId]: count })}
         onWritingActivity={noteWritingActivity}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
       />}
@@ -2063,6 +2067,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         draft={draft}
         currentWords={draftWords}
         totalWords={totalWords}
+        liveSectionWordCounts={liveSectionWordCounts}
         language={meta.language || "en"}
         session={sessionStats}
         state={writeStudioState}
