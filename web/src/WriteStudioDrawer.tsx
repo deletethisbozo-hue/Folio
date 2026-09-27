@@ -38,7 +38,7 @@ interface Props {
   onGetCurrentMarkdown: () => Promise<string>;
   onSaveCurrent: () => Promise<boolean>;
   onRevealText: (text: string, prefix?: string, suffix?: string) => void;
-  onNavigateText: (sectionId: string, text: string) => Promise<void>;
+  onNavigateText: (sectionId: string, text: string, prefix?: string, suffix?: string) => Promise<void>;
   onReplaceCurrent: (markdown: string) => void;
   onRestoreMarkdown: (markdown: string) => Promise<void>;
   onProjectUpdate: (summary: ProjectSummary) => void;
@@ -52,6 +52,8 @@ type SearchHit = {
   text: string;
   snippet: string;
   replacementSnippet: string;
+  prefix: string;
+  suffix: string;
 };
 
 function clampPercent(value: number, target: number | null | undefined): number {
@@ -118,8 +120,11 @@ export default function WriteStudioDrawer(props: Props) {
 
   useEffect(() => {
     setCompareRevision(null);
-    setBookDocs(null);
   }, [props.selectedId, props.project.projectId]);
+
+  useEffect(() => {
+    setBookDocs(null);
+  }, [props.project.projectId]);
 
   useEffect(() => {
     if (!props.open || props.activeTab !== "session") return;
@@ -345,7 +350,9 @@ export default function WriteStudioDrawer(props: Props) {
   async function bookMatches() {
     if (!query || searchError) return [];
     try {
-      const docs = scope === "book" ? await scanBook() : (props.document ? [{ ...props.document, markdown: props.draft }] : []);
+      const docs = scope === "book"
+        ? (await scanBook()).map((doc) => doc.id === props.selectedId ? { ...doc, markdown: props.draft } : doc)
+        : (props.document ? [{ ...props.document, markdown: props.draft }] : []);
       const regex = buildSearchRegex(query, searchOptions, true);
       const hits: SearchHit[] = [];
       const singleRegex = buildSearchRegex(query, searchOptions, false);
@@ -364,6 +371,8 @@ export default function WriteStudioDrawer(props: Props) {
             text,
             snippet: (before + text + after).replace(/\s+/g, " "),
             replacementSnippet: (before + replaced + after).replace(/\s+/g, " "),
+            prefix: before.replace(/\s+/g, " ").slice(-120),
+            suffix: after.replace(/\s+/g, " ").slice(0, 120),
           });
           if (hits.length >= 80) return hits;
         }
@@ -498,7 +507,7 @@ export default function WriteStudioDrawer(props: Props) {
           <div className="search-actions"><span>{scope === "chapter" ? currentMatchCount + " matches" : (bookDocs ? "Book scanned" : "Book not scanned")}</span>{scope === "book" && <button className="write-small-button" disabled={searchBusy || !query} onClick={() => void bookMatches().then(setSearchHits)}>{searchBusy ? "Scanning…" : "Scan book"}</button>}<button className="write-small-button primary" disabled={searchBusy || !query || Boolean(searchError)} onClick={() => void replaceAll()}>Replace all</button></div>
         </div>
         <div className="search-hit-list">
-          {searchHits.map((hit, index) => <button key={hit.sectionId + ":" + index} onClick={() => void props.onNavigateText(hit.sectionId, hit.text)}>
+          {searchHits.map((hit, index) => <button key={hit.sectionId + ":" + index} onClick={() => void props.onNavigateText(hit.sectionId, hit.text, hit.prefix, hit.suffix)}>
             <strong>{hit.title}</strong>
             <span className="search-preview-label">Before</span><span>{hit.snippet}</span>
             {replacement !== "" && <><span className="search-preview-label after">After</span><span className="search-preview-after">{hit.replacementSnippet}</span></>}
