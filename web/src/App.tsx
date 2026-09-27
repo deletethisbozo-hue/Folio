@@ -149,6 +149,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [typography, setTypography] = useState<Typography>(initialProject?.typography ?? {});
   const [selectedId, setSelectedId] = useState<string | null>(initialSection?.id ?? null);
   const [sectionRevision, setSectionRevision] = useState(0);
+  const [splitContentRevision, setSplitContentRevision] = useState(0);
   const [document, setDocument] = useState<SectionDocument | null>(null);
   const [draft, setDraft] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -1327,6 +1328,25 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     editor.scrollTo({ top: Math.max(0, editor.scrollTop + rect.top - hostRect.top - editor.clientHeight * .42), behavior: "smooth" });
   }
 
+  function refreshAfterBookRestore(summary: ProjectSummary) {
+    const liveMeta = meta ?? summary.meta;
+    const liveTypography = typography;
+    setProject({ ...summary, meta: liveMeta, typography: liveTypography });
+    setMeta(liveMeta);
+    setTypography(liveTypography);
+    setDocument(null);
+    setDirty(false);
+    setSaveState("idle");
+    editorDomDirtyRef.current = false;
+    editorDomGenerationRef.current++;
+    draftRef.current = "";
+    setDraft("");
+    setPreviewDraft("");
+    setLiveSectionWordCounts({});
+    setSectionRevision((value) => value + 1);
+    setSplitContentRevision((value) => value + 1);
+  }
+
   async function navigateText(sectionId: string, text: string, prefix?: string, suffix?: string) {
     const pending = { sectionId, text, prefix, suffix };
     pendingRevealRef.current = pending;
@@ -2081,6 +2101,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </section>
 
       {splitView && <WritingSplitPane
+        key={project.projectId + ":" + splitContentRevision}
         project={project}
         primarySectionId={selectedId}
         ornament={writingOrnament}
@@ -2121,6 +2142,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onReplaceCurrent={replaceCurrentFromStudio}
         onRestoreMarkdown={restoreMarkdownFromStudio}
         onProjectUpdate={(summary) => { setProject(summary); setMeta(summary.meta); }}
+        onBookRestored={refreshAfterBookRestore}
         onError={(message) => setError(message)}
       />}
 
