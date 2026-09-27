@@ -15,6 +15,7 @@ type WritingSplitPaneProps = {
   writeZoom: number;
   onClose: () => void;
   onError: (message: string) => void;
+  onWordDelta: (delta: number) => void;
   onRegisterFlush: (flush: (() => Promise<boolean>) | null) => void;
 };
 
@@ -35,6 +36,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
   const generationRef = useRef(0);
   const saveTimerRef = useRef<number | null>(null);
   const loadingRef = useRef(0);
+  const liveWordCountRef = useRef<number | null>(null);
 
   const sections = useMemo(
     () => props.project.sections.filter((section) => section.id !== props.primarySectionId),
@@ -87,6 +89,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
       : document.markdown;
     editor.dataset.sectionId = document.id;
     editor.dataset.markdown = document.markdown;
+    liveWordCountRef.current = editor.innerText.trim().match(/\S+/g)?.length ?? 0;
     dirtyRef.current = false;
   }, [document?.id, document?.markdown, document?.editable, props.ornament, props.project.projectId]);
 
@@ -141,6 +144,13 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
 
   function recordInput() {
     if (!documentRef.current?.editable) return;
+    const editor = editorRef.current;
+    if (editor) {
+      const nextWords = editor.innerText.trim().match(/\S+/g)?.length ?? 0;
+      const previousWords = liveWordCountRef.current;
+      liveWordCountRef.current = nextWords;
+      if (previousWords !== null && nextWords !== previousWords) props.onWordDelta(nextWords - previousWords);
+    }
     dirtyRef.current = true;
     generationRef.current += 1;
     setSaveState("saving");
