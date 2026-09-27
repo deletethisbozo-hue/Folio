@@ -1,0 +1,137 @@
+/* Folio 2.3 brand refresh
+ * Chrome-only color pass. Geometry, manuscript rendering, preview compositor,
+ * Write Studio behavior and theme output stay untouched.
+ */
+
+.folio-shell[data-ui-tone="ivory"] {
+  --folio-brand: #5b5ce2;
+  --folio-brand-deep: #4d4eca;
+  --folio-brand-mid: #7779e8;
+  --folio-brand-soft: #eef0ff;
+  --folio-brand-selected: #e7e9ff;
+}
+
+/* One continuous Folio masthead. The midpoint lifts slightly without creating
+ * hard visual seams between the logo, command area and tone control. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  background: linear-gradient(
+    90deg,
+    #5b5ce2 0%,
+    #6668e5 20%,
+    #7779e8 50%,
+    #6668e5 80%,
+    #5b5ce2 100%
+  ) !important;
+  border-bottom-color: rgba(57, 58, 174, .22) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] button.command-wordmark {
+  color: #ffffff !important;
+  border-right-color: rgba(255, 255, 255, .16) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button,
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle {
+  color: rgba(255, 255, 255, .94) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button:hover,
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button:focus-visible {
+  color: #ffffff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button::after {
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button:hover::after,
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button:focus-visible::after {
+  background: rgba(255, 255, 255, .82) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle {
+  border-left-color: rgba(255, 255, 255, .16) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch {
+  border-color: rgba(255, 255, 255, .18) !important;
+  background: rgba(55, 56, 181, .18) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button {
+  color: rgba(255, 255, 255, .75) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button.active {
+  background: rgba(255, 255, 255, .86) !important;
+  color: #4f50d3 !important;
+  box-shadow: 0 1px 5px rgba(39, 40, 133, .18) !important;
+}
+
+/* Carry the same brand language through the existing light UI tokens. */
+.folio-shell[data-ui-tone="ivory"] .book-title {
+  color: #4f50d3 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected {
+  background: #e7e9ff !important;
+  box-shadow: inset 3px 0 0 #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row:hover {
+  background: #eef0ff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section > span:first-child,
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .chapter-number,
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .folio-nav-icon,
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected .chapter-grip {
+  color: #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button {
+  border-color: #5b5ce2 !important;
+  background: #5b5ce2 !important;
+  color: #ffffff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button:hover {
+  border-color: #4d4eca !important;
+  background: #4d4eca !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select {
+  color: #4f50d3 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button span {
+  color: #5b5ce2 !important;
+}
+
+/* Dashboard masthead uses the same identity without changing its layout. */
+.start-shell[data-ui-tone="ivory"] .start-windowbar {
+  background: linear-gradient(
+    90deg,
+    #5b5ce2 0%,
+    #6668e5 28%,
+    #7779e8 58%,
+    #5b5ce2 100%
+  ) !important;
+  border-bottom-color: rgba(57, 58, 174, .22) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-brand {
+  color: #ffffff !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-version {
+  color: rgba(255, 255, 255, .78) !important;
+}
