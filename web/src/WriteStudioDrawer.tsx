@@ -316,6 +316,8 @@ export default function WriteStudioDrawer(props: Props) {
     if (bookDocs && !force) return bookDocs;
     setSearchBusy(true);
     try {
+      const saved = await props.onSaveCurrent();
+      if (!saved) throw new Error("Current editors could not be saved before scanning the book.");
       const docs = (await Promise.all(props.project.sections.map((section) => api.section(props.project.projectId, section.id))))
         .filter((doc) => doc.editable)
         .map((doc) => doc.id === props.selectedId ? { ...doc, markdown: props.draft } : doc);
