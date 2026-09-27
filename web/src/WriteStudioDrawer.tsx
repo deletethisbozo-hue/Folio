@@ -5,6 +5,7 @@ import {
   buildSearchRegex,
   countMatches,
   diffLines,
+  markdownToReadableSnapshotText,
   nearbyRepetitions,
   repeatedWords,
   replaceMatches,
@@ -542,7 +543,7 @@ export default function WriteStudioDrawer(props: Props) {
             ? <div className="book-snapshot-summary"><strong>{compareRevision.revision.wordCount.toLocaleString()} words</strong><span>{compareRevision.revision.sectionCount ?? compareRevision.sections?.length ?? 0} editable sections captured</span><p>Restoring changes manuscript content only. Folio keeps the current book style, export settings and project appearance.</p></div>
             : <div className="revision-side-by-side">
                 <div className="revision-column-head"><span>Previous</span><span>Current</span></div>
-                <div className="revision-compare-grid">{diffLines(compareRevision.markdown ?? "", props.draft).map((line, index) => <div key={index} className={"compare-row " + line.kind}><code className="previous">{line.kind === "add" ? "" : line.text || " "}</code><code className="current">{line.kind === "remove" ? "" : line.text || " "}</code></div>)}</div>
+                <div className="revision-compare-grid">{diffLines(markdownToReadableSnapshotText(compareRevision.markdown ?? ""), markdownToReadableSnapshotText(props.draft)).map((line, index) => <div key={index} className={"compare-row " + line.kind}><span className="previous">{line.kind === "add" ? "" : line.text || " "}</span><span className="current">{line.kind === "remove" ? "" : line.text || " "}</span></div>)}</div>
               </div>}
         </div>}
       </div>}
