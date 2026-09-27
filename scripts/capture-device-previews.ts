@@ -122,7 +122,16 @@ try {
   }
   await fs.writeFile(path.join(outDir, "measurements.json"), JSON.stringify(results, null, 2));
 
-  // Footer regression: every visible child must have its own horizontal lane.
+  // Footer regression: reproduce the real Write + Split state where the collision was reported.
+  await clickButtonByText(page, "button", "Write");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode") === "write");
+  const splitToggle = await page.$('button[aria-label="Split editor"]');
+  if (splitToggle) {
+    await splitToggle.click();
+    await page.waitForSelector(".writing-split-pane");
+  }
+
+  // Every visible status child must have its own horizontal lane.
   const footer = await page.evaluate(() => {
     const bar = document.querySelector<HTMLElement>(".folio-statusbar");
     if (!bar) throw new Error("Status bar missing.");
@@ -142,6 +151,7 @@ try {
     return { rects, collisions };
   });
   if (footer.collisions.length) throw new Error("Status bar overlap: " + footer.collisions.join("; "));
+  await fs.writeFile(path.join(outDir, "write-statusbar.json"), JSON.stringify(footer, null, 2));
   await page.screenshot({ path: path.join(outDir, "write-statusbar.png"), fullPage: false });
 
   // Design modal must be a centred light surface, not the old dark inset frame.
