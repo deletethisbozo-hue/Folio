@@ -11,6 +11,7 @@ import {
   todayKey,
   type RevisionPayload,
   type SearchOptions,
+  type SelectionCapture,
   type SessionStats,
   type WriteStudioState,
   type WriteStudioTab,
@@ -33,9 +34,9 @@ interface Props {
   state: WriteStudioState | null;
   onState: (state: WriteStudioState) => void;
   onClose: () => void;
-  onCaptureSelection: () => string | null;
+  onCaptureSelection: () => SelectionCapture | null;
   onGetCurrentMarkdown: () => Promise<string>;
-  onRevealText: (text: string) => void;
+  onRevealText: (text: string, prefix?: string, suffix?: string) => void;
   onNavigateText: (sectionId: string, text: string) => Promise<void>;
   onReplaceCurrent: (markdown: string) => void;
   onRestoreMarkdown: (markdown: string) => Promise<void>;
@@ -168,13 +169,13 @@ export default function WriteStudioDrawer(props: Props) {
   }
 
   async function addComment() {
-    const quote = props.onCaptureSelection();
-    if (!quote) {
+    const selection = props.onCaptureSelection();
+    if (!selection) {
       props.onError("Select manuscript text before adding a comment.");
       return;
     }
     try {
-      const state = await api.addWritingComment(props.project.projectId, props.selectedId ?? "", quote, commentBody);
+      const state = await api.addWritingComment(props.project.projectId, props.selectedId ?? "", selection.quote, commentBody, selection.prefix, selection.suffix);
       props.onState(state);
       setCommentBody("");
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
@@ -361,7 +362,7 @@ export default function WriteStudioDrawer(props: Props) {
         <div className="comment-compose"><textarea value={commentBody} placeholder="Comment…" onChange={(event) => setCommentBody(event.target.value)}/><button className="write-small-button primary" disabled={!props.selectedId} onMouseDown={(event) => event.preventDefault()} onClick={() => void addComment()}>Add to selection</button></div>
         <div className="write-card-list">
           {comments.map((comment) => <article className={"write-card comment-card " + (comment.resolved ? "resolved" : "")} key={comment.id}>
-            <button className="comment-quote" onClick={() => props.onRevealText(comment.quote)}>“{comment.quote}”</button>
+            <button className="comment-quote" onClick={() => props.onRevealText(comment.quote, comment.prefix, comment.suffix)}>“{comment.quote}”</button>
             {comment.body && <p>{comment.body}</p>}
             <div className="write-card-actions"><button onClick={() => void api.updateWritingComment(props.project.projectId, comment.id, { resolved: !comment.resolved }).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>{comment.resolved ? "Reopen" : "Resolve"}</button><button className="danger" onClick={() => void api.deleteWritingComment(props.project.projectId, comment.id).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>Delete</button></div>
           </article>)}
