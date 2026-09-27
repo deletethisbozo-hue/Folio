@@ -33,6 +33,8 @@ export interface WritingComment {
   id: string;
   sectionId: string;
   quote: string;
+  prefix?: string;
+  suffix?: string;
   body: string;
   resolved: boolean;
   createdAt: string;
@@ -336,7 +338,14 @@ export async function readResearchImage(projectId: string, imageId: string): Pro
   return { image, buffer };
 }
 
-export async function createWritingComment(projectId: string, sectionId: string, quote: string, body: string): Promise<WriteStudioState> {
+export async function createWritingComment(
+  projectId: string,
+  sectionId: string,
+  quote: string,
+  body: string,
+  prefix?: string,
+  suffix?: string,
+): Promise<WriteStudioState> {
   return mutateState(projectId, (state) => {
     const cleanQuote = quote.trim();
     if (!cleanQuote) throw new Error("Select manuscript text before adding a comment.");
@@ -345,6 +354,8 @@ export async function createWritingComment(projectId: string, sectionId: string,
       id: crypto.randomUUID(),
       sectionId,
       quote: cleanQuote.slice(0, 2000),
+      prefix: prefix?.slice(-160) || undefined,
+      suffix: suffix?.slice(0, 160) || undefined,
       body: body.trim(),
       resolved: false,
       createdAt: now,
