@@ -1,12 +1,16 @@
+import multer from "multer";
 import type { Express, Request, Response } from "express";
 import { hasProject } from "./projects.ts";
 import {
   addDailyProgress,
+  addResearchImage,
   createResearchNote,
   createSnapshot,
   createWritingComment,
+  deleteResearchImage,
   deleteResearchNote,
   deleteWritingComment,
+  readResearchImage,
   readRevisionMarkdown,
   readWriteStudio,
   setWritingTargets,
@@ -22,6 +26,11 @@ function sendError(res: Response, error: unknown): void {
 function requireProject(id: string): void {
   if (!hasProject(id)) throw new Error("Project not found.");
 }
+
+const researchUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 16 * 1024 * 1024, files: 1 },
+});
 
 export function registerWriteStudioApi(app: Express): void {
   app.get("/api/projects/:id/write-studio", async (req: Request, res: Response) => {
@@ -87,6 +96,34 @@ export function registerWriteStudioApi(app: Express): void {
     try {
       requireProject(req.params.id);
       res.json(await deleteResearchNote(req.params.id, req.params.noteId));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/research-images", researchUpload.single("file"), async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      const file = req.file;
+      if (!file) throw new Error("No image provided.");
+      const mime = file.mimetype;
+      if (mime !== "image/png" && mime !== "image/jpeg" && mime !== "image/webp") throw new Error("Use PNG, JPEG or WebP research images.");
+      res.json(await addResearchImage(req.params.id, file.originalname, mime, file.buffer));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.get("/api/projects/:id/write-studio/research-images/:imageId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      const result = await readResearchImage(req.params.id, req.params.imageId);
+      res.setHeader("Content-Type", result.image.mimeType);
+      res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+      res.send(result.buffer);
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.delete("/api/projects/:id/write-studio/research-images/:imageId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await deleteResearchImage(req.params.id, req.params.imageId));
     } catch (error) { sendError(res, error); }
   });
 
