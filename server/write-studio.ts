@@ -21,6 +21,14 @@ export interface ResearchNote {
   updatedAt: string;
 }
 
+export interface ResearchImage {
+  id: string;
+  filename: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
+  storedName: string;
+  createdAt: string;
+}
+
 export interface WritingComment {
   id: string;
   sectionId: string;
@@ -47,6 +55,7 @@ export interface WriteStudioState {
   targets: WritingTargets;
   dailyProgress: Record<string, number>;
   research: ResearchNote[];
+  researchImages: ResearchImage[];
   comments: WritingComment[];
   revisions: RevisionSummary[];
 }
@@ -55,6 +64,7 @@ const EMPTY_TARGETS: WritingTargets = { book: null, daily: null, session: null, 
 const DATA_DIR = ".folio-data";
 const META_FILE = "write-studio.json";
 const HISTORY_DIR = "history";
+const RESEARCH_IMAGES_DIR = "research-images";
 const AUTO_THROTTLE_MS = 2 * 60 * 1000;
 const AUTO_TOTAL_LIMIT = 80;
 const AUTO_SECTION_LIMIT = 24;
@@ -67,6 +77,7 @@ function defaultState(): WriteStudioState {
     targets: { ...EMPTY_TARGETS, chapters: {} },
     dailyProgress: {},
     research: [],
+    researchImages: [],
     comments: [],
     revisions: [],
   };
@@ -85,6 +96,7 @@ function normaliseState(value: Partial<WriteStudioState> | null | undefined): Wr
     },
     dailyProgress: { ...(value?.dailyProgress ?? {}) },
     research: Array.isArray(value?.research) ? value!.research! : [],
+    researchImages: Array.isArray(value?.researchImages) ? value!.researchImages! : [],
     comments: Array.isArray(value?.comments) ? value!.comments! : [],
     revisions: Array.isArray(value?.revisions) ? value!.revisions! : [],
   };
@@ -276,6 +288,52 @@ export async function deleteResearchNote(projectId: string, noteId: string): Pro
     state.research = state.research.filter((item) => item.id !== noteId);
     return state;
   });
+}
+
+export async function addResearchImage(
+  projectId: string,
+  filename: string,
+  mimeType: ResearchImage["mimeType"],
+  buffer: Buffer,
+): Promise<WriteStudioState> {
+  return mutateState(projectId, async (state) => {
+    const id = crypto.randomUUID();
+    const extension = mimeType === "image/png" ? ".png" : mimeType === "image/webp" ? ".webp" : ".jpg";
+    const storedName = id + extension;
+    const folder = await writableBookDir(projectId);
+    const imageDir = path.join(folder, DATA_DIR, RESEARCH_IMAGES_DIR);
+    await fs.mkdir(imageDir, { recursive: true });
+    await fs.writeFile(path.join(imageDir, storedName), buffer);
+    state.researchImages.unshift({
+      id,
+      filename: path.basename(filename).slice(0, 180) || "reference" + extension,
+      mimeType,
+      storedName,
+      createdAt: new Date().toISOString(),
+    });
+    return state;
+  });
+}
+
+export async function deleteResearchImage(projectId: string, imageId: string): Promise<WriteStudioState> {
+  return mutateState(projectId, async (state) => {
+    const image = state.researchImages.find((item) => item.id === imageId);
+    if (!image) return state;
+    const folder = await writableBookDir(projectId);
+    await fs.rm(path.join(folder, DATA_DIR, RESEARCH_IMAGES_DIR, image.storedName), { force: true }).catch(() => undefined);
+    state.researchImages = state.researchImages.filter((item) => item.id !== imageId);
+    return state;
+  });
+}
+
+export async function readResearchImage(projectId: string, imageId: string): Promise<{ image: ResearchImage; buffer: Buffer }> {
+  const state = await readWriteStudio(projectId);
+  const image = state.researchImages.find((item) => item.id === imageId);
+  if (!image) throw new Error("Research image not found.");
+  const folder = projectInfo(projectId).folder;
+  if (!folder) throw new Error("Project folder not available.");
+  const buffer = await fs.readFile(path.join(folder, DATA_DIR, RESEARCH_IMAGES_DIR, image.storedName));
+  return { image, buffer };
 }
 
 export async function createWritingComment(projectId: string, sectionId: string, quote: string, body: string): Promise<WriteStudioState> {
