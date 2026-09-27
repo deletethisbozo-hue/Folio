@@ -213,7 +213,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const splitFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const sessionTrackRef = useRef<{ sectionId: string | null; words: number }>({ sectionId: null, words: 0 });
+  const sessionNetRef = useRef(0);
   const reportedSessionNetRef = useRef(0);
+  const progressSyncTimerRef = useRef<number | null>(null);
+  const progressSyncInFlightRef = useRef(false);
+  const lastEditorSelectionRef = useRef<string | null>(null);
   const pendingRevealRef = useRef<{ sectionId: string; text: string } | null>(null);
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);
@@ -285,7 +289,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     setSessionStats({ startedAt: Date.now(), gross: 0, deleted: 0 });
     setSessionNow(Date.now());
     sessionTrackRef.current = { sectionId: null, words: 0 };
+    sessionNetRef.current = 0;
     reportedSessionNetRef.current = 0;
+    progressSyncInFlightRef.current = false;
+    if (progressSyncTimerRef.current !== null) {
+      window.clearTimeout(progressSyncTimerRef.current);
+      progressSyncTimerRef.current = null;
+    }
+    lastEditorSelectionRef.current = null;
     api.writeStudio(projectId)
       .then((state) => { if (!cancelled && project?.projectId === projectId) setWriteStudioState(state); })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });
@@ -404,11 +415,17 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [workspaceMode, selectedId, document?.id, document?.editable, draftWords]);
 
   useEffect(() => {
+    sessionNetRef.current = sessionNet;
     if (!project || !writeStudioState) return;
-    const delta = sessionNet - reportedSessionNetRef.current;
-    if (!delta) return;
     const projectId = project.projectId;
-    const timer = window.setTimeout(async () => {
+    if (progressSyncTimerRef.current !== null) window.clearTimeout(progressSyncTimerRef.current);
+
+    const syncProgress = async () => {
+      progressSyncTimerRef.current = null;
+      if (progressSyncInFlightRef.current || project?.projectId !== projectId) return;
+      const delta = sessionNetRef.current - reportedSessionNetRef.current;
+      if (!delta) return;
+      progressSyncInFlightRef.current = true;
       try {
         const updated = await api.addWritingProgress(projectId, todayKey(), delta);
         if (project?.projectId === projectId) {
@@ -417,9 +434,21 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }
       } catch (e) {
         if (project?.projectId === projectId) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        progressSyncInFlightRef.current = false;
+        if (project?.projectId === projectId && sessionNetRef.current !== reportedSessionNetRef.current) {
+          progressSyncTimerRef.current = window.setTimeout(() => void syncProgress(), 300);
+        }
       }
-    }, 1400);
-    return () => window.clearTimeout(timer);
+    };
+
+    progressSyncTimerRef.current = window.setTimeout(() => void syncProgress(), 1400);
+    return () => {
+      if (progressSyncTimerRef.current !== null) {
+        window.clearTimeout(progressSyncTimerRef.current);
+        progressSyncTimerRef.current = null;
+      }
+    };
   }, [project?.projectId, sessionNet, writeStudioState !== null]);
 
   useEffect(() => {
@@ -1158,14 +1187,19 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     setWriteStudioOpen(true);
   }
 
-  function captureEditorSelection(): string | null {
+  function rememberEditorSelection(): string | null {
     const editor = editorRef.current;
     const selection = window.getSelection();
-    if (!editor || !selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+    if (!editor || !selection || selection.rangeCount === 0 || selection.isCollapsed) return lastEditorSelectionRef.current;
     const range = selection.getRangeAt(0);
-    if (!editor.contains(range.commonAncestorContainer)) return null;
+    if (!editor.contains(range.commonAncestorContainer)) return lastEditorSelectionRef.current;
     const text = selection.toString().trim();
-    return text ? text.slice(0, 2000) : null;
+    if (text) lastEditorSelectionRef.current = text.slice(0, 2000);
+    return lastEditorSelectionRef.current;
+  }
+
+  function captureEditorSelection(): string | null {
+    return rememberEditorSelection();
   }
 
   function revealTextInEditor(text: string) {
@@ -1936,7 +1970,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
-        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} onKeyUp={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
       </section>
 
       {splitView && <WritingSplitPane
