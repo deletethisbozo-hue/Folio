@@ -91,6 +91,7 @@ export default function WriteStudioDrawer(props: Props) {
   const [bookDocs, setBookDocs] = useState<SectionDocument[] | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [analysisWindow, setAnalysisWindow] = useState(80);
+  const [imageBusy, setImageBusy] = useState(false);
 
   useEffect(() => {
     if (props.state) setTargetDraft({
@@ -155,6 +156,15 @@ export default function WriteStudioDrawer(props: Props) {
       props.onState(state);
       setEditingResearch(null);
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+  }
+
+  async function addResearchImage(file: File) {
+    setImageBusy(true);
+    try {
+      const state = await api.addResearchImage(props.project.projectId, file);
+      props.onState(state);
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setImageBusy(false); }
   }
 
   async function addComment() {
@@ -328,6 +338,15 @@ export default function WriteStudioDrawer(props: Props) {
           <textarea value={researchBody} placeholder="Research, facts, references, reminders…" onChange={(event) => setResearchBody(event.target.value)}/>
           <button className="write-small-button primary" onClick={() => void addResearch()}>Add note</button>
         </div>
+        <div className="research-images-heading"><h4>Images</h4><label className={"write-small-button " + (imageBusy ? "disabled" : "")}>{imageBusy ? "Adding…" : "Add image"}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={imageBusy} onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void addResearchImage(file); event.currentTarget.value = ""; }}/></label></div>
+        <div className="research-image-grid">
+          {props.state.researchImages.map((image) => <figure key={image.id} className="research-image-card">
+            <img src={api.researchImageUrl(props.project.projectId, image.id)} alt={image.filename}/>
+            <figcaption><span title={image.filename}>{image.filename}</span><button type="button" title="Delete reference image" aria-label={"Delete " + image.filename} onClick={() => void api.deleteResearchImage(props.project.projectId, image.id).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>×</button></figcaption>
+          </figure>)}
+          {!props.state.researchImages.length && <div className="research-image-empty">No reference images.</div>}
+        </div>
+        <h4 className="research-notes-heading">Notes</h4>
         <div className="write-card-list">
           {props.state.research.map((note) => editingResearch === note.id
             ? <article className="write-card" key={note.id}><input value={editResearchTitle} onChange={(event) => setEditResearchTitle(event.target.value)}/><textarea value={editResearchBody} onChange={(event) => setEditResearchBody(event.target.value)}/><div className="write-card-actions"><button onClick={() => setEditingResearch(null)}>Cancel</button><button className="primary" onClick={() => void saveResearch(note.id)}>Save</button></div></article>
