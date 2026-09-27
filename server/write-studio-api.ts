@@ -12,6 +12,7 @@ import {
   deleteWritingComment,
   readResearchImage,
   readRevisionMarkdown,
+  readWritingWordCounts,
   readWriteStudio,
   setWritingTargets,
   updateResearchNote,
@@ -37,6 +38,13 @@ export function registerWriteStudioApi(app: Express): void {
     try {
       requireProject(req.params.id);
       res.json(await readWriteStudio(req.params.id));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.get("/api/projects/:id/write-studio/word-counts", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await readWritingWordCounts(req.params.id));
     } catch (error) { sendError(res, error); }
   });
 
