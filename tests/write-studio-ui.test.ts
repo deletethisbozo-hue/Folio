@@ -167,12 +167,16 @@ try {
     before.setEnd(active.startContainer, active.startOffset);
     return before.toString().length;
   });
-  const hitButtons = await page.$(".search-hit-list button");
-  await hitButtons[0].click();
+  const clickSearchHit = async (index: number) => page.evaluate((targetIndex: number) => {
+    const button = document.querySelectorAll<HTMLButtonElement>(".search-hit-list button")[targetIndex];
+    if (!button) throw new Error("Search hit " + targetIndex + " is no longer available.");
+    button.click();
+  }, index);
+  await clickSearchHit(0);
   await sleep(120);
   const firstHitOffset = await selectionOffset();
-  const refreshedHitButtons = await page.$(".search-hit-list button");
-  await refreshedHitButtons[2].click();
+  await page.waitForFunction(() => document.querySelectorAll(".search-hit-list button").length >= 4);
+  await clickSearchHit(2);
   await sleep(120);
   const thirdHitOffset = await selectionOffset();
   check("Find can navigate to separate repeated results in the same chapter", firstHitOffset >= 0 && thirdHitOffset > firstHitOffset, JSON.stringify({ firstHitOffset, thirdHitOffset }));
