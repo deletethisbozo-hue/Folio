@@ -30,6 +30,7 @@ interface Props {
   currentWords: number;
   totalWords: number;
   liveSectionWordCounts: Record<string, number>;
+  externalEditRevision: number;
   language: string;
   session: SessionStats;
   state: WriteStudioState | null;
@@ -149,6 +150,10 @@ export default function WriteStudioDrawer(props: Props) {
     setBookDocs(null);
     setExactCounts(null);
   }, [props.project.projectId, projectSectionIdentity]);
+
+  useEffect(() => {
+    setBookDocs(null);
+  }, [props.externalEditRevision]);
 
   useEffect(() => {
     if (!props.selectedId || props.document?.id !== props.selectedId) return;
