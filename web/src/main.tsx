@@ -28,6 +28,7 @@ import "./v210-writing-studio.css";
 import "./illustrations-v2.css";
 import "./v220-unified-light.css";
 import "./write-studio.css";
+import "./v230-brand-refresh.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
