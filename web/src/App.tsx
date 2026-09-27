@@ -323,6 +323,15 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     scheduleTypewriterCaret(editorRef.current);
   }, [workspaceMode, typewriterMode, focusMode, splitView, writeSidebarOpen, selectedId]);
   useEffect(() => {
+    if (!writeStudioOpen || writeStudioTab !== "history" || !project || saveState === "saving") return;
+    let cancelled = false;
+    const projectId = project.projectId;
+    api.writeStudio(projectId)
+      .then((state) => { if (!cancelled && project?.projectId === projectId) setWriteStudioState(state); })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
+  }, [writeStudioOpen, writeStudioTab, project?.projectId, saveState]);
+  useEffect(() => {
     if (draft.length < 35_000) { setPreviewDraft(draft); return; }
     const delay = draft.length > 250_000 ? 460 : draft.length > 100_000 ? 300 : 150;
     const timer = window.setTimeout(() => setPreviewDraft(draft), delay);
@@ -1251,6 +1260,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
   }
 
+  async function currentMarkdownForStudio(): Promise<string> {
+    await flushEditorDom();
+    return draftRef.current;
+  }
+
   async function restoreMarkdownFromStudio(markdown: string) {
     replaceCurrentFromStudio(markdown);
     await saveCurrent();
@@ -2002,6 +2016,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onState={setWriteStudioState}
         onClose={() => setWriteStudioOpen(false)}
         onCaptureSelection={captureEditorSelection}
+        onGetCurrentMarkdown={currentMarkdownForStudio}
         onRevealText={revealTextInEditor}
         onNavigateText={navigateText}
         onReplaceCurrent={replaceCurrentFromStudio}
