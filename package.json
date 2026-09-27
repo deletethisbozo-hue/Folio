@@ -17,8 +17,7 @@
     "build": "npm run build:web && npm run build:server",
     "start": "npm run build && tsx server/index.ts",
     "electron": "npm run build && electron .",
-    "icon:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-windows-icon.ps1",
-    "dist:win": "npm run build && npm run icon:win && electron-builder --win nsis portable --x64",
+    "dist:win": "npm run build && electron-builder --win nsis portable --x64",
     "blues": "tsx server/cli-blues.ts",
     "test": "node --import tsx tests/run-all.ts",
     "typecheck": "tsc --noEmit",
@@ -121,7 +120,7 @@
     ],
     "win": {
       "executableName": "Folio",
-      "icon": "assets/folio-icon.ico",
+      "icon": "assets/folio-icon.png",
       "target": [
         "nsis",
         "portable"
