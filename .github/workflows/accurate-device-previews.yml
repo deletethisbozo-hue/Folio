@@ -1,0 +1,54 @@
+name: Folio accurate device previews
+
+on:
+  push:
+    branches: ["feature/accurate-device-previews"]
+    paths:
+      - "web/**"
+      - "scripts/capture-device-previews.ts"
+      - "server/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/accurate-device-previews.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-accurate-device-previews-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Pandoc for live preview capture
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+      - name: Install Chromium runtime
+        run: npx puppeteer browsers install chrome-headless-shell
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Existing Writing Studio browser smoke
+        run: node --import tsx tests/write-studio-ui.test.ts
+      - name: Capture and validate every device shell
+        run: node --import tsx scripts/capture-device-previews.ts
+      - name: Upload real Folio device screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-2.3-accurate-device-previews
+          path: artifacts/device-previews/
+          if-no-files-found: error
+          retention-days: 14
