@@ -8,8 +8,10 @@
   position: relative !important;
   box-sizing: border-box !important;
   flex: none !important;
+  width: auto;
+  height: auto !important;
   max-width: none !important;
-  max-height: 100% !important;
+  max-height: none !important;
   margin: auto !important;
   overflow: visible !important;
   padding: var(--folio-shell-padding, 18px) !important;
@@ -40,7 +42,7 @@
 }
 
 /* Kindle family: charcoal e-reader bodies with a slightly deeper lower chin. */
-.folio-shell .reader-device.device-kindle-6 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kindle-6 {
   width: min(calc(100% - 12px), 350px, 56cqh) !important;
   --folio-shell-padding: 17px 14px 57px;
   --folio-shell-radius: 11px;
@@ -50,7 +52,7 @@
   --folio-screen-bg: #efefe7;
 }
 
-.folio-shell .reader-device.device-kindle-6-8 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kindle-6-8 {
   width: min(calc(100% - 12px), 382px, 63cqh) !important;
   --folio-shell-padding: 14px 13px 39px;
   --folio-shell-radius: 13px;
@@ -60,7 +62,7 @@
   --folio-screen-bg: #efefe7;
 }
 
-.folio-shell .reader-device.device-kindle-7 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kindle-7 {
   width: min(calc(100% - 12px), 398px, 66cqh) !important;
   --folio-shell-padding: 13px 12px 42px;
   --folio-shell-radius: 13px;
@@ -70,7 +72,7 @@
   --folio-screen-bg: #efefe7;
 }
 
-.folio-shell .reader-device[class*="device-kindle-"]::after {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[class*="device-kindle-"]::after {
   content: "kindle";
   position: absolute;
   left: 50%;
@@ -85,7 +87,7 @@
 
 /* Kobo 6 remains compact and symmetrical. Larger Kobo presets use the
  * recognisable broad side-grip silhouette rather than a Kindle-shaped body. */
-.folio-shell .reader-device.device-kobo-6 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-6 {
   width: min(calc(100% - 12px), 352px, 57cqh) !important;
   --folio-shell-padding: 15px 14px 50px;
   --folio-shell-radius: 9px;
@@ -95,7 +97,7 @@
   --folio-screen-bg: #f0f0e8;
 }
 
-.folio-shell .reader-device.device-kobo-7 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-7 {
   width: min(calc(100% - 8px), 438px, 80cqh) !important;
   --folio-shell-padding: 14px 72px 14px 13px;
   --folio-shell-radius: 12px;
@@ -105,7 +107,7 @@
   --folio-screen-bg: #f0f0e8;
 }
 
-.folio-shell .reader-device.device-kobo-8 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-8 {
   width: min(calc(100% - 8px), 452px, 83cqh) !important;
   --folio-shell-padding: 13px 72px 13px 13px;
   --folio-shell-radius: 12px;
@@ -115,7 +117,7 @@
   --folio-screen-bg: #f0f0e8;
 }
 
-.folio-shell .reader-device.device-kobo-6::after {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-6::after {
   content: "kobo";
   position: absolute;
   left: 50%;
@@ -128,8 +130,8 @@
   pointer-events: none;
 }
 
-.folio-shell .reader-device.device-kobo-7::before,
-.folio-shell .reader-device.device-kobo-8::before {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-7::before,
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-kobo-8::before {
   content: "";
   position: absolute;
   right: 17px;
@@ -148,7 +150,7 @@
 
 /* Phones: edge-to-edge glass, thin metal rim and a compact sensor island.
  * The two sizes remain visibly different in the same preview stage. */
-.folio-shell .reader-device.device-phone-6-1 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-phone-6-1 {
   width: min(76%, 270px, 40cqh) !important;
   --folio-shell-padding: 5px 8px;
   --folio-shell-radius: 36px;
@@ -158,7 +160,7 @@
   --folio-screen-bg: #ffffff;
 }
 
-.folio-shell .reader-device.device-phone-6-7 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-phone-6-7 {
   width: min(80%, 292px, 46cqh) !important;
   --folio-shell-padding: 5px 8px;
   --folio-shell-radius: 39px;
@@ -168,7 +170,7 @@
   --folio-screen-bg: #ffffff;
 }
 
-.folio-shell .reader-device[class*="device-phone-"]::before {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[class*="device-phone-"]::before {
   content: "";
   position: absolute;
   z-index: 4;
@@ -183,13 +185,13 @@
   pointer-events: none;
 }
 
-.folio-shell .reader-device.device-phone-6-7::before {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-phone-6-7::before {
   width: 24%;
   height: 14px;
   top: 11px;
 }
 
-.folio-shell .reader-device[class*="device-phone-"]::after {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[class*="device-phone-"]::after {
   content: "";
   position: absolute;
   top: 94px;
@@ -206,7 +208,7 @@
 
 /* Tablets: aluminium-like slabs with thin black glass bezels and a centred
  * front camera. 8", 11" and 13" use progressively larger silhouettes. */
-.folio-shell .reader-device.device-tablet-8 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-tablet-8 {
   width: min(calc(100% - 12px), 348px, 57cqh) !important;
   --folio-shell-padding: 10px 14px;
   --folio-shell-radius: 22px;
@@ -216,7 +218,7 @@
   --folio-screen-bg: #ffffff;
 }
 
-.folio-shell .reader-device.device-tablet-11 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-tablet-11 {
   width: min(calc(100% - 10px), 405px, 64cqh) !important;
   --folio-shell-padding: 8px 10px;
   --folio-shell-radius: 19px;
@@ -226,7 +228,7 @@
   --folio-screen-bg: #ffffff;
 }
 
-.folio-shell .reader-device.device-tablet-13 {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-tablet-13 {
   width: min(calc(100% - 8px), 448px, 73cqh) !important;
   --folio-shell-padding: 7px 9px;
   --folio-shell-radius: 17px;
@@ -236,7 +238,7 @@
   --folio-screen-bg: #ffffff;
 }
 
-.folio-shell .reader-device[class*="device-tablet-"]::before {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[class*="device-tablet-"]::before {
   content: "";
   position: absolute;
   z-index: 4;
@@ -252,18 +254,18 @@
 }
 
 /* E-ink and glass should not inherit the old universal radius/background. */
-.folio-shell .reader-device[data-device-family="kindle"] .reader-screen,
-.folio-shell .reader-device[data-device-family="kobo"] .reader-screen {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[data-device-family="kindle"] .reader-screen,
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[data-device-family="kobo"] .reader-screen {
   background: #efefe7 !important;
 }
 
-.folio-shell .reader-device[data-device-family="phone"] .reader-screen,
-.folio-shell .reader-device[data-device-family="tablet"] .reader-screen {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[data-device-family="phone"] .reader-screen,
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device[data-device-family="tablet"] .reader-screen {
   background: #ffffff !important;
 }
 
 /* Preserve print preview exactly as before. */
-.folio-shell .reader-device.device-print,
-.folio-shell .reader-device.device-print .reader-screen {
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-print,
+.folio-shell[data-ui-tone] .preview-stage.device-stage .reader-device.device-print .reader-screen {
   border-radius: 0 !important;
 }
