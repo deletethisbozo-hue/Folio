@@ -135,6 +135,8 @@ export function registerWriteStudioApi(app: Express): void {
         String(req.body?.sectionId ?? ""),
         String(req.body?.quote ?? ""),
         String(req.body?.body ?? ""),
+        typeof req.body?.prefix === "string" ? req.body.prefix : undefined,
+        typeof req.body?.suffix === "string" ? req.body.suffix : undefined,
       ));
     } catch (error) { sendError(res, error); }
   });
