@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { deleteSectionDocument, readSectionDocument, updateSectionHeadingDocument, writeSectionDocument } from "./section-editor.ts";
 import { hasProject } from "./projects.ts";
+import { maybeRecordAutoRevision } from "./write-studio.ts";
 
 const sectionMutationTails = new Map<string, Promise<void>>();
 
@@ -37,6 +38,8 @@ export function registerEditorApi(app: Express): void {
       if (!hasProject(req.params.id)) throw new Error("Project not found.");
       const markdown = typeof req.body?.markdown === "string" ? req.body.markdown : "";
       const saved = await runSectionMutation(req.params.id, req.params.sectionId, async () => {
+        const before = await readSectionDocument(req.params.id, req.params.sectionId);
+        await maybeRecordAutoRevision(req.params.id, req.params.sectionId, before.markdown);
         await writeSectionDocument(req.params.id, req.params.sectionId, markdown);
         return readSectionDocument(req.params.id, req.params.sectionId);
       });
