@@ -6,6 +6,7 @@ import {
   buildSearchRegex,
   countMatches,
   diffLines,
+  markdownToReadableSnapshotText,
   nearbyRepetitions,
   repeatedWords,
   replaceMatches,
@@ -76,6 +77,26 @@ await test("revision diff preserves unchanged lines and marks additions/removals
     { kind: "same", text: "three" },
     { kind: "add", text: "four" },
   ]);
+});
+
+await test("snapshot comparison strips manuscript source markup", () => {
+  const readable = markdownToReadableSnapshotText([
+    "# Rozdział 1",
+    "",
+    "**Gruby tekst** i *kursywa* oraz [odnośnik](https://example.com).",
+    "",
+    "![Mapa](assets/map.png){scale=80 wrap=left}",
+    "",
+    "<span style=\"color:#999\">Kolorowy fragment</span>",
+  ].join("\n"));
+  assert.equal(readable.includes("# Rozdział"), false);
+  assert.equal(readable.includes("**"), false);
+  assert.equal(readable.includes("*kursywa*"), false);
+  assert.equal(readable.includes("https://"), false);
+  assert.equal(readable.includes("<span"), false);
+  assert.equal(readable.includes("Gruby tekst i kursywa oraz odnośnik."), true);
+  assert.equal(readable.includes("[Illustration: Mapa]"), true);
+  assert.equal(readable.includes("Kolorowy fragment"), true);
 });
 
 await test("Write Studio project data persists beside the manuscript", async () => {
