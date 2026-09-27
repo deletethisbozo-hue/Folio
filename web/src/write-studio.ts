@@ -28,6 +28,8 @@ export interface WritingComment {
   id: string;
   sectionId: string;
   quote: string;
+  prefix?: string;
+  suffix?: string;
   body: string;
   resolved: boolean;
   createdAt: string;
@@ -58,6 +60,12 @@ export interface WriteStudioState {
 export interface RevisionPayload {
   revision: RevisionSummary;
   markdown: string;
+}
+
+export interface SelectionCapture {
+  quote: string;
+  prefix: string;
+  suffix: string;
 }
 
 export interface SessionStats {
