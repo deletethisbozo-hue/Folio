@@ -55,9 +55,11 @@ try {
     const measurement = await page.evaluate(({ mode, expectedAspect }: { mode: string; expectedAspect: number }) => {
       const shell = document.querySelector<HTMLElement>(".reader-device.device-" + mode);
       const screen = shell?.querySelector<HTMLElement>(".reader-screen");
-      if (!shell || !screen) throw new Error("Missing shell or screen for " + mode);
+      const stage = document.querySelector<HTMLElement>(".preview-stage.device-stage");
+      if (!shell || !screen || !stage) throw new Error("Missing shell, screen or stage for " + mode);
       const s = shell.getBoundingClientRect();
       const r = screen.getBoundingClientRect();
+      const p = stage.getBoundingClientRect();
       const shellStyle = getComputedStyle(shell);
       const before = getComputedStyle(shell, "::before");
       const after = getComputedStyle(shell, "::after");
@@ -67,6 +69,9 @@ try {
         shellHeight: s.height,
         screenWidth: r.width,
         screenHeight: r.height,
+        stageWidth: p.width,
+        stageHeight: p.height,
+        fitsStage: s.width <= p.width - 2 && s.height <= p.height - 2,
         screenAspect: r.width / r.height,
         expectedAspect,
         radius: shellStyle.borderRadius,
@@ -77,6 +82,14 @@ try {
       mode: profile.value,
       expectedAspect: profile.viewport.width / profile.viewport.height,
     });
+
+    if (!measurement.fitsStage) {
+      throw new Error(
+        profile.value + " shell does not fit the preview stage: " +
+        measurement.shellWidth.toFixed(1) + "x" + measurement.shellHeight.toFixed(1) +
+        " in " + measurement.stageWidth.toFixed(1) + "x" + measurement.stageHeight.toFixed(1)
+      );
+    }
 
     if (Math.abs(measurement.screenAspect - measurement.expectedAspect) > 0.012) {
       throw new Error(
@@ -103,6 +116,10 @@ try {
     });
   }
 
+  const widths = Object.fromEntries(results.map((item) => [item.mode, Math.round(item.shellWidth)]));
+  if (new Set(Object.values(widths)).size < 6) {
+    throw new Error("Device shells collapsed back toward universal sizing: " + JSON.stringify(widths));
+  }
   await fs.writeFile(path.join(outDir, "measurements.json"), JSON.stringify(results, null, 2));
   console.log(JSON.stringify(results, null, 2));
 } finally {
