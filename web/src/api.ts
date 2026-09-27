@@ -84,6 +84,20 @@ export const api = {
     fetch(`/api/projects/${projectId}/write-studio/research/${encodeURIComponent(noteId)}`, { method: "DELETE" })
       .then((r) => json<WriteStudioState>(r)),
 
+  addResearchImage: (projectId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return fetch(`/api/projects/${projectId}/write-studio/research-images`, { method: "POST", body: form })
+      .then((r) => json<WriteStudioState>(r));
+  },
+
+  deleteResearchImage: (projectId: string, imageId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/research-images/${encodeURIComponent(imageId)}`, { method: "DELETE" })
+      .then((r) => json<WriteStudioState>(r)),
+
+  researchImageUrl: (projectId: string, imageId: string) =>
+    `/api/projects/${projectId}/write-studio/research-images/${encodeURIComponent(imageId)}`,
+
   addWritingComment: (projectId: string, sectionId: string, quote: string, body: string) =>
     fetch(`/api/projects/${projectId}/write-studio/comments`, {
       method: "POST",
