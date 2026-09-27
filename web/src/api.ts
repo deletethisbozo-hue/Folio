@@ -98,11 +98,11 @@ export const api = {
   researchImageUrl: (projectId: string, imageId: string) =>
     `/api/projects/${projectId}/write-studio/research-images/${encodeURIComponent(imageId)}`,
 
-  addWritingComment: (projectId: string, sectionId: string, quote: string, body: string) =>
+  addWritingComment: (projectId: string, sectionId: string, quote: string, body: string, prefix?: string, suffix?: string) =>
     fetch(`/api/projects/${projectId}/write-studio/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sectionId, quote, body }),
+      body: JSON.stringify({ sectionId, quote, body, prefix, suffix }),
     }).then((r) => json<WriteStudioState>(r)),
 
   updateWritingComment: (projectId: string, commentId: string, patch: { body?: string; resolved?: boolean }) =>
