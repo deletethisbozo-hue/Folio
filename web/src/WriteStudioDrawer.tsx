@@ -36,6 +36,7 @@ interface Props {
   onClose: () => void;
   onCaptureSelection: () => SelectionCapture | null;
   onGetCurrentMarkdown: () => Promise<string>;
+  onSaveCurrent: () => Promise<boolean>;
   onRevealText: (text: string, prefix?: string, suffix?: string) => void;
   onNavigateText: (sectionId: string, text: string) => Promise<void>;
   onReplaceCurrent: (markdown: string) => void;
@@ -85,6 +86,7 @@ export default function WriteStudioDrawer(props: Props) {
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentBody, setEditCommentBody] = useState("");
   const [snapshotLabel, setSnapshotLabel] = useState("");
+  const [snapshotScope, setSnapshotScope] = useState<"chapter" | "book">("chapter");
   const [compareRevision, setCompareRevision] = useState<RevisionPayload | null>(null);
   const [historyBusy, setHistoryBusy] = useState(false);
   const [query, setQuery] = useState("");
@@ -131,7 +133,7 @@ export default function WriteStudioDrawer(props: Props) {
     : props.totalWords;
   const repeated = useMemo(() => repeatedWords(props.draft, props.language), [props.draft, props.language]);
   const nearby = useMemo(() => nearbyRepetitions(props.draft, props.language, analysisWindow), [props.draft, props.language, analysisWindow]);
-  const revisions = useMemo(() => (props.state?.revisions ?? []).filter((item) => item.sectionId === props.selectedId), [props.state?.revisions, props.selectedId]);
+  const revisions = useMemo(() => (props.state?.revisions ?? []).filter((item) => item.scope === "book" || item.sectionId === props.selectedId), [props.state?.revisions, props.selectedId]);
   const comments = useMemo(() => (props.state?.comments ?? []).filter((item) => item.sectionId === props.selectedId).sort((a, b) => Number(a.resolved) - Number(b.resolved) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [props.state?.comments, props.selectedId]);
 
   let currentMatchCount = 0;
@@ -199,11 +201,18 @@ export default function WriteStudioDrawer(props: Props) {
   }
 
   async function createSnapshot() {
-    if (!props.selectedId || !props.document?.editable) return;
     setHistoryBusy(true);
     try {
-      const markdown = await props.onGetCurrentMarkdown();
-      const state = await api.createSnapshot(props.project.projectId, props.selectedId, markdown, snapshotLabel.trim() || undefined);
+      let state: WriteStudioState;
+      if (snapshotScope === "book") {
+        const saved = await props.onSaveCurrent();
+        if (!saved) throw new Error("Current chapter could not be saved before creating the book snapshot.");
+        state = await api.createBookSnapshot(props.project.projectId, snapshotLabel.trim() || undefined);
+      } else {
+        if (!props.selectedId || !props.document?.editable) return;
+        const markdown = await props.onGetCurrentMarkdown();
+        state = await api.createSnapshot(props.project.projectId, props.selectedId, markdown, snapshotLabel.trim() || undefined);
+      }
       props.onState(state);
       setSnapshotLabel("");
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
@@ -219,7 +228,27 @@ export default function WriteStudioDrawer(props: Props) {
   }
 
   async function restoreRevision() {
-    if (!compareRevision || !props.selectedId) return;
+    if (!compareRevision) return;
+    if (compareRevision.revision.scope === "book") {
+      if (!window.confirm("Restore this whole-book snapshot? Folio will create a safety snapshot of the current book first.")) return;
+      setHistoryBusy(true);
+      try {
+        const saved = await props.onSaveCurrent();
+        if (!saved) throw new Error("Current chapter could not be saved before restoring the book.");
+        const safety = await api.createBookSnapshot(props.project.projectId, "Before book restore");
+        props.onState(safety);
+        const result = await api.restoreBookSnapshot(props.project.projectId, compareRevision.revision.id);
+        const summary = await api.reload(props.project.projectId);
+        props.onProjectUpdate(summary);
+        props.onState(await api.writeStudio(props.project.projectId));
+        setCompareRevision(null);
+        if (result.skipped.length) props.onError("Book restored, but " + result.skipped.length + " section(s) could not be matched.");
+      } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+      finally { setHistoryBusy(false); }
+      return;
+    }
+
+    if (!props.selectedId || typeof compareRevision.markdown !== "string") return;
     if (!window.confirm("Restore this revision? Folio will create a snapshot of the current chapter first.")) return;
     setHistoryBusy(true);
     try {
@@ -310,7 +339,7 @@ export default function WriteStudioDrawer(props: Props) {
 
   if (!props.open) return null;
 
-  return <aside className="write-studio-drawer" aria-label="Writing tools">
+  return <aside className={"write-studio-drawer " + (props.activeTab === "history" && compareRevision ? "compare-expanded" : "")} aria-label="Writing tools">
     <header className="write-studio-header">
       <div><span className="write-studio-eyebrow">Write</span><strong>Writing Studio</strong></div>
       <button type="button" onClick={props.onClose} aria-label="Close writing tools">×</button>
@@ -396,14 +425,20 @@ export default function WriteStudioDrawer(props: Props) {
 
       {props.state && props.activeTab === "history" && <div className="write-studio-section history-section">
         <div className="write-section-heading"><div><h3>Snapshots & history</h3><p>Snapshots are permanent. Autosave history is retained and trimmed automatically.</p></div></div>
-        <div className="snapshot-compose"><input value={snapshotLabel} placeholder="Snapshot label (optional)" onChange={(event) => setSnapshotLabel(event.target.value)}/><button className="write-small-button primary" disabled={historyBusy || !props.document?.editable} onClick={() => void createSnapshot()}>Create snapshot</button></div>
+        <div className="snapshot-scope" role="group" aria-label="Snapshot scope"><button className={snapshotScope === "chapter" ? "active" : ""} onClick={() => setSnapshotScope("chapter")}>Current chapter</button><button className={snapshotScope === "book" ? "active" : ""} onClick={() => setSnapshotScope("book")}>Whole book</button></div>
+        <div className="snapshot-compose"><input value={snapshotLabel} placeholder="Snapshot label (optional)" onChange={(event) => setSnapshotLabel(event.target.value)}/><button className="write-small-button primary" disabled={historyBusy || (snapshotScope === "chapter" && !props.document?.editable)} onClick={() => void createSnapshot()}>Create snapshot</button></div>
         <div className="revision-list">
-          {revisions.map((revision) => <button key={revision.id} className={"revision-row " + (compareRevision?.revision.id === revision.id ? "active" : "")} onClick={() => void loadRevision(revision.id)}><span className={"revision-kind " + revision.kind}>{revision.kind === "snapshot" ? "Snapshot" : "Auto"}</span><span className="revision-copy"><strong>{revision.label || shortDate(revision.createdAt)}</strong><small>{revision.wordCount.toLocaleString()} words · {shortDate(revision.createdAt)}</small></span></button>)}
+          {revisions.map((revision) => <button key={revision.id} className={"revision-row " + (compareRevision?.revision.id === revision.id ? "active" : "")} onClick={() => void loadRevision(revision.id)}><span className={"revision-kind " + revision.kind + " " + revision.scope}>{revision.scope === "book" ? "Book" : revision.kind === "snapshot" ? "Snapshot" : "Auto"}</span><span className="revision-copy"><strong>{revision.label || shortDate(revision.createdAt)}</strong><small>{revision.wordCount.toLocaleString()} words{revision.sectionCount ? " · " + revision.sectionCount + " sections" : ""} · {shortDate(revision.createdAt)}</small></span></button>)}
           {!revisions.length && <div className="write-studio-empty">History will appear after writing or creating a snapshot.</div>}
         </div>
         {compareRevision && <div className="revision-compare">
-          <div className="revision-compare-head"><strong>Compare with current</strong><button className="write-small-button" disabled={historyBusy} onClick={() => void restoreRevision()}>Restore</button></div>
-          <div className="revision-diff">{diffLines(compareRevision.markdown, props.draft).map((line, index) => <div key={index} className={"diff-line " + line.kind}><span>{line.kind === "add" ? "+" : line.kind === "remove" ? "−" : " "}</span><code>{line.text || " "}</code></div>)}</div>
+          <div className="revision-compare-head"><strong>{compareRevision.revision.scope === "book" ? "Whole-book snapshot" : "Previous | Current"}</strong><div><button className="write-small-button" onClick={() => setCompareRevision(null)}>Close</button><button className="write-small-button primary" disabled={historyBusy} onClick={() => void restoreRevision()}>Restore</button></div></div>
+          {compareRevision.revision.scope === "book"
+            ? <div className="book-snapshot-summary"><strong>{compareRevision.revision.wordCount.toLocaleString()} words</strong><span>{compareRevision.revision.sectionCount ?? compareRevision.sections?.length ?? 0} editable sections captured</span><p>Restoring changes manuscript content only. Folio keeps the current book style, export settings and project appearance.</p></div>
+            : <div className="revision-side-by-side">
+                <div className="revision-column-head"><span>Previous</span><span>Current</span></div>
+                <div className="revision-compare-grid">{diffLines(compareRevision.markdown ?? "", props.draft).map((line, index) => <div key={index} className={"compare-row " + line.kind}><code className="previous">{line.kind === "add" ? "" : line.text || " "}</code><code className="current">{line.kind === "remove" ? "" : line.text || " "}</code></div>)}</div>
+              </div>}
         </div>}
       </div>}
 
