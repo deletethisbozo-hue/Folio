@@ -168,8 +168,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [writeStudioOpen, setWriteStudioOpen] = useState(false);
   const [writeStudioTab, setWriteStudioTab] = useState<WriteStudioTab>("session");
   const [writeStudioState, setWriteStudioState] = useState<WriteStudioState | null>(null);
-  const [sessionStats, setSessionStats] = useState<SessionStats>({ startedAt: Date.now(), gross: 0, deleted: 0 });
-  const [sessionNow, setSessionNow] = useState(Date.now());
+  const [sessionStats, setSessionStats] = useState<SessionStats>({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
   const [writeZoom, setWriteZoom] = useState(() => {
     const stored = Number(window.localStorage.getItem("folio-write-zoom"));
     return Number.isFinite(stored) ? Math.max(0.7, Math.min(2, stored)) : 1;
@@ -213,6 +212,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const splitFlushRef = useRef<(() => Promise<boolean>) | null>(null);
   const sessionTrackRef = useRef<{ sectionId: string | null; words: number }>({ sectionId: null, words: 0 });
+  const lastWritingActivityRef = useRef<number | null>(null);
   const sessionNetRef = useRef(0);
   const reportedSessionNetRef = useRef(0);
   const progressSyncTimerRef = useRef<number | null>(null);
@@ -286,9 +286,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     let cancelled = false;
     const projectId = project.projectId;
     setWriteStudioState(null);
-    setSessionStats({ startedAt: Date.now(), gross: 0, deleted: 0 });
-    setSessionNow(Date.now());
+    setSessionStats({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
     sessionTrackRef.current = { sectionId: null, words: 0 };
+    lastWritingActivityRef.current = null;
     sessionNetRef.current = 0;
     reportedSessionNetRef.current = 0;
     progressSyncInFlightRef.current = false;
@@ -302,12 +302,6 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });
     return () => { cancelled = true; };
   }, [project?.projectId]);
-  useEffect(() => {
-    if (workspaceMode !== "write") return;
-    setSessionNow(Date.now());
-    const timer = window.setInterval(() => setSessionNow(Date.now()), 30000);
-    return () => window.clearInterval(timer);
-  }, [workspaceMode, sessionStats.startedAt]);
   useEffect(() => {
     if (!focusMode) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1196,6 +1190,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     setWriteStudioOpen(true);
   }
 
+  function noteWritingActivity() {
+    const now = Date.now();
+    const previous = lastWritingActivityRef.current;
+    lastWritingActivityRef.current = now;
+    if (previous === null) return;
+    const gap = now - previous;
+    if (gap <= 0 || gap > 60_000) return;
+    setSessionStats((current) => ({ ...current, activeMs: current.activeMs + gap }));
+  }
+
   function rememberEditorSelection(): SelectionCapture | null {
     const editor = editorRef.current;
     const selection = window.getSelection();
@@ -1873,6 +1877,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   function recordEditorDom() {
     const editor = editorRef.current;
     if (!editor) return;
+    noteWritingActivity();
     editorDomDirtyRef.current = true;
     editorDomGenerationRef.current++;
     if (draftRef.current.length < 35_000) void flushEditorDom();
@@ -2044,6 +2049,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onWordDelta={(delta) => setSessionStats((current) => delta > 0
           ? { ...current, gross: current.gross + delta }
           : { ...current, deleted: current.deleted + Math.abs(delta) })}
+        onWritingActivity={noteWritingActivity}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
       />}
 
@@ -2059,7 +2065,6 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         totalWords={totalWords}
         language={meta.language || "en"}
         session={sessionStats}
-        sessionNow={sessionNow}
         state={writeStudioState}
         onState={setWriteStudioState}
         onClose={() => setWriteStudioOpen(false)}
@@ -2086,7 +2091,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{coverSelected ? (project.hasCover ? <div className="cover-preview-surface"><img src={`/api/projects/${project.projectId}/cover?v=${coverVersion}`} alt={`${meta.title} cover`}/></div> : <div className="cover-preview-empty"><strong>No cover yet</strong><span>Add a PNG or JPEG from the Cover workspace.</span></div>) : selectedId ? <iframe key={`${project.projectId}:${selectedId}:${previewMode === "print" ? "print" : "reader"}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
-      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span>{workspaceMode === "write" && <button className="write-session-chip" onClick={() => openWriteStudio("session")}>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()} words · {Math.max(0, Math.floor((sessionNow - sessionStats.startedAt) / 60000))} min{writeStudioState?.targets.session ? ` · ${Math.max(0, sessionNet).toLocaleString()} / ${writeStudioState.targets.session.toLocaleString()}` : ""}</button>}<span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
+      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span>{workspaceMode === "write" && <button className="write-session-chip" onClick={() => openWriteStudio("session")}>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()} words · {Math.max(0, Math.floor(sessionStats.activeMs / 60000))} active min{writeStudioState?.targets.session ? ` · ${Math.max(0, sessionNet).toLocaleString()} / ${writeStudioState.targets.session.toLocaleString()}` : ""}</button>}<span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
         <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
