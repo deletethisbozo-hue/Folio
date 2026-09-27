@@ -95,6 +95,7 @@ export default function WriteStudioDrawer(props: Props) {
   const [searchBusy, setSearchBusy] = useState(false);
   const [analysisWindow, setAnalysisWindow] = useState(80);
   const [imageBusy, setImageBusy] = useState(false);
+  const [exactCounts, setExactCounts] = useState<{ total: number; sections: Record<string, number> } | null>(null);
 
   useEffect(() => {
     if (props.state) setTargetDraft({
@@ -110,10 +111,24 @@ export default function WriteStudioDrawer(props: Props) {
     setBookDocs(null);
   }, [props.selectedId, props.project.projectId]);
 
+  useEffect(() => {
+    if (!props.open || props.activeTab !== "session") return;
+    let cancelled = false;
+    api.writingWordCounts(props.project.projectId)
+      .then((counts) => { if (!cancelled) setExactCounts(counts); })
+      .catch((error) => { if (!cancelled) props.onError(error instanceof Error ? error.message : String(error)); });
+    return () => { cancelled = true; };
+  }, [props.open, props.activeTab, props.project.projectId]);
+
   const sessionNet = props.session.gross - props.session.deleted;
   const today = todayKey();
   const todayProgress = props.state?.dailyProgress[today] ?? 0;
   const chapterTarget = props.selectedId ? targetDraft.chapters[props.selectedId] ?? null : null;
+  const selectedKind = props.project.sections.find((section) => section.id === props.selectedId)?.kind;
+  const selectedSavedWords = props.selectedId ? exactCounts?.sections[props.selectedId] ?? props.currentWords : 0;
+  const exactBookWords = exactCounts
+    ? exactCounts.total + ((selectedKind === "chapter" || selectedKind === "backmatter") ? props.currentWords - selectedSavedWords : 0)
+    : props.totalWords;
   const repeated = useMemo(() => repeatedWords(props.draft, props.language), [props.draft, props.language]);
   const nearby = useMemo(() => nearbyRepetitions(props.draft, props.language, analysisWindow), [props.draft, props.language, analysisWindow]);
   const revisions = useMemo(() => (props.state?.revisions ?? []).filter((item) => item.sectionId === props.selectedId), [props.state?.revisions, props.selectedId]);
@@ -314,10 +329,16 @@ export default function WriteStudioDrawer(props: Props) {
           <NumberTarget label="Book" value={targetDraft.book} placeholder="90000" onChange={(book) => setTargetDraft({ ...targetDraft, book })}/>
           <NumberTarget label="Daily" value={targetDraft.daily} placeholder="1500" onChange={(daily) => setTargetDraft({ ...targetDraft, daily })}/>
           <NumberTarget label="Session" value={targetDraft.session} placeholder="1000" onChange={(session) => setTargetDraft({ ...targetDraft, session })}/>
-          <NumberTarget label="Chapter" value={chapterTarget} placeholder="5000" onChange={(value) => props.selectedId && setTargetDraft({ ...targetDraft, chapters: { ...targetDraft.chapters, [props.selectedId]: value ?? 0 } })}/>
+          <NumberTarget label="Chapter" value={chapterTarget} placeholder="5000" onChange={(value) => {
+            if (!props.selectedId) return;
+            const chapters = { ...targetDraft.chapters };
+            if (value === null) delete chapters[props.selectedId];
+            else chapters[props.selectedId] = value;
+            setTargetDraft({ ...targetDraft, chapters });
+          }}/>
         </div>
         <div className="write-progress-stack">
-          <TargetProgress label="Book" value={props.totalWords} target={targetDraft.book}/>
+          <TargetProgress label="Book" value={exactBookWords} target={targetDraft.book}/>
           <TargetProgress label="Today" value={todayProgress} target={targetDraft.daily}/>
           <TargetProgress label="This session" value={Math.max(0, sessionNet)} target={targetDraft.session}/>
           <TargetProgress label="Current chapter" value={props.currentWords} target={chapterTarget}/>
