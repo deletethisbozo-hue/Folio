@@ -13,6 +13,7 @@ import type {
   Typography,
 } from "./types";
 import type { RecentProject } from "./recent-projects";
+import type { RevisionPayload, WriteStudioState, WritingTargets } from "./write-studio";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -47,6 +48,70 @@ export const api = {
   }).then((r) => json<RecentProject[]>(r)),
 
   loadSample: () => fetch("/api/sample", { method: "POST" }).then((r) => json<ProjectSummary>(r)),
+
+  writeStudio: (projectId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio`).then((r) => json<WriteStudioState>(r)),
+
+  saveWritingTargets: (projectId: string, targets: Partial<WritingTargets>) =>
+    fetch(`/api/projects/${projectId}/write-studio/targets`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(targets),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  addWritingProgress: (projectId: string, date: string, delta: number) =>
+    fetch(`/api/projects/${projectId}/write-studio/progress`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, delta }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  addResearchNote: (projectId: string, title: string, body: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/research`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  updateResearchNote: (projectId: string, noteId: string, patch: { title?: string; body?: string; pinned?: boolean }) =>
+    fetch(`/api/projects/${projectId}/write-studio/research/${encodeURIComponent(noteId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  deleteResearchNote: (projectId: string, noteId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/research/${encodeURIComponent(noteId)}`, { method: "DELETE" })
+      .then((r) => json<WriteStudioState>(r)),
+
+  addWritingComment: (projectId: string, sectionId: string, quote: string, body: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sectionId, quote, body }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  updateWritingComment: (projectId: string, commentId: string, patch: { body?: string; resolved?: boolean }) =>
+    fetch(`/api/projects/${projectId}/write-studio/comments/${encodeURIComponent(commentId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  deleteWritingComment: (projectId: string, commentId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" })
+      .then((r) => json<WriteStudioState>(r)),
+
+  createSnapshot: (projectId: string, sectionId: string, markdown: string, label?: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/snapshots`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sectionId, markdown, label }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  revision: (projectId: string, revisionId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/revisions/${encodeURIComponent(revisionId)}`)
+      .then((r) => json<RevisionPayload>(r)),
 
   newBook: (projectPath: string, title: string, author: string) =>
     fetch("/api/projects/new", {
