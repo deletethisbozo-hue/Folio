@@ -126,9 +126,9 @@ async function saveState(projectId: string, state: WriteStudioState): Promise<vo
 
 async function mutateState<T>(projectId: string, mutate: (state: WriteStudioState) => Promise<T> | T): Promise<T> {
   const previous = mutationTails.get(projectId) ?? Promise.resolve();
-  let resolveTail!: () => void;
-  const tail = new Promise<void>((resolve) => { resolveTail = resolve; });
-  mutationTails.set(projectId, previous.catch(() => undefined).then(() => tail));
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  mutationTails.set(projectId, current);
   await previous.catch(() => undefined);
   try {
     const folder = projectInfo(projectId).folder;
@@ -137,8 +137,8 @@ async function mutateState<T>(projectId: string, mutate: (state: WriteStudioStat
     await saveState(projectId, state);
     return result;
   } finally {
-    resolveTail();
-    if (mutationTails.get(projectId) === tail) mutationTails.delete(projectId);
+    release();
+    if (mutationTails.get(projectId) === current) mutationTails.delete(projectId);
   }
 }
 
