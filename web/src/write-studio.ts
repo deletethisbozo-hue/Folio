@@ -188,6 +188,38 @@ export function replaceMatches(text: string, query: string, replacement: string,
   return text.replace(buildSearchRegex(query, options, true), replacement);
 }
 
+export function replacementForMatch(source: string, match: RegExpMatchArray, replacement: string): string {
+  const matched = match[0] ?? "";
+  const position = match.index ?? 0;
+  const captures = match.slice(1);
+  const groups = match.groups;
+  return replacement.replace(/\$([export function replaceMatches(text: string, query: string, replacement: string, options: SearchOptions): string {
+  return text.replace(buildSearchRegex(query, options, true), replacement);
+}
+
+`']|\d{1,2}|<[^>]+>)/g, (token, pattern: string) => {
+    if (pattern === "$") return "$";
+    if (pattern === "&") return matched;
+    if (pattern === "`") return source.slice(0, position);
+    if (pattern === "'") return source.slice(position + matched.length);
+    if (pattern.startsWith("<") && pattern.endsWith(">")) {
+      if (!groups) return token;
+      const name = pattern.slice(1, -1);
+      return Object.prototype.hasOwnProperty.call(groups, name) ? (groups[name] ?? "") : "";
+    }
+    if (/^\d{1,2}$/.test(pattern)) {
+      let index = Number(pattern);
+      if (index > 0 && index <= captures.length) return captures[index - 1] ?? "";
+      if (pattern.length === 2) {
+        index = Number(pattern[0]);
+        if (index > 0 && index <= captures.length) return (captures[index - 1] ?? "") + pattern[1];
+      }
+      return token;
+    }
+    return token;
+  });
+}
+
 export type DiffLine = { kind: "same" | "add" | "remove"; text: string };
 
 export function diffLines(before: string, after: string): DiffLine[] {
