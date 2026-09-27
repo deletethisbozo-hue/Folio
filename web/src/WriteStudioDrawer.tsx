@@ -207,7 +207,9 @@ export default function WriteStudioDrawer(props: Props) {
     if (bookDocs) return bookDocs;
     setSearchBusy(true);
     try {
-      const docs = (await Promise.all(props.project.sections.map((section) => api.section(props.project.projectId, section.id)))).filter((doc) => doc.editable);
+      const docs = (await Promise.all(props.project.sections.map((section) => api.section(props.project.projectId, section.id))))
+        .filter((doc) => doc.editable)
+        .map((doc) => doc.id === props.selectedId ? { ...doc, markdown: props.draft } : doc);
       setBookDocs(docs);
       return docs;
     } finally {
@@ -246,7 +248,7 @@ export default function WriteStudioDrawer(props: Props) {
   async function bookMatches() {
     if (!query || searchError) return [];
     try {
-      const docs = scope === "book" ? await scanBook() : (props.document ? [props.document] : []);
+      const docs = scope === "book" ? await scanBook() : (props.document ? [{ ...props.document, markdown: props.draft }] : []);
       const regex = buildSearchRegex(query, searchOptions, true);
       const hits: Array<{ sectionId: string; title: string; text: string; snippet: string }> = [];
       for (const doc of docs) {
