@@ -9,6 +9,7 @@ import {
   nearbyRepetitions,
   repeatedWords,
   replaceMatches,
+  replacementForMatch,
 } from "../web/src/write-studio.ts";
 import {
   addResearchImage,
@@ -46,6 +47,11 @@ await test("advanced find supports literal, case-sensitive, whole-word and regex
   assert.equal(countMatches(text, "cat", { caseSensitive: false, wholeWord: true, regex: false }), 4);
   assert.equal(countMatches(text, "c.t", { caseSensitive: false, wholeWord: true, regex: true }), 4);
   assert.equal(replaceMatches(text, "cat", "dog", { caseSensitive: true, wholeWord: true, regex: false }).startsWith("Cat dog category"), true);
+  const lookbehindSource = "foo bar";
+  const lookbehindMatch = [...lookbehindSource.matchAll(buildSearchRegex("(?<=foo )(b)(ar)", { caseSensitive: true, wholeWord: false, regex: true }, true))][0];
+  assert.ok(lookbehindMatch);
+  assert.equal(replacementForMatch(lookbehindSource, lookbehindMatch, "$2$1"), "arb");
+  assert.equal(replaceMatches(lookbehindSource, "(?<=foo )(b)(ar)", "$2$1", { caseSensitive: true, wholeWord: false, regex: true }), "foo arb");
   assert.throws(() => buildSearchRegex("(", { caseSensitive: false, wholeWord: false, regex: true }), /Invalid regular expression/);
   const polish = "żaba żabą zażaba ŻABA";
   assert.equal(countMatches(polish, "żaba", { caseSensitive: false, wholeWord: true, regex: false }), 2);
