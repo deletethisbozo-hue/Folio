@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: write-supreme-${{ github.ref }}
+  group: write-supreme-v2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
