@@ -37,3 +37,5 @@ jobs:
         run: node --import tsx tests/write-studio.test.ts
       - name: Build
         run: npm run build
+      - name: Writing Studio browser smoke
+        run: node --import tsx tests/write-studio-ui.test.ts
