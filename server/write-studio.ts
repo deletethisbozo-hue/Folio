@@ -73,6 +73,7 @@ const META_FILE = "write-studio.json";
 const HISTORY_DIR = "history";
 const RESEARCH_IMAGES_DIR = "research-images";
 const AUTO_THROTTLE_MS = 2 * 60 * 1000;
+const AUTO_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const AUTO_TOTAL_LIMIT = 80;
 const AUTO_SECTION_LIMIT = 24;
 
@@ -180,6 +181,10 @@ async function removeRevisionFiles(projectId: string, ids: string[]): Promise<vo
 async function trimAutoRevisions(projectId: string, state: WriteStudioState): Promise<void> {
   const autos = state.revisions.filter((item) => item.kind === "auto").sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   const remove = new Set<string>();
+  const cutoff = Date.now() - AUTO_RETENTION_MS;
+  for (const item of autos) {
+    if (Date.parse(item.createdAt) < cutoff) remove.add(item.id);
+  }
 
   if (autos.length > AUTO_TOTAL_LIMIT) {
     for (const item of autos.slice(0, autos.length - AUTO_TOTAL_LIMIT)) remove.add(item.id);
