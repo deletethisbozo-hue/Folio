@@ -401,3 +401,29 @@
   .revision-column-head span + span,
   .compare-row code + code { border-left: 0; border-top: 1px solid var(--mockup-rule, var(--studio-rule)); }
 }
+
+.search-hit-list button {
+  position: relative;
+}
+.search-preview-label {
+  margin-top: 2px;
+  color: var(--mockup-muted, var(--studio-muted)) !important;
+  font: 700 7.5px/1 var(--folio-ui-font) !important;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.search-preview-label.after {
+  margin-top: 5px;
+  color: var(--mockup-accent, var(--studio-accent)) !important;
+}
+.search-preview-after {
+  padding-left: 7px;
+  border-left: 2px solid var(--mockup-accent, var(--studio-accent));
+  color: var(--mockup-ink, var(--studio-ink)) !important;
+}
+.search-result-cap {
+  padding: 8px;
+  color: var(--mockup-muted, var(--studio-muted));
+  text-align: center;
+  font: 9px/1.2 var(--folio-ui-font);
+}
