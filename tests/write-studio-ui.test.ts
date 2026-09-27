@@ -155,6 +155,28 @@ try {
   }));
   check("Find shows a replacement preview before Replace All", /spectrometer/i.test(findPreview.before) && /instrument/i.test(findPreview.after), JSON.stringify(findPreview));
 
+  await page.waitForFunction(() => document.querySelectorAll(".search-hit-list button").length >= 4);
+  const selectionOffset = async () => page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const selection = window.getSelection();
+    if (!editor || !selection?.rangeCount) return -1;
+    const active = selection.getRangeAt(0);
+    if (!editor.contains(active.startContainer)) return -1;
+    const before = document.createRange();
+    before.selectNodeContents(editor);
+    before.setEnd(active.startContainer, active.startOffset);
+    return before.toString().length;
+  });
+  const hitButtons = await page.$(".search-hit-list button");
+  await hitButtons[0].click();
+  await sleep(120);
+  const firstHitOffset = await selectionOffset();
+  const refreshedHitButtons = await page.$(".search-hit-list button");
+  await refreshedHitButtons[2].click();
+  await sleep(120);
+  const thirdHitOffset = await selectionOffset();
+  check("Find can navigate to separate repeated results in the same chapter", firstHitOffset >= 0 && thirdHitOffset > firstHitOffset, JSON.stringify({ firstHitOffset, thirdHitOffset }));
+
   const status = await page.evaluate(() => document.querySelector(".write-session-chip")?.textContent ?? "");
   check("status bar exposes compact session progress", /words/.test(status) && /active min/.test(status), status);
 } finally {
