@@ -191,7 +191,51 @@ try {
   if (parseFloat(reset.radius) < 6 || reset.height < 28) throw new Error("Theme reset control fell back to browser-default styling.");
   await page.screenshot({ path: path.join(outDir, "design-chapter-heading.png"), fullPage: false });
 
-  console.log(JSON.stringify({ devices: results, footer, modal, reset }, null, 2));
+  // Snapshot/history regression: create a real chapter snapshot, mutate the
+  // manuscript and verify comparison reads like prose rather than markdown/HTML.
+  await page.click(".style-library-header button");
+  await page.waitForFunction(() => !document.querySelector(".style-overlay"));
+  await clickButtonByText(page, "button", "Write");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode") === "write");
+  const toolsButton = await page.$('button[aria-label="Open writing tools"]');
+  if (toolsButton) await toolsButton.click();
+  await page.waitForSelector(".write-studio-drawer");
+  await clickButtonByText(page, ".write-studio-tabs button", "History");
+  await page.waitForSelector(".snapshot-compose input");
+  await page.type(".snapshot-compose input", "Visual QA checkpoint");
+  await clickButtonByText(page, ".snapshot-compose button", "Create snapshot");
+  await page.waitForFunction(() => [...document.querySelectorAll(".revision-row")].some((item) => item.textContent?.includes("Visual QA checkpoint")));
+
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!editor) throw new Error("Editor missing before snapshot compare QA.");
+    const p = document.createElement("p");
+    p.innerHTML = "<strong>Current mutation</strong> after snapshot.";
+    editor.appendChild(p);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "Current mutation after snapshot." }));
+  });
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLButtonElement>(".revision-row")]
+      .find((item) => item.textContent?.includes("Visual QA checkpoint"));
+    if (!row) throw new Error("Snapshot row missing.");
+    row.click();
+  });
+  await page.waitForSelector(".revision-compare-grid");
+  const snapshotCompare = await page.evaluate(() => {
+    const grid = document.querySelector<HTMLElement>(".revision-compare-grid");
+    if (!grid) throw new Error("Snapshot comparison missing.");
+    return grid.innerText;
+  });
+  if (/\*\*|<\/?(?:span|strong|em)|!\[[^\]]*\]\(/i.test(snapshotCompare)) {
+    throw new Error("Snapshot comparison still exposes manuscript source markup: " + snapshotCompare.slice(0, 180));
+  }
+  if (!snapshotCompare.includes("Current mutation after snapshot.")) {
+    throw new Error("Snapshot comparison did not show the live manuscript mutation.");
+  }
+  await page.screenshot({ path: path.join(outDir, "snapshot-history.png"), fullPage: false });
+
+  console.log(JSON.stringify({ devices: results, footer, modal, reset, snapshotCompare: snapshotCompare.slice(0, 500) }, null, 2));
 } finally {
   server.close();
   await closeBrowser();
