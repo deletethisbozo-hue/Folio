@@ -123,5 +123,60 @@ await test("Write Studio project data persists beside the manuscript", async () 
   }
 });
 
+
+await test("whole-book snapshots restore chapters embedded in one combined manuscript", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "folio-write-studio-combined-"));
+  let projectId = "";
+  try {
+    await fs.writeFile(path.join(root, "book.yaml"), [
+      'title: "Combined Snapshot Test"',
+      'author: "Folio QA"',
+      'language: en',
+      'theme: literary',
+      'chapters: manuscript.md',
+      "",
+    ].join("\n"), "utf8");
+    await fs.writeFile(path.join(root, "manuscript.md"), [
+      "# First",
+      "",
+      "Original first chapter.",
+      "",
+      "# Second",
+      "",
+      "Original second chapter.",
+      "",
+    ].join("\n"), "utf8");
+
+    projectId = await createProjectFromFolderPath(root);
+    const state = await createBookSnapshot(projectId, "Combined checkpoint");
+    const snapshot = state.revisions.find((item) => item.scope === "book" && item.label === "Combined checkpoint");
+    assert.ok(snapshot);
+    assert.equal(snapshot.sectionCount, 2);
+
+    await fs.writeFile(path.join(root, "manuscript.md"), [
+      "# First",
+      "",
+      "Broken first chapter.",
+      "",
+      "# Second",
+      "",
+      "Broken second chapter.",
+      "",
+    ].join("\n"), "utf8");
+
+    const result = await restoreBookSnapshot(projectId, snapshot.id);
+    assert.equal(result.restored, 2);
+    assert.deepEqual(result.skipped, []);
+    const restored = await fs.readFile(path.join(root, "manuscript.md"), "utf8");
+    assert.equal(restored.includes("Original first chapter."), true);
+    assert.equal(restored.includes("Original second chapter."), true);
+    assert.equal(restored.includes("Broken first chapter."), false);
+    assert.equal(restored.includes("Broken second chapter."), false);
+  } finally {
+    if (projectId) await closeProject(projectId);
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
