@@ -128,6 +128,63 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll(".revision-row")].some((item) => item.textContent?.includes("Browser checkpoint")));
   check("manual chapter snapshot appears in History", true);
 
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!editor) throw new Error("Editor missing before chapter snapshot restore test.");
+    const p = document.createElement("p");
+    p.textContent = "temporary-chapter-snapshot-mutation";
+    editor.appendChild(p);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "temporary-chapter-snapshot-mutation" }));
+  });
+  await sleep(120);
+  const openedChapterSnapshot = await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLButtonElement>(".revision-row")]
+      .find((item) => item.textContent?.includes("Browser checkpoint"));
+    row?.click();
+    return Boolean(row);
+  });
+  check("chapter snapshot can be opened for comparison", openedChapterSnapshot);
+  await page.waitForSelector(".revision-compare");
+  page.once("dialog", async (dialog: any) => { await dialog.accept(); });
+  await clickButtonByText(page, ".revision-compare-head button", "Restore");
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    return Boolean(editor) && !editor!.innerText.includes("temporary-chapter-snapshot-mutation");
+  });
+  check("chapter snapshot restore replaces the live editor content", true);
+
+  await clickButtonByText(page, ".snapshot-scope button", "Whole book");
+  const snapshotLabelInput = await page.$(".snapshot-compose input");
+  await snapshotLabelInput?.type("Browser book checkpoint");
+  await clickButtonByText(page, ".snapshot-compose button", "Create snapshot");
+  await page.waitForFunction(() => [...document.querySelectorAll(".revision-row")].some((item) => item.textContent?.includes("Browser book checkpoint")));
+  check("whole-book snapshot appears in History", true);
+
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!editor) throw new Error("Editor missing before whole-book snapshot restore test.");
+    const p = document.createElement("p");
+    p.textContent = "temporary-book-snapshot-mutation";
+    editor.appendChild(p);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "temporary-book-snapshot-mutation" }));
+  });
+  await sleep(120);
+  const openedBookSnapshot = await page.evaluate(() => {
+    const row = [...document.querySelectorAll<HTMLButtonElement>(".revision-row")]
+      .find((item) => item.textContent?.includes("Browser book checkpoint"));
+    row?.click();
+    return Boolean(row);
+  });
+  check("whole-book snapshot can be opened for restore", openedBookSnapshot);
+  await page.waitForSelector(".revision-compare");
+  page.once("dialog", async (dialog: any) => { await dialog.accept(); });
+  await clickButtonByText(page, ".revision-compare-head button", "Restore");
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    return Boolean(editor) && !editor!.innerText.includes("temporary-book-snapshot-mutation");
+  });
+  check("whole-book snapshot restore reloads the live editor content", true);
+
   // Add a deterministic repeated word through the real editor input path.
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
