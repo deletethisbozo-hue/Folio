@@ -4,6 +4,7 @@ import { hasProject } from "./projects.ts";
 import {
   addDailyProgress,
   addResearchImage,
+  createBookSnapshot,
   createResearchNote,
   createSnapshot,
   createWritingComment,
@@ -173,6 +174,20 @@ export function registerWriteStudioApi(app: Express): void {
       const markdown = typeof req.body?.markdown === "string" ? req.body.markdown : "";
       if (!sectionId) throw new Error("No section selected.");
       res.json(await createSnapshot(req.params.id, sectionId, markdown, typeof req.body?.label === "string" ? req.body.label : undefined));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/snapshots/book", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await createBookSnapshot(req.params.id, typeof req.body?.label === "string" ? req.body.label : undefined));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/revisions/:revisionId/restore-book", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await restoreBookSnapshot(req.params.id, req.params.revisionId));
     } catch (error) { sendError(res, error); }
   });
 
