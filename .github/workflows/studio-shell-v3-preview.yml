@@ -1,0 +1,45 @@
+name: Folio studio shell v3 preview
+
+on:
+  push:
+    branches: ["design/folio-studio-shell-v3"]
+    paths:
+      - "web/**"
+      - "scripts/capture-studio-shell-v3.ts"
+      - ".github/workflows/studio-shell-v3-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-studio-shell-v3-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Writing Studio smoke
+        run: node --import tsx tests/write-studio-ui.test.ts
+      - name: Capture studio shell preview
+        run: node --import tsx scripts/capture-studio-shell-v3.ts
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-studio-shell-v3
+          path: artifacts/folio-studio-shell-v3.png
+          if-no-files-found: error
+          retention-days: 14
