@@ -8,6 +8,7 @@ import {
   nearbyRepetitions,
   repeatedWords,
   replaceMatches,
+  replacementForMatch,
   todayKey,
   type RevisionPayload,
   type SearchOptions,
@@ -400,7 +401,6 @@ export default function WriteStudioDrawer(props: Props) {
         : (props.document ? [{ ...props.document, markdown: props.draft }] : []);
       const regex = buildSearchRegex(query, searchOptions, true);
       const hits: SearchHit[] = [];
-      const singleRegex = buildSearchRegex(query, searchOptions, false);
       for (const doc of docs) {
         for (const match of doc.markdown.matchAll(regex)) {
           const index = match.index ?? 0;
@@ -409,7 +409,7 @@ export default function WriteStudioDrawer(props: Props) {
           const end = Math.min(doc.markdown.length, index + text.length + 65);
           const before = doc.markdown.slice(start, index);
           const after = doc.markdown.slice(index + text.length, end);
-          const replaced = text.replace(singleRegex, replacement);
+          const replaced = replacementForMatch(doc.markdown, match, replacement);
           hits.push({
             sectionId: doc.id,
             title: doc.title,
