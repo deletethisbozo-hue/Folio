@@ -46,6 +46,13 @@ interface Props {
 }
 
 type SearchScope = "chapter" | "book";
+type SearchHit = {
+  sectionId: string;
+  title: string;
+  text: string;
+  snippet: string;
+  replacementSnippet: string;
+};
 
 function clampPercent(value: number, target: number | null | undefined): number {
   if (!target || target <= 0) return 0;
@@ -286,20 +293,25 @@ export default function WriteStudioDrawer(props: Props) {
   async function replaceAll() {
     if (!query || searchError) return;
     if (scope === "chapter") {
+      if (!props.selectedId) return;
       const next = replaceMatches(props.draft, query, replacement, searchOptions);
-      if (next !== props.draft) props.onReplaceCurrent(next);
+      if (next === props.draft) return;
+      if (!window.confirm("Replace all " + currentMatchCount + " match" + (currentMatchCount === 1 ? "" : "es") + " in this chapter? Folio will create a safety snapshot first.")) return;
+      const current = await props.onGetCurrentMarkdown();
+      props.onState(await api.createSnapshot(props.project.projectId, props.selectedId, current, "Before Replace All"));
+      props.onReplaceCurrent(next);
       return;
     }
 
     try {
       const saved = await props.onSaveCurrent();
       if (!saved) throw new Error("Current chapter could not be saved before Replace All.");
-      const safety = await api.createBookSnapshot(props.project.projectId, "Before Replace All");
-      props.onState(safety);
       const docs = await scanBook(true);
       const affected = docs.filter((doc) => countMatches(doc.markdown, query, searchOptions) > 0);
       if (!affected.length) return;
-      if (!window.confirm("Replace all matches in " + affected.length + " section" + (affected.length === 1 ? "" : "s") + "? A safety snapshot has already been created.")) return;
+      if (!window.confirm("Replace all matches in " + affected.length + " section" + (affected.length === 1 ? "" : "s") + "? Folio will create a whole-book safety snapshot first.")) return;
+      const safety = await api.createBookSnapshot(props.project.projectId, "Before Replace All");
+      props.onState(safety);
       setSearchBusy(true);
       let currentReplacement: string | null = null;
       for (const doc of affected) {
@@ -332,16 +344,23 @@ export default function WriteStudioDrawer(props: Props) {
     try {
       const docs = scope === "book" ? await scanBook() : (props.document ? [{ ...props.document, markdown: props.draft }] : []);
       const regex = buildSearchRegex(query, searchOptions, true);
-      const hits: Array<{ sectionId: string; title: string; text: string; snippet: string }> = [];
+      const hits: SearchHit[] = [];
+      const singleRegex = buildSearchRegex(query, searchOptions, false);
       for (const doc of docs) {
         for (const match of doc.markdown.matchAll(regex)) {
           const index = match.index ?? 0;
           const text = match[0] || query;
+          const start = Math.max(0, index - 45);
+          const end = Math.min(doc.markdown.length, index + text.length + 65);
+          const before = doc.markdown.slice(start, index);
+          const after = doc.markdown.slice(index + text.length, end);
+          const replaced = text.replace(singleRegex, replacement);
           hits.push({
             sectionId: doc.id,
             title: doc.title,
             text,
-            snippet: doc.markdown.slice(Math.max(0, index - 45), Math.min(doc.markdown.length, index + text.length + 65)).replace(/\s+/g, " "),
+            snippet: (before + text + after).replace(/\s+/g, " "),
+            replacementSnippet: (before + replaced + after).replace(/\s+/g, " "),
           });
           if (hits.length >= 80) return hits;
         }
@@ -353,12 +372,12 @@ export default function WriteStudioDrawer(props: Props) {
     }
   }
 
-  const [searchHits, setSearchHits] = useState<Array<{ sectionId: string; title: string; text: string; snippet: string }>>([]);
+  const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   useEffect(() => {
     if (!query) { setSearchHits([]); return; }
     if (scope === "book" && !bookDocs) { setSearchHits([]); return; }
     void bookMatches().then(setSearchHits);
-  }, [query, scope, searchOptions.caseSensitive, searchOptions.wholeWord, searchOptions.regex, props.draft, props.selectedId, bookDocs]);
+  }, [query, replacement, scope, searchOptions.caseSensitive, searchOptions.wholeWord, searchOptions.regex, props.draft, props.selectedId, bookDocs]);
 
   if (!props.open) return null;
 
@@ -476,7 +495,12 @@ export default function WriteStudioDrawer(props: Props) {
           <div className="search-actions"><span>{scope === "chapter" ? currentMatchCount + " matches" : (bookDocs ? "Book scanned" : "Book not scanned")}</span>{scope === "book" && <button className="write-small-button" disabled={searchBusy || !query} onClick={() => void bookMatches().then(setSearchHits)}>{searchBusy ? "Scanning…" : "Scan book"}</button>}<button className="write-small-button primary" disabled={searchBusy || !query || Boolean(searchError)} onClick={() => void replaceAll()}>Replace all</button></div>
         </div>
         <div className="search-hit-list">
-          {searchHits.map((hit, index) => <button key={hit.sectionId + ":" + index} onClick={() => void props.onNavigateText(hit.sectionId, hit.text)}><strong>{hit.title}</strong><span>{hit.snippet}</span></button>)}
+          {searchHits.map((hit, index) => <button key={hit.sectionId + ":" + index} onClick={() => void props.onNavigateText(hit.sectionId, hit.text)}>
+            <strong>{hit.title}</strong>
+            <span className="search-preview-label">Before</span><span>{hit.snippet}</span>
+            {replacement !== "" && <><span className="search-preview-label after">After</span><span className="search-preview-after">{hit.replacementSnippet}</span></>}
+          </button>)}
+          {searchHits.length >= 80 && <div className="search-result-cap">Showing first 80 matches.</div>}
           {scope === "book" && bookDocs && !searchHits.length && query && <div className="write-studio-empty">No matches in scanned sections.</div>}
         </div>
       </div>}
