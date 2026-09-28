@@ -522,3 +522,671 @@
     transition: none !important;
   }
 }
+
+
+/* =====================================================================
+ * APP-WIDE MATERIAL SYSTEM
+ * Dashboard, Format, preview chrome, dialogs and secondary workspaces.
+ * ===================================================================== */
+
+/* Dashboard ----------------------------------------------------------- */
+.start-shell[data-ui-tone="ivory"] {
+  --start-bg: #e8ebf4 !important;
+  --start-panel: rgba(250,251,255,.78) !important;
+  --start-line: rgba(81,86,119,.13) !important;
+  --start-line-strong: rgba(81,86,119,.18) !important;
+  --start-text: #26293d !important;
+  --start-muted: #71768a !important;
+  --start-soft: #969bad !important;
+  --start-accent: #6265e5 !important;
+  min-height: 100vh !important;
+  background:
+    radial-gradient(900px 560px at 12% -8%, rgba(112,121,243,.26), transparent 64%),
+    radial-gradient(900px 620px at 92% 0%, rgba(165,105,222,.20), transparent 65%),
+    linear-gradient(180deg,#e9ecf5 0%,#eef1f7 48%,#e7eaf2 100%) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-windowbar {
+  height: 64px !important;
+  padding: 0 30px !important;
+  border-bottom: 1px solid rgba(81,86,119,.14) !important;
+  background: linear-gradient(135deg,rgba(219,223,244,.86),rgba(231,221,244,.80)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.76),
+    0 10px 28px rgba(45,49,77,.08) !important;
+  backdrop-filter: blur(26px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(145%) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-brand {
+  color: #30324f !important;
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-size: 19px !important;
+  font-weight: 780 !important;
+  letter-spacing: -.045em !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-main {
+  width: min(1180px,calc(100vw - 64px)) !important;
+  padding: 56px 0 64px !important;
+  grid-template-columns: 350px minmax(0,1fr) !important;
+  gap: 22px !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-intro,
+.start-shell[data-ui-tone="ivory"] .recent-section {
+  border: 1px solid rgba(82,86,120,.14) !important;
+  border-radius: 22px !important;
+  background:
+    linear-gradient(180deg,rgba(252,253,255,.78),rgba(240,243,250,.67)) !important;
+  box-shadow:
+    0 20px 54px rgba(40,45,72,.11),
+    inset 0 1px 0 rgba(255,255,255,.78) !important;
+  backdrop-filter: blur(28px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(140%) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-intro {
+  padding: 34px 30px 30px !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-intro h1 {
+  max-width: 285px !important;
+  color: #26293d !important;
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-size: 39px !important;
+  font-weight: 760 !important;
+  line-height: 1.03 !important;
+  letter-spacing: -.055em !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-copy {
+  color: #72778a !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-button {
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border: 1px solid rgba(82,86,120,.15) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,.58) !important;
+  color: #3a3d53 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.82),
+    0 3px 8px rgba(45,49,74,.05) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-button:hover:not(:disabled) {
+  background: rgba(255,255,255,.85) !important;
+  border-color: rgba(98,101,229,.24) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-button.primary {
+  border-color: #6063df !important;
+  background: linear-gradient(180deg,#7274ee,#5d60d8) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    0 8px 18px rgba(88,91,211,.20) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-section {
+  padding: 22px 22px 12px !important;
+  overflow: hidden !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-heading {
+  padding: 0 4px 16px !important;
+  border-bottom: 1px solid rgba(82,86,120,.11) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-heading h2 {
+  color: #292c42 !important;
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 730 !important;
+  letter-spacing: -.035em !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-list {
+  gap: 7px !important;
+  padding-top: 10px !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-row {
+  min-height: 100px !important;
+  padding: 12px 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 14px !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-row:hover {
+  border-color: rgba(82,86,120,.10) !important;
+  background: rgba(255,255,255,.52) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.70),
+    0 6px 16px rgba(43,47,72,.06) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-cover {
+  border: 1px solid rgba(82,86,120,.15) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(160deg,#fff,#eef0fb) !important;
+  box-shadow: 0 8px 18px rgba(43,47,72,.10) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .recent-meta strong {
+  color: #2a2d42 !important;
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-weight: 700 !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-modal-backdrop {
+  background: rgba(44,48,72,.18) !important;
+  backdrop-filter: blur(12px) saturate(120%) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-modal {
+  padding: 26px !important;
+  border: 1px solid rgba(82,86,120,.17) !important;
+  border-radius: 20px !important;
+  background:
+    linear-gradient(180deg,rgba(254,254,255,.95),rgba(241,244,251,.90)) !important;
+  box-shadow:
+    0 34px 90px rgba(37,41,65,.22),
+    inset 0 1px 0 rgba(255,255,255,.90) !important;
+  backdrop-filter: blur(30px) saturate(145%) !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-modal-head h2 {
+  color: #292c42 !important;
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-weight: 730 !important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-folder-summary,
+.start-shell[data-ui-tone="ivory"] .start-field input {
+  border-color: rgba(82,86,120,.15) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,.56) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.70) !important;
+}
+
+/* FORMAT workspace ---------------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] {
+  grid-template-columns: 272px minmax(0,1fr) clamp(390px,30vw,470px) !important;
+  background:
+    radial-gradient(900px 520px at 8% -6%,rgba(113,121,244,.20),transparent 64%),
+    radial-gradient(760px 520px at 92% 2%,rgba(162,105,220,.15),transparent 64%),
+    linear-gradient(180deg,#e8ebf4 0%,#eef1f7 48%,#e7eaf2 100%) !important;
+}
+
+/* The three Format columns are one family of floating panes. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .library-pane,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .editor-pane,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .preview-pane {
+  height: calc(100% - 20px) !important;
+  margin-top: 10px !important;
+  margin-bottom: 10px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(84,87,122,.13) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 18px 50px rgba(42,46,72,.09),
+    inset 0 1px 0 rgba(255,255,255,.66) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .library-pane {
+  width: auto !important;
+  margin-left: 10px !important;
+  margin-right: 5px !important;
+  background: linear-gradient(180deg,rgba(247,249,255,.78),rgba(236,239,249,.70)) !important;
+  backdrop-filter: blur(28px) saturate(138%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .editor-pane {
+  margin-left: 5px !important;
+  margin-right: 5px !important;
+  background: rgba(239,242,249,.56) !important;
+  backdrop-filter: blur(18px) saturate(125%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .preview-pane {
+  margin-left: 5px !important;
+  margin-right: 10px !important;
+  background:
+    radial-gradient(620px 340px at 50% 0%,rgba(255,255,255,.30),transparent 66%),
+    linear-gradient(180deg,rgba(229,232,241,.82),rgba(220,224,234,.88)) !important;
+  backdrop-filter: blur(18px) saturate(122%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .library-toolbar,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .preview-topbar {
+  height: 46px !important;
+  min-height: 46px !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .book-identity {
+  margin: 0 10px !important;
+  padding-inline: 10px !important;
+  border-bottom-color: rgba(82,85,120,.10) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .contents-list {
+  padding: 9px 7px 16px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .contents-row {
+  height: 34px !important;
+  margin: 2px 0 !important;
+  padding: 0 11px !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  line-height: 32px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .contents-row.selected {
+  background: linear-gradient(135deg,rgba(103,106,232,.94),rgba(126,93,213,.91)) !important;
+  border-color: rgba(92,82,197,.24) !important;
+  color: #fff !important;
+  box-shadow:
+    0 8px 18px rgba(91,82,192,.19),
+    inset 0 1px 0 rgba(255,255,255,.25) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .contents-row.selected .chapter-number,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .contents-row.selected .chapter-grip {
+  color: rgba(255,255,255,.85) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .section-titlebar {
+  height: 74px !important;
+  min-height: 74px !important;
+  padding-inline: 28px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .section-title,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .section-title-button,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .section-title-input {
+  color: #26293d !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 23px !important;
+  font-weight: 750 !important;
+  letter-spacing: -.035em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .format-toolbar {
+  width: calc(100% - 32px) !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  margin: 0 16px 12px !important;
+  padding: 4px 8px !important;
+  border: 1px solid rgba(82,85,120,.13) !important;
+  border-radius: 13px !important;
+  background: rgba(255,255,255,.66) !important;
+  box-shadow:
+    0 8px 22px rgba(43,47,72,.08),
+    inset 0 1px 0 rgba(255,255,255,.80) !important;
+  backdrop-filter: blur(22px) saturate(140%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .editor-paper {
+  background:
+    radial-gradient(700px 360px at 50% 0%,rgba(255,255,255,.34),transparent 70%),
+    linear-gradient(180deg,rgba(231,234,243,.36),rgba(224,228,238,.52)) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .manuscript-editor {
+  width: min(860px,calc(100% - 58px)) !important;
+  height: calc(100% - 34px) !important;
+  margin: 8px auto 26px !important;
+  padding: 52px 60px 92px !important;
+  border: 1px solid rgba(90,94,126,.14) !important;
+  border-radius: 17px !important;
+  background: rgba(255,255,255,.95) !important;
+  box-shadow:
+    0 16px 38px rgba(42,46,72,.09),
+    inset 0 1px 0 #fff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .preview-topbar {
+  padding-inline: 15px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .preview-pane-title {
+  color: #6d7285 !important;
+  font-size: 9px !important;
+  letter-spacing: .14em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .generate-button {
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(101,104,232,.18) !important;
+  border-radius: 10px !important;
+  background: rgba(101,104,232,.12) !important;
+  color: #5558d8 !important;
+  text-decoration: none !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.58) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .device-toolbar {
+  width: calc(100% - 24px) !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0 12px 10px !important;
+  padding: 4px 7px 4px 10px !important;
+  border: 1px solid rgba(82,85,120,.12) !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.56) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.72),
+    0 6px 18px rgba(43,47,72,.06) !important;
+  backdrop-filter: blur(18px) saturate(135%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .device-label select,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .trim-select {
+  height: 28px !important;
+  border: 1px solid rgba(82,85,120,.12) !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.60) !important;
+  color: #505569 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] .preview-stage {
+  padding: 8px 14px 16px !important;
+  background: transparent !important;
+}
+
+/* Generic secondary windows ------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"] .dialog-overlay,
+.folio-shell[data-ui-tone="ivory"] .style-overlay {
+  background: rgba(48,52,77,.18) !important;
+  backdrop-filter: blur(14px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog,
+.folio-shell[data-ui-tone="ivory"] .style-library {
+  border: 1px solid rgba(82,86,120,.16) !important;
+  border-radius: 20px !important;
+  background:
+    linear-gradient(180deg,rgba(253,254,255,.95),rgba(240,243,250,.91)) !important;
+  box-shadow:
+    0 34px 88px rgba(38,42,66,.22),
+    inset 0 1px 0 rgba(255,255,255,.90) !important;
+  backdrop-filter: blur(30px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(145%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog > header,
+.folio-shell[data-ui-tone="ivory"] .style-library-header {
+  min-height: 54px !important;
+  padding-inline: 20px !important;
+  border-bottom: 1px solid rgba(82,86,120,.11) !important;
+  background: rgba(255,255,255,.28) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog > header h2,
+.folio-shell[data-ui-tone="ivory"] .style-library-title,
+.folio-shell[data-ui-tone="ivory"] .style-library-header h2 {
+  color: #292c42 !important;
+  font-family: var(--folio-ui-font) !important;
+  font-weight: 740 !important;
+  letter-spacing: -.025em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .dialog-body,
+.folio-shell[data-ui-tone="ivory"] .style-content {
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .dialog-field input,
+.folio-shell[data-ui-tone="ivory"] .dialog-field textarea,
+.folio-shell[data-ui-tone="ivory"] .dialog-field select,
+.folio-shell[data-ui-tone="ivory"] .setting-control input,
+.folio-shell[data-ui-tone="ivory"] .setting-control select,
+.folio-shell[data-ui-tone="ivory"] .customize-row select,
+.folio-shell[data-ui-tone="ivory"] .customize-row input:not([type="checkbox"]) {
+  min-height: 34px !important;
+  border: 1px solid rgba(82,86,120,.15) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,.58) !important;
+  color: #33364b !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.74) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .dialog-field input:focus,
+.folio-shell[data-ui-tone="ivory"] .dialog-field textarea:focus,
+.folio-shell[data-ui-tone="ivory"] .dialog-field select:focus,
+.folio-shell[data-ui-tone="ivory"] .customize-row select:focus,
+.folio-shell[data-ui-tone="ivory"] .customize-row input:focus {
+  border-color: rgba(101,104,232,.45) !important;
+  box-shadow: 0 0 0 3px rgba(101,104,232,.10) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .settings-list {
+  gap: 8px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .settings-row {
+  min-height: 62px !important;
+  padding: 10px 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .settings-row:hover {
+  border-color: rgba(82,86,120,.10) !important;
+  background: rgba(255,255,255,.40) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .settings-copy strong {
+  color: #303348 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .settings-copy small,
+.folio-shell[data-ui-tone="ivory"] .setting-label {
+  color: #7b8092 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button {
+  min-height: 34px !important;
+  padding-inline: 13px !important;
+  border: 1px solid rgba(82,86,120,.15) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,.58) !important;
+  color: #3b3e53 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.78),
+    0 3px 8px rgba(43,47,72,.04) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button.primary {
+  border-color: #6063df !important;
+  background: linear-gradient(180deg,#7274ee,#5d60d8) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    0 7px 16px rgba(88,91,211,.17) !important;
+}
+
+/* Style / theme library ----------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"] .style-library {
+  width: min(980px,calc(100vw - 72px)) !important;
+  height: min(760px,calc(100vh - 128px)) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-library-body {
+  grid-template-columns: 176px minmax(0,1fr) !important;
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-category-list {
+  padding: 12px 9px !important;
+  border-right: 1px solid rgba(82,86,120,.11) !important;
+  background: rgba(232,235,245,.56) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-category-list button {
+  height: 34px !important;
+  margin-bottom: 3px !important;
+  padding: 0 11px !important;
+  border-radius: 10px !important;
+  color: #6f7487 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-category-list button:hover {
+  background: rgba(255,255,255,.46) !important;
+  color: #34374c !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-category-list button.active {
+  background: linear-gradient(135deg,rgba(103,106,232,.94),rgba(126,93,213,.91)) !important;
+  color: #fff !important;
+  box-shadow:
+    0 7px 16px rgba(91,82,192,.18),
+    inset 0 1px 0 rgba(255,255,255,.24) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-content {
+  padding: 18px !important;
+  background:
+    radial-gradient(620px 320px at 50% 0%,rgba(255,255,255,.36),transparent 70%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .theme-gallery {
+  gap: 14px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .theme-sample {
+  border: 1px solid rgba(82,86,120,.13) !important;
+  border-radius: 14px !important;
+  box-shadow:
+    0 7px 20px rgba(43,47,72,.07),
+    inset 0 1px 0 rgba(255,255,255,.55) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .theme-sample:hover {
+  border-color: rgba(101,104,232,.30) !important;
+  box-shadow:
+    0 12px 28px rgba(43,47,72,.11),
+    inset 0 1px 0 rgba(255,255,255,.60) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .theme-sample.selected {
+  border-color: rgba(101,104,232,.72) !important;
+  box-shadow:
+    0 0 0 3px rgba(101,104,232,.12),
+    0 12px 28px rgba(43,47,72,.11) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-library-footer {
+  min-height: 60px !important;
+  border-top: 1px solid rgba(82,86,120,.11) !important;
+  background: rgba(255,255,255,.26) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .customize-panel {
+  width: min(580px,100%) !important;
+  padding: 8px 4px 20px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .customize-row {
+  min-height: 52px !important;
+  border-top: 1px solid rgba(82,86,120,.10) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .ornament-picker {
+  gap: 9px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .ornament-picker button {
+  min-height: 58px !important;
+  border: 1px solid rgba(82,86,120,.13) !important;
+  border-radius: 11px !important;
+  background: rgba(255,255,255,.54) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.72) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .ornament-picker button.selected {
+  border-color: rgba(101,104,232,.58) !important;
+  background: rgba(101,104,232,.10) !important;
+  box-shadow: 0 0 0 3px rgba(101,104,232,.09) !important;
+}
+
+/* Writing Studio internals -------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"] .write-studio-drawer {
+  border-left: 1px solid rgba(82,86,120,.15) !important;
+  background: linear-gradient(180deg,rgba(253,254,255,.95),rgba(240,243,250,.91)) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-studio-header,
+.folio-shell[data-ui-tone="ivory"] .write-studio-tabs {
+  background: rgba(255,255,255,.28) !important;
+  border-color: rgba(82,86,120,.10) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-studio-tabs button {
+  border-radius: 9px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-studio-tabs button.active {
+  background: rgba(101,104,232,.12) !important;
+  color: #5558d8 !important;
+  box-shadow: inset 0 0 0 1px rgba(101,104,232,.12) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-studio-body {
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-card,
+.folio-shell[data-ui-tone="ivory"] .write-stat-grid > div,
+.folio-shell[data-ui-tone="ivory"] .research-image-card,
+.folio-shell[data-ui-tone="ivory"] .revision-side-by-side,
+.folio-shell[data-ui-tone="ivory"] .book-snapshot-summary {
+  border-color: rgba(82,86,120,.12) !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.48) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.62) !important;
+}
+
+/* Cover workspace gets the same floating-card vocabulary. */
+.folio-shell[data-ui-tone="ivory"] .cover-editor-panel {
+  background:
+    radial-gradient(680px 360px at 50% 0%,rgba(255,255,255,.36),transparent 70%),
+    linear-gradient(180deg,rgba(231,234,243,.36),rgba(224,228,238,.52)) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .cover-editor-card {
+  padding: 24px !important;
+  border: 1px solid rgba(82,86,120,.12) !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.54) !important;
+  box-shadow:
+    0 14px 34px rgba(43,47,72,.08),
+    inset 0 1px 0 rgba(255,255,255,.70) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .cover-editor-art {
+  border-color: rgba(82,86,120,.15) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 36px rgba(43,47,72,.12) !important;
+}
+
+@media (max-width: 1120px) {
+  .start-shell[data-ui-tone="ivory"] .start-main {
+    grid-template-columns: 320px minmax(0,1fr) !important;
+    gap: 16px !important;
+  }
+  .folio-shell[data-ui-tone="ivory"][data-workspace-mode="format"] {
+    grid-template-columns: 220px minmax(0,1fr) 360px !important;
+  }
+}
