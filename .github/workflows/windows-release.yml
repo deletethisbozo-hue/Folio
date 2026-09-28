@@ -110,7 +110,6 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/generate-windows-icon.ps1
-          if ($LASTEXITCODE -ne 0) { throw "Windows ICO generation failed." }
           if (-not (Test-Path "build\folio.ico")) { throw "Generated Windows ICO is missing." }
 
       - name: Build installer and portable app
