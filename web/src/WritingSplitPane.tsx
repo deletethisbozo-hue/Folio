@@ -185,6 +185,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
   }
 
   return <section className="writing-split-pane" aria-label="Split writing editor" data-write-zoom={Math.round(props.writeZoom * 100)}>
+    <div className="writing-split-top-strip" aria-hidden="true" />
     <header className="writing-split-header">
       <div className="writing-split-title">
         <span>Split editor</span>
