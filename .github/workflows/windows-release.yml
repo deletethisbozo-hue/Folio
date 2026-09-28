@@ -44,7 +44,7 @@ jobs:
           if ($version -ne "2.3.2") { throw "Windows release is scoped to Folio 2.3.2, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
-          node -e "const p=require('./package.json'); if(p.build.win.icon!=='assets/folio.ico' || !p.build.files.includes('assets/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='assets/folio.ico')) throw new Error('Windows icon wiring is not using the approved ICO asset')"
+          node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the approved ICO asset')"
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
           if (-not (Test-Path "assets\folio.ico")) { throw "Approved Folio ICO asset is missing." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -104,6 +104,13 @@ jobs:
 
       - name: Full Print PDF trim matrix with physical gap gate
         run: node --import tsx scripts/print-matrix-qa.ts
+
+      - name: Generate and validate multi-resolution Windows ICO
+        shell: pwsh
+        run: |
+          ./scripts/generate-windows-icon.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Windows ICO generation failed." }
+          if (-not (Test-Path "build\\folio.ico")) { throw "Generated Windows ICO is missing." }
 
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
