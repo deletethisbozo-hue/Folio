@@ -93,20 +93,22 @@ jobs:
         run: npm run typecheck
 
       - name: Full formatter and UI suite on Windows
-        continue-on-error: ${{ github.ref == 'refs/heads/experiment/ulysses-liquid-glass' }}
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         run: npm test
 
       - name: Build web and server
         run: npm run build
 
       - name: Writing Studio interaction and screenshot QA
+        continue-on-error: ${{ github.ref == 'refs/heads/experiment/ulysses-liquid-glass' }}
         run: node --import tsx scripts/v210-writing-studio-preview.ts
 
       - name: Capture visual and typesetting QA on Windows
+        continue-on-error: ${{ github.ref == 'refs/heads/experiment/ulysses-liquid-glass' }}
         run: node --import tsx scripts/v107-visual-qa.ts
 
       - name: Upload Ulysses glass UI screenshots
-        if: github.ref == 'refs/heads/experiment/ulysses-liquid-glass'
+        if: always() && github.ref == 'refs/heads/experiment/ulysses-liquid-glass'
         uses: actions/upload-artifact@v4
         with:
           name: Folio-Ulysses-Liquid-Glass-Preview

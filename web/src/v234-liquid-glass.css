@@ -1,0 +1,524 @@
+/* Folio experimental UI: Ulysses-inspired liquid glass
+ * Branch-only. This file owns app chrome only.
+ * Book compositor, device preview geometry, print and export rendering remain untouched.
+ */
+
+.folio-shell[data-ui-tone="ivory"] {
+  --glass-accent: #6568e8;
+  --glass-accent-2: #8a67d9;
+  --glass-ink: #24263a;
+  --glass-muted: #72778a;
+  --glass-line: rgba(73, 78, 108, .15);
+  --glass-highlight: rgba(255,255,255,.72);
+  --glass-panel: rgba(246,248,255,.70);
+  --glass-panel-strong: rgba(251,252,255,.88);
+  --glass-shadow: 0 18px 46px rgba(42,46,72,.12);
+  --glass-shadow-soft: 0 8px 24px rgba(42,46,72,.08);
+}
+
+/* WRITE: change the composition, not just the paint. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] {
+  --folio-sidebar-width: 276px;
+  background:
+    radial-gradient(900px 520px at 12% -8%, rgba(113,120,244,.24), transparent 64%),
+    radial-gradient(760px 520px at 88% 6%, rgba(164,107,223,.18), transparent 62%),
+    linear-gradient(180deg, #e8ebf5 0%, #eef1f7 45%, #e7eaf2 100%) !important;
+}
+
+/* A coloured glass masthead. No more giant white strip. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  background:
+    linear-gradient(135deg, rgba(218,222,244,.90), rgba(231,220,244,.84)) !important;
+  border-bottom: 1px solid rgba(82,84,125,.16) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.78),
+    0 9px 28px rgba(50,52,82,.10) !important;
+  backdrop-filter: blur(26px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(145%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .command-wordmark {
+  color: #2f3150 !important;
+  border-right: 1px solid rgba(75,78,112,.14) !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 17px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.04em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav {
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 0 12px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button {
+  height: 30px !important;
+  padding: 0 11px !important;
+  border-radius: 9px !important;
+  color: #666b82 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav > button:hover {
+  background: rgba(255,255,255,.45) !important;
+  color: #30334b !important;
+  box-shadow: inset 0 0 0 1px rgba(80,83,116,.10) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch {
+  height: 34px !important;
+  padding: 3px !important;
+  border: 1px solid rgba(83,85,124,.14) !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.30) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.66),
+    0 2px 8px rgba(58,60,91,.06) !important;
+  backdrop-filter: blur(18px) saturate(140%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button {
+  height: 26px !important;
+  min-width: 61px !important;
+  padding: 0 14px !important;
+  border-radius: 9px !important;
+  color: #676c82 !important;
+  font-weight: 650 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button.active {
+  background: rgba(255,255,255,.92) !important;
+  color: #5558d8 !important;
+  box-shadow:
+    0 0 0 1px rgba(101,104,232,.15),
+    0 4px 10px rgba(55,58,91,.10),
+    inset 0 1px 0 #fff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .tone-toggle {
+  height: 30px !important;
+  margin-right: 12px !important;
+  padding: 0 11px !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  color: #62677e !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .tone-toggle:hover {
+  background: rgba(255,255,255,.42) !important;
+  border-color: rgba(83,85,124,.12) !important;
+  box-shadow: none !important;
+}
+
+/* Floating manuscript navigator. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-write-sidebar="open"] .library-pane {
+  width: calc(var(--folio-sidebar-width) - 18px) !important;
+  min-width: calc(var(--folio-sidebar-width) - 18px) !important;
+  height: calc(100% - 20px) !important;
+  margin: 10px 8px 10px 10px !important;
+  align-self: center !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(86,90,126,.14) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(180deg, rgba(247,249,255,.78), rgba(236,239,249,.70)) !important;
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 rgba(255,255,255,.78),
+    inset -1px 0 0 rgba(255,255,255,.36) !important;
+  backdrop-filter: blur(30px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(140%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .library-toolbar {
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 15px 0 17px !important;
+  border-bottom: 1px solid rgba(82,85,120,.11) !important;
+  background: rgba(255,255,255,.16) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .pane-label {
+  color: #686d82 !important;
+  font-size: 9px !important;
+  letter-spacing: .16em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .book-identity {
+  margin: 0 10px !important;
+  padding: 18px 10px 16px !important;
+  border-bottom: 1px solid rgba(82,85,120,.10) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .book-title {
+  color: #292c43 !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 15px !important;
+  font-weight: 720 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .book-author {
+  color: #858a9c !important;
+  font-size: 10.5px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-list {
+  padding: 10px 7px 18px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-heading {
+  margin: 14px 0 6px !important;
+  padding: 0 10px !important;
+  color: #9a9eb1 !important;
+  font-size: 8.5px !important;
+  letter-spacing: .16em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row {
+  width: 100% !important;
+  height: 34px !important;
+  margin: 2px 0 !important;
+  padding: 0 11px !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  color: #6e7487 !important;
+  line-height: 32px !important;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row:hover {
+  background: rgba(255,255,255,.48) !important;
+  color: #32354a !important;
+  box-shadow: inset 0 0 0 1px rgba(81,84,116,.08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row.selected {
+  background: linear-gradient(135deg, rgba(103,106,232,.94), rgba(126,93,213,.91)) !important;
+  border-color: rgba(92,82,197,.24) !important;
+  color: #fff !important;
+  box-shadow:
+    0 8px 18px rgba(91,82,192,.20),
+    inset 0 1px 0 rgba(255,255,255,.25) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row.selected::after {
+  background: rgba(255,255,255,.82) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row.selected .chapter-number,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row.selected .chapter-grip,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row.selected .folio-nav-icon {
+  color: rgba(255,255,255,.86) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .library-add-section {
+  width: calc(100% - 20px) !important;
+  margin: 0 10px 10px !important;
+  border: 1px solid rgba(84,87,122,.14) !important;
+  border-radius: 11px !important;
+  background: rgba(255,255,255,.55) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.70) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .library-footer {
+  margin: 0 10px !important;
+  border-top: 1px solid rgba(82,85,120,.10) !important;
+}
+
+/* Editor becomes its own floating workspace. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-pane {
+  margin: 10px 10px 10px 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(84,87,122,.13) !important;
+  border-radius: 20px !important;
+  background: rgba(238,241,248,.48) !important;
+  box-shadow:
+    0 18px 52px rgba(42,46,72,.10),
+    inset 0 1px 0 rgba(255,255,255,.64) !important;
+  backdrop-filter: blur(18px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(125%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-write-sidebar="closed"] .editor-pane {
+  margin-left: 10px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-topbar {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 15px !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .write-sidebar-toggle {
+  left: 12px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  border: 1px solid rgba(82,85,120,.12) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,.54) !important;
+  color: #686d82 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.76) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .write-sidebar-toggle:hover,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .write-sidebar-toggle.active {
+  background: rgba(101,104,232,.13) !important;
+  color: #5558d8 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-topbar-right {
+  display: inline-flex !important;
+  gap: 7px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-topbar-right .word-count,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-topbar-right .save-indicator:not(:empty) {
+  min-height: 24px !important;
+  padding: 0 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border: 1px solid rgba(82,85,120,.10) !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.40) !important;
+  color: #74798c !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.62) !important;
+}
+
+/* Chapter heading floats on the canvas instead of living in another white strip. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .section-titlebar {
+  height: 76px !important;
+  min-height: 76px !important;
+  padding: 0 28px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .section-index {
+  color: #6c6fe3 !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .section-title,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .section-title-button,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .section-title-input {
+  color: #25283b !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 24px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.035em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .section-subtitle-button {
+  color: #8b90a1 !important;
+  font-family: var(--folio-ui-font) !important;
+  font-style: normal !important;
+}
+
+/* The formatting toolbar is now an actual floating glass control. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .format-toolbar {
+  width: calc(100% - 32px) !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  margin: 0 16px 12px !important;
+  padding: 5px 8px !important;
+  gap: 6px !important;
+  border: 1px solid rgba(82,85,120,.13) !important;
+  border-radius: 14px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.76), rgba(246,248,253,.60)) !important;
+  box-shadow:
+    0 9px 24px rgba(43,47,72,.09),
+    inset 0 1px 0 rgba(255,255,255,.82) !important;
+  backdrop-filter: blur(24px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(145%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar {
+  padding-inline: 8px !important;
+  gap: 4px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .toolbar-group {
+  height: 32px !important;
+  padding: 2px !important;
+  gap: 1px !important;
+  border: 1px solid rgba(82,85,120,.09) !important;
+  border-radius: 10px !important;
+  background: rgba(239,242,249,.46) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .toolbar-group + .toolbar-group {
+  padding-left: 2px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .toolbar-group + .toolbar-group::before {
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .format-toolbar button {
+  height: 27px !important;
+  min-width: 28px !important;
+  border-radius: 8px !important;
+  color: #696f82 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .format-toolbar button:hover:not(:disabled) {
+  background: rgba(255,255,255,.82) !important;
+  color: #33364b !important;
+  box-shadow:
+    0 2px 7px rgba(44,47,72,.07),
+    inset 0 0 0 1px rgba(82,85,120,.08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .search-pill,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-split-toggle,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-typewriter-toggle,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-focus-toggle,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-tools-toggle {
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  background: rgba(255,255,255,.30) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-split-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-typewriter-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-focus-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-tools-toggle.active {
+  border-color: rgba(101,104,232,.15) !important;
+  background: rgba(101,104,232,.13) !important;
+  color: #5558d8 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.44) !important;
+}
+
+/* The writing surface is a floating sheet, but softer and more app-like than the old hard rectangle. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-paper {
+  background:
+    radial-gradient(760px 400px at 50% 0%, rgba(255,255,255,.42), transparent 70%),
+    linear-gradient(180deg, rgba(233,236,245,.36), rgba(227,231,240,.54)) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .manuscript-editor {
+  width: min(930px, calc(100% - 88px)) !important;
+  height: calc(100% - 34px) !important;
+  margin: 8px auto 26px !important;
+  padding: 56px 72px 96px !important;
+  border: 1px solid rgba(90,94,126,.14) !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.94) !important;
+  box-shadow:
+    0 18px 42px rgba(42,46,72,.10),
+    0 2px 8px rgba(42,46,72,.05),
+    inset 0 1px 0 #fff !important;
+  color: #25262b !important;
+  scrollbar-color: rgba(103,108,134,.34) transparent !important;
+}
+
+/* Split view stays aligned but uses the same floating-material language. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .editor-pane,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-pane {
+  margin-top: 10px !important;
+  margin-bottom: 10px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .editor-pane {
+  margin-right: 5px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-pane {
+  margin-left: 5px !important;
+  margin-right: 10px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(84,87,122,.13) !important;
+  border-radius: 20px !important;
+  background: rgba(238,241,248,.48) !important;
+  box-shadow:
+    0 18px 52px rgba(42,46,72,.10),
+    inset 0 1px 0 rgba(255,255,255,.64) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-top-strip,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-header {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-toolbar {
+  width: calc(100% - 32px) !important;
+  margin: 0 16px 12px !important;
+  padding: 5px 8px !important;
+  border: 1px solid rgba(82,85,120,.13) !important;
+  border-radius: 14px !important;
+  background: rgba(255,255,255,.68) !important;
+  box-shadow:
+    0 9px 24px rgba(43,47,72,.09),
+    inset 0 1px 0 rgba(255,255,255,.82) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-paper {
+  background: linear-gradient(180deg, rgba(233,236,245,.36), rgba(227,231,240,.54)) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .manuscript-editor,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-editor {
+  width: calc(100% - 28px) !important;
+  height: calc(100% - 20px) !important;
+  margin: 6px 14px 14px !important;
+  padding: 38px 34px 72px !important;
+  border: 1px solid rgba(90,94,126,.12) !important;
+  border-radius: 16px !important;
+  background: rgba(255,255,255,.94) !important;
+  box-shadow:
+    0 12px 30px rgba(42,46,72,.08),
+    inset 0 1px 0 #fff !important;
+}
+
+/* Status is translucent and visually recedes. */
+.folio-shell[data-ui-tone="ivory"] .folio-statusbar {
+  background: rgba(225,229,241,.72) !important;
+  border-top: 1px solid rgba(82,85,120,.12) !important;
+  color: #777d90 !important;
+  backdrop-filter: blur(20px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(130%) !important;
+}
+
+/* Dialogs inherit the same material language. */
+.folio-shell[data-ui-tone="ivory"] .folio-dialog,
+.folio-shell[data-ui-tone="ivory"] .style-library,
+.folio-shell[data-ui-tone="ivory"] .generate-menu,
+.folio-shell[data-ui-tone="ivory"] .write-studio-drawer {
+  border-color: rgba(82,85,120,.16) !important;
+  background:
+    linear-gradient(180deg, rgba(253,253,255,.94), rgba(242,245,251,.88)) !important;
+  box-shadow:
+    0 30px 76px rgba(37,40,64,.20),
+    inset 0 1px 0 rgba(255,255,255,.86) !important;
+  backdrop-filter: blur(30px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(145%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog,
+.folio-shell[data-ui-tone="ivory"] .style-library {
+  border-radius: 18px !important;
+}
+
+@media (max-width: 1250px) {
+  .folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] {
+    --folio-sidebar-width: 246px;
+  }
+  .folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .manuscript-editor {
+    width: min(900px, calc(100% - 52px)) !important;
+    padding-inline: 52px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .contents-row,
+  .folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .format-toolbar button {
+    transition: none !important;
+  }
+}

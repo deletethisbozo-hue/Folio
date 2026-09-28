@@ -32,6 +32,7 @@ import "./v230-brand-refresh.css";
 import "./v231-micro-polish.css";
 import "./v232-device-shells.css";
 import "./v233-regression-fixes.css";
+import "./v234-liquid-glass.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
