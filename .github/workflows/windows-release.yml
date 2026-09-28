@@ -2,7 +2,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/2.3.1-icons-and-split-alignment]
+    branches: [main, fix/2.3.2-icons-and-split-alignment, fix/2.3.2-icons-split-alignment]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -37,13 +37,16 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.3.1 version consistency
+      - name: Verify Folio 2.3.2 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.3.1") { throw "Windows release is scoped to Folio 2.3.1, found $version." }
+          if ($version -ne "2.3.2") { throw "Windows release is scoped to Folio 2.3.2, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
+          node -e "const p=require('./package.json'); if(p.build.win.icon!=='assets/folio.ico' || !p.build.files.includes('assets/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='assets/folio.ico')) throw new Error('Windows icon wiring is not using the approved ICO asset')"
+          if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
+          if (-not (Test-Path "assets\folio.ico")) { throw "Approved Folio ICO asset is missing." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Refuse an existing immutable version
@@ -221,4 +224,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.3.1 uses the approved Folio icon assets and aligns the Split Editor vertical content baseline. Device preview rendering and sizing are unchanged. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.3.2 restores the approved multi-resolution ICO for the Windows executable, app window and .folio file association. Split Editor rows now use explicit matching 34px / 82px / 44px dimensions to align the right-hand header, toolbar and manuscript with the primary editor. Device preview rendering and sizing are unchanged. Device preview rendering and sizing are unchanged. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
