@@ -46,7 +46,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
-          if (-not (Test-Path "assets\folio.ico")) { throw "Approved Folio ICO asset is missing." }
+          if (-not (Test-Path "assets\folio-icon.png")) { throw "Approved Folio PNG source is missing." }
+          if (-not (Test-Path "scripts\generate-windows-icon.ps1")) { throw "Windows ICO generator is missing." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Refuse an existing immutable version
@@ -110,7 +111,7 @@ jobs:
         run: |
           ./scripts/generate-windows-icon.ps1
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO generation failed." }
-          if (-not (Test-Path "build\\folio.ico")) { throw "Generated Windows ICO is missing." }
+          if (-not (Test-Path "build\folio.ico")) { throw "Generated Windows ICO is missing." }
 
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
