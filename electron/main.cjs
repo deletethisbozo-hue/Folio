@@ -170,7 +170,7 @@ async function startFolio(initialProjectFile = null) {
     minHeight: 650,
     show: false,
     autoHideMenuBar: true,
-    icon: path.join(appRoot, "assets", "folio-icon.png"),
+    icon: path.join(appRoot, "assets", "nowaikonafolio.ico"),
     backgroundColor: "#f2f3f5",
     webPreferences: {
       contextIsolation: true,
