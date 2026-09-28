@@ -1,6 +1,6 @@
 {
   "name": "folio-book-formatter",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "private": true,
   "description": "Folio — a desktop book formatter for Windows with live preview and publish-ready EPUB/PDF export.",
   "author": "Folio contributors; based on Byte-Sized Book Formatter by Angie Hartwell",
@@ -74,7 +74,8 @@
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
       "package.json",
-      "assets/folio-icon.png"
+      "assets/folio-icon.png",
+      "assets/folio.ico"
     ],
     "extraResources": [
       {
@@ -115,12 +116,13 @@
         "ext": "folio",
         "name": "Folio Project",
         "description": "Folio book project",
-        "role": "Editor"
+        "role": "Editor",
+        "icon": "assets/folio.ico"
       }
     ],
     "win": {
       "executableName": "Folio",
-      "icon": "assets/folio-icon.png",
+      "icon": "assets/folio.ico",
       "target": [
         "nsis",
         "portable"
