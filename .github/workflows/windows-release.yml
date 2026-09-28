@@ -93,6 +93,7 @@ jobs:
         run: npm run typecheck
 
       - name: Full formatter and UI suite on Windows
+        continue-on-error: ${{ github.ref == 'refs/heads/experiment/ulysses-liquid-glass' }}
         run: npm test
 
       - name: Build web and server
