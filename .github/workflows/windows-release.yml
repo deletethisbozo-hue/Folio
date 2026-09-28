@@ -2,7 +2,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/2.3.1-icons-and-split-alignment]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.2.2 version consistency
+      - name: Verify Folio 2.3.1 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.2.2") { throw "Windows release is scoped to Folio 2.2.2, found $version." }
+          if ($version -ne "2.3.1") { throw "Windows release is scoped to Folio 2.3.1, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -124,7 +124,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -ne 13) { throw "Folio 2.0 packaged app must expose exactly 13 curated themes, found $($themes.Count)." }
+            if ($themes.Count -ne 13) { throw "Folio packaged app must expose exactly 13 curated themes, found $($themes.Count)." }
 
             $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
             $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
@@ -221,4 +221,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.2.2 replaces the Windows application branding with the corrected multi-resolution Folio icon across the executable, installer, uninstaller, file association, installer header and application window. Application behavior, publishing compositor, manuscript data, preview rendering and export behavior are unchanged. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.3.1 uses the approved Folio icon assets and aligns the Split Editor vertical content baseline. Device preview rendering and sizing are unchanged. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."

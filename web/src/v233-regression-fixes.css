@@ -107,3 +107,18 @@
   white-space: pre-wrap !important;
   overflow-wrap: anywhere !important;
 }
+
+
+/* Split view: mirror the primary editor's 34px top command strip.
+ * The left editor has .editor-topbar before its chapter header; the split
+ * pane previously started directly with its 82px section header, lifting
+ * the right-hand text area by exactly one topbar. Keep both text surfaces
+ * and their formatting toolbars on the same horizontal baseline. */
+.folio-shell[data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-pane::before {
+  content: "";
+  display: block;
+  flex: 0 0 34px;
+  min-height: 34px;
+  border-bottom: 1px solid var(--mockup-rule, var(--studio-rule));
+  background: var(--mockup-chrome, var(--studio-chrome));
+}
