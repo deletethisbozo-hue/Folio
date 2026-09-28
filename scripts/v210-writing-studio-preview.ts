@@ -287,6 +287,26 @@ try {
     split.click();
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="true"] .writing-split-pane');
+  const splitAlignment = await page.evaluate(() => {
+    const pairs = [
+      ["top strip", ".editor-topbar", ".writing-split-top-strip"],
+      ["section header", ".section-titlebar", ".writing-split-header"],
+      ["format toolbar", ".format-toolbar", ".writing-split-toolbar"],
+      ["writing surface", ".editor-paper", ".writing-split-paper"],
+      ["manuscript text", ".manuscript-editor", ".writing-split-editor"],
+    ] as const;
+    return pairs.map(([label, leftSelector, rightSelector]) => {
+      const left = document.querySelector<HTMLElement>(leftSelector);
+      const right = document.querySelector<HTMLElement>(rightSelector);
+      if (!left || !right) throw new Error(`Split alignment QA missing ${label}: ${leftSelector} / ${rightSelector}`);
+      const a = left.getBoundingClientRect();
+      const b = right.getBoundingClientRect();
+      return { label, leftTop: a.top, rightTop: b.top, topDelta: Math.abs(a.top - b.top), leftHeight: a.height, rightHeight: b.height, heightDelta: Math.abs(a.height - b.height) };
+    });
+  });
+  const misaligned = splitAlignment.filter((row) => row.topDelta > 1.5 || row.heightDelta > 1.5);
+  if (misaligned.length) throw new Error(`Split editor geometry does not match the primary editor: ${JSON.stringify(misaligned)}`);
+  console.log(`Split editor alignment passed: ${JSON.stringify(splitAlignment)}`);
   await page.waitForSelector(".writing-split-editor[contenteditable='true'].typewriter-active");
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".writing-split-editor");
