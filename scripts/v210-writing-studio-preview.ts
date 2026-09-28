@@ -95,6 +95,27 @@ try {
   await settle(350);
   await page.screenshot({ path: path.join(qa, "02-format.png") });
 
+  await page.click('[data-command="design"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Book style library"]');
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "02a-design-library.png") });
+  await page.click('.style-library-header button[aria-label="Close"]');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book style library"]'));
+
+  await page.click('[data-command="book"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Book Details"]');
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "02b-book-details.png") });
+  await page.click('[role="dialog"][aria-label="Book Details"] header button[aria-label="Close"]');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book Details"]'));
+
+  await page.click(".generate-button");
+  await page.waitForSelector(".generate-menu");
+  await settle(160);
+  await page.screenshot({ path: path.join(qa, "02c-export-menu.png") });
+  await page.click(".generate-button");
+  await page.waitForFunction(() => !document.querySelector(".generate-menu"));
+
   await page.evaluate(() => {
     const write = [...document.querySelectorAll<HTMLButtonElement>(".workspace-mode-switch button")]
       .find((button) => button.textContent?.trim() === "Write");
