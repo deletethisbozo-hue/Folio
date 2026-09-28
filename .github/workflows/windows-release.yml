@@ -2,7 +2,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/2.3.2-icons-split-alignment]
+    branches: [main, fix/2.3.3-icons-split-alignment]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -37,17 +37,18 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.3.2 version consistency
+      - name: Verify Folio 2.3.3 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.3.2") { throw "Windows release is scoped to Folio 2.3.2, found $version." }
+          if ($version -ne "2.3.3") { throw "Windows release is scoped to Folio 2.3.3, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
-          node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
+          node -e "const p=require('./package.json'); if(p.build.win.icon!=='assets/nowaikonafolio.ico' || !p.build.files.includes('assets/nowaikonafolio.ico') || p.build.fileAssociations.some(a=>a.icon!=='assets/nowaikonafolio.ico')) throw new Error('Windows icon wiring is not using assets/nowaikonafolio.ico')"
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
-          if (-not (Test-Path "assets\folio-icon.png")) { throw "Approved Folio PNG source is missing." }
-          if (-not (Test-Path "scripts\generate-windows-icon.ps1")) { throw "Windows ICO generator is missing." }
+          if (-not (Test-Path "assets\nowaikonafolio.ico")) { throw "Approved Folio ICO is missing." }
+          $bytes = [IO.File]::ReadAllBytes("assets\nowaikonafolio.ico")
+          if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1) { throw "Approved Folio ICO has an invalid header." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Refuse an existing immutable version
@@ -106,13 +107,7 @@ jobs:
       - name: Full Print PDF trim matrix with physical gap gate
         run: node --import tsx scripts/print-matrix-qa.ts
 
-      - name: Generate and validate multi-resolution Windows ICO
-        shell: pwsh
-        run: |
-          ./scripts/generate-windows-icon.ps1
-          if (-not (Test-Path "build\folio.ico")) { throw "Generated Windows ICO is missing." }
-
-      - name: Build installer and portable app
+      - name: Validate approved Windows ICO\n        shell: pwsh\n        run: |\n          $bytes = [IO.File]::ReadAllBytes("assets\\nowaikonafolio.ico")\n          if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1) { throw "Approved Folio ICO has an invalid header." }\n          Write-Host "Using exact approved icon: assets\\nowaikonafolio.ico"\n\n      - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Smoke-test packaged Folio
@@ -231,4 +226,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.3.2 generates a validated multi-resolution ICO from the approved transparent PNG for the Windows executable and .folio file association; the live app window uses that same approved PNG source. Split Editor rows now use explicit matching 34px / 82px / 44px dimensions to align the right-hand header, toolbar and manuscript with the primary editor. Device preview rendering and sizing are unchanged. The release is gated by typecheck, the complete formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.3.3 uses the exact approved assets/nowaikonafolio.ico for the Windows executable, BrowserWindow, and .folio file association. No regenerated substitute icon is used. Split Editor alignment fixes from 2.3.2 are preserved and device preview rendering/sizing remains unchanged."
