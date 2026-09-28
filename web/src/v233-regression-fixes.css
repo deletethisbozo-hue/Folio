@@ -109,16 +109,47 @@
 }
 
 
-/* Split view: mirror the primary editor's 34px top command strip.
- * The left editor has .editor-topbar before its chapter header; the split
- * pane previously started directly with its 82px section header, lifting
- * the right-hand text area by exactly one topbar. Keep both text surfaces
- * and their formatting toolbars on the same horizontal baseline. */
-.folio-shell[data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-pane::before {
-  content: "";
-  display: block;
-  flex: 0 0 34px;
-  min-height: 34px;
+/* Split view uses explicit, measured rows instead of a pseudo-element spacer.
+ * The left editor is 34px top strip + 82px chapter header + 44px toolbar.
+ * Mirror those exact dimensions so the right header, toolbar, and manuscript
+ * begin on the same horizontal baselines. */
+.folio-shell[data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-pane {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-top-strip {
+  display: block !important;
+  flex: 0 0 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  box-sizing: border-box !important;
   border-bottom: 1px solid var(--mockup-rule, var(--studio-rule));
   background: var(--mockup-chrome, var(--studio-chrome));
+}
+
+.folio-shell[data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-header {
+  flex: 0 0 82px !important;
+  height: 82px !important;
+  min-height: 82px !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-toolbar {
+  flex: 0 0 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-paper {
+  flex: 1 1 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .writing-split-top-strip {
+  display: none !important;
 }
