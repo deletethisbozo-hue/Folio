@@ -153,3 +153,331 @@
 .folio-shell[data-workspace-mode="write"][data-focus-mode="true"] .writing-split-top-strip {
   display: none !important;
 }
+
+
+/* -----------------------------------------------------------------------
+ * Experimental Ulysses / Liquid Glass chrome
+ * Branch-only visual layer. Publishing, compositor and device rendering are
+ * deliberately untouched. Geometry-critical editor dimensions stay intact.
+ * --------------------------------------------------------------------- */
+
+.folio-shell[data-ui-tone="ivory"] {
+  --glass-bg: rgba(248, 250, 255, .74);
+  --glass-bg-strong: rgba(252, 253, 255, .88);
+  --glass-sidebar: rgba(239, 242, 249, .72);
+  --glass-border: rgba(126, 134, 158, .22);
+  --glass-border-soft: rgba(255, 255, 255, .72);
+  --glass-shadow: 0 10px 34px rgba(37, 43, 62, .08);
+  --glass-shadow-float: 0 14px 44px rgba(42, 48, 72, .13);
+  --glass-accent: #6869e8;
+  --glass-accent-soft: rgba(104, 105, 232, .12);
+  --glass-accent-softer: rgba(104, 105, 232, .07);
+  background:
+    radial-gradient(circle at 16% 8%, rgba(126, 138, 255, .14), transparent 29%),
+    radial-gradient(circle at 84% 18%, rgba(155, 119, 255, .10), transparent 30%),
+    linear-gradient(180deg, #eef1f7 0%, #f5f6fa 44%, #eceff5 100%) !important;
+}
+
+/* The manuscript stays calm and opaque. Glass belongs to chrome, not prose. */
+.folio-shell[data-ui-tone="ivory"] .editor-pane {
+  background: rgba(253, 253, 254, .97) !important;
+}
+
+/* Unified translucent masthead. No geometry change, so existing layout tests
+ * and split-editor alignment remain valid. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.88), rgba(245,247,252,.76)) !important;
+  border-bottom-color: var(--glass-border) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.82),
+    0 8px 30px rgba(41,47,69,.055) !important;
+  backdrop-filter: blur(24px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(145%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .command-wordmark {
+  border-right-color: rgba(126,134,158,.16) !important;
+  color: #20222b !important;
+  font-family: var(--folio-ui-font) !important;
+  font-weight: 700 !important;
+  letter-spacing: -.025em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav {
+  align-items: center !important;
+  gap: 7px !important;
+  padding-inline: 12px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch {
+  height: 32px !important;
+  padding: 3px !important;
+  border: 1px solid rgba(126,134,158,.18) !important;
+  border-radius: 10px !important;
+  background: rgba(232,235,244,.72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.74),
+    0 1px 2px rgba(38,43,60,.035) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button {
+  height: 24px !important;
+  padding-inline: 13px !important;
+  border-radius: 7px !important;
+  color: #737987 !important;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button.active {
+  background: rgba(255,255,255,.92) !important;
+  color: #4d4fc8 !important;
+  box-shadow:
+    0 0 0 1px rgba(118,119,217,.16),
+    0 2px 7px rgba(44,48,67,.10),
+    inset 0 1px 0 #fff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button:hover:not(.active) {
+  background: rgba(255,255,255,.42) !important;
+  color: #343741 !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle {
+  height: 30px !important;
+  margin-right: 10px !important;
+  padding-inline: 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  color: #737987 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle:hover {
+  border-color: rgba(126,134,158,.16) !important;
+  background: rgba(255,255,255,.50) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.82) !important;
+}
+
+/* Ulysses-like manuscript sidebar: soft glass, selected row as a pill. */
+.folio-shell[data-ui-tone="ivory"] .library-pane {
+  background:
+    linear-gradient(180deg, rgba(244,246,251,.78), rgba(233,237,246,.70)) !important;
+  border-right-color: rgba(126,134,158,.18) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255,255,255,.54),
+    8px 0 28px rgba(44,48,67,.035) !important;
+  backdrop-filter: blur(26px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(130%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row {
+  margin-inline: 8px !important;
+  border-radius: 9px !important;
+  color: #68707d !important;
+  transition: background .14s ease, color .14s ease, box-shadow .14s ease !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row:hover {
+  background: rgba(255,255,255,.48) !important;
+  color: #292c34 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.86), rgba(246,247,255,.76)) !important;
+  color: #24262d !important;
+  box-shadow:
+    0 0 0 1px rgba(104,105,232,.14),
+    0 4px 13px rgba(50,54,78,.07),
+    inset 0 1px 0 rgba(255,255,255,.92) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected::before {
+  background: var(--glass-accent) !important;
+  border-radius: 999px !important;
+}
+
+/* Toolbars become glass strips, but keep their exact heights. */
+.folio-shell[data-ui-tone="ivory"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"] .section-titlebar,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar,
+.folio-shell[data-ui-tone="ivory"] .writing-split-pane::before,
+.folio-shell[data-ui-tone="ivory"] .writing-split-header,
+.folio-shell[data-ui-tone="ivory"] .writing-split-toolbar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.79), rgba(247,249,253,.70)) !important;
+  border-color: rgba(126,134,158,.17) !important;
+  backdrop-filter: blur(20px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(135%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.80),
+    0 5px 18px rgba(40,46,68,.035) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button,
+.folio-shell[data-ui-tone="ivory"] .topbar-icon,
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle,
+.folio-shell[data-ui-tone="ivory"] .library-collapse-button,
+.folio-shell[data-ui-tone="ivory"] .tiny-footer-button {
+  border-radius: 8px !important;
+  transition: background .14s ease, color .14s ease, box-shadow .14s ease, transform .14s ease !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .topbar-icon:hover,
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle:hover,
+.folio-shell[data-ui-tone="ivory"] .library-collapse-button:hover,
+.folio-shell[data-ui-tone="ivory"] .tiny-footer-button:hover {
+  background: rgba(255,255,255,.66) !important;
+  color: #4e50cc !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(126,134,158,.13),
+    0 2px 7px rgba(43,48,68,.055) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:active,
+.folio-shell[data-ui-tone="ivory"] .topbar-icon:active {
+  transform: translateY(1px) !important;
+}
+
+/* Search / mode controls read as compact translucent capsules. */
+.folio-shell[data-ui-tone="ivory"] .search-pill,
+.folio-shell[data-ui-tone="ivory"] .editor-split-toggle,
+.folio-shell[data-ui-tone="ivory"] .editor-focus-toggle,
+.folio-shell[data-ui-tone="ivory"] .editor-typewriter-toggle,
+.folio-shell[data-ui-tone="ivory"] .editor-tools-toggle {
+  background: rgba(255,255,255,.28) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-split-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="ivory"] .editor-focus-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="ivory"] .editor-typewriter-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="ivory"] .editor-tools-toggle.active {
+  background: rgba(104,105,232,.12) !important;
+  color: #4e50cc !important;
+  box-shadow: inset 0 0 0 1px rgba(104,105,232,.15) !important;
+}
+
+/* Preview chrome is slightly cooler and more translucent; actual device
+ * shells and iframe book rendering are not touched. */
+.folio-shell[data-ui-tone="ivory"] .preview-pane {
+  background:
+    radial-gradient(circle at 50% 2%, rgba(255,255,255,.54), transparent 34%),
+    linear-gradient(180deg, #edf0f6 0%, #e8ebf2 100%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-topbar,
+.folio-shell[data-ui-tone="ivory"] .device-toolbar {
+  background: rgba(249,250,253,.72) !important;
+  border-color: rgba(126,134,158,.18) !important;
+  backdrop-filter: blur(22px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(135%) !important;
+}
+
+/* Inputs keep Ulysses' quiet native feel rather than SaaS-box styling. */
+.folio-shell[data-ui-tone="ivory"] .section-title-input,
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-input {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-title-input:focus,
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-input:focus {
+  background: rgba(255,255,255,.48) !important;
+  border-color: rgba(104,105,232,.18) !important;
+  box-shadow: 0 0 0 3px rgba(104,105,232,.07) !important;
+}
+
+/* Floating glass surfaces. */
+.folio-shell[data-ui-tone="ivory"] .folio-dialog,
+.folio-shell[data-ui-tone="ivory"] .style-library,
+.folio-shell[data-ui-tone="ivory"] .generate-menu {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.93), rgba(246,248,253,.87)) !important;
+  border: 1px solid rgba(126,134,158,.23) !important;
+  box-shadow:
+    0 28px 70px rgba(39,45,67,.18),
+    0 5px 18px rgba(39,45,67,.08),
+    inset 0 1px 0 rgba(255,255,255,.90) !important;
+  backdrop-filter: blur(30px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(145%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .folio-dialog,
+.folio-shell[data-ui-tone="ivory"] .style-library {
+  border-radius: 16px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .dialog-overlay,
+.folio-shell[data-ui-tone="ivory"] .style-overlay {
+  background: rgba(48,53,72,.12) !important;
+  backdrop-filter: blur(7px) saturate(112%) !important;
+  -webkit-backdrop-filter: blur(7px) saturate(112%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button,
+.folio-shell[data-ui-tone="ivory"] .library-add-section,
+.folio-shell[data-ui-tone="ivory"] .customize-reset-button {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.88), rgba(247,248,252,.74)) !important;
+  border-color: rgba(126,134,158,.22) !important;
+  border-radius: 9px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.86),
+    0 2px 6px rgba(38,43,60,.045) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .library-add-section:hover,
+.folio-shell[data-ui-tone="ivory"] .customize-reset-button:hover {
+  background: rgba(255,255,255,.96) !important;
+  border-color: rgba(104,105,232,.28) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button.primary {
+  background: linear-gradient(180deg, #7475ee, #5f60db) !important;
+  border-color: #5f60db !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.24),
+    0 5px 13px rgba(95,96,219,.20) !important;
+}
+
+/* Footer recedes visually, like a native status strip. */
+.folio-shell[data-ui-tone="ivory"] .folio-statusbar {
+  background: rgba(242,244,249,.76) !important;
+  border-top-color: rgba(126,134,158,.17) !important;
+  color: #777e8a !important;
+  backdrop-filter: blur(18px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(125%) !important;
+}
+
+/* Writing Studio uses the same material system when opened. */
+.folio-shell[data-ui-tone="ivory"] .write-studio-drawer {
+  background:
+    linear-gradient(180deg, rgba(251,252,255,.91), rgba(243,246,251,.86)) !important;
+  border-left-color: rgba(126,134,158,.19) !important;
+  box-shadow: -22px 0 54px rgba(36,42,63,.14) !important;
+  backdrop-filter: blur(28px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(140%) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-studio-header,
+.folio-shell[data-ui-tone="ivory"] .write-studio-tabs {
+  background: rgba(250,251,254,.66) !important;
+  border-color: rgba(126,134,158,.16) !important;
+}
+
+/* Reduced motion still gets the material hierarchy without animated chrome. */
+@media (prefers-reduced-motion: reduce) {
+  .folio-shell[data-ui-tone="ivory"] .contents-row,
+  .folio-shell[data-ui-tone="ivory"] .format-toolbar button,
+  .folio-shell[data-ui-tone="ivory"] .topbar-icon {
+    transition: none !important;
+  }
+}

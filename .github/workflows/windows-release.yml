@@ -2,7 +2,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/2.3.2-icons-split-alignment]
+    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -51,6 +51,7 @@ jobs:
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Refuse an existing immutable version
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -103,7 +104,18 @@ jobs:
       - name: Capture visual and typesetting QA on Windows
         run: node --import tsx scripts/v107-visual-qa.ts
 
+      - name: Upload Ulysses glass UI screenshots
+        if: github.ref == 'refs/heads/experiment/ulysses-liquid-glass'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Ulysses-Liquid-Glass-Preview
+          path: |
+            build/qa-v210-writing-studio/*.png
+            build/qa-v107/*.png
+          if-no-files-found: error
+
       - name: Full Print PDF trim matrix with physical gap gate
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         run: node --import tsx scripts/print-matrix-qa.ts
 
       - name: Generate and validate multi-resolution Windows ICO
@@ -113,9 +125,11 @@ jobs:
           if (-not (Test-Path "build\folio.ico")) { throw "Generated Windows ICO is missing." }
 
       - name: Build installer and portable app
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Smoke-test packaged Folio
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         shell: pwsh
         run: |
           $env:FOLIO_E2E_PORT = "43127"
@@ -188,6 +202,7 @@ jobs:
           }
 
       - name: Hash release binaries
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         shell: pwsh
         run: |
           $required = @("release\Folio-$env:FOLIO_VERSION-setup.exe", "release\Folio-$env:FOLIO_VERSION-portable.exe")
@@ -200,6 +215,7 @@ jobs:
           Get-Content release\sha256.txt
 
       - name: Upload Windows build artifacts
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         uses: actions/upload-artifact@v4
         with:
           name: Folio-${{ env.FOLIO_VERSION }}-Windows
@@ -213,6 +229,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish immutable GitHub Release
+        if: github.ref != 'refs/heads/experiment/ulysses-liquid-glass'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
