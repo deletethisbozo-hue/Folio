@@ -75,7 +75,7 @@
       "THIRD_PARTY_NOTICES.md",
       "package.json",
       "assets/folio-icon.png",
-      "assets/folio.ico"
+      "build/folio.ico"
     ],
     "extraResources": [
       {
@@ -117,12 +117,12 @@
         "name": "Folio Project",
         "description": "Folio book project",
         "role": "Editor",
-        "icon": "assets/folio.ico"
+        "icon": "folio.ico"
       }
     ],
     "win": {
       "executableName": "Folio",
-      "icon": "assets/folio.ico",
+      "icon": "build/folio.ico",
       "target": [
         "nsis",
         "portable"
