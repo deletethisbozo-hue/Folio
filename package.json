@@ -120,7 +120,7 @@
     ],
     "win": {
       "executableName": "Folio",
-      "icon": "assets/folio-icon.png",
+      "icon": "assets/folio.ico",
       "target": [
         "nsis",
         "portable"
