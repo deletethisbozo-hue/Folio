@@ -1,76 +1,44 @@
 $ErrorActionPreference = "Stop"
-Add-Type -AssemblyName System.Drawing
 
-$sourcePath = Join-Path $PSScriptRoot "..\assets\folio-icon.png"
+$sourcePath = Join-Path $PSScriptRoot "..\assets\nowaikonafolioglyph.ico"
 $targetPath = Join-Path $PSScriptRoot "..\build\folio.ico"
-if (-not (Test-Path $sourcePath)) { throw "Approved Folio PNG source is missing: $sourcePath" }
+$expectedSha256 = "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d"
+$expectedSizes = @(16, 24, 32, 48, 64, 72, 96, 128, 256)
+
+if (-not (Test-Path $sourcePath)) { throw "Approved Folio glyph ICO source is missing: $sourcePath" }
+$sourceHash = (Get-FileHash $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($sourceHash -ne $expectedSha256) { throw "Approved Folio glyph ICO checksum mismatch: $sourceHash" }
+
 $targetDirectory = Split-Path -Parent $targetPath
 New-Item -ItemType Directory -Force -Path $targetDirectory | Out-Null
-
-$source = [System.Drawing.Image]::FromFile((Resolve-Path $sourcePath))
-$frames = [System.Collections.Generic.List[object]]::new()
-$writer = $null
-$stream = $null
-try {
-  foreach ($size in @(16, 24, 32, 48, 64, 128, 256)) {
-    $bitmap = [System.Drawing.Bitmap]::new($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $memory = [System.IO.MemoryStream]::new()
-    try {
-      $graphics.Clear([System.Drawing.Color]::Transparent)
-      $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-      $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-      $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-      $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
-      $graphics.DrawImage($source, 0, 0, $size, $size)
-      $bitmap.Save($memory, [System.Drawing.Imaging.ImageFormat]::Png)
-      $frames.Add(@{ Size = $size; Data = $memory.ToArray() })
-    }
-    finally {
-      $memory.Dispose()
-      $graphics.Dispose()
-      $bitmap.Dispose()
-    }
-  }
-
-  $stream = [System.IO.File]::Create($targetPath)
-  $writer = [System.IO.BinaryWriter]::new($stream)
-  $writer.Write([UInt16]0) # Reserved
-  $writer.Write([UInt16]1) # ICO type
-  $writer.Write([UInt16]$frames.Count)
-  $offset = 6 + (16 * $frames.Count)
-  foreach ($frame in $frames) {
-    $dimension = if ($frame.Size -eq 256) { [byte]0 } else { [byte]$frame.Size }
-    $writer.Write($dimension)
-    $writer.Write($dimension)
-    $writer.Write([byte]0)
-    $writer.Write([byte]0)
-    $writer.Write([UInt16]1)
-    $writer.Write([UInt16]32)
-    $writer.Write([UInt32]$frame.Data.Length)
-    $writer.Write([UInt32]$offset)
-    $offset += $frame.Data.Length
-  }
-  foreach ($frame in $frames) { $writer.Write([byte[]]$frame.Data) }
-  $writer.Flush()
-}
-finally {
-  if ($writer) { $writer.Dispose() }
-  elseif ($stream) { $stream.Dispose() }
-  $source.Dispose()
-}
+Copy-Item $sourcePath $targetPath -Force
 
 $bytes = [System.IO.File]::ReadAllBytes($targetPath)
-if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1 -or [BitConverter]::ToUInt16($bytes, 4) -ne 7) {
-  throw "Generated Folio ICO has an invalid header."
+if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1) {
+  throw "Folio glyph ICO has an invalid header."
 }
-foreach ($index in 0..6) {
+$count = [BitConverter]::ToUInt16($bytes, 4)
+if ($count -ne $expectedSizes.Count) { throw "Folio glyph ICO must contain $($expectedSizes.Count) frames, found $count." }
+
+$actualSizes = @()
+for ($index = 0; $index -lt $count; $index++) {
   $entry = 6 + (16 * $index)
+  $width = [int]$bytes[$entry]
+  $height = [int]$bytes[$entry + 1]
+  if ($width -eq 0) { $width = 256 }
+  if ($height -eq 0) { $height = 256 }
+  if ($width -ne $height) { throw "Folio glyph ICO frame $index is not square: $width x $height." }
   $length = [BitConverter]::ToUInt32($bytes, $entry + 8)
   $offset = [BitConverter]::ToUInt32($bytes, $entry + 12)
-  if ($offset + $length -gt $bytes.Length -or $length -lt 8) { throw "Generated Folio ICO has an invalid image entry at index $index." }
-  if ($bytes[$offset] -ne 0x89 -or $bytes[$offset + 1] -ne 0x50 -or $bytes[$offset + 2] -ne 0x4E -or $bytes[$offset + 3] -ne 0x47) {
-    throw "Generated Folio ICO frame $index is not a PNG payload."
-  }
+  if ($offset + $length -gt $bytes.Length -or $length -lt 8) { throw "Folio glyph ICO has an invalid frame at index $index." }
+  $actualSizes += $width
 }
-Write-Host "Generated valid multi-resolution Folio ICO (16, 24, 32, 48, 64, 128, 256px): $targetPath"
+
+if (($actualSizes -join ",") -ne ($expectedSizes -join ",")) {
+  throw "Folio glyph ICO frame sizes mismatch. Found: $($actualSizes -join ', ')"
+}
+$targetHash = (Get-FileHash $targetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($targetHash -ne $expectedSha256) { throw "Copied Folio glyph ICO checksum mismatch: $targetHash" }
+
+Write-Host "Validated approved Folio glyph ICO ($($expectedSizes -join ', ')px): $targetPath"
+Write-Host "SHA-256: $targetHash"
