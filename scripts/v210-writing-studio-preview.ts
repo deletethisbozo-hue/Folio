@@ -120,6 +120,21 @@ try {
   await page.click('[role="dialog"][aria-label="Book Details"] header button[aria-label="Close"]');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book Details"]'));
 
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await settle(260);
+  await page.screenshot({ path: path.join(qa, "02d-format-midnight.png") });
+
+  await page.click('[data-command="design"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Book style library"]');
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "02e-design-library-midnight.png") });
+  await page.click('.style-library-header button[aria-label="Close"]');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book style library"]'));
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");
+  await settle(180);
+
   await page.click(".generate-button");
   await page.waitForSelector(".generate-menu");
   await settle(160);
