@@ -31,7 +31,7 @@ try {
   await page.setViewport({ width: 1536, height: 1024, deviceScaleFactor: 1 });
   await page.goto(base, { waitUntil: "networkidle0" });
 
-  await page.waitForSelector(".start-shell .start-brand");
+  await page.waitForSelector(".start-shell .start-hero-logo");
   const dashboardActions = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLButtonElement>(".start-actions button")].map((button) => button.textContent?.trim() ?? ""),
   );
@@ -99,6 +99,17 @@ try {
   await page.waitForSelector('[role="dialog"][aria-label="Book style library"]');
   await settle(220);
   await page.screenshot({ path: path.join(qa, "02a-design-library.png") });
+  const hoverTheme = await page.$(".theme-sample:not(.selected)") ?? await page.$(".theme-sample");
+  if (!hoverTheme) throw new Error("Theme card missing for live hover preview QA");
+  await hoverTheme.hover();
+  await page.waitForSelector(".theme-hover-preview");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".theme-hover-preview iframe");
+    return Boolean(frame?.contentDocument?.body?.innerText?.trim().length);
+  });
+  await settle(250);
+  await page.screenshot({ path: path.join(qa, "02a-design-library-hover-preview.png") });
+  await page.mouse.move(20, 20);
   await page.click('.style-library-header button[aria-label="Close"]');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book style library"]'));
 

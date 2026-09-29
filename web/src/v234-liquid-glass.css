@@ -1190,3 +1190,50 @@
     grid-template-columns: 220px minmax(0,1fr) 360px !important;
   }
 }
+
+/* Branding + non-disruptive live theme preview ------------------------ */
+.start-shell[data-ui-tone="ivory"] .start-windowbar { grid-template-columns: 1fr auto !important; }
+.start-shell[data-ui-tone="ivory"] .start-brand-spacer { min-width: 1px; }
+.start-shell[data-ui-tone="ivory"] .start-hero-logo {
+  display:block; width:210px; height:210px; margin:-61px 0 -58px -12px;
+  object-fit:contain; user-select:none; pointer-events:none;
+}
+.start-shell[data-ui-tone="ivory"] .start-intro h1 {
+  max-width:none !important; margin-top:6px !important; font-size:35px !important;
+  line-height:1.04 !important; letter-spacing:-.05em !important; white-space:nowrap;
+}
+.start-shell[data-ui-tone="ivory"] .start-actions { margin-top:28px !important; }
+.folio-shell[data-ui-tone="ivory"] .command-wordmark { justify-content:flex-start !important; padding-inline:16px !important; }
+.folio-shell[data-ui-tone="ivory"] .command-wordmark img {
+  display:block; width:34px; height:34px; object-fit:contain; user-select:none; pointer-events:none;
+}
+.folio-shell[data-ui-tone="ivory"] .style-library { position:relative !important; }
+.folio-shell[data-ui-tone="ivory"] .theme-hover-preview {
+  position:absolute; z-index:9; top:78px; right:20px; width:292px; height:388px; overflow:hidden;
+  border:1px solid rgba(82,86,120,.18); border-radius:16px; background:rgba(248,250,255,.88);
+  box-shadow:0 24px 58px rgba(37,41,65,.22),0 3px 12px rgba(37,41,65,.10),inset 0 1px 0 rgba(255,255,255,.88);
+  backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
+  pointer-events:none; animation:folio-theme-peek-in .13s ease-out;
+}
+.folio-shell[data-ui-tone="ivory"] .theme-hover-preview-head {
+  height:54px; display:grid; align-content:center; gap:3px; padding:0 14px;
+  border-bottom:1px solid rgba(82,86,120,.11);
+  background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(240,243,251,.52));
+}
+.folio-shell[data-ui-tone="ivory"] .theme-hover-preview-head span {
+  color:#858a9b; font-size:8px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+}
+.folio-shell[data-ui-tone="ivory"] .theme-hover-preview-head strong {
+  overflow:hidden; color:#2b2e43; font-size:12px; font-weight:720; text-overflow:ellipsis; white-space:nowrap;
+}
+.folio-shell[data-ui-tone="ivory"] .theme-hover-preview-stage { position:relative; height:calc(100% - 54px); overflow:hidden; background:#e6e9f1; }
+.folio-shell[data-ui-tone="ivory"] .theme-hover-preview-stage iframe {
+  width:458px; height:540px; border:0; background:white; transform:scale(.638); transform-origin:0 0; pointer-events:none;
+}
+.folio-shell[data-ui-tone="ivory"] .theme-hover-preview-loading {
+  position:absolute; inset:0; display:grid; place-items:center; padding:24px; color:#777d90; font-size:10px; text-align:center;
+}
+@keyframes folio-theme-peek-in {
+  from { opacity:0; transform:translateY(5px) scale(.985); }
+  to { opacity:1; transform:translateY(0) scale(1); }
+}
