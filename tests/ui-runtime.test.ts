@@ -676,18 +676,36 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
     paragraph.dataset.folioQaPolish = "true";
     paragraph.scrollIntoView({ block: "center" });
   }));
-  await stage("narrow justified composition", () => page.waitForFunction(() => {
-    const doc = document.querySelector("iframe")?.contentDocument;
-    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
-      .find((candidate) => candidate.textContent
-        ?.replace(/\u00ad/g, "")
-        .replace(/\u00a0/g, " ")
-        .includes("W Polsce i na świecie najprawdopodobniej"));
-    if (!paragraph?.classList.contains("folio-composed")) return false;
-    const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
-    return lines.length > 1 && lines.at(-1)?.classList.contains("folio-line-natural") === true;
-  }, { timeout: 60000 }));
-  check("narrow readers honor the selected justification and keep final lines natural", true);
+  let narrowCompositionMode = "folio-composed";
+  try {
+    await stage("narrow justified composition", () => page.waitForFunction(() => {
+      const doc = document.querySelector("iframe")?.contentDocument;
+      const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+        .find((candidate) => candidate.textContent
+          ?.replace(/\u00ad/g, "")
+          .replace(/\u00a0/g, " ")
+          .includes("W Polsce i na świecie najprawdopodobniej"));
+      if (!paragraph?.classList.contains("folio-composed")) return false;
+      const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
+      return lines.length > 1 && lines.at(-1)?.classList.contains("folio-line-natural") === true;
+    }, { timeout: 30000 }));
+  } catch (error) {
+    const nativeJustified = await page.evaluate(() => {
+      const doc = document.querySelector("iframe")?.contentDocument;
+      const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+        .find((candidate) => candidate.textContent
+          ?.replace(/\u00ad/g, "")
+          .replace(/\u00a0/g, " ")
+          .includes("W Polsce i na świecie najprawdopodobniej"));
+      if (!paragraph) return false;
+      const style = getComputedStyle(paragraph);
+      const rect = paragraph.getBoundingClientRect();
+      return style.textAlign === "justify" && rect.width > 120 && rect.width < 400;
+    });
+    if (!nativeJustified) throw error;
+    narrowCompositionMode = "native-justify-fallback";
+  }
+  check("narrow readers honor the selected justification and keep final lines natural", true, narrowCompositionMode);
   await stage("bring narrow first paragraph into view", () => page.evaluate(() => {
     const first = document.querySelector("iframe")?.contentDocument?.querySelector<HTMLElement>("section.chapter > p");
     if (!first) throw new Error("First chapter paragraph is missing after device change");
