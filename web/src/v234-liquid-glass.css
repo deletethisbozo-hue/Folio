@@ -2032,25 +2032,55 @@
   align-self: stretch !important;
 }
 
-/* Midnight can keep dark chrome with a paper-like manuscript. */
-.folio-shell[data-ui-tone="midnight"][data-editor-surface="light"] .manuscript-editor,
-.folio-shell[data-ui-tone="midnight"][data-editor-surface="light"] .writing-split-editor {
+/* Editor surface is independent from UI tone; Auto uses each tone's default. */
+.folio-shell[data-editor-surface="light"] .manuscript-editor,
+.folio-shell[data-editor-surface="light"] .writing-split-editor {
   border-color: rgba(106,111,142,.18) !important;
   background: #f7f8fc !important;
   color: #24262f !important;
   box-shadow:
-    0 18px 46px rgba(0,0,0,.30),
+    0 18px 46px rgba(0,0,0,.18),
     inset 0 1px 0 #fff !important;
 }
 
-.folio-shell[data-ui-tone="midnight"][data-editor-surface="light"] .manuscript-editor a,
-.folio-shell[data-ui-tone="midnight"][data-editor-surface="light"] .writing-split-editor a {
+.folio-shell[data-editor-surface="light"] .manuscript-editor *,
+.folio-shell[data-editor-surface="light"] .writing-split-editor * {
+  color: inherit;
+}
+
+.folio-shell[data-editor-surface="light"] .manuscript-editor a,
+.folio-shell[data-editor-surface="light"] .writing-split-editor a {
   color: #5558d8 !important;
 }
 
-.folio-shell[data-ui-tone="midnight"][data-editor-surface="light"] .manuscript-editor::selection,
-.folio-shell[data-ui-tone="midnight"][data-editor-surface="light"] .writing-split-editor::selection {
+.folio-shell[data-editor-surface="light"] .manuscript-editor::selection,
+.folio-shell[data-editor-surface="light"] .writing-split-editor::selection {
   background: rgba(101,104,232,.24) !important;
+}
+
+.folio-shell[data-editor-surface="dark"] .manuscript-editor,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor {
+  border-color: rgba(185,190,218,.10) !important;
+  background: rgba(33,36,47,.96) !important;
+  color: #ececf1 !important;
+  box-shadow:
+    0 16px 40px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+.folio-shell[data-editor-surface="dark"] .manuscript-editor *,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor * {
+  color: inherit;
+}
+
+.folio-shell[data-editor-surface="dark"] .manuscript-editor a,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor a {
+  color: #aeb1ff !important;
+}
+
+.folio-shell[data-editor-surface="dark"] .manuscript-editor::selection,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor::selection {
+  background: rgba(118,122,235,.34) !important;
 }
 
 /* 2.5 Midnight hardening: keep compact chrome immune to legacy high-specificity rules. */
