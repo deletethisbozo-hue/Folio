@@ -1374,3 +1374,36 @@
 .folio-shell[data-ui-tone="ivory"] .folio-commandbar {
   grid-template-columns: 255px minmax(0, 1fr) auto !important;
 }
+
+/* Dashboard brand lockup: crop the logo viewport, then size the real artwork. */
+.start-shell[data-ui-tone="ivory"] .start-hero-logo {
+  width: 176px !important;
+  height: auto !important;
+  aspect-ratio: auto !important;
+  margin: 0 0 16px 0 !important;
+  object-fit: contain !important;
+}
+.start-shell[data-ui-tone="ivory"] .start-intro h1 {
+  width: 100% !important;
+  max-width: 250px !important;
+  margin: 0 !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: 1.12 !important;
+  letter-spacing: -.02em !important;
+}
+.start-shell[data-ui-tone="ivory"] .start-actions {
+  margin-top: 30px !important;
+}
+
+@media (max-width: 1120px) {
+  .start-shell[data-ui-tone="ivory"] .start-hero-logo {
+    width: 164px !important;
+    height: auto !important;
+    margin-bottom: 14px !important;
+  }
+  .start-shell[data-ui-tone="ivory"] .start-intro h1 {
+    font-size: 21px !important;
+    max-width: 238px !important;
+  }
+}
