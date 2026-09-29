@@ -2237,3 +2237,33 @@
   line-height: 1 !important;
 }
 
+/* Tone parity: form controls keep the Light 6px geometry. */
+.folio-shell[data-ui-tone="ivory"] .section-title-input,
+.folio-shell[data-ui-tone="midnight"] .section-title-input,
+.folio-shell[data-ui-tone="ivory"] .section-subtitle-input,
+.folio-shell[data-ui-tone="midnight"] .section-subtitle-input,
+.folio-shell[data-ui-tone="ivory"] .dialog-field input,
+.folio-shell[data-ui-tone="midnight"] .dialog-field input,
+.folio-shell[data-ui-tone="ivory"] .dialog-field textarea,
+.folio-shell[data-ui-tone="midnight"] .dialog-field textarea,
+.folio-shell[data-ui-tone="ivory"] .dialog-field select,
+.folio-shell[data-ui-tone="midnight"] .dialog-field select,
+.folio-shell[data-ui-tone="ivory"] .setting-control input,
+.folio-shell[data-ui-tone="midnight"] .setting-control input,
+.folio-shell[data-ui-tone="ivory"] .setting-control select,
+.folio-shell[data-ui-tone="midnight"] .setting-control select,
+.folio-shell[data-ui-tone="ivory"] .settings-select,
+.folio-shell[data-ui-tone="midnight"] .settings-select,
+.folio-shell[data-ui-tone="ivory"] .customize-row select,
+.folio-shell[data-ui-tone="midnight"] .customize-row select,
+.folio-shell[data-ui-tone="ivory"] .customize-row input:not([type="checkbox"]),
+.folio-shell[data-ui-tone="midnight"] .customize-row input:not([type="checkbox"]),
+.folio-shell[data-ui-tone="ivory"] .writing-split-title select,
+.folio-shell[data-ui-tone="midnight"] .writing-split-title select,
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="midnight"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select,
+.folio-shell[data-ui-tone="midnight"] .trim-select {
+  border-radius: 6px !important;
+}
+
