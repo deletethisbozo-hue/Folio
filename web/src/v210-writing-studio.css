@@ -6,7 +6,7 @@
 :root,
 .start-shell,
 .folio-shell {
-  --folio-masthead-height: 64px;
+  --folio-masthead-height: 56px;
   --folio-sidebar-width: 255px;
 }
 
@@ -110,7 +110,7 @@
 /* Write mode ------------------------------------------------------------- */
 .folio-shell:not(.folio-empty-shell)[data-ui-tone][data-workspace-mode="write"] {
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: var(--folio-masthead-height) minmax(0, 1fr) 38px !important;
+  grid-template-rows: var(--folio-masthead-height) minmax(0, 1fr) 20px !important;
   grid-template-areas:
     "command"
     "editor"
