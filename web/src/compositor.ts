@@ -97,7 +97,8 @@ function restore(paragraph: HTMLElement): void {
   delete paragraph.dataset.folioCompositionLanguage;
 }
 
-function ensureCompositionStyle(document: Document): void {
+function ensureCompositionStyle(document: Document): boolean {
+  if (!document.head || !document.documentElement) return false;
   let style = document.getElementById("folio-compositor-fallback") as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement("style");
@@ -112,6 +113,7 @@ ${pending}{text-align:left!important;text-align-last:left!important;-webkit-hyph
 .folio-composed-dropcap>.dropcap.folio-composed-cap{float:none!important;position:absolute!important;z-index:1}
 .folio-compositor-safe-fallback{text-align:left!important;text-align-last:left!important}
 .scene-break{display:block!important;text-align:center!important;text-align-last:center!important;margin-left:auto!important;margin-right:auto!important;word-spacing:normal!important;letter-spacing:normal!important}`;
+  return true;
 }
 
 function tokenize(paragraph: HTMLElement, language: string): Word[] {
@@ -1091,6 +1093,8 @@ function seatNativeDropCap(paragraph: HTMLElement): void {
 }
 
 function composeParagraph(paragraph: HTMLElement, language: string, sectionStats: SectionHyphenStats): void {
+  const ownerDocument = paragraph.ownerDocument;
+  if (!paragraph.isConnected || !ownerDocument.body || !ownerDocument.head || !ownerDocument.defaultView) return;
   if (
     paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
     paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
@@ -1136,7 +1140,7 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
   const probe = paragraph.ownerDocument.createElement("span");
   probe.textContent = " -";
   probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${style.font};letter-spacing:${style.letterSpacing};word-spacing:${style.wordSpacing}`;
-  paragraph.ownerDocument.body.appendChild(probe);
+  ownerDocument.body.appendChild(probe);
   const pairWidth = probe.getBoundingClientRect().width;
   probe.textContent = " ";
   const spaceWidth = probe.getBoundingClientRect().width || fontSize * 0.25;
@@ -1454,7 +1458,8 @@ export async function composePreviewDocument(document: Document, enabled: boolea
     return;
   }
 
-  ensureCompositionStyle(document);
+  if (!document.head || !document.body || !document.documentElement || !document.defaultView) return;
+  if (!ensureCompositionStyle(document)) return;
   const language = document.documentElement.lang || "en";
   const paragraphs = Array.from(document.querySelectorAll<HTMLElement>(PROSE_SELECTOR));
   const view = document.defaultView;

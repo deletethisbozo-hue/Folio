@@ -21,7 +21,7 @@ function mode(): string {
 export function calibratePreviewFrame(frame: HTMLIFrameElement): boolean {
   const profile = getPreviewProfile(mode());
   const doc = frame.contentDocument;
-  if (!profile || profile.family === "print" || !doc?.head || !frame.clientWidth) return false;
+  if (!profile || profile.family === "print" || !doc?.head || !doc.body || !doc.documentElement || !frame.clientWidth) return false;
 
   const scale = frame.clientWidth / profile.viewport.width;
   const [top, right, bottom, left] = profile.padding.map((value) => Math.max(1, value * scale)) as [number, number, number, number];

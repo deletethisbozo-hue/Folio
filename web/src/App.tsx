@@ -578,7 +578,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     // and could add chapter-only typography such as drop caps.
     if (workspaceMode === "write" || previewMode === "print" || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || !document.editable) return "none";
     const previewDocument = previewRef.current?.contentDocument;
-    if (!previewDocument) return "none";
+    if (!previewDocument?.head || !previewDocument.body || !previewDocument.documentElement) return "none";
     // The editor model is authoritative. previewDraft is deliberately debounced
     // for expensive server/print work and can lag a fresh chapter by one render.
     // Local live preview must never re-apply that stale snapshot after an iframe
@@ -1646,6 +1646,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function syncLiveChapterLabel(doc: Document) {
+    if (!doc.head || !doc.documentElement) return;
     doc.getElementById("folio-live-chapter-label")?.remove();
     if (!selectedId || selectedSection?.kind !== "chapter") return;
     const chapterTitle = typography.chapterTitle;
