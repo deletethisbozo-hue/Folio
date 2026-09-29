@@ -55,6 +55,7 @@ try {
   const page = await browser.newPage();
   page.setDefaultTimeout(40_000);
   await page.setViewport({ width: 1536, height: 1024, deviceScaleFactor: 1 });
+  await page.evaluateOnNewDocument("globalThis.__name = function(target){ return target; }");
   await page.goto(base, { waitUntil: "networkidle0" });
   await page.evaluate("globalThis.__name = function(target){ return target; }");
 
