@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: folio-windows-release
+  group: folio-windows-release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
