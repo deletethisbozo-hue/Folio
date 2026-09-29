@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 30
     env:
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
 
     steps:
       - name: Check out Folio
@@ -31,6 +32,20 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+
+      - name: Download pinned Pandoc 3.11
+        shell: pwsh
+        run: |
+          $zip = "build\pandoc-3.11-windows-x86_64.zip"
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          New-Item -ItemType Directory -Force build | Out-Null
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath build\pandoc-unpack -Force
+          $pandoc = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $pandoc) { throw "Pandoc executable was not found after extraction." }
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          Copy-Item $pandoc.FullName build\pandoc\pandoc.exe -Force
+          & build\pandoc\pandoc.exe --version | Select-Object -First 1
 
       - name: Install pinned Chromium runtime
         shell: pwsh
