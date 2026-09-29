@@ -237,8 +237,8 @@ try {
   await page.click('[data-command="settings"]');
   await page.waitForSelector('[role="dialog"][aria-label="Settings"] .settings-select');
   await page.select('[role="dialog"][aria-label="Settings"] .settings-select', "auto");
-  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark"
-    && window.localStorage.getItem("folio-editor-surface") === "dark");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "auto"
+    && window.localStorage.getItem("folio-editor-surface") === "auto");
   await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
 
