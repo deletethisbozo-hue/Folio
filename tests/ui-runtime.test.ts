@@ -626,6 +626,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   const studioGeometry = await page.evaluate(() => {
     const shell = document.querySelector(".folio-shell")!.getBoundingClientRect();
     const command = document.querySelector(".folio-commandbar")!.getBoundingClientRect();
+    const status = document.querySelector(".folio-statusbar")!.getBoundingClientRect();
     const library = document.querySelector(".library-pane")!.getBoundingClientRect();
     const editorPane = document.querySelector(".editor-pane")!.getBoundingClientRect();
     const manuscript = document.querySelector(".manuscript-editor")!.getBoundingClientRect();
@@ -639,6 +640,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
         Number.parseFloat(title.fontSize) >= 18 && sidebar.backgroundImage !== "none" &&
         Number.parseFloat(selected.borderRadius) >= 9 && status.height === 20 && shell.bottom <= innerHeight + 1,
       command: command.height,
+      status: status.height,
       library: library.width,
       preview: preview.width,
       manuscript: manuscript.width,

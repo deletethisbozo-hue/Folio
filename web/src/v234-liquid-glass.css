@@ -1932,3 +1932,27 @@
   background: linear-gradient(160deg,#343746,#20232e) !important;
   box-shadow: 0 8px 20px rgba(0,0,0,.24) !important;
 }
+
+/* Shared compact chrome: dashboard follows the same 56px rhythm. */
+.start-shell:is([data-ui-tone="ivory"], [data-ui-tone="midnight"]) .start-windowbar {
+  height: 56px !important;
+  min-height: 56px !important;
+}
+
+/* The supplied Midnight SVG has a generous square viewBox.
+ * Scale it optically without changing the command slot geometry. */
+.folio-shell[data-ui-tone="midnight"] .command-wordmark img {
+  width: 88px !important;
+  height: 88px !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin-left: -15px !important;
+  object-fit: contain !important;
+}
+
+/* Keep the compact status strip genuinely compact and vertically centered. */
+.folio-shell:is([data-ui-tone="ivory"], [data-ui-tone="midnight"]) .folio-statusbar {
+  display: flex !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
