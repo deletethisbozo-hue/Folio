@@ -192,6 +192,25 @@ try {
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
   await settle(240);
   await page.screenshot({ path: path.join(qa, "03d-write-midnight.png") });
+
+  await page.click('[data-command="settings"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Settings"] .settings-select');
+  await page.select('[role="dialog"][aria-label="Settings"] .settings-select', "light");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "light"
+    && window.localStorage.getItem("folio-midnight-editor-surface") === "light");
+  await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "03e-write-midnight-light-editor.png") });
+
+  await page.click('[data-command="settings"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Settings"] .settings-select');
+  await page.select('[role="dialog"][aria-label="Settings"] .settings-select', "dark");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark"
+    && window.localStorage.getItem("folio-midnight-editor-surface") === "dark");
+  await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
+
   await page.click('.tone-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");
   await settle(160);
