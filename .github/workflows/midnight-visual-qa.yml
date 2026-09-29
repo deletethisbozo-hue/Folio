@@ -1,0 +1,56 @@
+name: Midnight Visual QA
+
+on:
+  push:
+    branches: [fix/midnight-2.5]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-midnight-visual-qa-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+
+    steps:
+      - name: Check out Folio
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install pinned Chromium runtime
+        shell: pwsh
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Capture Light and Midnight UI
+        run: node --import tsx scripts/v210-writing-studio-preview.ts
+
+      - name: Upload Midnight screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Midnight-2.5-Screenshots
+          path: build/qa-v210-writing-studio/*.png
+          if-no-files-found: error
