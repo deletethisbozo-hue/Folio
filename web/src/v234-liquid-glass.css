@@ -1275,3 +1275,9 @@
     line-height:1.1 !important;
   }
 }
+
+/* Final dashboard hierarchy: let the logo carry the weight. */
+.start-shell[data-ui-tone="ivory"] .start-intro h1 {
+  font-weight: 560 !important;
+  letter-spacing: -.035em !important;
+}
