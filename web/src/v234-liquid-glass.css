@@ -1286,3 +1286,45 @@
   font-weight: 500 !important;
   letter-spacing: -.025em !important;
 }
+
+/* Dashboard proportion correction + preserve original command geometry. */
+.start-shell[data-ui-tone="ivory"] .start-hero-logo {
+  width: 148px !important;
+  height: 148px !important;
+  margin: -10px 0 4px -10px !important;
+}
+.start-shell[data-ui-tone="ivory"] .start-intro h1 {
+  font-size: 27px !important;
+  font-weight: 500 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.028em !important;
+}
+
+/* Restore the original 218px brand slot so all command text stays put.
+ * Only the glyph itself gets optically larger. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  grid-template-columns: 218px minmax(0, 1fr) auto !important;
+}
+.folio-shell[data-ui-tone="ivory"] .command-wordmark {
+  justify-content: flex-start !important;
+  padding: 0 18px !important;
+  overflow: hidden !important;
+}
+.folio-shell[data-ui-tone="ivory"] .command-wordmark img {
+  width: 58px !important;
+  height: 58px !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin-left: -7px !important;
+}
+
+@media (max-width: 1120px) {
+  .start-shell[data-ui-tone="ivory"] .start-hero-logo {
+    width: 136px !important;
+    height: 136px !important;
+    margin: -8px 0 3px -8px !important;
+  }
+  .start-shell[data-ui-tone="ivory"] .start-intro h1 {
+    font-size: 25px !important;
+  }
+}
