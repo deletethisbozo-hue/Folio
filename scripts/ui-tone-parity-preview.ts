@@ -56,6 +56,7 @@ try {
   page.setDefaultTimeout(40_000);
   await page.setViewport({ width: 1536, height: 1024, deviceScaleFactor: 1 });
   await page.goto(base, { waitUntil: "networkidle0" });
+  await page.evaluate("globalThis.__name = function(target){ return target; }");
 
   async function readContract(rootSelector: string): Promise<Contract> {
     return page.evaluate((rootSelector) => {
