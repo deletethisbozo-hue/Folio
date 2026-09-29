@@ -228,7 +228,7 @@ try {
   await page.waitForSelector('[role="dialog"][aria-label="Settings"] .settings-select');
   await page.select('[role="dialog"][aria-label="Settings"] .settings-select', "light");
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "light"
-    && window.localStorage.getItem("folio-midnight-editor-surface") === "light");
+    && window.localStorage.getItem("folio-editor-surface") === "light");
   await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
   await settle(220);
@@ -236,9 +236,9 @@ try {
 
   await page.click('[data-command="settings"]');
   await page.waitForSelector('[role="dialog"][aria-label="Settings"] .settings-select');
-  await page.select('[role="dialog"][aria-label="Settings"] .settings-select', "dark");
+  await page.select('[role="dialog"][aria-label="Settings"] .settings-select', "auto");
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark"
-    && window.localStorage.getItem("folio-midnight-editor-surface") === "dark");
+    && window.localStorage.getItem("folio-editor-surface") === "dark");
   await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
 
