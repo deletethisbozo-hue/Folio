@@ -2197,3 +2197,24 @@
   border-radius: 7px !important;
 }
 
+/* Tone parity: Book Styles and native controls use one geometry. */
+.folio-shell[data-ui-tone="ivory"] .style-library,
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  border-radius: 12px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .style-category-list button,
+.folio-shell[data-ui-tone="midnight"] .style-category-list button {
+  border-radius: 6px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button,
+.folio-shell[data-ui-tone="midnight"] .native-button {
+  min-height: 34px !important;
+  padding-inline: 13px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 7px !important;
+  font-weight: 620 !important;
+}
+
