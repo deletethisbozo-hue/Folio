@@ -1956,3 +1956,11 @@
   align-items: center !important;
   overflow: hidden !important;
 }
+
+/* Masthead children must follow the compact 56px grid row exactly. */
+.folio-shell:is([data-ui-tone="ivory"], [data-ui-tone="midnight"]) .command-wordmark {
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  align-self: stretch !important;
+}
