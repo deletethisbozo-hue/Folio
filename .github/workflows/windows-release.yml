@@ -2,7 +2,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass]
+    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
