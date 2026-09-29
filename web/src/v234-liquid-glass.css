@@ -2218,3 +2218,22 @@
   font-weight: 620 !important;
 }
 
+/* Tone parity: customize heading/reset control geometry. */
+.folio-shell[data-ui-tone="ivory"] .customize-heading,
+.folio-shell[data-ui-tone="midnight"] .customize-heading {
+  align-items: center !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .customize-reset-button,
+.folio-shell[data-ui-tone="midnight"] .customize-reset-button {
+  min-height: 30px !important;
+  padding: 0 11px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 7px !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 10.5px !important;
+  font-weight: 620 !important;
+  line-height: 1 !important;
+}
+
