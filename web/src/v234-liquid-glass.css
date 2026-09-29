@@ -1328,3 +1328,44 @@
     font-size: 25px !important;
   }
 }
+
+/* Final optical balance: account for transparent whitespace in supplied SVG. */
+.start-shell[data-ui-tone="ivory"] .start-hero-logo {
+  width: 170px !important;
+  height: 170px !important;
+  margin: -25px 0 -42px -12px !important;
+}
+.start-shell[data-ui-tone="ivory"] .start-intro h1 {
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.026em !important;
+}
+
+/* Match the pre-glyph command geometry exactly; only the graphic changes size. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  grid-template-columns: 255px minmax(0, 1fr) auto !important;
+}
+.folio-shell[data-ui-tone="ivory"] .command-wordmark {
+  justify-content: flex-start !important;
+  padding: 0 18px !important;
+  overflow: hidden !important;
+}
+.folio-shell[data-ui-tone="ivory"] .command-wordmark img {
+  width: 58px !important;
+  height: 58px !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin-left: -7px !important;
+}
+
+@media (max-width: 1120px) {
+  .start-shell[data-ui-tone="ivory"] .start-hero-logo {
+    width: 158px !important;
+    height: 158px !important;
+    margin: -22px 0 -38px -10px !important;
+  }
+  .start-shell[data-ui-tone="ivory"] .start-intro h1 {
+    font-size: 26px !important;
+  }
+}
