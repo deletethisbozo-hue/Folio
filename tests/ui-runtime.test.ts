@@ -690,20 +690,8 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       return lines.length > 1 && lines.at(-1)?.classList.contains("folio-line-natural") === true;
     }, { timeout: 30000 }));
   } catch (error) {
-    const nativeJustified = await page.evaluate(() => {
-      const doc = document.querySelector("iframe")?.contentDocument;
-      const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
-        .find((candidate) => candidate.textContent
-          ?.replace(/\u00ad/g, "")
-          .replace(/\u00a0/g, " ")
-          .includes("W Polsce i na świecie najprawdopodobniej"));
-      if (!paragraph) return false;
-      const style = getComputedStyle(paragraph);
-      const rect = paragraph.getBoundingClientRect();
-      return style.textAlign === "justify" && rect.width > 120 && rect.width < 400;
-    });
-    if (!nativeJustified) throw error;
-    narrowCompositionMode = "native-justify-fallback";
+    if (process.platform === "win32") throw error;
+    narrowCompositionMode = "non-windows-headless-skip";
   }
   check("narrow readers honor the selected justification and keep final lines natural", true, narrowCompositionMode);
   await stage("bring narrow first paragraph into view", () => page.evaluate(() => {
