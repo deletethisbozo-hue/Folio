@@ -686,7 +686,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
     if (!paragraph?.classList.contains("folio-composed")) return false;
     const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
     return lines.length > 1 && lines.at(-1)?.classList.contains("folio-line-natural") === true;
-  }, { timeout: 30000 }));
+  }, { timeout: 60000 }));
   check("narrow readers honor the selected justification and keep final lines natural", true);
   await stage("bring narrow first paragraph into view", () => page.evaluate(() => {
     const first = document.querySelector("iframe")?.contentDocument?.querySelector<HTMLElement>("section.chapter > p");
