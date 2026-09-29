@@ -2141,3 +2141,33 @@
   height: min(720px, calc(100vh - 132px)) !important;
 }
 
+/* Tone parity hardening: legacy Light rules must not change 2.5 geometry. */
+.folio-shell[data-ui-tone="ivory"] > .folio-commandbar > button.tone-toggle,
+.folio-shell[data-ui-tone="midnight"] > .folio-commandbar > button.tone-toggle {
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  align-self: center !important;
+  margin: 0 12px 0 0 !important;
+  padding: 0 12px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 9px !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] > .folio-commandbar > button.tone-toggle {
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] > .folio-commandbar > button.tone-toggle::after,
+.folio-shell[data-ui-tone="midnight"] > .folio-commandbar > button.tone-toggle::after {
+  content: none !important;
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch,
+.folio-shell[data-ui-tone="midnight"] .workspace-mode-switch {
+  border-radius: 12px !important;
+}
+
