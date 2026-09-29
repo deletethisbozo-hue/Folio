@@ -1,0 +1,241 @@
+/* Folio 2.3 — micro polish experiment
+ * Visual-only layer. No geometry, content, compositor, preview rendering or app logic changes.
+ */
+
+.folio-shell[data-ui-tone="ivory"] {
+  --folio-polish-line: #cfd4de;
+  --folio-polish-line-soft: #dfe3ea;
+  --folio-polish-shadow: rgba(32, 36, 54, .07);
+  --folio-polish-shadow-soft: rgba(32, 36, 54, .045);
+}
+
+/* 1) Give the existing chrome a little depth without turning it into card UI. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  box-shadow:
+    0 1px 0 rgba(50, 52, 147, .16),
+    0 3px 10px rgba(44, 46, 126, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar,
+.folio-shell[data-ui-tone="ivory"] .preview-topbar,
+.folio-shell[data-ui-tone="ivory"] .device-toolbar {
+  border-bottom-color: var(--folio-polish-line) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"] .preview-topbar {
+  box-shadow: 0 1px 3px var(--folio-polish-shadow-soft) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar,
+.folio-shell[data-ui-tone="ivory"] .device-toolbar {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-pane {
+  border-right-color: var(--folio-polish-line) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .manuscript-editor {
+  border-color: #cfd4de !important;
+  box-shadow:
+    0 1px 2px rgba(31, 36, 51, .04),
+    0 7px 22px rgba(31, 36, 51, .055) !important;
+}
+
+/* 2) Stronger but still restrained panel hierarchy. */
+.folio-shell[data-ui-tone="ivory"] .library-toolbar,
+.folio-shell[data-ui-tone="ivory"] .preview-topbar {
+  position: relative;
+}
+
+.folio-shell[data-ui-tone="ivory"] .pane-label,
+.folio-shell[data-ui-tone="ivory"] .preview-pane-title {
+  color: #303542 !important;
+  font-weight: 700 !important;
+  letter-spacing: .055em !important;
+}
+
+
+.folio-shell[data-ui-tone="ivory"] .contents-heading {
+  color: #777f8d !important;
+  letter-spacing: .06em !important;
+}
+
+/* 3) Echo the brand in interaction states rather than adding more purple surfaces. */
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:focus-visible,
+.folio-shell[data-ui-tone="ivory"] .device-nav button:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .device-nav button:focus-visible,
+.folio-shell[data-ui-tone="ivory"] .section-move:hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle:hover,
+.folio-shell[data-ui-tone="ivory"] .library-collapse-button:hover,
+.folio-shell[data-ui-tone="ivory"] .tiny-footer-button:hover {
+  background: #eef0ff !important;
+  color: #4f50d3 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle.active,
+.folio-shell[data-ui-tone="ivory"] .focus-typewriter.active,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button.active,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button[aria-pressed="true"] {
+  background: #e7e9ff !important;
+  color: #5b5ce2 !important;
+  box-shadow: inset 0 0 0 1px rgba(91, 92, 226, .18) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button:focus-visible,
+.folio-shell[data-ui-tone="ivory"] .device-nav button:focus-visible,
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle:focus-visible,
+.folio-shell[data-ui-tone="ivory"] .library-collapse-button:focus-visible,
+.folio-shell[data-ui-tone="ivory"] .tiny-footer-button:focus-visible {
+  outline: 0 !important;
+  box-shadow:
+    0 0 0 2px #fbfcfe,
+    0 0 0 4px rgba(91, 92, 226, .30) !important;
+}
+
+/* 4) Controls: same geometry, clearer hover/open/focus hierarchy. */
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select,
+.folio-shell[data-ui-tone="ivory"] .writing-split-title select {
+  border-color: #c3c9d5 !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(31, 36, 51, .035) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select:hover,
+.folio-shell[data-ui-tone="ivory"] .trim-select:hover,
+.folio-shell[data-ui-tone="ivory"] .writing-split-title select:hover {
+  border-color: #aeb6c3 !important;
+  background-color: #fbfcff !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select:focus,
+.folio-shell[data-ui-tone="ivory"] .trim-select:focus,
+.folio-shell[data-ui-tone="ivory"] .writing-split-title select:focus {
+  border-color: #7778ed !important;
+  outline: 0 !important;
+  box-shadow: 0 0 0 3px rgba(91, 92, 226, .13) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button:not(.primary):hover:not(:disabled),
+.folio-shell[data-ui-tone="ivory"] .library-add-section:hover {
+  border-color: #b7becb !important;
+  background: #eef0ff !important;
+  color: #4f50d3 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button {
+  box-shadow: 0 2px 5px rgba(70, 72, 184, .18) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .generate-button:hover {
+  box-shadow: 0 3px 8px rgba(70, 72, 184, .22) !important;
+}
+
+/* Keep the content canvas neutral; only improve separation around it. */
+.folio-shell[data-ui-tone="ivory"] .editor-paper {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .58) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-stage {
+  box-shadow: inset 1px 0 0 rgba(199, 205, 216, .35) !important;
+}
+
+
+/* 5) Visible polish pass: still the same Folio, but the workspace layers read at a glance. */
+.folio-shell[data-ui-tone="ivory"] .library-toolbar {
+  background: #e5e8ee !important;
+  border-bottom: 1px solid #cfd4de !important;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .55) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-topbar,
+.folio-shell[data-ui-tone="ivory"] .preview-topbar {
+  background: #f7f8fc !important;
+  border-bottom-color: #c7cdd8 !important;
+  box-shadow: 0 2px 6px rgba(35, 39, 58, .065) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar,
+.folio-shell[data-ui-tone="ivory"] .device-toolbar {
+  background: #f2f4f8 !important;
+  border-bottom-color: #c7cdd8 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .82),
+    0 2px 5px rgba(35, 39, 58, .045) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .section-titlebar {
+  border-bottom-color: #cfd4de !important;
+  box-shadow: 0 2px 5px rgba(35, 39, 58, .035) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .pane-label,
+.folio-shell[data-ui-tone="ivory"] .preview-pane-title {
+  color: #4f50d3 !important;
+  font-weight: 720 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected {
+  background: #e3e6ff !important;
+  box-shadow:
+    inset 3px 0 0 #5b5ce2,
+    inset 0 0 0 1px rgba(91, 92, 226, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .write-sidebar-toggle.active {
+  background: #e1e4ff !important;
+  color: #4f50d3 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(91, 92, 226, .22),
+    0 1px 2px rgba(50, 52, 120, .08) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar button {
+  color: #596170 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button,
+.folio-shell[data-ui-tone="ivory"] .format-toolbar .scene-break-button span {
+  color: #5b5ce2 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-label select,
+.folio-shell[data-ui-tone="ivory"] .trim-select {
+  border-color: #b9c0cc !important;
+  background: #fdfdff !important;
+  color: #4f50d3 !important;
+  box-shadow:
+    0 1px 2px rgba(31, 36, 51, .05),
+    inset 0 0 0 1px rgba(91, 92, 226, .025) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-nav button {
+  border: 1px solid transparent !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .device-nav button:not(:disabled):hover {
+  border-color: rgba(91, 92, 226, .15) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .manuscript-editor {
+  border-color: #c8ced9 !important;
+  box-shadow:
+    0 1px 2px rgba(31, 36, 51, .05),
+    0 10px 28px rgba(31, 36, 51, .09) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .preview-stage {
+  box-shadow:
+    inset 1px 0 0 rgba(190, 197, 210, .55),
+    inset 0 1px 0 rgba(255, 255, 255, .7) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .native-button:not(.primary),
+.folio-shell[data-ui-tone="ivory"] .library-add-section {
+  border-color: #bcc3cf !important;
+  box-shadow: 0 1px 2px rgba(31, 36, 51, .05) !important;
+}

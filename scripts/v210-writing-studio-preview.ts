@@ -31,7 +31,7 @@ try {
   await page.setViewport({ width: 1536, height: 1024, deviceScaleFactor: 1 });
   await page.goto(base, { waitUntil: "networkidle0" });
 
-  await page.waitForSelector(".start-shell .start-brand");
+  await page.waitForSelector(".start-shell .start-hero-logo");
   const dashboardActions = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLButtonElement>(".start-actions button")].map((button) => button.textContent?.trim() ?? ""),
   );
@@ -94,6 +94,38 @@ try {
   });
   await settle(350);
   await page.screenshot({ path: path.join(qa, "02-format.png") });
+
+  await page.click('[data-command="design"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Book style library"]');
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "02a-design-library.png") });
+  const hoverTheme = await page.$(".theme-sample:not(.selected)") ?? await page.$(".theme-sample");
+  if (!hoverTheme) throw new Error("Theme card missing for live hover preview QA");
+  await hoverTheme.hover();
+  await page.waitForSelector(".theme-hover-preview");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".theme-hover-preview iframe");
+    return Boolean(frame?.contentDocument?.body?.innerText?.trim().length);
+  });
+  await settle(250);
+  await page.screenshot({ path: path.join(qa, "02a-design-library-hover-preview.png") });
+  await page.mouse.move(20, 20);
+  await page.click('.style-library-header button[aria-label="Close"]');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book style library"]'));
+
+  await page.click('[data-command="book"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Book Details"]');
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "02b-book-details.png") });
+  await page.click('[role="dialog"][aria-label="Book Details"] header button[aria-label="Close"]');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book Details"]'));
+
+  await page.click(".generate-button");
+  await page.waitForSelector(".generate-menu");
+  await settle(160);
+  await page.screenshot({ path: path.join(qa, "02c-export-menu.png") });
+  await page.click(".generate-button");
+  await page.waitForFunction(() => !document.querySelector(".generate-menu"));
 
   await page.evaluate(() => {
     const write = [...document.querySelectorAll<HTMLButtonElement>(".workspace-mode-switch button")]
@@ -287,6 +319,26 @@ try {
     split.click();
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="true"] .writing-split-pane');
+  const splitAlignment = await page.evaluate(() => {
+    const pairs = [
+      ["top strip", ".editor-topbar", ".writing-split-top-strip"],
+      ["section header", ".section-titlebar", ".writing-split-header"],
+      ["format toolbar", ".format-toolbar", ".writing-split-toolbar"],
+      ["writing surface", ".editor-paper", ".writing-split-paper"],
+      ["manuscript text", ".manuscript-editor", ".writing-split-editor"],
+    ] as const;
+    return pairs.map(([label, leftSelector, rightSelector]) => {
+      const left = document.querySelector<HTMLElement>(leftSelector);
+      const right = document.querySelector<HTMLElement>(rightSelector);
+      if (!left || !right) throw new Error(`Split alignment QA missing ${label}: ${leftSelector} / ${rightSelector}`);
+      const a = left.getBoundingClientRect();
+      const b = right.getBoundingClientRect();
+      return { label, leftTop: a.top, rightTop: b.top, topDelta: Math.abs(a.top - b.top), leftHeight: a.height, rightHeight: b.height, heightDelta: Math.abs(a.height - b.height) };
+    });
+  });
+  const misaligned = splitAlignment.filter((row) => row.topDelta > 1.5 || row.heightDelta > 1.5);
+  if (misaligned.length) throw new Error(`Split editor geometry does not match the primary editor: ${JSON.stringify(misaligned)}`);
+  console.log(`Split editor alignment passed: ${JSON.stringify(splitAlignment)}`);
   await page.waitForSelector(".writing-split-editor[contenteditable='true'].typewriter-active");
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".writing-split-editor");

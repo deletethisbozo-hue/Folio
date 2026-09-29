@@ -1,0 +1,41 @@
+name: Write Supreme qualification
+
+on:
+  push:
+    branches: ["feature/write-supreme-toolkit"]
+    paths:
+      - "web/**"
+      - "server/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/write-supreme-qualification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: write-supreme-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Write Studio logic and persistence tests
+        run: node --import tsx tests/write-studio.test.ts
+      - name: Build
+        run: npm run build
+      - name: Writing Studio browser smoke
+        run: node --import tsx tests/write-studio-ui.test.ts

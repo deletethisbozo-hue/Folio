@@ -24,6 +24,7 @@ const ORDER = [
   "atomic-write.test.ts",
   "config-concurrency.test.ts",
   "save-queue.test.ts",
+  "write-studio.test.ts",
   "project-file.test.ts",
   "project-file-api.test.ts",
   "project-file-association.test.ts",

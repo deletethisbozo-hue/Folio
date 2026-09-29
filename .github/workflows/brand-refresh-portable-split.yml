@@ -1,0 +1,42 @@
+name: Split Folio brand refresh portable
+
+on:
+  push:
+    branches: ["feature/folio-brand-refresh-230"]
+    paths:
+      - ".github/workflows/brand-refresh-portable-split.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  split:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Download verified Windows candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: Folio-Brand-Refresh-Windows
+          path: candidate
+          github-token: ${{ github.token }}
+          run-id: 36325022010
+
+      - name: Verify portable candidate
+        run: |
+          test -s candidate/Folio-2.3.0-portable.exe
+          test -s candidate/brand-refresh-sha256.txt
+          grep "Folio-2.3.0-portable.exe" candidate/brand-refresh-sha256.txt
+          cat candidate/brand-refresh-sha256.txt
+
+      - name: Upload portable separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-2.3.0-Brand-Refresh-Portable
+          retention-days: 14
+          compression-level: 0
+          path: |
+            candidate/Folio-2.3.0-portable.exe
+            candidate/brand-refresh-sha256.txt

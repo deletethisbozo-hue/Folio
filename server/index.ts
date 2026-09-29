@@ -4,6 +4,7 @@ import path from "node:path";
 import open from "open";
 import { registerApi } from "./api.ts";
 import { registerEditorApi } from "./editor-api.ts";
+import { registerWriteStudioApi } from "./write-studio-api.ts";
 import { checkPandoc, pandocBanner } from "./preflight.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -21,6 +22,7 @@ app.use(express.json({ limit: "64mb" }));
 
 registerApi(app);
 registerEditorApi(app);
+registerWriteStudioApi(app);
 
 // In production we serve the built frontend. In dev, Vite serves it on 5173.
 if (!isDev) {

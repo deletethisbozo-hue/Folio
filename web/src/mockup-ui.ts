@@ -47,23 +47,10 @@ function syncMockupUi() {
     row.prepend(icon);
   });
 
-  const selectedChapter = shell.querySelector<HTMLElement>(".contents-list .chapter-row.selected");
-
-  const status = shell.querySelector<HTMLElement>(".folio-statusbar");
-  if (status) {
-    let metrics = status.querySelector<HTMLElement>(".folio-status-metrics");
-    if (!metrics) {
-      metrics = document.createElement("span");
-      metrics.className = "folio-status-metrics";
-      const first = status.firstElementChild;
-      if (first?.nextSibling) status.insertBefore(metrics, first.nextSibling);
-      else status.append(metrics);
-    }
-    const chapterLabel = selectedChapter?.querySelector<HTMLElement>(".chapter-label")?.textContent?.trim() ?? "";
-    const chapterNumber = selectedChapter?.querySelector<HTMLElement>(".chapter-number")?.textContent?.trim() ?? "";
-    const words = shell.querySelector<HTMLElement>(".word-count")?.textContent?.trim() ?? "";
-    metrics.textContent = [chapterNumber && `Chapter ${chapterNumber.replace(/\D/g, "")}`, chapterLabel, words].filter(Boolean).join("  ·  ");
-  }
+  // Folio used to inject a second chapter/word-count metric into the footer here.
+  // The real status bar now owns its contents, so remove any legacy node left
+  // behind by hot reload instead of creating or updating one.
+  shell.querySelector(".folio-status-metrics")?.remove();
 }
 
 export function installMockupUiRuntime() {

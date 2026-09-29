@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { deleteSectionDocument, readSectionDocument, updateSectionHeadingDocument, writeSectionDocument } from "./section-editor.ts";
 import { hasProject } from "./projects.ts";
+import { maybeRecordAutoRevision, migrateWriteStudioSectionId } from "./write-studio.ts";
 
 const sectionMutationTails = new Map<string, Promise<void>>();
 
@@ -37,6 +38,8 @@ export function registerEditorApi(app: Express): void {
       if (!hasProject(req.params.id)) throw new Error("Project not found.");
       const markdown = typeof req.body?.markdown === "string" ? req.body.markdown : "";
       const saved = await runSectionMutation(req.params.id, req.params.sectionId, async () => {
+        const before = await readSectionDocument(req.params.id, req.params.sectionId);
+        await maybeRecordAutoRevision(req.params.id, req.params.sectionId, before.markdown);
         await writeSectionDocument(req.params.id, req.params.sectionId, markdown);
         return readSectionDocument(req.params.id, req.params.sectionId);
       });
@@ -52,9 +55,14 @@ export function registerEditorApi(app: Express): void {
       const title = typeof req.body?.title === "string" ? req.body.title : undefined;
       const subtitle = typeof req.body?.subtitle === "string" ? req.body.subtitle : undefined;
       if (title === undefined && subtitle === undefined) throw new Error("No chapter heading change provided.");
-      res.json(await runSectionMutation(req.params.id, req.params.sectionId, () =>
-        updateSectionHeadingDocument(req.params.id, req.params.sectionId, { title, subtitle }),
-      ));
+      const previousSectionId = req.params.sectionId;
+      const updated = await runSectionMutation(req.params.id, previousSectionId, () =>
+        updateSectionHeadingDocument(req.params.id, previousSectionId, { title, subtitle }),
+      );
+      if (updated.id !== previousSectionId) {
+        await migrateWriteStudioSectionId(req.params.id, previousSectionId, updated.id);
+      }
+      res.json(updated);
     } catch (error) {
       sendError(res, error);
     }

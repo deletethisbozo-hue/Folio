@@ -1,0 +1,52 @@
+name: Split Write Supreme Windows artifacts
+
+on:
+  push:
+    branches: ["feature/write-supreme-toolkit"]
+    paths:
+      - ".github/workflows/write-supreme-artifact-split.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  split:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Download verified Windows candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: Folio-Write-Supreme-Windows
+          path: candidate
+          github-token: ${{ github.token }}
+          run-id: 36315161221
+
+      - name: Verify expected files
+        run: |
+          test -s candidate/Folio-2.3.0-setup.exe
+          test -s candidate/Folio-2.3.0-portable.exe
+          test -s candidate/write-supreme-sha256.txt
+          cat candidate/write-supreme-sha256.txt
+
+      - name: Upload portable separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Write-Supreme-Portable
+          retention-days: 14
+          compression-level: 0
+          path: |
+            candidate/Folio-2.3.0-portable.exe
+            candidate/write-supreme-sha256.txt
+
+      - name: Upload installer separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Write-Supreme-Setup
+          retention-days: 14
+          compression-level: 0
+          path: |
+            candidate/Folio-2.3.0-setup.exe
+            candidate/write-supreme-sha256.txt

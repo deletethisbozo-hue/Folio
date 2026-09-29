@@ -136,15 +136,16 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
   return (
     <div className="start-shell" data-ui-tone={tone}>
       <div className="start-windowbar">
-        <div className="start-brand">folio</div>
+        <div className="start-brand-spacer" aria-hidden="true"/>
         <div className="start-version">{version}</div>
       </div>
 
       <main className="start-main">
         <section className="start-intro" aria-labelledby="start-title">
-          <p className="start-kicker">Book formatting studio</p>
-          <h1 id="start-title">Your books,<br/>ready to continue.</h1>
-          <p className="start-copy">Open a recent Folio project file, start something new, or import one of the older folder-based books.</p>
+          <div className="start-hero-logo-frame">
+            <img className="start-hero-logo" src="/brand/foliologo.svg" alt="Folio"/>
+          </div>
+          <h1 id="start-title">Write. Format. Publish.</h1>
           <div className="start-actions">
             <button className="start-button primary" disabled={busy !== null} onClick={() => void chooseNewLocation()}>
               {busy === "new" ? "Choosing file…" : "New Book"}

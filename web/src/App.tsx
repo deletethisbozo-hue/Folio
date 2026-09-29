@@ -17,6 +17,8 @@ import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewM
 import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import WritingSplitPane from "./WritingSplitPane";
+import WriteStudioDrawer from "./WriteStudioDrawer";
+import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -42,7 +44,7 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "typewriter" | "sidebar" | "previous" | "next";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "typewriter" | "sidebar" | "previous" | "next" | "tools";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
@@ -60,6 +62,7 @@ function UiIcon({ name }: { name: UiIconName }) {
     sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M8.5 5v14"/></>,
     previous: <path d="m15 18-6-6 6-6"/>,
     next: <path d="m9 18 6-6-6-6"/>,
+    tools: <><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
   };
   return <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }
@@ -146,6 +149,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [typography, setTypography] = useState<Typography>(initialProject?.typography ?? {});
   const [selectedId, setSelectedId] = useState<string | null>(initialSection?.id ?? null);
   const [sectionRevision, setSectionRevision] = useState(0);
+  const [splitContentRevision, setSplitContentRevision] = useState(0);
   const [document, setDocument] = useState<SectionDocument | null>(null);
   const [draft, setDraft] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -162,6 +166,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [focusMode, setFocusMode] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
+  const [writeStudioOpen, setWriteStudioOpen] = useState(false);
+  const [writeStudioTab, setWriteStudioTab] = useState<WriteStudioTab>("session");
+  const [writeStudioState, setWriteStudioState] = useState<WriteStudioState | null>(null);
+  const [liveSectionWordCounts, setLiveSectionWordCounts] = useState<Record<string, number>>({});
+  const [splitEditRevision, setSplitEditRevision] = useState(0);
+  const [sessionStats, setSessionStats] = useState<SessionStats>({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
   const [writeZoom, setWriteZoom] = useState(() => {
     const stored = Number(window.localStorage.getItem("folio-write-zoom"));
     return Number.isFinite(stored) ? Math.max(0.7, Math.min(2, stored)) : 1;
@@ -204,6 +214,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const sectionSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const appearanceSaveQueueRef = useRef(new SerialSaveQueue<string>());
   const splitFlushRef = useRef<(() => Promise<boolean>) | null>(null);
+  const sessionTrackRef = useRef<{ sectionId: string | null; words: number }>({ sectionId: null, words: 0 });
+  const lastWritingActivityRef = useRef<number | null>(null);
+  const sessionNetRef = useRef(0);
+  const reportedSessionNetRef = useRef(0);
+  const progressSyncTimerRef = useRef<number | null>(null);
+  const progressSyncInFlightRef = useRef(false);
+  const lastEditorSelectionRef = useRef<SelectionCapture | null>(null);
+  const pendingRevealRef = useRef<{ sectionId: string; text: string; prefix?: string; suffix?: string } | null>(null);
   const fastInputBurstRef = useRef(false);
   const fastInputBurstTimerRef = useRef<number | null>(null);
   const draftWordCountCacheRef = useRef<{ text: string; count: number }>({ text: "", count: 0 });
@@ -257,6 +275,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
   useEffect(() => {
     fastInputBurstRef.current = false;
+    lastEditorSelectionRef.current = null;
+    illustrationRangeRef.current = null;
     if (fastInputBurstTimerRef.current !== null) {
       window.clearTimeout(fastInputBurstTimerRef.current);
       fastInputBurstTimerRef.current = null;
@@ -266,6 +286,28 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
+  useEffect(() => {
+    if (!project) { setWriteStudioState(null); return; }
+    let cancelled = false;
+    const projectId = project.projectId;
+    setWriteStudioState(null);
+    setLiveSectionWordCounts({});
+    setSessionStats({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
+    sessionTrackRef.current = { sectionId: null, words: 0 };
+    lastWritingActivityRef.current = null;
+    sessionNetRef.current = 0;
+    reportedSessionNetRef.current = 0;
+    progressSyncInFlightRef.current = false;
+    if (progressSyncTimerRef.current !== null) {
+      window.clearTimeout(progressSyncTimerRef.current);
+      progressSyncTimerRef.current = null;
+    }
+    lastEditorSelectionRef.current = null;
+    api.writeStudio(projectId)
+      .then((state) => { if (!cancelled && project?.projectId === projectId) setWriteStudioState(state); })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
+  }, [project?.projectId]);
   useEffect(() => {
     if (!focusMode) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -280,6 +322,15 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (workspaceMode !== "write" || !typewriterMode) return;
     scheduleTypewriterCaret(editorRef.current);
   }, [workspaceMode, typewriterMode, focusMode, splitView, writeSidebarOpen, selectedId]);
+  useEffect(() => {
+    if (!writeStudioOpen || writeStudioTab !== "history" || !project || saveState === "saving") return;
+    let cancelled = false;
+    const projectId = project.projectId;
+    api.writeStudio(projectId)
+      .then((state) => { if (!cancelled && project?.projectId === projectId) setWriteStudioState(state); })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
+  }, [writeStudioOpen, writeStudioTab, project?.projectId, saveState]);
   useEffect(() => {
     if (draft.length < 35_000) { setPreviewDraft(draft); return; }
     const delay = draft.length > 250_000 ? 460 : draft.length > 100_000 ? 300 : 150;
@@ -328,6 +379,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const backMatter = useMemo(() => project?.sections.filter((s) => s.kind === "backmatter") ?? [], [project]);
   const selectedSection = project?.sections.find((s) => s.id === selectedId) ?? null;
   const coverSelected = selectedId === COVER_ID;
+  const stylePreviewSectionId = selectedSection?.kind === "chapter" ? selectedSection.id : chapters[0]?.id;
+  const stylePreviewDraft = stylePreviewSectionId && stylePreviewSectionId === selectedId ? draft : undefined;
   const previewProfile = getPreviewProfile(previewMode);
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
   const writingOrnament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
@@ -355,6 +408,60 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return count;
   }, [draft]);
   const totalWords = useMemo(() => project ? Math.max(draftWords, Math.round(project.bodyChars / 5.1)) : 0, [project, draftWords]);
+  const sessionNet = sessionStats.gross - sessionStats.deleted;
+
+  useEffect(() => {
+    if (workspaceMode !== "write" || !selectedId || document?.id !== selectedId || !document?.editable) return;
+    setLiveSectionWordCounts((current) => current[selectedId] === draftWords ? current : { ...current, [selectedId]: draftWords });
+    const previous = sessionTrackRef.current;
+    if (previous.sectionId !== selectedId) {
+      sessionTrackRef.current = { sectionId: selectedId, words: draftWords };
+      return;
+    }
+    const delta = draftWords - previous.words;
+    if (!delta) return;
+    sessionTrackRef.current = { sectionId: selectedId, words: draftWords };
+    setSessionStats((current) => delta > 0
+      ? { ...current, gross: current.gross + delta }
+      : { ...current, deleted: current.deleted + Math.abs(delta) });
+  }, [workspaceMode, selectedId, document?.id, document?.editable, draftWords]);
+
+  useEffect(() => {
+    sessionNetRef.current = sessionNet;
+    if (!project || !writeStudioState) return;
+    const projectId = project.projectId;
+    if (progressSyncTimerRef.current !== null) window.clearTimeout(progressSyncTimerRef.current);
+
+    const syncProgress = async () => {
+      progressSyncTimerRef.current = null;
+      if (progressSyncInFlightRef.current || project?.projectId !== projectId) return;
+      const delta = sessionNetRef.current - reportedSessionNetRef.current;
+      if (!delta) return;
+      progressSyncInFlightRef.current = true;
+      try {
+        const updated = await api.addWritingProgress(projectId, todayKey(), delta);
+        if (project?.projectId === projectId) {
+          reportedSessionNetRef.current += delta;
+          setWriteStudioState(updated);
+        }
+      } catch (e) {
+        if (project?.projectId === projectId) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        progressSyncInFlightRef.current = false;
+        if (project?.projectId === projectId && sessionNetRef.current !== reportedSessionNetRef.current) {
+          progressSyncTimerRef.current = window.setTimeout(() => void syncProgress(), 300);
+        }
+      }
+    };
+
+    progressSyncTimerRef.current = window.setTimeout(() => void syncProgress(), 1400);
+    return () => {
+      if (progressSyncTimerRef.current !== null) {
+        window.clearTimeout(progressSyncTimerRef.current);
+        progressSyncTimerRef.current = null;
+      }
+    };
+  }, [project?.projectId, sessionNet, writeStudioState !== null]);
 
   useEffect(() => {
     if (!project || !selectedId || selectedId === COVER_ID) return;
@@ -373,6 +480,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }).catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => { cancelled = true; };
   }, [project?.projectId, selectedId, sectionRevision, document?.id]);
+
+  useEffect(() => {
+    const pending = pendingRevealRef.current;
+    if (!pending || document?.id !== pending.sectionId || selectedId !== pending.sectionId) return;
+    const frame = window.requestAnimationFrame(() => {
+      revealTextInEditor(pending.text, pending.prefix, pending.suffix);
+      if (pendingRevealRef.current === pending) pendingRevealRef.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [document?.id, selectedId, draft]);
 
   useEffect(() => {
     if (workspaceMode === "write" || !project || !meta || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || previewMode === "print") return;
@@ -461,7 +578,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     // and could add chapter-only typography such as drop caps.
     if (workspaceMode === "write" || previewMode === "print" || !selectedId || selectedId === COVER_ID || document?.id !== selectedId || !document.editable) return "none";
     const previewDocument = previewRef.current?.contentDocument;
-    if (!previewDocument) return "none";
+    if (!previewDocument?.head || !previewDocument.body || !previewDocument.documentElement) return "none";
     // The editor model is authoritative. previewDraft is deliberately debounced
     // for expensive server/print work and can lag a fresh chapter by one render.
     // Local live preview must never re-apply that stale snapshot after an iframe
@@ -818,7 +935,30 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       await flushEditorDom();
       const liveDraft = draftRef.current;
       const draftChangedDuringSave = liveDraft !== draftAtStart;
-      if (updated.id !== selectedId) { undoRef.current = []; redoRef.current = []; }
+      if (updated.id !== selectedId) {
+        undoRef.current = [];
+        redoRef.current = [];
+        setWriteStudioState((current) => {
+          if (!current) return current;
+          const chapters = { ...current.targets.chapters };
+          if (chapters[selectedId] !== undefined) {
+            if (chapters[updated.id] === undefined) chapters[updated.id] = chapters[selectedId];
+            delete chapters[selectedId];
+          }
+          return {
+            ...current,
+            targets: { ...current.targets, chapters },
+            comments: current.comments.map((item) => item.sectionId === selectedId ? { ...item, sectionId: updated.id } : item),
+            revisions: current.revisions.map((item) => item.scope === "section" && item.sectionId === selectedId ? { ...item, sectionId: updated.id } : item),
+          };
+        });
+        setLiveSectionWordCounts((current) => {
+          if (current[selectedId] === undefined) return current;
+          const next = { ...current, [updated.id]: current[selectedId] };
+          delete next[selectedId];
+          return next;
+        });
+      }
       // updateSectionHeading already re-ingests the authoritative source. A
       // second full-project reload made large books pause and briefly removed
       // the editor after every rename. Update only the summary row that changed.
@@ -1064,7 +1204,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       setSplitView(false);
     }
     if (next === "format" && focusMode) setFocusMode(false);
-    if (next === "format") setWriteSidebarOpen(true);
+    if (next === "format") { setWriteSidebarOpen(true); setWriteStudioOpen(false); }
     if (next === "write" && workspaceMode !== "write") setWriteSidebarOpen(false);
     setWorkspaceMode(next);
   }
@@ -1075,6 +1215,183 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       return;
     }
     setSplitView(true);
+  }
+
+  function openWriteStudio(tab: WriteStudioTab = "session") {
+    setWriteStudioTab(tab);
+    setWriteStudioOpen(true);
+  }
+
+  function noteWritingActivity() {
+    const now = Date.now();
+    const previous = lastWritingActivityRef.current;
+    lastWritingActivityRef.current = now;
+    if (previous === null) return;
+    const gap = now - previous;
+    if (gap <= 0 || gap > 60_000) return;
+    setSessionStats((current) => ({ ...current, activeMs: current.activeMs + gap }));
+  }
+
+  function rememberEditorSelection(): SelectionCapture | null {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return lastEditorSelectionRef.current;
+    if (selection.isCollapsed) {
+      if (selection.focusNode && editor.contains(selection.focusNode)) {
+        lastEditorSelectionRef.current = null;
+        return null;
+      }
+      return lastEditorSelectionRef.current;
+    }
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return lastEditorSelectionRef.current;
+
+    const raw = selection.toString();
+    const quote = raw.trim();
+    if (!quote) return lastEditorSelectionRef.current;
+
+    const beforeRange = window.document.createRange();
+    beforeRange.selectNodeContents(editor);
+    beforeRange.setEnd(range.startContainer, range.startOffset);
+    const afterRange = window.document.createRange();
+    afterRange.selectNodeContents(editor);
+    afterRange.setStart(range.endContainer, range.endOffset);
+
+    const leading = raw.slice(0, raw.length - raw.trimStart().length);
+    const trailing = raw.slice(raw.trimEnd().length);
+    lastEditorSelectionRef.current = {
+      quote: quote.slice(0, 2000),
+      prefix: (beforeRange.toString() + leading).slice(-160),
+      suffix: (trailing + afterRange.toString()).slice(0, 160),
+    };
+    return lastEditorSelectionRef.current;
+  }
+
+  function captureEditorSelection(): SelectionCapture | null {
+    return rememberEditorSelection();
+  }
+
+  function revealTextInEditor(text: string, prefix?: string, suffix?: string) {
+    const editor = editorRef.current;
+    if (!editor || !text) return;
+    const walker = window.document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    const nodes: Array<{ node: Text; start: number; end: number }> = [];
+    let full = "";
+    let current = walker.nextNode();
+    while (current) {
+      const node = current as Text;
+      const start = full.length;
+      full += node.data;
+      nodes.push({ node, start, end: full.length });
+      current = walker.nextNode();
+    }
+
+    const lower = full.toLocaleLowerCase();
+    const needle = text.toLocaleLowerCase();
+    const candidates: number[] = [];
+    let cursor = 0;
+    while (cursor <= lower.length - needle.length) {
+      const found = lower.indexOf(needle, cursor);
+      if (found < 0) break;
+      candidates.push(found);
+      cursor = found + Math.max(1, needle.length);
+    }
+    if (!candidates.length) return;
+
+    const prefixLower = prefix?.toLocaleLowerCase() ?? "";
+    const suffixLower = suffix?.toLocaleLowerCase() ?? "";
+    const overlapScore = (left: string, right: string, fromEnd: boolean) => {
+      const max = Math.min(left.length, right.length);
+      for (let size = max; size > 0; size--) {
+        if (fromEnd ? left.slice(-size) === right.slice(-size) : left.slice(0, size) === right.slice(0, size)) return size;
+      }
+      return 0;
+    };
+    let index = candidates[0];
+    let bestScore = -1;
+    for (const candidate of candidates) {
+      const before = lower.slice(Math.max(0, candidate - prefixLower.length), candidate);
+      const after = lower.slice(candidate + needle.length, candidate + needle.length + suffixLower.length);
+      const score = overlapScore(before, prefixLower, true) + overlapScore(after, suffixLower, false);
+      if (score > bestScore) { bestScore = score; index = candidate; }
+    }
+    const endIndex = index + text.length;
+    const startNode = nodes.find((item) => index >= item.start && index <= item.end);
+    const endNode = nodes.find((item) => endIndex >= item.start && endIndex <= item.end) ?? nodes[nodes.length - 1];
+    if (!startNode || !endNode) return;
+    const range = window.document.createRange();
+    range.setStart(startNode.node, Math.max(0, index - startNode.start));
+    range.setEnd(endNode.node, Math.max(0, Math.min(endNode.node.length, endIndex - endNode.start)));
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    editor.focus();
+    const rect = range.getBoundingClientRect();
+    const hostRect = editor.getBoundingClientRect();
+    editor.scrollTo({ top: Math.max(0, editor.scrollTop + rect.top - hostRect.top - editor.clientHeight * .42), behavior: "smooth" });
+  }
+
+  function refreshAfterBookRestore(summary: ProjectSummary) {
+    const liveMeta = meta ?? summary.meta;
+    const liveTypography = typography;
+    const previousSelectedId = selectedRef.current;
+    const previousIndex = project?.sections.findIndex((section) => section.id === previousSelectedId) ?? -1;
+    const restoredSelection = summary.sections.find((section) => section.id === previousSelectedId)
+      ?? (previousIndex >= 0 ? summary.sections[previousIndex] : undefined)
+      ?? summary.sections.find((section) => section.kind === "chapter")
+      ?? summary.sections[0]
+      ?? null;
+    setProject({ ...summary, meta: liveMeta, typography: liveTypography });
+    setMeta(liveMeta);
+    setTypography(liveTypography);
+    setSelectedId(restoredSelection?.id ?? null);
+    selectedRef.current = restoredSelection?.id ?? null;
+    setDocument(null);
+    setDirty(false);
+    setSaveState("idle");
+    editorDomDirtyRef.current = false;
+    editorDomGenerationRef.current++;
+    draftRef.current = "";
+    setDraft("");
+    setPreviewDraft("");
+    setLiveSectionWordCounts({});
+    setSectionRevision((value) => value + 1);
+    setSplitContentRevision((value) => value + 1);
+  }
+
+  async function navigateText(sectionId: string, text: string, prefix?: string, suffix?: string) {
+    const pending = { sectionId, text, prefix, suffix };
+    pendingRevealRef.current = pending;
+    if (sectionId !== selectedRef.current) {
+      await selectSection(sectionId);
+      if (selectedRef.current !== sectionId && pendingRevealRef.current === pending) pendingRevealRef.current = null;
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      revealTextInEditor(text, prefix, suffix);
+      if (pendingRevealRef.current === pending) pendingRevealRef.current = null;
+    });
+  }
+
+  function replaceCurrentFromStudio(markdown: string) {
+    recordDraft(markdown);
+    const editor = editorRef.current;
+    if (editor) {
+      editor.innerHTML = markdownToEditorHtml(markdown, typography.sceneOrnament ?? "❦", (asset) => project ? `/api/projects/${encodeURIComponent(project.projectId)}/asset?path=${encodeURIComponent(asset)}` : asset);
+      editor.dataset.markdown = markdown;
+      editorDomDirtyRef.current = false;
+      editorDomGenerationRef.current++;
+    }
+  }
+
+  async function currentMarkdownForStudio(): Promise<string> {
+    await flushEditorDom();
+    return draftRef.current;
+  }
+
+  async function restoreMarkdownFromStudio(markdown: string) {
+    replaceCurrentFromStudio(markdown);
+    await saveCurrent();
   }
 
   async function saveCurrent(): Promise<boolean> {
@@ -1329,6 +1646,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function syncLiveChapterLabel(doc: Document) {
+    if (!doc.head || !doc.documentElement) return;
     doc.getElementById("folio-live-chapter-label")?.remove();
     if (!selectedId || selectedSection?.kind !== "chapter") return;
     const chapterTitle = typography.chapterTitle;
@@ -1371,7 +1689,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       const proseComposition = typography.bodyAlign === "left"
         ? `${proseSelector}{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:none!important;hyphens:none!important;text-wrap:pretty!important}`
         : `${proseSelector}{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important}`;
-      style.textContent = "html,body{min-height:100%!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified,.folio-line-natural{text-align:left!important;text-align-last:left!important}.scene-break{text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}" + proseComposition;
+      style.textContent = "html,body{min-height:100%!important;scrollbar-width:none!important;-ms-overflow-style:none!important}html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}html::-webkit-scrollbar-track,html::-webkit-scrollbar-thumb,body::-webkit-scrollbar-track,body::-webkit-scrollbar-thumb{background:transparent!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified,.folio-line-natural{text-align:left!important;text-align-last:left!important}.scene-break{text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}" + proseComposition;
     }
     doc.head.appendChild(style);
     const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
@@ -1635,6 +1953,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   function recordEditorDom() {
     const editor = editorRef.current;
     if (!editor) return;
+    noteWritingActivity();
     editorDomDirtyRef.current = true;
     editorDomGenerationRef.current++;
     if (draftRef.current.length < 35_000) void flushEditorDom();
@@ -1753,7 +2072,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   return (
     <div className="folio-shell" data-ui-tone={uiTone} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom), "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties}>
       <header className="folio-commandbar">
-        <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}>folio</button>
+        <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}><img src="/brand/flyph.svg" alt="" aria-hidden="true"/></button>
         <nav aria-label="Application commands">
           <button data-command="book" onClick={() => setShowBookDetails(true)}>Book</button>
           <button data-command="design" onClick={() => setShowStyle(true)}>Design</button>
@@ -1789,12 +2108,13 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration at cursor">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
-          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => !value)}><UiIcon name="focus"/></button></>}
+          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
-        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={editorClick} onKeyDown={editorKeyDown} onKeyUp={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
       </section>
 
       {splitView && <WritingSplitPane
+        key={project.projectId + ":" + splitContentRevision}
         project={project}
         primarySectionId={selectedId}
         ornament={writingOrnament}
@@ -1803,7 +2123,46 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         writeZoom={writeZoom}
         onClose={() => setSplitView(false)}
         onError={(message) => setError(message)}
+        onWordDelta={(delta) => setSessionStats((current) => delta > 0
+          ? { ...current, gross: current.gross + delta }
+          : { ...current, deleted: current.deleted + Math.abs(delta) })}
+        onLiveWordCount={(sectionId, count) => setLiveSectionWordCounts((current) => current[sectionId] === count ? current : { ...current, [sectionId]: count })}
+        onWritingActivity={noteWritingActivity}
+        onContentChanged={() => setSplitEditRevision((value) => value + 1)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
+      />}
+
+      {workspaceMode === "write" && <WriteStudioDrawer
+        open={writeStudioOpen}
+        activeTab={writeStudioTab}
+        setActiveTab={setWriteStudioTab}
+        project={project}
+        document={document}
+        selectedId={selectedId}
+        draft={draft}
+        currentWords={draftWords}
+        totalWords={totalWords}
+        liveSectionWordCounts={liveSectionWordCounts}
+        externalEditRevision={splitEditRevision}
+        language={meta.language || "en"}
+        session={sessionStats}
+        state={writeStudioState}
+        onState={setWriteStudioState}
+        onClose={() => setWriteStudioOpen(false)}
+        onCaptureSelection={captureEditorSelection}
+        onGetCurrentMarkdown={currentMarkdownForStudio}
+        onSaveCurrent={saveCurrent}
+        onRevealText={revealTextInEditor}
+        onNavigateText={navigateText}
+        onReplaceCurrent={replaceCurrentFromStudio}
+        onRestoreMarkdown={restoreMarkdownFromStudio}
+        onProjectUpdate={(summary) => {
+          const liveMeta = meta ?? summary.meta;
+          setProject({ ...summary, meta: liveMeta, typography });
+          setMeta(liveMeta);
+        }}
+        onBookRestored={refreshAfterBookRestore}
+        onError={(message) => setError(message)}
       />}
 
       {workspaceMode === "write" && focusMode && <div className="focus-layout-controls" role="toolbar" aria-label="Focus layout controls">
@@ -1818,10 +2177,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error"><strong>Preview could not refresh.</strong><span>The last valid page is still shown.</span><small>{previewError}</small></div>}{coverSelected ? (project.hasCover ? <div className="cover-preview-surface"><img src={`/api/projects/${project.projectId}/cover?v=${coverVersion}`} alt={`${meta.title} cover`}/></div> : <div className="cover-preview-empty"><strong>No cover yet</strong><span>Add a PNG or JPEG from the Cover workspace.</span></div>) : selectedId ? <iframe key={`${project.projectId}:${selectedId}:${previewMode === "print" ? "print" : "reader"}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
-      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span><span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
+      <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span>{workspaceMode === "write" && <button className="write-session-chip" onClick={() => openWriteStudio("session")}>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()} words · {Math.max(0, Math.floor(sessionStats.activeMs / 60000))} active min{writeStudioState?.targets.session ? ` · ${Math.max(0, sessionNet).toLocaleString()} / ${writeStudioState.targets.session.toLocaleString()}` : ""}</button>}<span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
-        <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
+        <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
@@ -1915,18 +2274,46 @@ function StyleLibrary(props: {
   typography: Typography; setTypography: (ty: Typography) => void;
   category: StyleCategory; setCategory: (category: StyleCategory) => void;
   printOptions: PrintOptions; setPrintOptions: (options: PrintOptions) => void;
+  projectId: string; previewSectionId?: string; previewDraft?: string;
   onClose: () => void; onSave: () => void;
 }) {
-  const { themes, meta, setMeta, typography, setTypography, category, setCategory, printOptions, setPrintOptions } = props;
+  const { themes, meta, setMeta, typography, setTypography, category, setCategory, printOptions, setPrintOptions, projectId, previewSectionId, previewDraft } = props;
   const selected = themes.find((theme) => theme.name === meta.theme);
+  const [hoverPreview, setHoverPreview] = useState<{ theme: string; label: string; html: string; loading: boolean; error?: string } | null>(null);
+  const hoverAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => hoverAbortRef.current?.abort(), []);
+  const previewTheme = (theme: Theme) => {
+    hoverAbortRef.current?.abort();
+    const controller = new AbortController();
+    hoverAbortRef.current = controller;
+    setHoverPreview({ theme: theme.name, label: theme.label, html: "", loading: true });
+    void api.preview(projectId, meta, theme.name, typography, previewSectionId, previewDraft, controller.signal)
+      .then(({ html }) => {
+        if (!controller.signal.aborted) setHoverPreview({ theme: theme.name, label: theme.label, html, loading: false });
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setHoverPreview({ theme: theme.name, label: theme.label, html: "", loading: false, error: error instanceof Error ? error.message : String(error) });
+      });
+  };
+  const clearThemePreview = () => {
+    hoverAbortRef.current?.abort();
+    hoverAbortRef.current = null;
+    setHoverPreview(null);
+  };
   return <div className="style-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
     <section className="style-library" role="dialog" aria-modal="true" aria-label="Book style library">
-      <header className="style-library-header"><div><h2>Book Styles</h2><p>Choose by appearance. The preview changes immediately.</p></div><button onClick={props.onClose} aria-label="Close">×</button></header>
+      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply.</p></div><button onClick={props.onClose} aria-label="Close">×</button></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
-        <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">{themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onClick={() => setMeta({ ...meta, theme: theme.name })}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}</div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selected?.dropcap ?? false}/>}</div>
+        <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">{themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => setMeta({ ...meta, theme: theme.name })}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}</div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selected?.dropcap ?? false}/>}</div>
       </div>
       <footer className="style-library-footer"><div><strong>{selected?.label ?? meta.theme}</strong><span>{selected?.description}</span></div><button className="native-button" onClick={props.onClose}>Done</button><button className="native-button primary" onClick={props.onSave}>Save to Book</button></footer>
+      {hoverPreview && <aside className="theme-hover-preview" aria-live="polite">
+        <div className="theme-hover-preview-head"><span>Live chapter preview</span><strong>{hoverPreview.label}</strong></div>
+        <div className="theme-hover-preview-stage">
+          {hoverPreview.loading ? <div className="theme-hover-preview-loading">Rendering current chapter…</div> : hoverPreview.error ? <div className="theme-hover-preview-loading">Preview unavailable</div> : <iframe title={`${hoverPreview.label} live chapter preview`} srcDoc={hoverPreview.html}/>}
+        </div>
+      </aside>}
     </section>
   </div>;
 }

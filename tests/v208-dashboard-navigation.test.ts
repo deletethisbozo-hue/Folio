@@ -53,13 +53,23 @@ try {
     const shell = document.querySelector<HTMLElement>(".start-shell");
     const primary = document.querySelector<HTMLElement>(".start-button.primary");
     if (!shell || !primary) return null;
+    const shellStyle = getComputedStyle(shell);
+    const primaryStyle = getComputedStyle(primary);
     return {
-      background: getComputedStyle(shell).backgroundColor,
-      accent: getComputedStyle(primary).backgroundColor,
+      background: shellStyle.backgroundColor,
+      backgroundImage: shellStyle.backgroundImage,
+      accent: primaryStyle.backgroundColor,
+      accentImage: primaryStyle.backgroundImage,
+      accentToken: shellStyle.getPropertyValue("--start-accent").trim(),
     };
   });
-  check("dashboard uses Folio 2.2 cool light background", dashboardPalette?.background === "rgb(242, 243, 245)", JSON.stringify(dashboardPalette));
-  check("dashboard primary accent is blue-violet", dashboardPalette?.accent === "rgb(91, 92, 226)", JSON.stringify(dashboardPalette));
+  check("dashboard uses the Folio 2.5 layered cool-light background",
+    Boolean(dashboardPalette?.backgroundImage && dashboardPalette.backgroundImage !== "none"),
+    JSON.stringify(dashboardPalette));
+  check("dashboard primary accent is the Folio 2.5 blue-violet gradient",
+    dashboardPalette?.accentToken === "#6265e5" &&
+    Boolean(dashboardPalette?.accentImage && dashboardPalette.accentImage !== "none"),
+    JSON.stringify(dashboardPalette));
 
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.includes("Open Sample"));
