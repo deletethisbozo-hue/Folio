@@ -1369,3 +1369,8 @@
     font-size: 26px !important;
   }
 }
+
+/* Exact pre-glyph command text alignment, measured against the pre-brand QA render. */
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  grid-template-columns: 255px minmax(0, 1fr) auto !important;
+}
