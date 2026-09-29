@@ -110,6 +110,10 @@ try {
     return Boolean(frame?.contentDocument?.body?.innerText?.trim().length);
   });
   await settle(250);
+  const lightHoverGeometry = await page.$eval(".theme-hover-preview", (node) => {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return { top: rect.top, right: innerWidth - rect.right, width: rect.width, height: rect.height };
+  });
   await page.screenshot({ path: path.join(qa, "02a-design-library-hover-preview.png") });
   await page.mouse.move(20, 20);
   await page.click('.style-library-header button[aria-label="Close"]');
@@ -131,6 +135,31 @@ try {
   await page.waitForSelector('[role="dialog"][aria-label="Book style library"]');
   await settle(220);
   await page.screenshot({ path: path.join(qa, "02e-design-library-midnight.png") });
+
+  const midnightHoverTheme = await page.$(".theme-sample:not(.selected)") ?? await page.$(".theme-sample");
+  if (!midnightHoverTheme) throw new Error("Midnight theme card missing for live hover preview QA");
+  await midnightHoverTheme.hover();
+  await page.waitForSelector(".theme-hover-preview");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".theme-hover-preview iframe");
+    return Boolean(frame?.contentDocument?.body?.innerText?.trim().length);
+  });
+  await settle(250);
+  const midnightHoverGeometry = await page.$eval(".theme-hover-preview", (node) => {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return { top: rect.top, right: innerWidth - rect.right, width: rect.width, height: rect.height };
+  });
+  const hoverGeometryDelta = Math.max(
+    Math.abs(midnightHoverGeometry.top - lightHoverGeometry.top),
+    Math.abs(midnightHoverGeometry.right - lightHoverGeometry.right),
+    Math.abs(midnightHoverGeometry.width - lightHoverGeometry.width),
+    Math.abs(midnightHoverGeometry.height - lightHoverGeometry.height),
+  );
+  if (hoverGeometryDelta > 1) {
+    throw new Error(`Midnight theme hover preview must match Light geometry: ${JSON.stringify({ lightHoverGeometry, midnightHoverGeometry })}`);
+  }
+  await page.screenshot({ path: path.join(qa, "02f-design-library-midnight-hover-preview.png") });
+  await page.mouse.move(20, 20);
   await page.click('.style-library-header button[aria-label="Close"]');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book style library"]'));
   await page.click('.tone-toggle');
