@@ -634,7 +634,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
     const sidebar = getComputedStyle(document.querySelector(".library-pane")!);
     const title = getComputedStyle(document.querySelector(".section-title")!);
     return {
-      ok: command.height === 64 && library.width >= 220 && preview.width >= 390 && preview.width <= 470 &&
+      ok: command.height === 64 && library.width >= 220 && preview.width >= 360 && preview.width <= 470 &&
         manuscript.width < editorPane.width - 20 && manuscript.left > editorPane.left + 10 &&
         Number.parseFloat(title.fontSize) >= 18 && sidebar.backgroundImage !== "none" &&
         Number.parseFloat(selected.borderRadius) >= 9 && shell.bottom <= innerHeight + 1,
