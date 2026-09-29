@@ -1221,11 +1221,14 @@
 .folio-shell[data-ui-tone="ivory"] .command-wordmark {
   justify-content:center !important;
   padding:0 !important;
+  overflow:hidden !important;
 }
 .folio-shell[data-ui-tone="ivory"] .command-wordmark img {
   display:block;
-  width:42px;
-  height:42px;
+  width:60px;
+  height:60px;
+  max-width:none;
+  max-height:none;
   object-fit:contain;
   user-select:none;
   pointer-events:none;
