@@ -2171,3 +2171,29 @@
   border-radius: 12px !important;
 }
 
+/* Tone parity: carry Light micro-polish geometry into Midnight. */
+.folio-shell[data-ui-tone="ivory"] .library-toolbar,
+.folio-shell[data-ui-tone="midnight"] .library-toolbar,
+.folio-shell[data-ui-tone="ivory"] .preview-topbar,
+.folio-shell[data-ui-tone="midnight"] .preview-topbar {
+  position: relative !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .pane-label,
+.folio-shell[data-ui-tone="midnight"] .pane-label,
+.folio-shell[data-ui-tone="ivory"] .preview-pane-title,
+.folio-shell[data-ui-tone="midnight"] .preview-pane-title {
+  font-weight: 720 !important;
+  letter-spacing: .055em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .contents-heading,
+.folio-shell[data-ui-tone="midnight"] .contents-heading {
+  letter-spacing: .06em !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .library-add-section,
+.folio-shell[data-ui-tone="midnight"] .library-add-section {
+  border-radius: 7px !important;
+}
+
