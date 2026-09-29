@@ -188,6 +188,14 @@ try {
   await settle(300);
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
 
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await settle(240);
+  await page.screenshot({ path: path.join(qa, "03d-write-midnight.png") });
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");
+  await settle(160);
+
   const closedEditorLeft = await page.$eval(".editor-pane", (element) => element.getBoundingClientRect().left);
   await page.evaluate(() => {
     const toggle = document.querySelector<HTMLButtonElement>(".write-sidebar-toggle");
@@ -515,6 +523,13 @@ try {
   await page.waitForSelector('.folio-shell[data-focus-mode="true"]');
   await page.keyboard.press("Escape");
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="false"]');
+
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await page.click('.command-wordmark');
+  await page.waitForSelector('.start-shell[data-ui-tone="midnight"]');
+  await settle(260);
+  await page.screenshot({ path: path.join(qa, "07-dashboard-midnight.png") });
 } finally {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
