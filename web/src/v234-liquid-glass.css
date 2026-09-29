@@ -2052,3 +2052,50 @@
 .folio-shell[data-ui-tone="midnight"][data-editor-surface="light"] .writing-split-editor::selection {
   background: rgba(101,104,232,.24) !important;
 }
+
+/* 2.5 Midnight hardening: keep compact chrome immune to legacy high-specificity rules. */
+.folio-shell[data-ui-tone="ivory"] > .folio-statusbar,
+.folio-shell[data-ui-tone="midnight"] > .folio-statusbar {
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  padding: 0 12px !important;
+  box-sizing: border-box !important;
+  line-height: 19px !important;
+  align-self: stretch !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] > .folio-commandbar > button.tone-toggle {
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  align-self: center !important;
+  margin: 0 12px 0 0 !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(190,195,224,.12) !important;
+  border-radius: 9px !important;
+  background: rgba(255,255,255,.05) !important;
+  color: #e5e7f2 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] > .folio-commandbar > button.tone-toggle:hover {
+  background: rgba(255,255,255,.09) !important;
+  border-color: rgba(197,201,231,.18) !important;
+  color: #ffffff !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] > .folio-commandbar > button.tone-toggle::after {
+  content: none !important;
+  display: none !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] > .folio-commandbar > button.command-wordmark img {
+  width: 54px !important;
+  height: 54px !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin-left: -7px !important;
+  transform: none !important;
+}
+
