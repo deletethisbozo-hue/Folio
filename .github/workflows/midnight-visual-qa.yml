@@ -63,9 +63,15 @@ jobs:
       - name: Capture Light and Midnight UI
         run: node --import tsx scripts/v210-writing-studio-preview.ts
 
+      - name: Verify full Light Midnight parity
+        run: node --import tsx scripts/ui-tone-parity-preview.ts
+
       - name: Upload Midnight screenshots
         uses: actions/upload-artifact@v4
         with:
           name: Folio-Midnight-2.5-Screenshots
-          path: build/qa-v210-writing-studio/*.png
+          path: |
+            build/qa-v210-writing-studio/*.png
+            build/qa-tone-parity/*.png
+            build/qa-tone-parity/parity-report.json
           if-no-files-found: error
