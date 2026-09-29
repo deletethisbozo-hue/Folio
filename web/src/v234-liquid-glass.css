@@ -2099,3 +2099,15 @@
   transform: none !important;
 }
 
+/* Midnight Book Styles geometry must stay identical to Light. */
+.folio-shell[data-ui-tone="midnight"] .style-overlay {
+  inset: 60px 0 32px !important;
+  place-items: center !important;
+  padding: 22px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  width: min(920px, calc(100vw - 64px)) !important;
+  height: min(720px, calc(100vh - 132px)) !important;
+}
+
