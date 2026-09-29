@@ -1281,3 +1281,8 @@
   font-weight: 560 !important;
   letter-spacing: -.035em !important;
 }
+
+.start-shell[data-ui-tone="ivory"] .start-intro h1 {
+  font-weight: 500 !important;
+  letter-spacing: -.025em !important;
+}
