@@ -23,7 +23,7 @@ import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, 
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type UiTone = "ivory" | "midnight";
-type EditorSurface = "dark" | "light";
+type EditorSurface = "auto" | "dark" | "light";
 type WorkspaceMode = "write" | "format";
 type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Paragraph After Break" | "Body" | "Scene Break" | "Header & Footer" | "Title Page";
 
@@ -162,7 +162,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewDraft, setPreviewDraft] = useState("");
   const [pastePreparing, setPastePreparing] = useState(false);
   const [uiTone, setUiTone] = useState<UiTone>(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory");
-  const [editorSurface, setEditorSurface] = useState<EditorSurface>(() => window.localStorage.getItem("folio-midnight-editor-surface") === "light" ? "light" : "dark");
+  const [editorSurface, setEditorSurface] = useState<EditorSurface>(() => {
+    const stored = window.localStorage.getItem("folio-editor-surface") ?? window.localStorage.getItem("folio-midnight-editor-surface");
+    return stored === "light" || stored === "dark" ? stored : "auto";
+  });
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => window.localStorage.getItem("folio-workspace-mode") === "write" ? "write" : "format");
   const [splitView, setSplitView] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -285,7 +288,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
   }, [selectedId]);
   useEffect(() => { window.localStorage.setItem("folio-ui-tone", uiTone); }, [uiTone]);
-  useEffect(() => { window.localStorage.setItem("folio-midnight-editor-surface", editorSurface); }, [editorSurface]);
+  useEffect(() => { window.localStorage.setItem("folio-editor-surface", editorSurface); }, [editorSurface]);
   useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
@@ -2215,13 +2218,14 @@ function SettingsDialog(props: {
 }) {
   return <DialogShell title="Settings" onClose={props.onClose} footer={<button className="native-button primary" onClick={props.onClose}>Done</button>}>
     <div className="settings-list">
-      {props.uiTone === "midnight" && <label className="settings-row">
-        <span className="settings-copy"><strong>Editor surface</strong><small>Keep Midnight chrome while choosing a dark manuscript or a light paper-like writing surface.</small></span>
-        <select className="settings-select" value={props.editorSurface} onChange={(event) => props.setEditorSurface(event.target.value as EditorSurface)} aria-label="Midnight editor surface">
-          <option value="dark">Dark</option>
+      <label className="settings-row">
+        <span className="settings-copy"><strong>Editor surface</strong><small>Auto follows the app tone. You can also keep a light or dark manuscript surface independently.</small></span>
+        <select className="settings-select" value={props.editorSurface} onChange={(event) => props.setEditorSurface(event.target.value as EditorSurface)} aria-label="Editor surface">
+          <option value="auto">Auto</option>
           <option value="light">Light</option>
+          <option value="dark">Dark</option>
         </select>
-      </label>}
+      </label>
       <label className="settings-row">
         <span className="settings-copy"><strong>Spellcheck</strong><small>Underline suspected spelling errors while writing. This setting applies to the main editor and Split View.</small></span>
         <input type="checkbox" checked={props.spellcheckEnabled} onChange={(event) => props.setSpellcheckEnabled(event.target.checked)} aria-label="Enable spellcheck"/>
