@@ -1498,3 +1498,16 @@
     font-size: 23px !important;
   }
 }
+
+/* Folio 2.5 Split View baseline parity.
+ * Match the primary Write top strip (40px) and chapter header (76px) exactly. */
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-top-strip {
+  flex: 0 0 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+}
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-header {
+  flex: 0 0 76px !important;
+  height: 76px !important;
+  min-height: 76px !important;
+}
