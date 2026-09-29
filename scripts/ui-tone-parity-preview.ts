@@ -79,7 +79,7 @@ try {
         "transform",
       ] as const;
 
-      const visible = (node: Element) => {
+      const all = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))].filter((node) => {
         const el = node as HTMLElement;
         const style = getComputedStyle(el);
         const rect = el.getBoundingClientRect();
@@ -88,9 +88,7 @@ try {
           && Number(style.opacity || "1") > 0
           && rect.width > 0
           && rect.height > 0;
-      };
-
-      const all = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))].filter(visible);
+      });
       const nodes = all.map((el) => {
         const rect = el.getBoundingClientRect();
         const style = getComputedStyle(el);
