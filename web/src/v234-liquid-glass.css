@@ -1195,17 +1195,40 @@
 .start-shell[data-ui-tone="ivory"] .start-windowbar { grid-template-columns: 1fr auto !important; }
 .start-shell[data-ui-tone="ivory"] .start-brand-spacer { min-width: 1px; }
 .start-shell[data-ui-tone="ivory"] .start-hero-logo {
-  display:block; width:210px; height:210px; margin:-61px 0 -58px -12px;
-  object-fit:contain; user-select:none; pointer-events:none;
+  display:block;
+  width:112px;
+  height:112px;
+  margin:0 0 10px -4px;
+  object-fit:contain;
+  user-select:none;
+  pointer-events:none;
 }
 .start-shell[data-ui-tone="ivory"] .start-intro h1 {
-  max-width:none !important; margin-top:6px !important; font-size:35px !important;
-  line-height:1.04 !important; letter-spacing:-.05em !important; white-space:nowrap;
+  width:100% !important;
+  max-width:100% !important;
+  margin:0 !important;
+  font-size:25px !important;
+  line-height:1.08 !important;
+  letter-spacing:-.04em !important;
+  white-space:normal !important;
+  overflow-wrap:normal !important;
 }
-.start-shell[data-ui-tone="ivory"] .start-actions { margin-top:28px !important; }
-.folio-shell[data-ui-tone="ivory"] .command-wordmark { justify-content:flex-start !important; padding-inline:16px !important; }
+.start-shell[data-ui-tone="ivory"] .start-actions { margin-top:26px !important; }
+
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar {
+  grid-template-columns:72px minmax(0,1fr) auto !important;
+}
+.folio-shell[data-ui-tone="ivory"] .command-wordmark {
+  justify-content:center !important;
+  padding:0 !important;
+}
 .folio-shell[data-ui-tone="ivory"] .command-wordmark img {
-  display:block; width:34px; height:34px; object-fit:contain; user-select:none; pointer-events:none;
+  display:block;
+  width:42px;
+  height:42px;
+  object-fit:contain;
+  user-select:none;
+  pointer-events:none;
 }
 .folio-shell[data-ui-tone="ivory"] .style-library { position:relative !important; }
 .folio-shell[data-ui-tone="ivory"] .theme-hover-preview {
@@ -1236,4 +1259,16 @@
 @keyframes folio-theme-peek-in {
   from { opacity:0; transform:translateY(5px) scale(.985); }
   to { opacity:1; transform:translateY(0) scale(1); }
+}
+
+@media (max-width: 1120px) {
+  .start-shell[data-ui-tone="ivory"] .start-hero-logo {
+    width:100px;
+    height:100px;
+    margin-bottom:9px;
+  }
+  .start-shell[data-ui-tone="ivory"] .start-intro h1 {
+    font-size:23px !important;
+    line-height:1.1 !important;
+  }
 }
