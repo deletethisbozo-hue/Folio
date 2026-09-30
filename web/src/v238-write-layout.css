@@ -24,3 +24,77 @@
   height: 100% !important;
   margin-block: 0 !important;
 }
+
+
+/* Compact Write header: preserve readable status text while reclaiming vertical editor space. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .editor-topbar {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding-inline: 12px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .write-sidebar-toggle {
+  width: 26px !important;
+  min-width: 26px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .editor-topbar-right {
+  gap: 6px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .editor-topbar-right .word-count {
+  min-height: 24px !important;
+  padding-inline: 9px !important;
+  font-size: 11.5px !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+  letter-spacing: -.01em !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .editor-topbar-right .save-indicator:not(:empty) {
+  min-height: 22px !important;
+  padding-inline: 8px !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .section-titlebar {
+  height: 58px !important;
+  min-height: 58px !important;
+  padding-inline: 24px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-wrap {
+  row-gap: 0 !important;
+  column-gap: 5px !important;
+  align-items: center !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-button,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-input {
+  font-size: 21px !important;
+  line-height: 1.08 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-button {
+  padding-block: 0 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-subtitle-button {
+  margin-top: 1px !important;
+  font-size: 9.5px !important;
+  line-height: 1.05 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-actions {
+  gap: 2px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-move,
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-delete {
+  height: 22px !important;
+  min-height: 22px !important;
+}
