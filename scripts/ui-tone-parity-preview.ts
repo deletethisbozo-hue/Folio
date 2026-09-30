@@ -49,6 +49,7 @@ const report: Array<{
   controls: number;
   maxRectDelta: number;
 }> = [];
+const parityFailures: string[] = [];
 
 try {
   const browser = await getBrowser();
@@ -161,7 +162,7 @@ try {
     if (JSON.stringify(light.controls) !== JSON.stringify(midnight.controls)) {
       errors.push(`interactive controls differ\nLIGHT ${JSON.stringify(light.controls)}\nMIDNIGHT ${JSON.stringify(midnight.controls)}`);
     }
-    if (errors.length) throw new Error(`Tone parity failed for ${state}:\n${errors.join("\n")}`);
+    if (errors.length) parityFailures.push(`Tone parity failed for ${state}:\n${errors.join("\n")}`);
     report.push({ state, nodes: light.nodes.length, controls: light.controls.length, maxRectDelta });
   }
 
@@ -330,7 +331,8 @@ try {
   await page.waitForSelector('.folio-shell[data-focus-mode="false"]');
 
   await fs.writeFile(path.join(qa, "parity-report.json"), JSON.stringify({
-    passed: true,
+    passed: parityFailures.length === 0,
+    failures: parityFailures,
     states: report,
     comparedProperties: [
       "DOM structure", "visible interactive controls", "bounding boxes",
@@ -340,6 +342,7 @@ try {
     ],
   }, null, 2), "utf8");
 
+  if (parityFailures.length) throw new Error(`Tone parity failures:\n\n${parityFailures.join("\n\n")}`);
   console.log(`Tone parity passed for ${report.length} UI states.`);
 } finally {
   await closeBrowser().catch(() => undefined);
