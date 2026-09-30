@@ -1791,3 +1791,11 @@
   padding-right: 13px !important;
 }
 
+/* Hover preview canvas must use the exact Light transform origin. */
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-stage iframe {
+  width: 458px !important;
+  height: 540px !important;
+  transform: scale(.638) !important;
+  transform-origin: 0 0 !important;
+}
+
