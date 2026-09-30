@@ -1759,3 +1759,14 @@
   color-scheme: light;
 }
 
+/* Computed parity locks: Format geometry follows approved Light exactly. */
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .book-identity {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .section-titlebar {
+  padding-left: 28px !important;
+  padding-right: 28px !important;
+}
+
