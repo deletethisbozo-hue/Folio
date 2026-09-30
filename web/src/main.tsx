@@ -36,6 +36,7 @@ import "./v234-liquid-glass.css";
 import "./v235-midnight.css";
 import "./v236-compact-chrome.css";
 import "./v237-editor-surface.css";
+import "./v238-write-layout.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
