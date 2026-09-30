@@ -1,0 +1,26 @@
+/* Folio 2.6.1 shared Write sizing polish.
+ * Tone-neutral by design: Light and Midnight use identical geometry.
+ */
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-split-view="true"]) .manuscript-editor {
+  width: min(1040px, calc(100% - 48px)) !important;
+  height: calc(100% - 24px) !important;
+  margin: 6px auto 18px !important;
+  padding: 50px 64px 84px !important;
+}
+
+/* Keep the enlarged writing surface useful on narrower desktop windows too. */
+@media (max-width: 1250px) {
+  .folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-split-view="true"]) .manuscript-editor {
+    width: min(960px, calc(100% - 32px)) !important;
+    margin-inline: auto !important;
+    padding-inline: 54px !important;
+  }
+}
+
+/* Focus mode remains edge-to-edge and is not constrained by normal Write sizing. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-focus-mode="true"]:not([data-split-view="true"]) .manuscript-editor {
+  width: min(1080px, calc(100% - 32px)) !important;
+  height: 100% !important;
+  margin-block: 0 !important;
+}
