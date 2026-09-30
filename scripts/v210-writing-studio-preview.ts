@@ -225,14 +225,14 @@ try {
   await settle(240);
   await page.screenshot({ path: path.join(qa, "03d-write-midnight.png") });
 
-  await page.select('.editor-surface-control select', "light");
+  await page.click('.editor-surface-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "light"
     && window.localStorage.getItem("folio-editor-surface") === "light");
   await settle(220);
   await page.screenshot({ path: path.join(qa, "03e-write-midnight-light-paper.png") });
-  await page.select('.editor-surface-control select', "auto");
+  await page.click('.editor-surface-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark"
-    && window.localStorage.getItem("folio-editor-surface") === "auto");
+    && window.localStorage.getItem("folio-editor-surface") === "dark");
 
   await page.click('.tone-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");
