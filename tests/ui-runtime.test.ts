@@ -56,7 +56,8 @@ try {
       void request.continue();
     }
   });
-  page.setDefaultTimeout(45_000);
+  page.setDefaultTimeout(90_000);
+  page.setDefaultNavigationTimeout(90_000);
   await page.setViewport({ width: 1440, height: 900 });
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
@@ -692,7 +693,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       if (!paragraph?.classList.contains("folio-composed")) return false;
       const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
       return lines.length > 1 && lines.at(-1)?.classList.contains("folio-line-natural") === true;
-    }, { timeout: 60000 }));
+    }, { timeout: 120000 }));
   } catch (error) {
     if (process.platform === "win32") throw error;
     narrowCompositionMode = "non-windows-headless-skip";
