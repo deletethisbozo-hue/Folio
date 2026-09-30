@@ -82,6 +82,8 @@ try {
 
       const all = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))].filter((node) => {
         const el = node as HTMLElement;
+        const surfaceToggle = el.closest(".editor-surface-toggle");
+        if (surfaceToggle && surfaceToggle !== el) return false;
         const style = getComputedStyle(el);
         const rect = el.getBoundingClientRect();
         return style.display !== "none"
@@ -96,11 +98,12 @@ try {
         const styleContract: Record<string, string> = {};
         for (const key of styleKeys) styleContract[key] = style[key];
         const isTone = el.classList.contains("tone-toggle");
+        const isSurfaceToggle = el.classList.contains("editor-surface-toggle");
         return {
           tag: el.tagName.toLowerCase(),
           className: el.getAttribute("class") ?? "",
           role: el.getAttribute("role") ?? "",
-          aria: isTone ? "__TONE__" : (el.getAttribute("aria-label") ?? ""),
+          aria: isTone ? "__TONE__" : isSurfaceToggle ? "__SURFACE__" : (el.getAttribute("aria-label") ?? ""),
           rect: {
             x: Math.round(rect.x * 2) / 2,
             y: Math.round(rect.y * 2) / 2,
