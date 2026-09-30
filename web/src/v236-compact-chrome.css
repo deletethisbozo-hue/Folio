@@ -1,0 +1,40 @@
+/* Folio 2.5 compact chrome.
+ * The approved Liquid Glass layout is unchanged except for the explicitly
+ * requested masthead/status heights. This file must stay tone-neutral.
+ */
+
+:root,
+.start-shell,
+.folio-shell {
+  --folio-masthead-height: 56px;
+}
+
+.start-shell .start-windowbar,
+.folio-shell[data-ui-tone] .folio-commandbar {
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+}
+
+.folio-shell[data-ui-tone] button.command-wordmark {
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  align-self: stretch !important;
+}
+
+.folio-shell:not(.folio-empty-shell)[data-ui-tone] {
+  grid-template-rows: 56px minmax(0, 1fr) 20px !important;
+}
+
+.folio-shell[data-ui-tone] .folio-statusbar {
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
+  align-items: center !important;
+  line-height: 19px !important;
+  overflow: hidden !important;
+}
