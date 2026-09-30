@@ -1,0 +1,124 @@
+/* Folio editor surface chooser.
+ * Shared UI geometry in Light and Midnight. Auto follows the app tone:
+ * Light -> light paper, Midnight -> dark paper.
+ */
+
+.folio-shell[data-workspace-mode="write"] .editor-surface-control {
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 5px 0 7px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-family: var(--folio-ui-font);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.folio-shell[data-workspace-mode="write"] .editor-surface-control > span {
+  opacity: .72;
+  pointer-events: none;
+}
+
+.folio-shell[data-workspace-mode="write"] .editor-surface-control select {
+  width: 58px;
+  height: 22px;
+  padding: 0 15px 0 6px;
+  border-radius: 6px;
+  font: 650 9px/1 var(--folio-ui-font);
+  outline: none;
+  cursor: pointer;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-surface-control {
+  border-color: rgba(82,85,120,.10);
+  background: rgba(255,255,255,.30);
+  color: #696f82;
+}
+
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-surface-control select {
+  border: 1px solid rgba(82,85,120,.12);
+  background: rgba(255,255,255,.72);
+  color: #3a3d53;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-surface-control {
+  border-color: rgba(190,195,224,.08);
+  background: rgba(255,255,255,.035);
+  color: #b8bed0;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-surface-control select {
+  border: 1px solid rgba(190,195,224,.12);
+  background: rgba(15,17,24,.72);
+  color: #e7e9f3;
+  color-scheme: dark;
+}
+
+/* Keep the right-side layout controls reachable with the manuscript sidebar open. */
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .editor-surface-control > span {
+  display: none;
+}
+
+.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .editor-surface-control {
+  padding-inline: 4px;
+  gap: 0;
+}
+
+/* Explicit light paper surface. */
+.folio-shell[data-editor-surface="light"] .manuscript-editor,
+.folio-shell[data-editor-surface="light"] .writing-split-editor {
+  border-color: rgba(103,108,145,.20) !important;
+  background: #f7f8fc !important;
+  color: #25283a !important;
+  caret-color: #5d60d8 !important;
+  box-shadow:
+    0 18px 46px rgba(0,0,0,.20),
+    inset 0 1px 0 #ffffff !important;
+}
+
+.folio-shell[data-editor-surface="light"] .manuscript-editor a,
+.folio-shell[data-editor-surface="light"] .writing-split-editor a {
+  color: #5558d8 !important;
+}
+
+.folio-shell[data-editor-surface="light"] .manuscript-editor::selection,
+.folio-shell[data-editor-surface="light"] .writing-split-editor::selection {
+  background: rgba(101,104,232,.24) !important;
+}
+
+.folio-shell[data-editor-surface="light"] .manuscript-editor:empty::before,
+.folio-shell[data-editor-surface="light"] .writing-split-editor:empty::before {
+  color: #969bad !important;
+}
+
+/* Explicit dark paper surface. */
+.folio-shell[data-editor-surface="dark"] .manuscript-editor,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor {
+  border-color: rgba(191,196,224,.10) !important;
+  background: rgba(37,41,54,.97) !important;
+  color: #eef0fa !important;
+  caret-color: #f4f5ff !important;
+  box-shadow:
+    0 18px 46px rgba(0,0,0,.30),
+    inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+.folio-shell[data-editor-surface="dark"] .manuscript-editor a,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor a {
+  color: #aeb1ff !important;
+}
+
+.folio-shell[data-editor-surface="dark"] .manuscript-editor::selection,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor::selection {
+  background: rgba(118,122,235,.34) !important;
+}
+
+.folio-shell[data-editor-surface="dark"] .manuscript-editor:empty::before,
+.folio-shell[data-editor-surface="dark"] .writing-split-editor:empty::before {
+  color: #858da2 !important;
+}
