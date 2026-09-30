@@ -2,7 +2,7 @@ name: Midnight Visual QA
 
 on:
   push:
-    branches: [fix/midnight-2.5]
+    branches: [main, fix/midnight-2.5]
   workflow_dispatch:
 
 permissions:
