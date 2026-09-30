@@ -1,72 +1,49 @@
 /* Folio editor surface chooser.
- * Shared UI geometry in Light and Midnight. Auto follows the app tone:
- * Light -> light paper, Midnight -> dark paper.
+ * Shared UI geometry in Light and Midnight. Auto follows the app tone until
+ * the user explicitly toggles the writing surface.
  */
 
-.folio-shell[data-workspace-mode="write"] .editor-surface-control {
-  height: 28px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 5px 0 7px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  font-family: var(--folio-ui-font);
-  font-size: 9px;
-  font-weight: 650;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.folio-shell[data-workspace-mode="write"] .editor-surface-control > span {
-  opacity: .72;
-  pointer-events: none;
-}
-
-.folio-shell[data-workspace-mode="write"] .editor-surface-control select {
-  width: 58px;
-  height: 22px;
-  padding: 0 15px 0 6px;
-  border-radius: 6px;
-  font: 650 9px/1 var(--folio-ui-font);
-  outline: none;
+.folio-shell[data-workspace-mode="write"] .editor-surface-toggle {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 9px !important;
   cursor: pointer;
 }
 
-.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-surface-control {
-  border-color: rgba(82,85,120,.10);
-  background: rgba(255,255,255,.30);
-  color: #696f82;
+.folio-shell[data-workspace-mode="write"] .editor-surface-toggle .ui-icon {
+  width: 16px !important;
+  height: 16px !important;
 }
 
-.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-surface-control select {
-  border: 1px solid rgba(82,85,120,.12);
-  background: rgba(255,255,255,.72);
-  color: #3a3d53;
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-surface-toggle {
+  border-color: rgba(82,85,120,.10) !important;
+  background: rgba(255,255,255,.30) !important;
+  color: #696f82 !important;
 }
 
-.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-surface-control {
-  border-color: rgba(190,195,224,.08);
-  background: rgba(255,255,255,.035);
-  color: #b8bed0;
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-surface-toggle:hover {
+  border-color: rgba(101,104,232,.16) !important;
+  background: rgba(255,255,255,.82) !important;
+  color: #4f53ca !important;
 }
 
-.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-surface-control select {
-  border: 1px solid rgba(190,195,224,.12);
-  background: rgba(15,17,24,.72);
-  color: #e7e9f3;
-  color-scheme: dark;
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-surface-toggle {
+  border-color: rgba(190,195,224,.10) !important;
+  background: rgba(255,255,255,.035) !important;
+  color: #c8cde0 !important;
 }
 
-/* Keep the right-side layout controls reachable with the manuscript sidebar open. */
-.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .editor-surface-control > span {
-  display: none;
-}
-
-.folio-shell[data-workspace-mode="write"][data-write-sidebar="open"] .editor-surface-control {
-  padding-inline: 4px;
-  gap: 0;
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-surface-toggle:hover {
+  border-color: rgba(145,149,255,.24) !important;
+  background: rgba(255,255,255,.065) !important;
+  color: #ffffff !important;
 }
 
 /* Explicit light paper surface. */
