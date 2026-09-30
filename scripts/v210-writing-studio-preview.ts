@@ -83,7 +83,7 @@ try {
   if (geometry.wordTop !== geometry.commandTop || geometry.wordHeight !== geometry.commandHeight) {
     throw new Error(`Wordmark masthead geometry drifted: ${JSON.stringify(geometry)}`);
   }
-  if (geometry.commandHeight !== 56) throw new Error(`Expected 56px masthead, got ${geometry.commandHeight}`);
+  if (geometry.commandHeight !== 50) throw new Error(`Expected 50px masthead, got ${geometry.commandHeight}`);
   if (geometry.kicker) throw new Error("Duplicate Chapter N kicker is still present");
 
   await page.waitForSelector(".preview-frame");
