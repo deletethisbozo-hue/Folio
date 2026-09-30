@@ -1,0 +1,1880 @@
+/* Folio 2.5 Midnight geometry contract.
+ * Generated from the approved Light layers. No Light paint is copied here.
+ * Midnight may change palette/material only; layout and typography stay identical.
+ */
+
+/* geometry: web/src/v220-unified-light.css */
+.folio-shell[data-ui-tone="midnight"] .contents-row {
+  border-radius: 6px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .workspace-mode-switch {
+  border-radius: 8px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .section-title-input,
+.folio-shell[data-ui-tone="midnight"] .section-subtitle-input,
+.folio-shell[data-ui-tone="midnight"] .dialog-field input,
+.folio-shell[data-ui-tone="midnight"] .dialog-field textarea,
+.folio-shell[data-ui-tone="midnight"] .dialog-field select,
+.folio-shell[data-ui-tone="midnight"] .setting-control input,
+.folio-shell[data-ui-tone="midnight"] .setting-control select,
+.folio-shell[data-ui-tone="midnight"] .customize-row select,
+.folio-shell[data-ui-tone="midnight"] .customize-row input:not([type="checkbox"]),
+.folio-shell[data-ui-tone="midnight"] .writing-split-title select,
+.folio-shell[data-ui-tone="midnight"] .device-label select,
+.folio-shell[data-ui-tone="midnight"] .trim-select {
+  border-radius: 6px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .native-button {
+  min-height: 34px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 7px !important;
+  font-weight: 620 !important;
+}
+.folio-shell[data-ui-tone="midnight"] .generate-button {
+  border-radius: 7px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-dialog,
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-category-list button {
+  border-radius: 6px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .library-add-section {
+  border-radius: 7px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .generate-menu {
+  border-radius: 8px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .generate-menu button {
+  border-radius: 5px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-button {
+  min-height: 36px;
+  border-radius: 7px;
+}
+.start-shell[data-ui-tone="midnight"] .start-button:hover:not(:disabled) {
+  transform: none;
+}
+.start-shell[data-ui-tone="midnight"] .recent-row {
+  border-radius: 8px;
+  margin: 2px 0;
+}
+.start-shell[data-ui-tone="midnight"] .start-modal {
+  border-radius: 10px;
+}
+.start-shell[data-ui-tone="midnight"] .start-folder-summary,
+.start-shell[data-ui-tone="midnight"] .start-field input {
+  border-radius: 6px;
+}
+
+/* geometry: web/src/v230-brand-refresh.css */
+
+/* geometry: web/src/v231-micro-polish.css */
+.folio-shell[data-ui-tone="midnight"] .library-toolbar,
+.folio-shell[data-ui-tone="midnight"] .preview-topbar {
+  position: relative;
+}
+.folio-shell[data-ui-tone="midnight"] .pane-label,
+.folio-shell[data-ui-tone="midnight"] .preview-pane-title {
+  font-weight: 700 !important;
+  letter-spacing: .055em !important;
+}
+.folio-shell[data-ui-tone="midnight"] .contents-heading {
+  letter-spacing: .06em !important;
+}
+.folio-shell[data-ui-tone="midnight"] .library-toolbar {
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .pane-label,
+.folio-shell[data-ui-tone="midnight"] .preview-pane-title {
+  font-weight: 720 !important;
+}
+.folio-shell[data-ui-tone="midnight"] .device-nav button {
+  border-width: 1px !important;
+  border-style: solid !important;
+}
+
+/* geometry: web/src/v232-device-shells.css */
+
+/* geometry: web/src/v233-regression-fixes.css */
+.folio-shell[data-ui-tone="midnight"] .style-overlay {
+  inset: 60px 0 32px !important;
+  place-items: center !important;
+  padding: 22px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  width: min(920px, calc(100vw - 64px)) !important;
+  height: min(720px, calc(100vh - 132px)) !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 12px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-dialog {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 12px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-reset-button {
+  min-height: 30px !important;
+  padding: 0 11px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 7px !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 10.5px !important;
+  font-weight: 620 !important;
+  line-height: 1 !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-heading {
+  align-items: center !important;
+}
+
+/* geometry: web/src/v234-liquid-glass.css */
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] {
+  --folio-sidebar-width: 276px;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar {
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .command-wordmark {
+  border-right-width: 1px !important;
+  border-right-style: solid !important;
+  font-family: var(--folio-ui-font) !important;
+  font-size: 17px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.04em !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav {
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 0 12px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button {
+  height: 30px !important;
+  padding: 0 11px !important;
+  border-radius: 9px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .workspace-mode-switch {
+  height: 34px !important;
+  padding: 3px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 12px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav .workspace-mode-switch button {
+  height: 26px !important;
+  min-width: 61px !important;
+  padding: 0 14px !important;
+  border-radius: 9px !important;
+  font-weight: 650 !important;
+}
+.folio-shell[data-ui-tone="midnight"] .tone-toggle {
+  height: 30px !important;
+  margin-right: 12px !important;
+  padding: 0 11px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 9px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-write-sidebar="open"] .library-pane {
+  width: calc(var(--folio-sidebar-width) - 18px) !important;
+  min-width: calc(var(--folio-sidebar-width) - 18px) !important;
+  height: calc(100% - 20px) !important;
+  margin: 10px 8px 10px 10px !important;
+  align-self: center !important;
+  overflow: hidden !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 18px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .library-toolbar {
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 15px 0 17px !important;
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .pane-label {
+  font-size: 9px !important;
+  letter-spacing: .16em !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .book-identity {
+  margin: 0 10px !important;
+  padding: 18px 10px 16px !important;
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .book-title {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 15px !important;
+  font-weight: 720 !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .book-author {
+  font-size: 10.5px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .contents-list {
+  padding: 10px 7px 18px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .contents-heading {
+  margin: 14px 0 6px !important;
+  padding: 0 10px !important;
+  font-size: 8.5px !important;
+  letter-spacing: .16em !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .contents-row {
+  width: 100% !important;
+  height: 34px !important;
+  margin: 2px 0 !important;
+  padding: 0 11px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+  line-height: 32px !important;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .library-add-section {
+  width: calc(100% - 20px) !important;
+  margin: 0 10px 10px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 11px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .library-footer {
+  margin: 0 10px !important;
+  border-top-width: 1px !important;
+  border-top-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-pane {
+  margin: 10px 10px 10px 0 !important;
+  overflow: hidden !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 20px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-write-sidebar="closed"] .editor-pane {
+  margin-left: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-topbar {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 15px !important;
+  border-bottom: 0 !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .write-sidebar-toggle {
+  left: 12px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-topbar-right {
+  display: inline-flex !important;
+  gap: 7px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-topbar-right .word-count,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-topbar-right .save-indicator:not(:empty) {
+  min-height: 24px !important;
+  padding: 0 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 999px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .section-titlebar {
+  height: 76px !important;
+  min-height: 76px !important;
+  padding: 0 28px !important;
+  border: 0 !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .section-index {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .section-title,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .section-title-button,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .section-title-input {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 24px !important;
+  font-weight: 760 !important;
+  letter-spacing: -.035em !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .section-subtitle-button {
+  font-family: var(--folio-ui-font) !important;
+  font-style: normal !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .format-toolbar {
+  width: calc(100% - 32px) !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  margin: 0 16px 12px !important;
+  padding: 5px 8px !important;
+  gap: 6px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 14px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-write-sidebar="open"] .format-toolbar {
+  gap: 4px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .toolbar-group {
+  height: 32px !important;
+  padding: 2px !important;
+  gap: 1px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .toolbar-group + .toolbar-group {
+  padding-left: 2px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .toolbar-group + .toolbar-group::before {
+  display: none !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .format-toolbar button {
+  height: 27px !important;
+  min-width: 28px !important;
+  border-radius: 8px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .search-pill,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-split-toggle,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-typewriter-toggle,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-focus-toggle,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-tools-toggle {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 9px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .manuscript-editor {
+  width: min(930px, calc(100% - 88px)) !important;
+  height: calc(100% - 34px) !important;
+  margin: 8px auto 26px !important;
+  padding: 56px 72px 96px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 18px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .editor-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .writing-split-pane {
+  margin-top: 10px !important;
+  margin-bottom: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .editor-pane {
+  margin-right: 5px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .writing-split-pane {
+  margin-left: 5px !important;
+  margin-right: 10px !important;
+  overflow: hidden !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 20px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .writing-split-toolbar {
+  width: calc(100% - 32px) !important;
+  margin: 0 16px 12px !important;
+  padding: 5px 8px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 14px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .manuscript-editor,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .writing-split-editor {
+  width: calc(100% - 28px) !important;
+  height: calc(100% - 20px) !important;
+  margin: 6px 14px 14px !important;
+  padding: 38px 34px 72px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 16px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-statusbar {
+  border-top-width: 1px !important;
+  border-top-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-dialog,
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  border-radius: 18px !important;
+}
+@media (max-width: 1250px) {
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] {
+  --folio-sidebar-width: 246px;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .manuscript-editor {
+  width: min(900px, calc(100% - 52px)) !important;
+}
+
+}
+@media (prefers-reduced-motion: reduce) {
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .contents-row,
+  .folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .format-toolbar button {
+  transition: none !important;
+}
+
+}
+.start-shell[data-ui-tone="midnight"] {
+  min-height: 100vh !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-windowbar {
+  height: 64px !important;
+  padding: 0 30px !important;
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-brand {
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-size: 19px !important;
+  font-weight: 780 !important;
+  letter-spacing: -.045em !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-main {
+  width: min(1180px,calc(100vw - 64px)) !important;
+  padding: 56px 0 64px !important;
+  grid-template-columns: 350px minmax(0,1fr) !important;
+  gap: 22px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro,
+.start-shell[data-ui-tone="midnight"] .recent-section {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 22px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro {
+  padding: 34px 30px 30px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  max-width: 285px !important;
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-size: 39px !important;
+  font-weight: 760 !important;
+  line-height: 1.03 !important;
+  letter-spacing: -.055em !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-button {
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-section {
+  padding: 22px 22px 12px !important;
+  overflow: hidden !important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-heading {
+  padding: 0 4px 16px !important;
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-heading h2 {
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 730 !important;
+  letter-spacing: -.035em !important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-list {
+  gap: 7px !important;
+  padding-top: 10px !important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-row {
+  min-height: 100px !important;
+  padding: 12px 12px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 14px !important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-cover {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 8px !important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-meta strong {
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-weight: 700 !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-modal {
+  padding: 26px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 20px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-modal-head h2 {
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif !important;
+  font-weight: 730 !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-folder-summary,
+.start-shell[data-ui-tone="midnight"] .start-field input {
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] {
+  grid-template-columns: 272px minmax(0,1fr) clamp(390px,30vw,470px) !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .library-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-pane {
+  height: calc(100% - 20px) !important;
+  margin-top: 10px !important;
+  margin-bottom: 10px !important;
+  overflow: hidden !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 20px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .library-pane {
+  width: auto !important;
+  margin-left: 10px !important;
+  margin-right: 5px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-pane {
+  margin-left: 5px !important;
+  margin-right: 5px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-pane {
+  margin-left: 5px !important;
+  margin-right: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .library-toolbar,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-topbar,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-topbar {
+  height: 46px !important;
+  min-height: 46px !important;
+  border-bottom: 0 !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .book-identity {
+  margin: 0 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .contents-list {
+  padding: 9px 7px 16px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .contents-row {
+  height: 34px !important;
+  margin: 2px 0 !important;
+  padding: 0 11px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+  line-height: 32px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .section-titlebar {
+  height: 74px !important;
+  min-height: 74px !important;
+  border: 0 !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .section-title,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .section-title-button,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .section-title-input {
+  font-family: var(--folio-ui-font) !important;
+  font-size: 23px !important;
+  font-weight: 750 !important;
+  letter-spacing: -.035em !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .format-toolbar {
+  width: calc(100% - 32px) !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  margin: 0 16px 12px !important;
+  padding: 4px 8px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 13px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .manuscript-editor {
+  width: min(860px,calc(100% - 58px)) !important;
+  height: calc(100% - 34px) !important;
+  margin: 8px auto 26px !important;
+  padding: 52px 60px 92px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 17px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-pane-title {
+  font-size: 9px !important;
+  letter-spacing: .14em !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .generate-button {
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .device-toolbar {
+  width: calc(100% - 24px) !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0 12px 10px !important;
+  padding: 4px 7px 4px 10px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 12px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .device-label select,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .trim-select {
+  height: 28px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 8px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-stage {
+  padding: 8px 14px 16px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-dialog,
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 20px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header,
+.folio-shell[data-ui-tone="midnight"] .style-library-header {
+  min-height: 54px !important;
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header h2,
+.folio-shell[data-ui-tone="midnight"] .style-library-title,
+.folio-shell[data-ui-tone="midnight"] .style-library-header h2 {
+  font-family: var(--folio-ui-font) !important;
+  font-weight: 740 !important;
+  letter-spacing: -.025em !important;
+}
+.folio-shell[data-ui-tone="midnight"] .dialog-field input,
+.folio-shell[data-ui-tone="midnight"] .dialog-field textarea,
+.folio-shell[data-ui-tone="midnight"] .dialog-field select,
+.folio-shell[data-ui-tone="midnight"] .setting-control input,
+.folio-shell[data-ui-tone="midnight"] .setting-control select,
+.folio-shell[data-ui-tone="midnight"] .customize-row select,
+.folio-shell[data-ui-tone="midnight"] .customize-row input:not([type="checkbox"]) {
+  min-height: 34px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .settings-list {
+  gap: 8px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .settings-row {
+  min-height: 62px !important;
+  padding: 10px 12px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 12px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .native-button {
+  min-height: 34px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  width: min(980px,calc(100vw - 72px)) !important;
+  height: min(760px,calc(100vh - 128px)) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-library-body {
+  grid-template-columns: 176px minmax(0,1fr) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-category-list {
+  padding: 12px 9px !important;
+  border-right-width: 1px !important;
+  border-right-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-category-list button {
+  height: 34px !important;
+  margin-bottom: 3px !important;
+  padding: 0 11px !important;
+  border-radius: 10px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-content {
+  padding: 18px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-gallery {
+  gap: 14px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-sample {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 14px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-library-footer {
+  min-height: 60px !important;
+  border-top-width: 1px !important;
+  border-top-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-panel {
+  width: min(580px,100%) !important;
+  padding: 8px 4px 20px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-row {
+  min-height: 52px !important;
+  border-top-width: 1px !important;
+  border-top-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .ornament-picker {
+  gap: 9px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .ornament-picker button {
+  min-height: 58px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 11px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .write-studio-drawer {
+  border-left-width: 1px !important;
+  border-left-style: solid !important;
+}
+.folio-shell[data-ui-tone="midnight"] .write-studio-tabs button {
+  border-radius: 9px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .write-card,
+.folio-shell[data-ui-tone="midnight"] .write-stat-grid > div,
+.folio-shell[data-ui-tone="midnight"] .research-image-card,
+.folio-shell[data-ui-tone="midnight"] .revision-side-by-side,
+.folio-shell[data-ui-tone="midnight"] .book-snapshot-summary {
+  border-radius: 12px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .cover-editor-card {
+  padding: 24px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 18px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .cover-editor-art {
+  border-radius: 12px !important;
+}
+@media (max-width: 1120px) {
+.start-shell[data-ui-tone="midnight"] .start-main {
+  grid-template-columns: 320px minmax(0,1fr) !important;
+  gap: 16px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] {
+  grid-template-columns: 220px minmax(0,1fr) 360px !important;
+}
+
+}
+.start-shell[data-ui-tone="midnight"] .start-windowbar {
+  grid-template-columns: 1fr auto !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-brand-spacer {
+  min-width: 1px;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  display: block;
+  width: 112px;
+  height: 112px;
+  margin: 0 0 10px -4px;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  font-size: 25px !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.04em !important;
+  white-space: normal !important;
+  overflow-wrap: normal !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-actions {
+  margin-top: 26px !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar {
+  grid-template-columns: 72px minmax(0,1fr) auto !important;
+}
+.folio-shell[data-ui-tone="midnight"] .command-wordmark {
+  justify-content: center !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+.folio-shell[data-ui-tone="midnight"] .command-wordmark img {
+  display: block;
+  width: 60px;
+  height: 60px;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+.folio-shell[data-ui-tone="midnight"] .style-library {
+  position: relative !important;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview {
+  position: absolute;
+  z-index: 9;
+  top: 78px;
+  right: 20px;
+  width: 292px;
+  height: 388px;
+  overflow: hidden;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 16px;
+  pointer-events: none;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-head {
+  height: 54px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 0 14px;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-head span {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-head strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-stage {
+  position: relative;
+  height: calc(100% - 54px);
+  overflow: hidden;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-stage iframe {
+  width: 458px;
+  height: 540px;
+  border: 0;
+  transform: scale(.638);
+  pointer-events: none;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-size: 10px;
+  text-align: center;
+}
+@media (max-width: 1120px) {
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 100px;
+  height: 100px;
+  margin-bottom: 9px;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 23px !important;
+  line-height: 1.1 !important;
+}
+
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-weight: 560 !important;
+  letter-spacing: -.035em !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-weight: 500 !important;
+  letter-spacing: -.025em !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 148px !important;
+  height: 148px !important;
+  margin: -10px 0 4px -10px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 27px !important;
+  font-weight: 500 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.028em !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar {
+  grid-template-columns: 218px minmax(0, 1fr) auto !important;
+}
+.folio-shell[data-ui-tone="midnight"] .command-wordmark {
+  justify-content: flex-start !important;
+  padding: 0 18px !important;
+  overflow: hidden !important;
+}
+.folio-shell[data-ui-tone="midnight"] .command-wordmark img {
+  width: 58px !important;
+  height: 58px !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin-left: -7px !important;
+}
+@media (max-width: 1120px) {
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 136px !important;
+  height: 136px !important;
+  margin: -8px 0 3px -8px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 25px !important;
+}
+
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 170px !important;
+  height: 170px !important;
+  margin: -25px 0 -42px -12px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.026em !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar {
+  grid-template-columns: 255px minmax(0, 1fr) auto !important;
+}
+.folio-shell[data-ui-tone="midnight"] .command-wordmark {
+  justify-content: flex-start !important;
+  padding: 0 18px !important;
+  overflow: hidden !important;
+}
+.folio-shell[data-ui-tone="midnight"] .command-wordmark img {
+  width: 58px !important;
+  height: 58px !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin-left: -7px !important;
+}
+@media (max-width: 1120px) {
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 158px !important;
+  height: 158px !important;
+  margin: -22px 0 -38px -10px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 26px !important;
+}
+
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar {
+  grid-template-columns: 255px minmax(0, 1fr) auto !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 176px !important;
+  height: auto !important;
+  aspect-ratio: auto !important;
+  margin: 0 0 16px 0 !important;
+  object-fit: contain !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  width: 100% !important;
+  max-width: 250px !important;
+  margin: 0 !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: 1.12 !important;
+  letter-spacing: -.02em !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-actions {
+  margin-top: 30px !important;
+}
+@media (max-width: 1120px) {
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 164px !important;
+  height: auto !important;
+  margin-bottom: 14px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 21px !important;
+  max-width: 238px !important;
+}
+
+}
+.start-shell[data-ui-tone="midnight"] .start-intro {
+  padding: 38px 30px 30px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo-frame {
+  width: 176px;
+  height: 70px;
+  margin: 0 0 22px 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 176px !important;
+  height: 176px !important;
+  margin: 0 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  flex: 0 0 auto;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  margin: 0 !important;
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  line-height: 1.06 !important;
+  letter-spacing: -.03em !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-actions {
+  margin-top: 30px !important;
+}
+@media (max-width: 1120px) {
+.start-shell[data-ui-tone="midnight"] .start-hero-logo-frame {
+  width: 164px;
+  height: 66px;
+  margin-bottom: 20px;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 164px !important;
+  height: 164px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 26px !important;
+}
+
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo-frame {
+  width: 176px !important;
+  height: 78px !important;
+  margin: 0 0 18px 0 !important;
+  overflow: hidden !important;
+  display: block !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  display: block !important;
+  width: 176px !important;
+  height: 176px !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+  transform: translateY(-49px) !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 24.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.025em !important;
+  white-space: nowrap !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-actions {
+  margin-top: 29px !important;
+}
+@media (max-width: 1120px) {
+.start-shell[data-ui-tone="midnight"] .start-hero-logo-frame {
+  width: 164px !important;
+  height: 74px !important;
+  margin-bottom: 17px !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-hero-logo {
+  width: 164px !important;
+  height: 164px !important;
+  transform: translateY(-45px) !important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro h1 {
+  font-size: 23px !important;
+}
+
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-top-strip {
+  flex: 0 0 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+}
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-header {
+  flex: 0 0 76px !important;
+  height: 76px !important;
+  min-height: 76px !important;
+}
+
+/* MIDNIGHT: same Folio 2.5 composition, dark material system. */
+.folio-shell[data-ui-tone="midnight"] {
+  background:
+    radial-gradient(900px 520px at 12% -8%, rgba(104,109,235,.22), transparent 64%),
+    radial-gradient(760px 520px at 88% 6%, rgba(139,86,191,.17), transparent 62%),
+    linear-gradient(180deg,#171923 0%,#1d202a 46%,#171920 100%) !important;
+  color: #eef0fa !important;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"],
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] {
+  background:
+    radial-gradient(880px 500px at 10% -10%, rgba(102,107,232,.17), transparent 64%),
+    radial-gradient(760px 500px at 90% 2%, rgba(142,88,196,.12), transparent 62%),
+    linear-gradient(180deg,#11131b 0%,#171a24 48%,#12141c 100%) !important;
+}
+
+/* Midnight masthead */
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar {
+  background:
+    radial-gradient(640px 120px at 50% -80%, rgba(124,128,244,.16), transparent 74%),
+    linear-gradient(135deg, rgba(26,29,42,.96), rgba(33,28,44,.94)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.075),
+    0 10px 28px rgba(0,0,0,.30) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .command-wordmark {
+  border-right-color: rgba(190,195,224,.10) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button {
+  color: #d0d4e2 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button:hover,
+.folio-shell[data-ui-tone="midnight"] .tone-toggle:hover {
+  background: rgba(255,255,255,.07) !important;
+  color: #f3f4ff !important;
+  box-shadow: inset 0 0 0 1px rgba(205,208,235,.08) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .workspace-mode-switch {
+  border-color: rgba(194,198,229,.11) !important;
+  background: rgba(255,255,255,.055) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.07),
+    0 2px 9px rgba(0,0,0,.15) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav .workspace-mode-switch button {
+  color: #aeb4c6 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav .workspace-mode-switch button.active {
+  background: linear-gradient(180deg,rgba(121,125,240,.28),rgba(105,92,207,.25)) !important;
+  color: #f3f2ff !important;
+  box-shadow:
+    0 0 0 1px rgba(150,152,255,.19),
+    0 5px 13px rgba(0,0,0,.19),
+    inset 0 1px 0 rgba(255,255,255,.09) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .tone-toggle {
+  border-color: rgba(190,195,224,.12) !important;
+  background: rgba(255,255,255,.045) !important;
+  color: #d7dae7 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+/* Midnight floating panes */
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .library-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .writing-split-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .library-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-pane {
+  border-color: rgba(190,195,224,.10) !important;
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.055) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .library-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .library-pane {
+  background:
+    linear-gradient(180deg,rgba(35,38,51,.82),rgba(28,31,42,.78)) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .editor-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"] .writing-split-pane,
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-pane {
+  background:
+    radial-gradient(720px 360px at 50% 0%, rgba(255,255,255,.018), transparent 70%),
+    linear-gradient(180deg, rgba(26,29,40,.82), rgba(20,23,32,.86)) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-pane {
+  background:
+    radial-gradient(620px 340px at 50% 0%,rgba(255,255,255,.035),transparent 66%),
+    linear-gradient(180deg,rgba(29,32,43,.90),rgba(22,24,33,.93)) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .library-toolbar,
+.folio-shell[data-ui-tone="midnight"] .editor-topbar,
+.folio-shell[data-ui-tone="midnight"] .preview-topbar,
+.folio-shell[data-ui-tone="midnight"] .section-titlebar {
+  color: #eef0fa !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .book-identity,
+.folio-shell[data-ui-tone="midnight"] .library-toolbar {
+  border-color: rgba(190,195,224,.08) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .pane-label,
+.folio-shell[data-ui-tone="midnight"] .book-author,
+.folio-shell[data-ui-tone="midnight"] .preview-pane-title {
+  color: #969db2 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .book-title,
+.folio-shell[data-ui-tone="midnight"] .section-title,
+.folio-shell[data-ui-tone="midnight"] .section-title-button,
+.folio-shell[data-ui-tone="midnight"] .section-title-input {
+  color: #eef0fb !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .contents-row {
+  color: #b8becf !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .contents-row:hover {
+  background: rgba(255,255,255,.045) !important;
+  color: #f1f2fb !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .contents-row.selected {
+  background: linear-gradient(135deg,rgba(112,116,235,.92),rgba(132,91,202,.90)) !important;
+  border-color: rgba(151,141,238,.20) !important;
+  color: #fff !important;
+  box-shadow:
+    0 8px 20px rgba(49,40,114,.30),
+    inset 0 1px 0 rgba(255,255,255,.15) !important;
+}
+
+/* Midnight controls */
+.folio-shell[data-ui-tone="midnight"] .format-toolbar,
+.folio-shell[data-ui-tone="midnight"] .device-toolbar,
+.folio-shell[data-ui-tone="midnight"] .writing-split-toolbar {
+  border-color: rgba(190,195,224,.11) !important;
+  background: linear-gradient(180deg, rgba(44,47,61,.82), rgba(36,39,52,.78)) !important;
+  box-shadow:
+    0 8px 24px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.055) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .toolbar-group {
+  border-color: rgba(190,195,224,.075) !important;
+  background: rgba(11,13,19,.20) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .search-pill,
+.folio-shell[data-ui-tone="midnight"] .editor-split-toggle,
+.folio-shell[data-ui-tone="midnight"] .editor-typewriter-toggle,
+.folio-shell[data-ui-tone="midnight"] .editor-focus-toggle,
+.folio-shell[data-ui-tone="midnight"] .editor-tools-toggle {
+  border-color: rgba(190,195,224,.07) !important;
+  background: rgba(255,255,255,.035) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .editor-split-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="midnight"] .editor-typewriter-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="midnight"] .editor-focus-toggle[aria-pressed="true"],
+.folio-shell[data-ui-tone="midnight"] .editor-tools-toggle.active {
+  border-color: rgba(139,143,255,.22) !important;
+  background: rgba(112,116,235,.16) !important;
+  color: #e3e4ff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .write-sidebar-toggle,
+.folio-shell[data-ui-tone="midnight"] .editor-topbar-right .word-count,
+.folio-shell[data-ui-tone="midnight"] .editor-topbar-right .save-indicator:not(:empty),
+.folio-shell[data-ui-tone="midnight"] .library-add-section {
+  border-color: rgba(190,195,224,.09) !important;
+  background: rgba(255,255,255,.035) !important;
+  color: #abb1c4 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .format-toolbar button,
+.folio-shell[data-ui-tone="midnight"] .device-toolbar button,
+.folio-shell[data-ui-tone="midnight"] .editor-tools-toggle,
+.folio-shell[data-ui-tone="midnight"] .search-pill,
+.folio-shell[data-ui-tone="midnight"] .editor-split-toggle,
+.folio-shell[data-ui-tone="midnight"] .editor-focus-toggle,
+.folio-shell[data-ui-tone="midnight"] .editor-typewriter-toggle {
+  color: #b8bed0 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .format-toolbar button:hover,
+.folio-shell[data-ui-tone="midnight"] .editor-tools-toggle:hover,
+.folio-shell[data-ui-tone="midnight"] .search-pill:hover,
+.folio-shell[data-ui-tone="midnight"] .editor-split-toggle:hover,
+.folio-shell[data-ui-tone="midnight"] .editor-focus-toggle:hover,
+.folio-shell[data-ui-tone="midnight"] .editor-typewriter-toggle:hover {
+  background: rgba(255,255,255,.06) !important;
+  color: #f1f2fb !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .editor-paper,
+.folio-shell[data-ui-tone="midnight"] .writing-split-paper {
+  background:
+    radial-gradient(700px 360px at 50% 0%,rgba(255,255,255,.018),transparent 70%),
+    linear-gradient(180deg,rgba(16,18,26,.58),rgba(12,14,20,.76)) !important;
+}
+
+/* Keep the manuscript itself paper-like enough for writing contrast. */
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor,
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor {
+  border-color: rgba(185,190,218,.10) !important;
+  background: rgba(33,36,47,.96) !important;
+  color: #ececf1 !important;
+  box-shadow:
+    0 16px 40px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor *,
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor * {
+  color: inherit;
+}
+
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor a,
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor a {
+  color: #aeb1ff !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor::selection,
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor::selection {
+  background: rgba(118,122,235,.34) !important;
+}
+
+/* Midnight dialogs, Style Library, Settings, menus */
+.folio-shell[data-ui-tone="midnight"] .dialog-overlay,
+.folio-shell[data-ui-tone="midnight"] .style-overlay {
+  background: rgba(7,8,12,.52) !important;
+  backdrop-filter: blur(14px) saturate(115%) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-dialog,
+.folio-shell[data-ui-tone="midnight"] .style-library,
+.folio-shell[data-ui-tone="midnight"] .generate-menu,
+.folio-shell[data-ui-tone="midnight"] .write-studio-drawer {
+  border-color: rgba(191,196,224,.12) !important;
+  background:
+    linear-gradient(180deg,rgba(42,45,58,.96),rgba(29,32,43,.94)) !important;
+  color: #eef0fa !important;
+  box-shadow:
+    0 32px 84px rgba(0,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.055) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header,
+.folio-shell[data-ui-tone="midnight"] .style-library-header,
+.folio-shell[data-ui-tone="midnight"] .style-library-footer,
+.folio-shell[data-ui-tone="midnight"] .write-studio-header,
+.folio-shell[data-ui-tone="midnight"] .write-studio-tabs {
+  border-color: rgba(190,195,224,.09) !important;
+  background: rgba(255,255,255,.025) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header h2,
+.folio-shell[data-ui-tone="midnight"] .style-library-header h2,
+.folio-shell[data-ui-tone="midnight"] .style-library-title,
+.folio-shell[data-ui-tone="midnight"] .settings-copy strong {
+  color: #f1f2fb !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .settings-copy small,
+.folio-shell[data-ui-tone="midnight"] .setting-label,
+.folio-shell[data-ui-tone="midnight"] .dialog-field span {
+  color: #9da4b8 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .dialog-field input,
+.folio-shell[data-ui-tone="midnight"] .dialog-field textarea,
+.folio-shell[data-ui-tone="midnight"] .dialog-field select,
+.folio-shell[data-ui-tone="midnight"] .setting-control input,
+.folio-shell[data-ui-tone="midnight"] .setting-control select,
+.folio-shell[data-ui-tone="midnight"] .customize-row select,
+.folio-shell[data-ui-tone="midnight"] .customize-row input:not([type="checkbox"]) {
+  border-color: rgba(190,195,224,.11) !important;
+  background: rgba(19,21,29,.62) !important;
+  color: #eef0fa !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .device-label select,
+.folio-shell[data-ui-tone="midnight"] .trim-select,
+.folio-shell[data-ui-tone="midnight"] .settings-select {
+  border-color: rgba(190,195,224,.11) !important;
+  background: rgba(17,19,27,.66) !important;
+  color: #e5e7f2 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .generate-button {
+  border-color: rgba(139,143,255,.20) !important;
+  background: rgba(112,116,235,.14) !important;
+  color: #dfe1ff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .style-category-list {
+  border-right-color: rgba(190,195,224,.08) !important;
+  background: rgba(19,22,31,.48) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .style-category-list button {
+  color: #9da4b8 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .style-category-list button:hover {
+  background: rgba(255,255,255,.05) !important;
+  color: #eef0fa !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .style-category-list button.active {
+  background: linear-gradient(135deg,rgba(112,116,235,.92),rgba(132,91,202,.90)) !important;
+  color: #fff !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .style-content {
+  background:
+    radial-gradient(620px 320px at 50% 0%,rgba(255,255,255,.025),transparent 70%) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .theme-sample,
+.folio-shell[data-ui-tone="midnight"] .ornament-picker button,
+.folio-shell[data-ui-tone="midnight"] .write-card,
+.folio-shell[data-ui-tone="midnight"] .write-stat-grid > div {
+  border-color: rgba(190,195,224,.10) !important;
+  box-shadow:
+    0 7px 22px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+/* Live theme preview stays readable while its chrome follows Midnight. */
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview {
+  border-color: rgba(190,195,224,.13) !important;
+  background: rgba(39,42,55,.92) !important;
+  box-shadow:
+    0 24px 62px rgba(0,0,0,.40),
+    inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-head {
+  border-bottom-color: rgba(190,195,224,.09) !important;
+  background: linear-gradient(180deg,rgba(55,58,74,.90),rgba(41,44,57,.82)) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-head span {
+  color: #969db1 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-head strong {
+  color: #f1f2fb !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-stage {
+  background: #171920 !important;
+}
+
+/* Midnight status bar: thin, quiet, same height as Light. */
+.folio-shell[data-ui-tone="midnight"] .folio-statusbar {
+  border-top-color: rgba(190,195,224,.08) !important;
+  background: rgba(24,27,36,.82) !important;
+  color: #9299ad !important;
+}
+
+/* Dashboard Midnight gets the 2.5 layout too. */
+.start-shell[data-ui-tone="midnight"] {
+  background:
+    radial-gradient(900px 560px at 12% -8%, rgba(102,108,235,.23), transparent 64%),
+    radial-gradient(900px 620px at 92% 0%, rgba(145,88,196,.17), transparent 65%),
+    linear-gradient(180deg,#171923 0%,#1d202a 48%,#171920 100%) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .start-windowbar {
+  border-bottom-color: rgba(190,195,224,.09) !important;
+  background: linear-gradient(135deg,rgba(43,46,67,.90),rgba(54,43,68,.84)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.055),
+    0 10px 30px rgba(0,0,0,.20) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .start-intro,
+.start-shell[data-ui-tone="midnight"] .recent-section {
+  border-color: rgba(190,195,224,.10) !important;
+  background:
+    linear-gradient(180deg,rgba(41,44,57,.82),rgba(30,33,44,.74)) !important;
+  box-shadow:
+    0 22px 58px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .start-intro h1,
+.start-shell[data-ui-tone="midnight"] .recent-heading h2,
+.start-shell[data-ui-tone="midnight"] .recent-meta strong {
+  color: #f0f1fa !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .start-button {
+  border-color: rgba(190,195,224,.11) !important;
+  background: rgba(255,255,255,.045) !important;
+  color: #d9dcea !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .start-button:hover:not(:disabled) {
+  background: rgba(255,255,255,.075) !important;
+  border-color: rgba(139,143,255,.24) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .start-button.primary {
+  border-color: #777bea !important;
+  background: linear-gradient(180deg,#8588f3,#676bdc) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.14),
+    0 8px 20px rgba(61,64,151,.30) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .recent-row:hover {
+  border-color: rgba(190,195,224,.08) !important;
+  background: rgba(255,255,255,.035) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .recent-cover {
+  border-color: rgba(190,195,224,.12) !important;
+  background: linear-gradient(160deg,#343746,#20232e) !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,.24) !important;
+}
+
+
+/* =====================================================================
+ * Midnight palette contract
+ * Geometry comes from the exact Folio 2.5 Light mirror above.
+ * This section changes paint only.
+ * ===================================================================== */
+.folio-shell[data-ui-tone="midnight"] {
+  --folio-bg:#11131b;
+  --folio-panel:#20232f;
+  --folio-surface:#292d3b;
+  --folio-text:#eef0fa;
+  --folio-muted:#a6aec3;
+  --folio-accent:#8588f3;
+  --folio-border:#40465a;
+  --folio-hover:#303545;
+  --folio-selected:#3a4059;
+
+  --mockup-app:#11131b;
+  --mockup-chrome:#1b1e29;
+  --mockup-sidebar:#20232f;
+  --mockup-paper:#252936;
+  --mockup-canvas:#151821;
+  --mockup-preview:#11131a;
+  --mockup-rule:#3a4052;
+  --mockup-rule-strong:#4a5168;
+  --mockup-ink:#eef0fa;
+  --mockup-muted:#adb4c8;
+  --mockup-faint:#81899f;
+  --mockup-accent:#8588f3;
+  --mockup-accent-soft:#333654;
+  --mockup-danger:#e28e92;
+  --mockup-control:#292d3a;
+
+  --studio-bg:#11131b;
+  --studio-chrome:#1b1e29;
+  --studio-sidebar:#20232f;
+  --studio-surface:#292d3b;
+  --studio-paper:#252936;
+  --studio-editor-canvas:#151821;
+  --studio-preview:#11131a;
+  --studio-preview-chrome:#1b1e29;
+  --studio-preview-ink:#e7e9f3;
+  --studio-preview-muted:#a7aec2;
+  --studio-preview-rule:#3a4052;
+  --studio-preview-control:#292d3a;
+  --studio-preview-hover:#333849;
+  --studio-preview-scrollbar:#596078;
+  --studio-ink:#eef0fa;
+  --studio-muted:#adb4c8;
+  --studio-faint:#81899f;
+  --studio-rule:#3a4052;
+  --studio-rule-strong:#4a5168;
+  --studio-accent:#8588f3;
+  --studio-accent-soft:#333654;
+  --studio-danger:#e28e92;
+  --studio-control:#292d3a;
+}
+
+/* No legacy brown/gold controls in Midnight. */
+.folio-shell[data-ui-tone="midnight"] button,
+.folio-shell[data-ui-tone="midnight"] input,
+.folio-shell[data-ui-tone="midnight"] select,
+.folio-shell[data-ui-tone="midnight"] textarea {
+  accent-color: #8588f3;
+}
+
+.folio-shell[data-ui-tone="midnight"] .native-button {
+  border-color: rgba(191,196,224,.14) !important;
+  background: rgba(255,255,255,.045) !important;
+  color: #e8eaf5 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .native-button:hover:not(:disabled) {
+  border-color: rgba(148,152,255,.24) !important;
+  background: rgba(255,255,255,.075) !important;
+  color: #fff !important;
+}
+.folio-shell[data-ui-tone="midnight"] .native-button.primary {
+  border-color: #777bea !important;
+  background: linear-gradient(180deg,#8588f3,#676bdc) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 7px 18px rgba(61,64,151,.26) !important;
+}
+
+/* Add Content: same component, dark material instead of stale white legacy CSS. */
+.folio-shell[data-ui-tone="midnight"] .add-chapter-box {
+  border-color: rgba(191,196,224,.12) !important;
+  background: rgba(255,255,255,.035) !important;
+  color: #eef0fa !important;
+}
+.folio-shell[data-ui-tone="midnight"] .add-chapter-box h3,
+.folio-shell[data-ui-tone="midnight"] .content-kind-group h3 {
+  color: #eef0fa !important;
+}
+.folio-shell[data-ui-tone="midnight"] .add-chapter-box input {
+  border-color: rgba(191,196,224,.14) !important;
+  background: rgba(12,14,20,.42) !important;
+  color: #eef0fa !important;
+}
+.folio-shell[data-ui-tone="midnight"] .content-kind-group button {
+  color: #d9ddea !important;
+  background: transparent !important;
+}
+.folio-shell[data-ui-tone="midnight"] .content-kind-group button:hover {
+  background: rgba(255,255,255,.055) !important;
+  color: #fff !important;
+}
+.folio-shell[data-ui-tone="midnight"] .content-kind-group small,
+.folio-shell[data-ui-tone="midnight"] .cover-field small {
+  color: #929aaf !important;
+}
+
+/* Theme customization controls, including Reset to theme default. */
+.folio-shell[data-ui-tone="midnight"] .customize-heading,
+.folio-shell[data-ui-tone="midnight"] .customize-panel h3,
+.folio-shell[data-ui-tone="midnight"] .ornament-heading {
+  color: #eef0fa !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-panel > p,
+.folio-shell[data-ui-tone="midnight"] .customize-row > span,
+.folio-shell[data-ui-tone="midnight"] .ornament-heading small {
+  color: #9da5ba !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-row {
+  border-top-color: rgba(191,196,224,.09) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-row select,
+.folio-shell[data-ui-tone="midnight"] .customize-row input:not([type="checkbox"]) {
+  border-color: rgba(191,196,224,.13) !important;
+  background: rgba(14,16,23,.50) !important;
+  color: #eef0fa !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-reset-button {
+  border-color: rgba(145,149,255,.26) !important;
+  background: rgba(124,128,244,.12) !important;
+  color: #cfd1ff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-reset-button:hover {
+  border-color: rgba(157,160,255,.38) !important;
+  background: rgba(124,128,244,.20) !important;
+  color: #fff !important;
+}
+.folio-shell[data-ui-tone="midnight"] .customize-reset-button:active {
+  background: rgba(124,128,244,.26) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .ornament-picker button {
+  border-color: rgba(191,196,224,.11) !important;
+  background: rgba(255,255,255,.035) !important;
+  color: #e8eaf4 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .ornament-picker button:hover {
+  border-color: rgba(145,149,255,.25) !important;
+  background: rgba(255,255,255,.065) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .ornament-picker button.selected {
+  border-color: #8588f3 !important;
+  background: rgba(124,128,244,.13) !important;
+  box-shadow: 0 0 0 2px rgba(133,136,243,.16) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .ornament-picker button small {
+  color: #9199ad !important;
+}
+
+/* Split editor must remain readable; inline manuscript colors still win. */
+.folio-shell[data-ui-tone="midnight"] .writing-split-pane,
+.folio-shell[data-ui-tone="midnight"] .editor-pane {
+  color: #eef0fa !important;
+}
+.folio-shell[data-ui-tone="midnight"] .writing-split-top-strip,
+.folio-shell[data-ui-tone="midnight"] .writing-split-header {
+  border-color: rgba(191,196,224,.09) !important;
+  background: rgba(255,255,255,.018) !important;
+  color: #eef0fa !important;
+}
+.folio-shell[data-ui-tone="midnight"] .writing-split-paper,
+.folio-shell[data-ui-tone="midnight"] .editor-paper {
+  background: linear-gradient(180deg,rgba(16,18,26,.66),rgba(12,14,20,.80)) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor,
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor {
+  border-color: rgba(103,108,145,.20) !important;
+  background: #f7f8fc !important;
+  color: #25283a !important;
+  caret-color: #5d60d8 !important;
+  box-shadow:
+    0 18px 46px rgba(0,0,0,.28),
+    inset 0 1px 0 #ffffff !important;
+}
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor *,
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor * {
+  color: inherit;
+}
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor a,
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor a {
+  color: #5558d8 !important;
+}
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor::selection,
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor::selection {
+  background: rgba(101,104,232,.24) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor:empty::before,
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor:empty::before {
+  color: #969bad !important;
+}
+
+/* Writing Studio cards and form controls. */
+.folio-shell[data-ui-tone="midnight"] .write-card,
+.folio-shell[data-ui-tone="midnight"] .write-stat-grid > div,
+.folio-shell[data-ui-tone="midnight"] .revision-compare-grid .previous,
+.folio-shell[data-ui-tone="midnight"] .revision-compare-grid .current {
+  border-color: rgba(191,196,224,.10) !important;
+  background: rgba(255,255,255,.03) !important;
+  color: #e8eaf4 !important;
+}
+.folio-shell[data-ui-tone="midnight"] .write-studio-body input,
+.folio-shell[data-ui-tone="midnight"] .write-studio-body select,
+.folio-shell[data-ui-tone="midnight"] .write-studio-body textarea {
+  border-color: rgba(191,196,224,.12) !important;
+  background: rgba(14,16,23,.52) !important;
+  color: #eef0fa !important;
+}
+
+/* Status and secondary text stay neutral, never sepia/gold. */
+.folio-shell[data-ui-tone="midnight"] .folio-statusbar,
+.folio-shell[data-ui-tone="midnight"] .word-count,
+.folio-shell[data-ui-tone="midnight"] .save-indicator,
+.folio-shell[data-ui-tone="midnight"] .contents-heading {
+  color: #98a0b5 !important;
+}
+
+/* Book/theme sample paper remains representative of the actual book, not dark UI chrome. */
+.folio-shell[data-ui-tone="midnight"] .theme-sample {
+  background-color: #fff !important;
+}
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview iframe,
+.folio-shell[data-ui-tone="midnight"] .reader-screen {
+  color-scheme: light;
+}
+
+/* Computed parity locks: Format geometry follows approved Light exactly. */
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .book-identity {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .section-titlebar {
+  padding-left: 28px !important;
+  padding-right: 28px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .preview-topbar {
+  padding-left: 15px !important;
+  padding-right: 15px !important;
+}
+
+/* Final modal geometry locks from computed Light parity. */
+.folio-shell[data-ui-tone="midnight"] .style-library-header {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .native-button {
+  padding-left: 13px !important;
+  padding-right: 13px !important;
+}
+
+/* Hover preview canvas must use the exact Light transform origin. */
+.folio-shell[data-ui-tone="midnight"] .theme-hover-preview-stage iframe {
+  width: 458px !important;
+  height: 540px !important;
+  transform: scale(.638) !important;
+  transform-origin: 0 0 !important;
+}
+
+/* Final visual cleanup: dark dialog chrome and neutral range controls. */
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > footer {
+  border-top-color: rgba(191,196,224,.10) !important;
+  background: rgba(28,31,42,.96) !important;
+  color: #eef0fa !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header button {
+  color: #979fb4 !important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header button:hover {
+  color: #ffffff !important;
+  background: rgba(255,255,255,.055) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .customize-row input[type="range"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background: transparent !important;
+  accent-color: #8588f3 !important;
+  color-scheme: dark;
+}
+
+.folio-shell[data-ui-tone="midnight"] .customize-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border: 1px solid rgba(191,196,224,.18);
+  border-radius: 999px;
+  background: #444a5f;
+}
+
+.folio-shell[data-ui-tone="midnight"] .customize-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border: 1px solid #a5a8ff;
+  border-radius: 50%;
+  background: #8588f3;
+  box-shadow: 0 1px 4px rgba(0,0,0,.28);
+}
+
+.folio-shell[data-ui-tone="midnight"] .customize-row input[type="range"]::-moz-range-track {
+  height: 4px;
+  border: 1px solid rgba(191,196,224,.18);
+  border-radius: 999px;
+  background: #444a5f;
+}
+
+.folio-shell[data-ui-tone="midnight"] .customize-row input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: #8588f3;
+}
+
+.folio-shell[data-ui-tone="midnight"] .customize-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #a5a8ff;
+  border-radius: 50%;
+  background: #8588f3;
+  box-shadow: 0 1px 4px rgba(0,0,0,.28);
+}
+

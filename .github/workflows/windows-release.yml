@@ -2,7 +2,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass]
+    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: folio-windows-release-${{ github.ref_name }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   windows:
@@ -37,18 +37,18 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.5.0 version consistency
+      - name: Verify Folio 2.6.0 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.5.0") { throw "Windows release is scoped to Folio 2.5.0, found $version." }
+          if ($version -ne "2.6.0") { throw "Windows release is scoped to Folio 2.6.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
-          if (-not (Test-Path "assets\nowaikonafolioglyph.ico")) { throw "Approved Folio glyph ICO is missing." }
+          if (-not (Test-Path "assets\nowaikonafolioglyph.ico")) { throw "Approved Folio ICO is missing." }
           $glyphHash = (Get-FileHash "assets\nowaikonafolioglyph.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($glyphHash -ne "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d") { throw "Approved Folio glyph ICO checksum mismatch: $glyphHash" }
+          if ($glyphHash -ne "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d") { throw "Approved Folio ICO checksum mismatch: $glyphHash" }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Refuse an existing immutable version
@@ -105,11 +105,11 @@ jobs:
       - name: Capture visual and typesetting QA on Windows
         run: node --import tsx scripts/v107-visual-qa.ts
 
-      - name: Upload Ulysses glass UI screenshots
-        if: always() && github.ref == 'refs/heads/experiment/ulysses-liquid-glass'
+      - name: Upload UI screenshots
+        if: always() && (github.ref == 'refs/heads/experiment/ulysses-liquid-glass' || github.ref == 'refs/heads/fix/midnight-2.5')
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-Ulysses-Liquid-Glass-Preview
+          name: Folio-UI-Preview
           path: |
             build/qa-v210-writing-studio/*.png
             build/qa-v107/*.png
@@ -118,7 +118,7 @@ jobs:
       - name: Full Print PDF trim matrix with physical gap gate
         run: node --import tsx scripts/print-matrix-qa.ts
 
-      - name: Stage and validate approved Folio glyph ICO
+      - name: Stage and validate approved Folio ICO
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force build | Out-Null
@@ -126,10 +126,10 @@ jobs:
           $expected = "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d"
           $source = (Get-FileHash "assets\nowaikonafolioglyph.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
           $staged = (Get-FileHash "build\folio.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($source -ne $expected -or $staged -ne $expected) { throw "Folio glyph ICO changed during staging. source=$source staged=$staged" }
+          if ($source -ne $expected -or $staged -ne $expected) { throw "Folio ICO changed during staging. source=$source staged=$staged" }
           $bytes = [IO.File]::ReadAllBytes("build\folio.ico")
-          if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1 -or [BitConverter]::ToUInt16($bytes, 4) -ne 9) { throw "Approved Folio glyph ICO header/frame count is invalid." }
-          Write-Host "Using exact approved Folio glyph ICO ($staged)"
+          if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1 -or [BitConverter]::ToUInt16($bytes, 4) -ne 9) { throw "Approved Folio ICO header/frame count is invalid." }
+          Write-Host "Using exact approved Folio ICO ($staged)"
 
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never
@@ -251,4 +251,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.5.0 introduces the unified Ulysses-inspired liquid-glass interface across Dashboard, Write, Format, Settings, dialogs and style tools; adds live current-chapter theme previews on hover; refreshes Folio branding with the new dashboard logo and in-app glyph; and uses the exact approved glyph ICO for the executable, installer, portable app, window and .folio association. Writing, formatting, preview and export behavior remain gated by the full formatter/UI suite, Writing Studio interaction QA, Windows visual/typesetting QA, Print PDF matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.6.0 finalizes the Liquid Glass redesign with a restored approved Light interface and a geometry-matched Midnight theme; adds the in-editor Paper control with Auto, Light and Dark writing surfaces; introduces the final dark Light-mode glyph and light Midnight glyph; and adopts the new Folio Windows application icon across the executable, installer, portable build, window and .folio association. The release is gated by the full formatter/UI suite, Light/Midnight parity QA, Writing Studio interaction QA, Windows visual/typesetting QA, the complete Print PDF trim matrix, packaged executable smoke tests, export checks and SHA-256 hashing."

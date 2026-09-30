@@ -143,7 +143,7 @@ export default function StartScreen(props: { onOpenPath: (path: string) => Promi
       <main className="start-main">
         <section className="start-intro" aria-labelledby="start-title">
           <div className="start-hero-logo-frame">
-            <img className="start-hero-logo" src="/brand/foliologo.svg" alt="Folio"/>
+            <img className="start-hero-logo" src={tone === "midnight" ? "/brand/foliologo-midnight.svg" : "/brand/foliologo.svg"} alt="Folio"/>
           </div>
           <h1 id="start-title">Write. Format. Publish.</h1>
           <div className="start-actions">

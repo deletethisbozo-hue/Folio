@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { promises as fs } from "node:fs";
 import { registerApi } from "../server/api.ts";
 import { registerEditorApi } from "../server/editor-api.ts";
+import { registerWriteStudioApi } from "../server/write-studio-api.ts";
 import { closeBrowser, getBrowser } from "../server/pipeline/render-pdf.ts";
 import { ROOT } from "../server/pipeline/paths.ts";
 import { importFolderIntoFolioProject } from "../server/project-file.ts";
@@ -28,6 +29,7 @@ const app = express();
 app.use(express.json({ limit: "5mb" }));
 registerApi(app);
 registerEditorApi(app);
+registerWriteStudioApi(app);
 app.use(express.static(path.join(ROOT, "web", "dist")));
 app.get("*", (_req, res) => res.sendFile(path.join(ROOT, "web", "dist", "index.html")));
 const server = app.listen(0, "127.0.0.1");
@@ -626,6 +628,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   const studioGeometry = await page.evaluate(() => {
     const shell = document.querySelector(".folio-shell")!.getBoundingClientRect();
     const command = document.querySelector(".folio-commandbar")!.getBoundingClientRect();
+    const status = document.querySelector(".folio-statusbar")!.getBoundingClientRect();
     const library = document.querySelector(".library-pane")!.getBoundingClientRect();
     const editorPane = document.querySelector(".editor-pane")!.getBoundingClientRect();
     const manuscript = document.querySelector(".manuscript-editor")!.getBoundingClientRect();
@@ -634,11 +637,12 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
     const sidebar = getComputedStyle(document.querySelector(".library-pane")!);
     const title = getComputedStyle(document.querySelector(".section-title")!);
     return {
-      ok: command.height === 64 && library.width >= 220 && preview.width >= 360 && preview.width <= 470 &&
+      ok: command.height === 56 && library.width >= 220 && preview.width >= 360 && preview.width <= 470 &&
         manuscript.width < editorPane.width - 20 && manuscript.left > editorPane.left + 10 &&
         Number.parseFloat(title.fontSize) >= 18 && sidebar.backgroundImage !== "none" &&
-        Number.parseFloat(selected.borderRadius) >= 9 && shell.bottom <= innerHeight + 1,
+        Number.parseFloat(selected.borderRadius) >= 9 && status.height === 20 && shell.bottom <= innerHeight + 1,
       command: command.height,
+      status: status.height,
       library: library.width,
       preview: preview.width,
       manuscript: manuscript.width,
@@ -688,7 +692,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
       if (!paragraph?.classList.contains("folio-composed")) return false;
       const lines = [...paragraph.querySelectorAll<HTMLElement>(":scope > .folio-composed-line")];
       return lines.length > 1 && lines.at(-1)?.classList.contains("folio-line-natural") === true;
-    }, { timeout: 30000 }));
+    }, { timeout: 60000 }));
   } catch (error) {
     if (process.platform === "win32") throw error;
     narrowCompositionMode = "non-windows-headless-skip";

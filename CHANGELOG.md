@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-09-30
+
+### Added
+- Midnight, a full dark application theme with the same geometry and controls as the approved Light interface.
+- An editor Paper control in Write with Auto, Light, and Dark writing surfaces, persisted across sessions.
+- Dedicated final in-app glyphs for Light and Midnight.
+
+### Changed
+- Restored the approved Folio 2.5 Liquid Glass Light interface as the visual baseline.
+- Standardized the application chrome to the agreed compact 56 px top bar and 20 px status bar.
+- Replaced the Windows application icon with `assets/najnowszaikona.ico` across the executable, installer, portable build, application window, and `.folio` association.
+
+### Fixed
+- Theme hover previews now use the same position, scale, and geometry in Light and Midnight.
+- Midnight Add Content, theme reset controls, sliders, dialogs, split editor, and Writing Studio surfaces no longer inherit stale light, gold, or low-contrast legacy styling.
+- Light and Midnight now share identical tested layout geometry and interactive controls.
+
+### Tests
+- Added automated Light/Midnight parity coverage across 28 application states, including Dashboard, Format, Book Styles, theme hover preview, dialogs, Write, Writing Studio, Split View, and Focus Mode.
+- Visual QA verifies both Midnight editor-paper variants in addition to the default Auto behavior.
+
+
 ## [1.0.3] - 2026-09-10
 
 ### Added

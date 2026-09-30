@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { promises as fs } from "node:fs";
 import { registerApi } from "../server/api.ts";
 import { registerEditorApi } from "../server/editor-api.ts";
+import { registerWriteStudioApi } from "../server/write-studio-api.ts";
 import { closeBrowser, getBrowser } from "../server/pipeline/render-pdf.ts";
 import { ROOT } from "../server/pipeline/paths.ts";
 
@@ -14,6 +15,7 @@ const app = express();
 app.use(express.json({ limit: "5mb" }));
 registerApi(app);
 registerEditorApi(app);
+registerWriteStudioApi(app);
 app.use(express.static(path.join(ROOT, "web", "dist")));
 app.get("*", (_request, response) => response.sendFile(path.join(ROOT, "web", "dist", "index.html")));
 const server = app.listen(0, "127.0.0.1");
@@ -81,7 +83,7 @@ try {
   if (geometry.wordTop !== geometry.commandTop || geometry.wordHeight !== geometry.commandHeight) {
     throw new Error(`Wordmark masthead geometry drifted: ${JSON.stringify(geometry)}`);
   }
-  if (geometry.commandHeight !== 64) throw new Error(`Expected 64px masthead, got ${geometry.commandHeight}`);
+  if (geometry.commandHeight !== 56) throw new Error(`Expected 56px masthead, got ${geometry.commandHeight}`);
   if (geometry.kicker) throw new Error("Duplicate Chapter N kicker is still present");
 
   await page.waitForSelector(".preview-frame");
@@ -108,6 +110,10 @@ try {
     return Boolean(frame?.contentDocument?.body?.innerText?.trim().length);
   });
   await settle(250);
+  const lightHoverGeometry = await page.$eval(".theme-hover-preview", (node) => {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return { top: rect.top, right: innerWidth - rect.right, width: rect.width, height: rect.height };
+  });
   await page.screenshot({ path: path.join(qa, "02a-design-library-hover-preview.png") });
   await page.mouse.move(20, 20);
   await page.click('.style-library-header button[aria-label="Close"]');
@@ -119,6 +125,46 @@ try {
   await page.screenshot({ path: path.join(qa, "02b-book-details.png") });
   await page.click('[role="dialog"][aria-label="Book Details"] header button[aria-label="Close"]');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book Details"]'));
+
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await settle(260);
+  await page.screenshot({ path: path.join(qa, "02d-format-midnight.png") });
+
+  await page.click('[data-command="design"]');
+  await page.waitForSelector('[role="dialog"][aria-label="Book style library"]');
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "02e-design-library-midnight.png") });
+
+  const midnightHoverTheme = await page.$(".theme-sample:not(.selected)") ?? await page.$(".theme-sample");
+  if (!midnightHoverTheme) throw new Error("Midnight theme card missing for live hover preview QA");
+  await midnightHoverTheme.hover();
+  await page.waitForSelector(".theme-hover-preview");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector<HTMLIFrameElement>(".theme-hover-preview iframe");
+    return Boolean(frame?.contentDocument?.body?.innerText?.trim().length);
+  });
+  await settle(250);
+  const midnightHoverGeometry = await page.$eval(".theme-hover-preview", (node) => {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return { top: rect.top, right: innerWidth - rect.right, width: rect.width, height: rect.height };
+  });
+  const hoverGeometryDelta = Math.max(
+    Math.abs(midnightHoverGeometry.top - lightHoverGeometry.top),
+    Math.abs(midnightHoverGeometry.right - lightHoverGeometry.right),
+    Math.abs(midnightHoverGeometry.width - lightHoverGeometry.width),
+    Math.abs(midnightHoverGeometry.height - lightHoverGeometry.height),
+  );
+  if (hoverGeometryDelta > 1) {
+    throw new Error(`Midnight theme hover preview must match Light geometry: ${JSON.stringify({ lightHoverGeometry, midnightHoverGeometry })}`);
+  }
+  await page.screenshot({ path: path.join(qa, "02f-design-library-midnight-hover-preview.png") });
+  await page.mouse.move(20, 20);
+  await page.click('.style-library-header button[aria-label="Close"]');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Book style library"]'));
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");
+  await settle(180);
 
   await page.click(".generate-button");
   await page.waitForSelector(".generate-menu");
@@ -172,6 +218,25 @@ try {
 
   await settle(300);
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
+
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark");
+  await settle(240);
+  await page.screenshot({ path: path.join(qa, "03d-write-midnight.png") });
+
+  await page.select('.editor-surface-control select', "light");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "light"
+    && window.localStorage.getItem("folio-editor-surface") === "light");
+  await settle(220);
+  await page.screenshot({ path: path.join(qa, "03e-write-midnight-light-paper.png") });
+  await page.select('.editor-surface-control select', "auto");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark"
+    && window.localStorage.getItem("folio-editor-surface") === "auto");
+
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");
+  await settle(160);
 
   const closedEditorLeft = await page.$eval(".editor-pane", (element) => element.getBoundingClientRect().left);
   await page.evaluate(() => {
@@ -500,6 +565,13 @@ try {
   await page.waitForSelector('.folio-shell[data-focus-mode="true"]');
   await page.keyboard.press("Escape");
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-focus-mode="false"]');
+
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await page.click('.command-wordmark');
+  await page.waitForSelector('.start-shell[data-ui-tone="midnight"]');
+  await settle(260);
+  await page.screenshot({ path: path.join(qa, "07-dashboard-midnight.png") });
 } finally {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
