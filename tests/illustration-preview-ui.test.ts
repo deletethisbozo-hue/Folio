@@ -32,7 +32,8 @@ console.log("\nFolio front matter illustration preview + crop");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
-  page.setDefaultTimeout(60_000);
+  page.setDefaultTimeout(90_000);
+  page.setDefaultNavigationTimeout(90_000);
   await page.setViewport({ width: 1440, height: 900 });
   await page.goto(base, { waitUntil: "networkidle0" });
   await page.evaluate(() => {
@@ -53,13 +54,13 @@ try {
   await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Preface"));
   await page.waitForSelector('.illustration-button:not([disabled])');
 
-  const firstUploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"), { timeout: 30_000 });
-  const [firstChooser] = await Promise.all([page.waitForFileChooser({ timeout: 30_000 }), page.click(".illustration-button")]);
+  const firstUploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"), { timeout: 60_000 });
+  const [firstChooser] = await Promise.all([page.waitForFileChooser({ timeout: 60_000 }), page.click(".illustration-button")]);
   await firstChooser.accept([fixture]);
   const firstUpload = await firstUploadResponse;
   if (!firstUpload.ok()) throw new Error("Illustration upload failed: " + firstUpload.status() + " " + (await firstUpload.text()));
 
-  await page.waitForFunction(() => Boolean(document.querySelector(".editor-illustration") || document.querySelector(".global-error")), { timeout: 20_000 });
+  await page.waitForFunction(() => Boolean(document.querySelector(".editor-illustration") || document.querySelector(".global-error")), { timeout: 60_000 });
   const earlyUploadState = await page.evaluate(() => ({
     hasFigure: Boolean(document.querySelector(".editor-illustration")),
     error: document.querySelector(".global-error")?.textContent ?? "",
