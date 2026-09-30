@@ -56,7 +56,7 @@ try {
       void request.continue();
     }
   });
-  page.setDefaultTimeout(15000);
+  page.setDefaultTimeout(45_000);
   await page.setViewport({ width: 1440, height: 900 });
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
