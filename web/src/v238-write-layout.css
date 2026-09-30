@@ -108,9 +108,9 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-header {
-  flex: 0 0 58px !important;
-  height: 58px !important;
-  min-height: 58px !important;
+  flex: 0 0 52px !important;
+  height: 52px !important;
+  min-height: 52px !important;
   padding-inline: 20px 16px !important;
 }
 
