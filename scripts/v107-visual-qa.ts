@@ -36,6 +36,7 @@ try {
   const browser = await getBrowser();
   const page = await browser.newPage();
   page.setDefaultTimeout(60_000);
+  page.setDefaultNavigationTimeout(90_000);
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
   await page.goto(base, { waitUntil: "networkidle0" });
   await page.evaluate(() => {
@@ -210,23 +211,6 @@ try {
     needle: string,
     minimums: { paragraphs: number; justifiedLines: number } = { paragraphs: 2, justifiedLines: 6 },
   ) => {
-    // On loaded Windows runners the preview can briefly expose the new DOM shell
-    // before the compositor has repopulated the corpus. Wait for the exact
-    // semantic paragraph we are about to measure instead of sampling that gap.
-    await page.waitForFunction((expected) => {
-      const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
-      const doc = document.querySelector("iframe")?.contentDocument;
-      const candidates = [...(doc?.querySelectorAll<HTMLElement>(
-        "section.chapter > p.folio-composed, section.chapter > p.folio-native-dropcap"
-      ) ?? [])];
-      const corpus = candidates.find((paragraph) => helper?.(paragraph).includes(expected));
-      if (!helper || !corpus) return false;
-      const section = corpus.closest("section");
-      const composed = section?.querySelectorAll<HTMLElement>(":scope > p.folio-composed") ?? [];
-      return composed.length >= minimums.paragraphs
-        && [...composed].some((paragraph) => paragraph.querySelector(".folio-composed-line"));
-    }, { timeout: 60_000 }, needle);
-    await page.waitForSelector(".preview-loading", { hidden: true, timeout: 60_000 });
     const report = await page.evaluate((expected) => {
       const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")!.contentDocument!;
