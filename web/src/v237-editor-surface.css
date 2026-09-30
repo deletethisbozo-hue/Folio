@@ -70,8 +70,8 @@
 }
 
 /* Explicit light paper surface. */
-.folio-shell[data-editor-surface="light"] .manuscript-editor,
-.folio-shell[data-editor-surface="light"] .writing-split-editor {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .manuscript-editor,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .writing-split-editor {
   border-color: rgba(103,108,145,.20) !important;
   background: #f7f8fc !important;
   color: #25283a !important;
@@ -81,24 +81,24 @@
     inset 0 1px 0 #ffffff !important;
 }
 
-.folio-shell[data-editor-surface="light"] .manuscript-editor a,
-.folio-shell[data-editor-surface="light"] .writing-split-editor a {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .manuscript-editor a,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .writing-split-editor a {
   color: #5558d8 !important;
 }
 
-.folio-shell[data-editor-surface="light"] .manuscript-editor::selection,
-.folio-shell[data-editor-surface="light"] .writing-split-editor::selection {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .manuscript-editor::selection,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .writing-split-editor::selection {
   background: rgba(101,104,232,.24) !important;
 }
 
-.folio-shell[data-editor-surface="light"] .manuscript-editor:empty::before,
-.folio-shell[data-editor-surface="light"] .writing-split-editor:empty::before {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .manuscript-editor:empty::before,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="light"] .writing-split-editor:empty::before {
   color: #969bad !important;
 }
 
 /* Explicit dark paper surface. */
-.folio-shell[data-editor-surface="dark"] .manuscript-editor,
-.folio-shell[data-editor-surface="dark"] .writing-split-editor {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .manuscript-editor,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .writing-split-editor {
   border-color: rgba(191,196,224,.10) !important;
   background: rgba(37,41,54,.97) !important;
   color: #eef0fa !important;
@@ -108,17 +108,17 @@
     inset 0 1px 0 rgba(255,255,255,.045) !important;
 }
 
-.folio-shell[data-editor-surface="dark"] .manuscript-editor a,
-.folio-shell[data-editor-surface="dark"] .writing-split-editor a {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .manuscript-editor a,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .writing-split-editor a {
   color: #aeb1ff !important;
 }
 
-.folio-shell[data-editor-surface="dark"] .manuscript-editor::selection,
-.folio-shell[data-editor-surface="dark"] .writing-split-editor::selection {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .manuscript-editor::selection,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .writing-split-editor::selection {
   background: rgba(118,122,235,.34) !important;
 }
 
-.folio-shell[data-editor-surface="dark"] .manuscript-editor:empty::before,
-.folio-shell[data-editor-surface="dark"] .writing-split-editor:empty::before {
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .manuscript-editor:empty::before,
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface="dark"] .writing-split-editor:empty::before {
   color: #858da2 !important;
 }
