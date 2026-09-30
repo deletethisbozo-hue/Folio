@@ -1,6 +1,6 @@
 {
   "name": "folio-book-formatter",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "private": true,
   "description": "Folio — a Windows desktop studio for writing, formatting, previewing and publishing books.",
   "author": "Folio contributors; based on Byte-Sized Book Formatter by Angie Hartwell",

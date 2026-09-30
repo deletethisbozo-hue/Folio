@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-09-30
+
+### Changed
+- Tightened the application top bar to 50 px in both Light and Midnight.
+- Replaced the Write editor Paper dropdown with a compact sun/moon surface toggle.
+- Reduced the Write chapter header to 52 px and the Format chapter header to 56 px without shrinking the word count.
+
+### Fixed
+- Kept Split View aligned to the same 52 px Write header height.
+- Kept the Format manuscript paper light in Midnight so book content remains visually distinct from the dark application chrome.
+- Normalized the Light/Midnight editor-surface toggle and parity controls after the final compact-layout pass.
+
+### Tests
+- Updated the compact-chrome and visual parity gates for the final header and top-bar geometry.
+
 ## [2.6.0] - 2026-09-30
 
 ### Added
