@@ -1852,9 +1852,10 @@
   box-shadow: 0 1px 4px rgba(0,0,0,.28);
 }
 
-
-
-/* Midnight Format readability lock. Paper choice is Write-only. */
+/* Midnight Format paper lock.
+ * Format represents the real book page, so its manuscript surface is always
+ * paper-light regardless of application tone or Write editor preference.
+ */
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-pane,
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-topbar,
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .section-titlebar,
@@ -1871,11 +1872,21 @@
   color: #eef0fa !important;
 }
 
+.folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .editor-paper {
+  background:
+    radial-gradient(760px 400px at 50% 0%, rgba(255,255,255,.05), transparent 70%),
+    linear-gradient(180deg, rgba(20,23,32,.82), rgba(16,18,26,.90)) !important;
+}
+
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .manuscript-editor {
-  border-color: rgba(185,190,218,.12) !important;
-  background: rgba(33,36,47,.98) !important;
-  color: #f1f2f8 !important;
-  caret-color: #ffffff !important;
+  border-color: rgba(90,94,126,.18) !important;
+  background: #fbfbfd !important;
+  color: #25262b !important;
+  caret-color: #5558d8 !important;
+  box-shadow:
+    0 18px 42px rgba(0,0,0,.24),
+    0 2px 8px rgba(0,0,0,.14),
+    inset 0 1px 0 #ffffff !important;
 }
 
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .manuscript-editor * {
@@ -1883,16 +1894,18 @@
 }
 
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .manuscript-editor a {
-  color: #b9bbff !important;
+  color: #5558d8 !important;
 }
 
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .manuscript-editor:empty::before {
-  color: #8f97ac !important;
+  color: #969bad !important;
 }
 
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .contents-row {
   color: #cdd2e2 !important;
 }
+
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="format"] .contents-row.selected {
   color: #ffffff !important;
 }
+
