@@ -34,6 +34,7 @@ import "./v232-device-shells.css";
 import "./v233-regression-fixes.css";
 import "./v234-liquid-glass.css";
 import "./v235-midnight.css";
+import "./v236-compact-chrome.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
