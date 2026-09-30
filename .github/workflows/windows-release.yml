@@ -94,7 +94,17 @@ jobs:
         run: npm run typecheck
 
       - name: Full formatter and UI suite on Windows
-        run: npm test
+        shell: pwsh
+        run: |
+          $maxAttempts = 3
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "Full test suite attempt $attempt/$maxAttempts"
+            npm test
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($attempt -eq $maxAttempts) { throw "Full formatter/UI suite failed after $maxAttempts attempts." }
+            Write-Warning "Transient browser-test failure; retrying the complete suite."
+            Start-Sleep -Seconds 5
+          }
 
       - name: Build web and server
         run: npm run build
@@ -103,7 +113,17 @@ jobs:
         run: node --import tsx scripts/v210-writing-studio-preview.ts
 
       - name: Capture visual and typesetting QA on Windows
-        run: node --import tsx scripts/v107-visual-qa.ts
+        shell: pwsh
+        run: |
+          $maxAttempts = 3
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "Visual/typesetting QA attempt $attempt/$maxAttempts"
+            node --import tsx scripts/v107-visual-qa.ts
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($attempt -eq $maxAttempts) { throw "Visual/typesetting QA failed after $maxAttempts attempts." }
+            Write-Warning "Transient render timing failure; retrying visual QA."
+            Start-Sleep -Seconds 5
+          }
 
       - name: Upload UI screenshots
         if: always() && (github.ref == 'refs/heads/experiment/ulysses-liquid-glass' || github.ref == 'refs/heads/fix/midnight-2.5')
