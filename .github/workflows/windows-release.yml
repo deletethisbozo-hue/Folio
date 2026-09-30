@@ -48,7 +48,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
           if (-not (Test-Path "assets\najnowszaikona.ico")) { throw "Approved Folio ICO is missing." }
           $glyphHash = (Get-FileHash "assets\najnowszaikona.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($glyphHash -ne "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d") { throw "Approved Folio ICO checksum mismatch: $glyphHash" }
+          if ($glyphHash -ne "cefa1effb655c1c6f63db9d06143dea4d4e137bdbcf6b48d6347c51fe389b0a9") { throw "Approved Folio ICO checksum mismatch: $glyphHash" }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Refuse an existing immutable version
@@ -143,7 +143,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force build | Out-Null
           Copy-Item "assets\najnowszaikona.ico" "build\folio.ico" -Force
-          $expected = "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d"
+          $expected = "cefa1effb655c1c6f63db9d06143dea4d4e137bdbcf6b48d6347c51fe389b0a9"
           $source = (Get-FileHash "assets\najnowszaikona.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
           $staged = (Get-FileHash "build\folio.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($source -ne $expected -or $staged -ne $expected) { throw "Folio ICO changed during staging. source=$source staged=$staged" }
