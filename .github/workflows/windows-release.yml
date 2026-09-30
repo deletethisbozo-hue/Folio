@@ -46,8 +46,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
-          if (-not (Test-Path "assets\nowaikonafolioglyph.ico")) { throw "Approved Folio ICO is missing." }
-          $glyphHash = (Get-FileHash "assets\nowaikonafolioglyph.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not (Test-Path "assets\najnowszaikona.ico")) { throw "Approved Folio ICO is missing." }
+          $glyphHash = (Get-FileHash "assets\najnowszaikona.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($glyphHash -ne "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d") { throw "Approved Folio ICO checksum mismatch: $glyphHash" }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
@@ -142,9 +142,9 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force build | Out-Null
-          Copy-Item "assets\nowaikonafolioglyph.ico" "build\folio.ico" -Force
+          Copy-Item "assets\najnowszaikona.ico" "build\folio.ico" -Force
           $expected = "036400f9180f5e26a2bd44971222371062a469f8f16460affb2918ffe97ba46d"
-          $source = (Get-FileHash "assets\nowaikonafolioglyph.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $source = (Get-FileHash "assets\najnowszaikona.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
           $staged = (Get-FileHash "build\folio.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($source -ne $expected -or $staged -ne $expected) { throw "Folio ICO changed during staging. source=$source staged=$staged" }
           $bytes = [IO.File]::ReadAllBytes("build\folio.ico")
