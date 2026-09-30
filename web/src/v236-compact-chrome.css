@@ -6,25 +6,25 @@
 :root,
 .start-shell,
 .folio-shell {
-  --folio-masthead-height: 56px;
+  --folio-masthead-height: 50px;
 }
 
 .start-shell .start-windowbar,
 .folio-shell[data-ui-tone] .folio-commandbar {
-  height: 56px !important;
-  min-height: 56px !important;
-  max-height: 56px !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
 }
 
 .folio-shell[data-ui-tone] button.command-wordmark {
-  height: 56px !important;
-  min-height: 56px !important;
-  max-height: 56px !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
   align-self: stretch !important;
 }
 
 .folio-shell:not(.folio-empty-shell)[data-ui-tone] {
-  grid-template-rows: 56px minmax(0, 1fr) 20px !important;
+  grid-template-rows: 50px minmax(0, 1fr) 20px !important;
 }
 
 .folio-shell[data-ui-tone] .folio-statusbar {
