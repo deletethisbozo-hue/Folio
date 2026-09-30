@@ -61,9 +61,9 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .section-titlebar {
-  height: 58px !important;
-  min-height: 58px !important;
-  padding-inline: 24px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  padding-inline: 22px !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-wrap {
@@ -116,4 +116,33 @@
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title {
   line-height: 1.08 !important;
+}
+
+
+/* Compact Format chapter header: same geometry in Light and Midnight. */
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar {
+  height: 56px !important;
+  min-height: 56px !important;
+  padding-inline: 22px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-input {
+  font-size: 21px !important;
+  line-height: 1.08 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button {
+  padding-block: 0 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button {
+  margin-top: 1px !important;
+  font-size: 9.5px !important;
+  line-height: 1.05 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-actions {
+  gap: 2px !important;
 }
