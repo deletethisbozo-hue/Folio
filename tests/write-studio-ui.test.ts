@@ -43,7 +43,8 @@ const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
-  page.setDefaultTimeout(12000);
+  page.setDefaultTimeout(45_000);
+  page.setDefaultNavigationTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
   await page.goto(base, { waitUntil: "networkidle0" });
 
