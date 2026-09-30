@@ -98,3 +98,22 @@
   height: 22px !important;
   min-height: 22px !important;
 }
+
+
+/* Split View follows the same compact vertical rhythm as the primary Write editor. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-top-strip {
+  flex: 0 0 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-header {
+  flex: 0 0 58px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  padding-inline: 20px 16px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title {
+  line-height: 1.08 !important;
+}
