@@ -1775,3 +1775,19 @@
   padding-right: 15px !important;
 }
 
+/* Final modal geometry locks from computed Light parity. */
+.folio-shell[data-ui-tone="midnight"] .style-library-header {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-dialog > header {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .native-button {
+  padding-left: 13px !important;
+  padding-right: 13px !important;
+}
+
