@@ -118,12 +118,13 @@ try {
         .filter((el) => ["BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(el.tagName))
         .map((el) => {
           const isTone = el.classList.contains("tone-toggle");
+          const isSurfaceToggle = el.classList.contains("editor-surface-toggle");
           return {
             tag: el.tagName.toLowerCase(),
             className: el.getAttribute("class") ?? "",
-            aria: isTone ? "__TONE__" : (el.getAttribute("aria-label") ?? ""),
+            aria: isTone ? "__TONE__" : isSurfaceToggle ? "__SURFACE__" : (el.getAttribute("aria-label") ?? ""),
             type: el.getAttribute("type") ?? "",
-            text: isTone ? "__TONE__" : (el.textContent?.replace(/\s+/g, " ").trim() ?? ""),
+            text: isTone ? "__TONE__" : isSurfaceToggle ? "__SURFACE__" : (el.textContent?.replace(/\s+/g, " ").trim() ?? ""),
           };
         });
       return { nodes, controls };
