@@ -238,7 +238,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
               data-placeholder="Start writing…"
               onInput={recordInput}
               onKeyDown={(event) => {
-                if (props.typewriterSoundEnabled && shouldPlayTypewriterSound(event)) playTypewriterSound(props.typewriterSoundStyle);
+                if (documentRef.current?.editable && props.typewriterSoundEnabled && shouldPlayTypewriterSound(event)) playTypewriterSound(props.typewriterSoundStyle);
               }}
               onClick={() => { if (props.typewriterMode) centerTypewriterCaret(editorRef.current); }}
               onKeyUp={() => { if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current); }}
