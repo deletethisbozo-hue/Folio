@@ -184,6 +184,9 @@ try {
       if (loading && getComputedStyle(loading).display !== "none" && loading.getBoundingClientRect().width > 0) return false;
       const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
       if (!frame) return true;
+      const frameStyle = getComputedStyle(frame);
+      const frameRect = frame.getBoundingClientRect();
+      if (frameStyle.display === "none" || frameStyle.visibility === "hidden" || frameRect.width <= 0 || frameRect.height <= 0) return true;
       return Boolean(frame.contentDocument?.body?.innerText?.trim().length);
     }, { timeout: 20000 });
     await settle(120);
