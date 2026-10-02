@@ -39,6 +39,7 @@ import "./v237-editor-surface.css";
 import "./v238-write-layout.css";
 import "./v239-writing-features.css";
 import "./v240-edge-polish.css";
+import "./v241-writing-alignment.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
