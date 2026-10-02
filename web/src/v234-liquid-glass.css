@@ -275,7 +275,9 @@
 }
 
 .folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-topbar-right .word-count,
-.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-topbar-right .save-indicator:not(:empty) {
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .editor-topbar-right .save-indicator:not(:empty),
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .write-title-status .word-count,
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"] .write-title-status .save-indicator:not(:empty) {
   min-height: 24px !important;
   padding: 0 9px !important;
   display: inline-flex !important;
@@ -449,11 +451,11 @@
 
 .folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"][data-split-view="true"] .writing-split-toolbar {
   width: calc(100% - 32px) !important;
-  flex: 0 0 40px !important;
-  height: 40px !important;
-  min-height: 40px !important;
-  margin: 0 16px 4px !important;
-  padding: 3px 8px !important;
+  flex: 0 0 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  margin: 0 16px 0 !important;
+  padding: 2px 8px !important;
   border: 1px solid rgba(82,85,120,.13) !important;
   border-radius: 14px !important;
   background: rgba(255,255,255,.68) !important;
