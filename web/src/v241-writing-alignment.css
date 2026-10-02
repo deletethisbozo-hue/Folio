@@ -76,15 +76,15 @@
   min-width: 0;
 }
 
-.folio-shell[data-ui-tone] .word-count-picker[open] {
+.folio-shell[data-ui-tone] .word-count-picker.open {
   z-index: 90;
 }
 
-.folio-shell[data-ui-tone] .word-count-picker > summary {
+.folio-shell[data-ui-tone] .word-count-picker > .word-count-button {
   list-style: none;
 }
 
-.folio-shell[data-ui-tone] .word-count-picker > summary::-webkit-details-marker {
+.folio-shell[data-ui-tone] .word-count-picker > .word-count-button::-webkit-details-marker {
   display: none;
 }
 
