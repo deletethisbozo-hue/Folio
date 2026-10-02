@@ -361,7 +361,7 @@ try {
   check("Print Preview preserves anchored wrap semantics", true);
   await page.screenshot({ path: path.join(qaDir, "print.png"), fullPage: false });
 
-  await page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 30000 });
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
