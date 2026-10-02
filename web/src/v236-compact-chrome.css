@@ -4,12 +4,20 @@
  */
 
 :root,
-.start-shell,
+.start-shell {
+  --folio-masthead-height: 50px;
+}
+
 .folio-shell {
   --folio-masthead-height: 46px;
 }
 
-.start-shell .start-windowbar,
+.start-shell .start-windowbar {
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+}
+
 .folio-shell[data-ui-tone] .folio-commandbar {
   height: 46px !important;
   min-height: 46px !important;
@@ -56,10 +64,10 @@
 }
 
 .folio-shell[data-ui-tone] button.command-wordmark img {
-  width: 46px !important;
-  height: 46px !important;
-  max-width: 46px !important;
-  max-height: 46px !important;
+  width: 42px !important;
+  height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
   margin: 0 !important;
   object-fit: contain !important;
 }
