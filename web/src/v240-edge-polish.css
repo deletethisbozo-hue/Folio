@@ -153,3 +153,12 @@
   background: rgba(133,136,243,.09) !important;
   box-shadow: inset 0 0 0 1px rgba(139,143,255,.22) !important;
 }
+
+/* The legacy mockup layer draws a 2px underline with ::after on hover/focus.
+ * It turns nearly white in Midnight, so suppress it there and use the softer
+ * focus fill/ring above instead. */
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button::after {
+  content: none !important;
+  display: none !important;
+  background: transparent !important;
+}
