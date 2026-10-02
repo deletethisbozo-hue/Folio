@@ -201,6 +201,28 @@ try {
   if (!settingsContract.hasChoose || !settingsContract.hasDefaultExportCopy) {
     throw new Error(`Export location setting missing or unclear: ${JSON.stringify(settingsContract)}`);
   }
+  const soundContract = await page.evaluate(() => {
+    const toggle = document.querySelector<HTMLInputElement>('input[aria-label="Enable typewriter sound"]');
+    const options = [...document.querySelectorAll<HTMLButtonElement>(".typewriter-sound-options button")].map((button) => button.textContent?.trim() ?? "");
+    return { enabled: toggle?.checked ?? null, options };
+  });
+  if (soundContract.enabled !== false || soundContract.options.length !== 3
+    || !["Classic", "Soft", "Mechanical"].every((label) => soundContract.options.some((copy) => copy.startsWith(label)))) {
+    throw new Error(`Typewriter sound settings contract failed: ${JSON.stringify(soundContract)}`);
+  }
+  await page.click('input[aria-label="Enable typewriter sound"]');
+  await page.evaluate(() => {
+    const mechanical = [...document.querySelectorAll<HTMLButtonElement>(".typewriter-sound-options button")]
+      .find((button) => button.textContent?.trim().startsWith("Mechanical"));
+    if (!mechanical) throw new Error("Mechanical typewriter sound option missing");
+    mechanical.click();
+  });
+  await page.waitForFunction(() =>
+    window.localStorage.getItem("folio-typewriter-sound-enabled") === "true"
+    && window.localStorage.getItem("folio-typewriter-sound-style") === "mechanical"
+    && document.querySelector<HTMLButtonElement>(".typewriter-sound-options button.active")?.textContent?.trim().startsWith("Mechanical"),
+  );
+
   const initialSpellcheck = await page.$eval<HTMLInputElement>('input[aria-label="Enable spellcheck"]', (input) => input.checked);
   if (!initialSpellcheck) throw new Error("Spellcheck should default to enabled");
   await page.click('input[aria-label="Enable spellcheck"]');
