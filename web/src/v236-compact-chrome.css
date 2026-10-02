@@ -6,25 +6,25 @@
 :root,
 .start-shell,
 .folio-shell {
-  --folio-masthead-height: 50px;
+  --folio-masthead-height: 46px;
 }
 
 .start-shell .start-windowbar,
 .folio-shell[data-ui-tone] .folio-commandbar {
-  height: 50px !important;
-  min-height: 50px !important;
-  max-height: 50px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
 }
 
 .folio-shell[data-ui-tone] button.command-wordmark {
-  height: 50px !important;
-  min-height: 50px !important;
-  max-height: 50px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
   align-self: stretch !important;
 }
 
 .folio-shell:not(.folio-empty-shell)[data-ui-tone] {
-  grid-template-rows: 50px minmax(0, 1fr) 20px !important;
+  grid-template-rows: 46px minmax(0, 1fr) 20px !important;
 }
 
 .folio-shell[data-ui-tone] .folio-statusbar {
@@ -37,4 +37,67 @@
   align-items: center !important;
   line-height: 19px !important;
   overflow: hidden !important;
+}
+
+
+/* Final masthead geometry: glyph-only brand cell, compact controls, true vertical centering. */
+.folio-shell[data-ui-tone] .folio-commandbar {
+  grid-template-columns: 64px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+}
+
+.folio-shell[data-ui-tone] button.command-wordmark {
+  width: 64px !important;
+  min-width: 64px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.folio-shell[data-ui-tone] button.command-wordmark img {
+  width: 46px !important;
+  height: 46px !important;
+  max-width: 46px !important;
+  max-height: 46px !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav {
+  height: 46px !important;
+  min-height: 46px !important;
+  align-items: center !important;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav > button,
+.folio-shell[data-ui-tone] .folio-commandbar .tone-toggle {
+  height: 28px !important;
+  min-height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone] .workspace-mode-switch {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 3px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.folio-shell[data-ui-tone] .folio-commandbar nav .workspace-mode-switch button {
+  height: 24px !important;
+  min-height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone] .tone-toggle {
+  margin-block: 0 !important;
+  align-self: center !important;
 }
