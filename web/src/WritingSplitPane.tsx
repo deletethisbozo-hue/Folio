@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { markdownToEditorHtml, richTextToMarkdown, richTextToMarkdownCooperative } from "./rich-text";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
+import { playTypewriterSound, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import type { ProjectSummary, SectionDocument } from "./types";
 
 type SplitSaveState = "idle" | "saving" | "saved" | "error";
@@ -11,6 +12,8 @@ type WritingSplitPaneProps = {
   primarySectionId: string | null;
   ornament: string;
   typewriterMode: boolean;
+  typewriterSoundEnabled: boolean;
+  typewriterSoundStyle: TypewriterSoundStyle;
   spellcheckEnabled: boolean;
   writeZoom: number;
   onClose: () => void;
@@ -234,6 +237,9 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
               spellCheck={props.spellcheckEnabled}
               data-placeholder="Start writing…"
               onInput={recordInput}
+              onKeyDown={(event) => {
+                if (props.typewriterSoundEnabled && shouldPlayTypewriterSound(event)) playTypewriterSound(props.typewriterSoundStyle);
+              }}
               onClick={() => { if (props.typewriterMode) centerTypewriterCaret(editorRef.current); }}
               onKeyUp={() => { if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current); }}
               onFocus={() => { if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current); }}
