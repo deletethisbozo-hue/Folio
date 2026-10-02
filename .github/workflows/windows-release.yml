@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.6.1 version consistency
+      - name: Verify Folio 2.7.0 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.6.1") { throw "Windows release is scoped to Folio 2.6.1, found $version." }
+          if ($version -ne "2.7.0") { throw "Windows release is scoped to Folio 2.7.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -271,4 +271,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.6.1 refines the desktop workspace after the 2.6 redesign: the application top bar is tightened to 50 px, Write uses a compact 52 px chapter header, Format uses 56 px, Split View is aligned to the same Write header height, and the word count remains deliberately readable. The old Paper dropdown is replaced by a compact sun/moon editor-surface toggle, Midnight Format keeps the manuscript paper light for readability, and the approved Folio Windows icon remains wired across the executable, installer, portable build, window and .folio association. The release is gated by the full formatter/UI suite, Light/Midnight parity QA, Writing Studio interaction QA, Windows visual/typesetting QA, the complete Print PDF trim matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.7.0 adds a proper project notebook and optional typewriter key sounds while tightening the writing workspace. Notes are stored with the .folio project but remain outside manuscript content and exports, with search, pinning, editing, quick save and reference images. Settings now offers Classic, Soft and Mechanical typewriter sounds for Write and Split View. The global masthead is reduced to 46 px in Write and Format, the Write chapter header is more compact and balanced, and Light/Midnight layout parity is preserved. The release is gated by the full formatter/UI suite, Light/Midnight parity QA, Writing Studio interaction QA, Windows visual/typesetting QA, the complete Print PDF trim matrix, packaged executable smoke tests, export checks and SHA-256 hashing."
