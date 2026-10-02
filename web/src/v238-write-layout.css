@@ -113,8 +113,12 @@
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .write-title-status {
   margin-left: auto !important;
+  width: 126px !important;
+  min-width: 126px !important;
+  flex: 0 0 126px !important;
   display: inline-flex !important;
   align-items: center !important;
+  justify-content: flex-end !important;
   gap: 6px !important;
   white-space: nowrap !important;
 }
