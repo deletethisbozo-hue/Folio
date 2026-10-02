@@ -451,7 +451,7 @@ export default function WriteStudioDrawer(props: Props) {
 
   if (!props.open) return null;
 
-  return <aside className={"write-studio-drawer " + (props.activeTab === "history" && compareRevision ? "compare-expanded" : "")} aria-label="Writing tools">
+  return <aside className={"write-studio-drawer " + (props.activeTab === "history" && compareRevision ? "compare-expanded " : "") + (props.activeTab === "research" ? "notes-expanded" : "")} aria-label="Writing tools">
     <header className="write-studio-header">
       <div><span className="write-studio-eyebrow">Write</span><strong>Writing Studio</strong></div>
       <button type="button" onClick={props.onClose} aria-label="Close writing tools">×</button>
