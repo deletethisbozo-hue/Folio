@@ -1,0 +1,164 @@
+/* Folio 2.7.1 edge-spacing and Midnight border polish.
+ * Geometry in this file is tone-neutral. Midnight-only rules change paint only.
+ */
+
+/* Keep navigation content away from rounded pane edges in both Light and Midnight. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .contents-list,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .contents-list {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .library-add-section,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .library-add-section {
+  width: calc(100% - 24px) !important;
+  margin-left: 12px !important;
+  margin-right: 12px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .library-footer,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .library-footer {
+  margin-left: 12px !important;
+  margin-right: 12px !important;
+}
+
+/* The compact Write header still needs a safe inset from the rounded editor pane. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .section-titlebar {
+  padding-left: 22px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-titlebar > .write-sidebar-toggle {
+  margin-right: 10px !important;
+}
+
+/* Split View is only 40px tall, so make the stacked label/select fit without
+ * touching either the pane edge or the top of the header. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-header {
+  padding-left: 20px !important;
+  padding-right: 16px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title {
+  gap: 2px !important;
+  align-content: center !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title > span {
+  font-size: 8px !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title select {
+  height: 25px !important;
+  min-height: 25px !important;
+}
+
+/* Midnight: default borders are quiet material separators, never currentColor.
+ * Several old geometry rules only set border-width/style, which let light text
+ * become a bright white outline. */
+.folio-shell[data-ui-tone="midnight"] .contents-row {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .contents-row:hover {
+  border-color: rgba(174,180,214,.075) !important;
+  box-shadow: inset 0 0 0 1px rgba(174,180,214,.025) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .contents-row.selected {
+  border-color: rgba(139,143,255,.22) !important;
+  box-shadow:
+    0 7px 18px rgba(49,40,114,.25),
+    inset 0 1px 0 rgba(255,255,255,.10) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .library-add-section {
+  border-color: rgba(174,180,214,.07) !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .library-footer,
+.folio-shell[data-ui-tone="midnight"] .book-identity,
+.folio-shell[data-ui-tone="midnight"] .library-toolbar {
+  border-color: rgba(174,180,214,.065) !important;
+}
+
+/* Settings cards had inherited the light foreground as their border color. */
+.folio-shell[data-ui-tone="midnight"] .settings-row {
+  border-color: rgba(174,180,214,.085) !important;
+  background: rgba(255,255,255,.012) !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .settings-row:hover {
+  border-color: rgba(139,143,255,.16) !important;
+  background: rgba(255,255,255,.028) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .typewriter-sound-options button {
+  border-color: rgba(174,180,214,.10) !important;
+  box-shadow: none !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .typewriter-sound-options button:hover {
+  border-color: rgba(139,143,255,.20) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .typewriter-sound-options button.active {
+  border-color: rgba(139,143,255,.30) !important;
+  box-shadow: inset 0 0 0 1px rgba(139,143,255,.08) !important;
+}
+
+/* Dashboard recent-book outline: force one uniform subtle color on all four
+ * sides. The old border-bottom + later border-width combination produced
+ * bright top/side edges and a different bottom edge. */
+.start-shell[data-ui-tone="midnight"] .recent-row {
+  border: 1px solid rgba(174,180,214,.075) !important;
+  box-shadow: none !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .recent-row:hover {
+  border-color: rgba(139,143,255,.15) !important;
+  background: rgba(255,255,255,.032) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .recent-heading {
+  border-bottom-color: rgba(174,180,214,.065) !important;
+}
+
+.start-shell[data-ui-tone="midnight"] .recent-section,
+.start-shell[data-ui-tone="midnight"] .start-intro {
+  border-color: rgba(174,180,214,.075) !important;
+  box-shadow:
+    0 20px 52px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+/* Mouse focus on masthead commands must not leave a white underline/rule.
+ * Keyboard focus still gets a restrained accent ring. */
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button {
+  border: 0 !important;
+  text-decoration: none !important;
+  outline: 0 !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button:focus {
+  outline: 0 !important;
+  text-decoration: none !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button:focus-visible {
+  background: rgba(133,136,243,.09) !important;
+  box-shadow: inset 0 0 0 1px rgba(139,143,255,.22) !important;
+}
+
+/* The legacy mockup layer draws a 2px underline with ::after on hover/focus.
+ * It turns nearly white in Midnight, so suppress it there and use the softer
+ * focus fill/ring above instead. */
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav > button::after {
+  content: none !important;
+  display: none !important;
+  background: transparent !important;
+}

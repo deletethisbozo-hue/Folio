@@ -178,16 +178,30 @@ try {
     await settle(180);
   }
 
+  async function settleWorkspacePreview() {
+    await page.waitForFunction(() => {
+      const loading = document.querySelector<HTMLElement>(".preview-loading");
+      if (loading && getComputedStyle(loading).display !== "none" && loading.getBoundingClientRect().width > 0) return false;
+      const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+      if (!frame) return true;
+      const frameStyle = getComputedStyle(frame);
+      const frameRect = frame.getBoundingClientRect();
+      if (frameStyle.display === "none" || frameStyle.visibility === "hidden" || frameRect.width <= 0 || frameRect.height <= 0) return true;
+      return Boolean(frame.contentDocument?.body?.innerText?.trim().length);
+    }, { timeout: 20000 });
+    await settle(120);
+  }
+
   let shot = 1;
   async function captureWorkspacePair(label: string) {
     await setWorkspaceTone("ivory");
-    await settle();
+    await settleWorkspacePreview();
     const light = await readContract(".folio-shell");
     const prefix = String(shot++).padStart(2, "0");
     await page.screenshot({ path: path.join(qa, `${prefix}-${label}-light.png`) });
 
     await setWorkspaceTone("midnight");
-    await settle();
+    await settleWorkspacePreview();
     const midnight = await readContract(".folio-shell");
     await page.screenshot({ path: path.join(qa, `${prefix}-${label}-midnight.png`) });
 
@@ -206,12 +220,30 @@ try {
     await settle();
   }
 
+  await page.evaluate(() => {
+    window.localStorage.setItem("folio-recent-projects-v1", JSON.stringify([{
+      path: "C:\\Folio-QA\\Recent-Border-QA.folio",
+      title: "Recent Border QA",
+      author: "Folio QA",
+      lastOpened: Date.now(),
+    }]));
+  });
+  await page.reload({ waitUntil: "networkidle0" });
+  await page.waitForSelector(".start-shell");
+
   await setDashboardTone("ivory");
   const dashboardLight = await readContract(".start-shell");
   const dashboardPrefix = String(shot++).padStart(2, "0");
   await page.screenshot({ path: path.join(qa, `${dashboardPrefix}-dashboard-light.png`) });
   await setDashboardTone("midnight");
   const dashboardMidnight = await readContract(".start-shell");
+  const recentBorderColors = await page.$eval(".recent-row", (row) => {
+    const style = getComputedStyle(row);
+    return [style.borderTopColor, style.borderRightColor, style.borderBottomColor, style.borderLeftColor];
+  });
+  if (new Set(recentBorderColors).size !== 1) {
+    throw new Error(`Midnight recent-row border is uneven: ${JSON.stringify(recentBorderColors)}`);
+  }
   await page.screenshot({ path: path.join(qa, `${dashboardPrefix}-dashboard-midnight.png`) });
   assertParity("dashboard", dashboardLight, dashboardMidnight);
 
@@ -233,6 +265,15 @@ try {
   await page.click('[data-command="design"]');
   await page.waitForSelector('[role="dialog"][aria-label="Book style library"]');
   await captureWorkspacePair("design-book-style");
+  await setWorkspaceTone("midnight");
+  const designUnderline = await page.$eval('[data-command="design"]', (button) => {
+    const pseudo = getComputedStyle(button, "::after");
+    return { content: pseudo.content, display: pseudo.display, background: pseudo.backgroundColor };
+  });
+  if (designUnderline.display !== "none" && designUnderline.content !== "none") {
+    throw new Error(`Midnight command underline still rendered: ${JSON.stringify(designUnderline)}`);
+  }
+  await setWorkspaceTone("ivory");
 
   const hoverTheme = await page.$(".theme-sample:not(.selected)") ?? await page.$(".theme-sample");
   if (!hoverTheme) throw new Error("Theme card missing for hover parity");
