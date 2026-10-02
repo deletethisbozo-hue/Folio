@@ -379,11 +379,11 @@
 }
 .folio-shell[data-ui-tone="midnight"][data-workspace-mode="write"][data-split-view="true"] .writing-split-toolbar {
   width: calc(100% - 32px) !important;
-  flex: 0 0 40px !important;
-  height: 40px !important;
-  min-height: 40px !important;
-  margin: 0 16px 4px !important;
-  padding: 3px 8px !important;
+  flex: 0 0 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  margin: 0 16px 0 !important;
+  padding: 2px 8px !important;
   border-width: 1px !important;
   border-style: solid !important;
   border-radius: 14px !important;
@@ -1274,6 +1274,8 @@
 .folio-shell[data-ui-tone="midnight"] .write-sidebar-toggle,
 .folio-shell[data-ui-tone="midnight"] .editor-topbar-right .word-count,
 .folio-shell[data-ui-tone="midnight"] .editor-topbar-right .save-indicator:not(:empty),
+.folio-shell[data-ui-tone="midnight"] .write-title-status .word-count,
+.folio-shell[data-ui-tone="midnight"] .write-title-status .save-indicator:not(:empty),
 .folio-shell[data-ui-tone="midnight"] .library-add-section {
   border-color: rgba(190,195,224,.09) !important;
   background: rgba(255,255,255,.035) !important;
