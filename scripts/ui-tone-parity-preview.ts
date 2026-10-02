@@ -178,16 +178,27 @@ try {
     await settle(180);
   }
 
+  async function settleWorkspacePreview() {
+    await page.waitForFunction(() => {
+      const loading = document.querySelector<HTMLElement>(".preview-loading");
+      if (loading && getComputedStyle(loading).display !== "none" && loading.getBoundingClientRect().width > 0) return false;
+      const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+      if (!frame) return true;
+      return Boolean(frame.contentDocument?.body?.innerText?.trim().length);
+    }, { timeout: 20000 });
+    await settle(120);
+  }
+
   let shot = 1;
   async function captureWorkspacePair(label: string) {
     await setWorkspaceTone("ivory");
-    await settle();
+    await settleWorkspacePreview();
     const light = await readContract(".folio-shell");
     const prefix = String(shot++).padStart(2, "0");
     await page.screenshot({ path: path.join(qa, `${prefix}-${label}-light.png`) });
 
     await setWorkspaceTone("midnight");
-    await settle();
+    await settleWorkspacePreview();
     const midnight = await readContract(".folio-shell");
     await page.screenshot({ path: path.join(qa, `${prefix}-${label}-midnight.png`) });
 
