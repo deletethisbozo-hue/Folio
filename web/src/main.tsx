@@ -38,6 +38,7 @@ import "./v236-compact-chrome.css";
 import "./v237-editor-surface.css";
 import "./v238-write-layout.css";
 import "./v239-writing-features.css";
+import "./v240-edge-polish.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
