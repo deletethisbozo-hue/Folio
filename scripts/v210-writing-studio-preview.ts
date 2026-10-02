@@ -239,7 +239,44 @@ try {
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
 
   await settle(300);
+  const writeControlAlignment = await page.evaluate(() => {
+    const toolbar = document.querySelector<HTMLElement>(".format-toolbar")!.getBoundingClientRect();
+    const find = document.querySelector<HTMLElement>(".search-pill")!.getBoundingClientRect();
+    const header = document.querySelector<HTMLElement>(".section-titlebar")!.getBoundingClientRect();
+    const sidebar = document.querySelector<HTMLElement>(".write-sidebar-toggle")!.getBoundingClientRect();
+    return {
+      findDelta: (find.top + find.height / 2) - (toolbar.top + toolbar.height / 2),
+      sidebarDelta: (sidebar.top + sidebar.height / 2) - (header.top + header.height / 2),
+      savedVisible: [...document.querySelectorAll<HTMLElement>(".write-title-status .save-indicator")]
+        .some((node) => node.textContent?.trim() === "Saved"),
+    };
+  });
+  if (Math.abs(writeControlAlignment.findDelta) > 1.5 || Math.abs(writeControlAlignment.sidebarDelta) > 1.5 || writeControlAlignment.savedVisible) {
+    throw new Error(`Write control alignment/status failed: ${JSON.stringify(writeControlAlignment)}`);
+  }
+
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
+
+  await page.click(".write-title-status .word-count-button");
+  await page.waitForSelector(".write-title-status .word-count-menu");
+  const wordCountMenu = await page.evaluate(() => ({
+    labels: [...document.querySelectorAll<HTMLElement>(".write-title-status .word-count-menu button > span")].map((node) => node.textContent?.trim()),
+    bookActive: document.querySelector(".write-title-status .word-count-menu button.active")?.textContent?.includes("Book") ?? false,
+  }));
+  if (wordCountMenu.labels.join("|") !== "Book|Chapter" || !wordCountMenu.bookActive) {
+    throw new Error(`Word count scope menu failed: ${JSON.stringify(wordCountMenu)}`);
+  }
+  await page.screenshot({ path: path.join(qa, "03ab-word-count-menu.png") });
+  await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>(".write-title-status .word-count-menu button")];
+    const chapter = buttons.find((button) => button.textContent?.includes("Chapter"));
+    if (!chapter) throw new Error("Chapter word count option missing");
+    chapter.click();
+  });
+  await page.waitForFunction(() =>
+    window.localStorage.getItem("folio-word-count-scope") === "chapter"
+    && document.querySelector(".write-title-status .word-count-button small")?.textContent?.trim() === "Chapter",
+  );
 
   const manuscriptBeforeNote = await page.$eval(".manuscript-editor", (editor) => editor.textContent ?? "");
   await page.click(".editor-tools-toggle");
@@ -552,14 +589,22 @@ try {
   await settle(900);
   const richState = await page.evaluate(() => {
     const editor = document.querySelector(".writing-split-editor");
+    const splitHeader = document.querySelector<HTMLElement>(".writing-split-header")!.getBoundingClientRect();
+    const splitTitle = document.querySelector<HTMLElement>(".writing-split-title")!.getBoundingClientRect();
+    const splitLabel = document.querySelector<HTMLElement>(".writing-split-title > span")!.getBoundingClientRect();
+    const splitSelect = document.querySelector<HTMLSelectElement>(".writing-split-title select")!.getBoundingClientRect();
     return {
       colored: Boolean(editor?.querySelector('[style*="color"]')),
       highlighted: Boolean(editor?.querySelector('[style*="background-color"]')),
       previewHidden: getComputedStyle(document.querySelector(".preview-pane")!).display === "none",
       panes: document.querySelectorAll(".manuscript-editor, .writing-split-editor").length,
+      splitTitleDelta: (splitTitle.top + splitTitle.height / 2) - (splitHeader.top + splitHeader.height / 2),
+      splitLabelDelta: (splitLabel.top + splitLabel.height / 2) - (splitHeader.top + splitHeader.height / 2),
+      splitSelectDelta: (splitSelect.top + splitSelect.height / 2) - (splitHeader.top + splitHeader.height / 2),
     };
   });
-  if (!richState.colored || !richState.highlighted || !richState.previewHidden || richState.panes < 2) {
+  if (!richState.colored || !richState.highlighted || !richState.previewHidden || richState.panes < 2
+    || Math.abs(richState.splitTitleDelta) > 1.5 || Math.abs(richState.splitLabelDelta) > 1.5 || Math.abs(richState.splitSelectDelta) > 1.5) {
     throw new Error(`Write split QA failed: ${JSON.stringify(richState)}`);
   }
 
