@@ -70,7 +70,7 @@ try {
   });
   check("uses the canonical 2.2 blue-violet accent", shell.accent.toLowerCase() === "#5b5ce2", JSON.stringify(shell));
   check("Writing Studio is an overlay drawer rather than a third grid column", shell.drawerPosition === "fixed" && shell.drawerRight === "0px", JSON.stringify(shell));
-  check("all selected Write tools are present", ["Session", "Research", "Comments", "History", "Find", "Analysis"].every((tab) => shell.tabs.includes(tab)), JSON.stringify(shell.tabs));
+  check("all selected Write tools are present", ["Session", "Notes", "Comments", "History", "Find", "Analysis"].every((tab) => shell.tabs.includes(tab)), JSON.stringify(shell.tabs));
 
   const sessionUi = await page.evaluate(() => ({
     targets: [...document.querySelectorAll(".write-target-input > span")].map((item) => item.textContent?.trim()),
