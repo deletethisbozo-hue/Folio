@@ -3,6 +3,8 @@ name: Midnight Visual QA
 on:
   push:
     branches: [main, fix/midnight-2.5, fix/v2.6.1-compact-write-chrome]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
