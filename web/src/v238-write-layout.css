@@ -128,6 +128,9 @@
   padding-inline: 9px !important;
   display: inline-flex !important;
   align-items: center !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 999px !important;
   font-size: 11.5px !important;
   font-weight: 650 !important;
   line-height: 1 !important;
@@ -138,6 +141,9 @@
   padding-inline: 7px !important;
   display: inline-flex !important;
   align-items: center !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 999px !important;
   font-size: 10px !important;
   line-height: 1 !important;
 }
