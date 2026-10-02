@@ -83,32 +83,40 @@ function WordCountPicker(props: {
   bookWords: number;
   chapterWords: number;
   chapterAvailable: boolean;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }) {
-  const detailsRef = useRef<HTMLDetailsElement>(null);
   const effectiveScope: WordCountScope = props.chapterAvailable ? props.scope : "book";
   const count = effectiveScope === "chapter" ? props.chapterWords : props.bookWords;
   const scopeLabel = effectiveScope === "chapter" ? "Chapter" : "Book";
 
   function choose(scope: WordCountScope) {
     props.setScope(scope);
-    detailsRef.current?.removeAttribute("open");
+    props.setOpen(false);
   }
 
-  return <details ref={detailsRef} className="word-count-picker">
-    <summary className="word-count word-count-button" title={`${scopeLabel} word count. Click to change scope.`}>
+  return <div className={`word-count-picker ${props.open ? "open" : ""}`}>
+    <button
+      type="button"
+      className="word-count word-count-button"
+      aria-haspopup="menu"
+      aria-expanded={props.open}
+      title={`${scopeLabel} word count. Click to change scope.`}
+      onClick={() => props.setOpen(!props.open)}
+    >
       <span>{count.toLocaleString()} Words</span>
       <small>{scopeLabel}</small>
       <span className="word-count-chevron" aria-hidden="true">⌄</span>
-    </summary>
-    <div className="word-count-menu" role="menu" aria-label="Word count scope">
-      <button type="button" className={effectiveScope === "book" ? "active" : ""} onClick={() => choose("book")}>
+    </button>
+    {props.open && <div className="word-count-menu" role="menu" aria-label="Word count scope">
+      <button type="button" role="menuitemradio" aria-checked={effectiveScope === "book"} className={effectiveScope === "book" ? "active" : ""} onClick={() => choose("book")}>
         <span>Book</span><small>{props.bookWords.toLocaleString()} words</small>
       </button>
-      <button type="button" disabled={!props.chapterAvailable} className={effectiveScope === "chapter" ? "active" : ""} onClick={() => choose("chapter")}>
+      <button type="button" role="menuitemradio" aria-checked={effectiveScope === "chapter"} disabled={!props.chapterAvailable} className={effectiveScope === "chapter" ? "active" : ""} onClick={() => choose("chapter")}>
         <span>Chapter</span><small>{props.chapterAvailable ? `${props.chapterWords.toLocaleString()} words` : "Select a chapter"}</small>
       </button>
-    </div>
-  </details>;
+    </div>}
+  </div>;
 }
 
 function lastPreviewProse(section: Element | null): HTMLElement | null {
@@ -214,6 +222,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [writeStudioTab, setWriteStudioTab] = useState<WriteStudioTab>("session");
   const [writeStudioState, setWriteStudioState] = useState<WriteStudioState | null>(null);
   const [wordCountScope, setWordCountScope] = useState<WordCountScope>(() => window.localStorage.getItem("folio-word-count-scope") === "chapter" ? "chapter" : "book");
+  const [wordCountMenuOpen, setWordCountMenuOpen] = useState(false);
   const [liveSectionWordCounts, setLiveSectionWordCounts] = useState<Record<string, number>>({});
   const [splitEditRevision, setSplitEditRevision] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats>({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
@@ -2160,8 +2169,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </aside>
 
       <section className="editor-pane">
-        <div className="editor-topbar">{workspaceMode !== "write" && <div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={draftWords} chapterAvailable={selectedSection?.kind === "chapter"}/></div>}</div>
-        <div className="section-titlebar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>} {workspaceMode === "write" && <div className="write-title-status"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={draftWords} chapterAvailable={selectedSection?.kind === "chapter"}/></div>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
+        <div className="editor-topbar">{workspaceMode !== "write" && <div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={draftWords} chapterAvailable={selectedSection?.kind === "chapter"} open={wordCountMenuOpen} setOpen={setWordCountMenuOpen}/></div>}</div>
+        <div className="section-titlebar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>} {workspaceMode === "write" && <div className="write-title-status"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={draftWords} chapterAvailable={selectedSection?.kind === "chapter"} open={wordCountMenuOpen} setOpen={setWordCountMenuOpen}/></div>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration at cursor">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
