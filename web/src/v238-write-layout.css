@@ -28,16 +28,19 @@
 
 /* Compact Write header: preserve readable status text while reclaiming vertical editor space. */
 .folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .editor-topbar {
-  height: 32px !important;
-  min-height: 32px !important;
-  padding-inline: 12px !important;
+  flex: 0 0 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .write-sidebar-toggle {
-  width: 26px !important;
-  min-width: 26px !important;
-  height: 26px !important;
-  min-height: 26px !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .editor-topbar-right {
@@ -45,7 +48,7 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .editor-topbar-right .word-count {
-  min-height: 24px !important;
+  min-height: 22px !important;
   padding-inline: 9px !important;
   font-size: 11.5px !important;
   font-weight: 650 !important;
@@ -54,16 +57,16 @@
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .editor-topbar-right .save-indicator:not(:empty) {
-  min-height: 22px !important;
+  min-height: 20px !important;
   padding-inline: 8px !important;
   font-size: 10px !important;
   line-height: 1 !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .section-titlebar {
-  height: 52px !important;
-  min-height: 52px !important;
-  padding-inline: 22px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding-inline: 18px 16px !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-wrap {
@@ -75,8 +78,9 @@
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-button,
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-input {
-  font-size: 21px !important;
-  line-height: 1.08 !important;
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  line-height: 1.12 !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"] .section-title-button {
@@ -100,22 +104,97 @@
 }
 
 
+/* Write no longer burns a separate row on status chrome. Sidebar, save state and word count live in the chapter row. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-titlebar > .write-sidebar-toggle {
+  position: static !important;
+  inset: auto !important;
+  flex: 0 0 24px !important;
+  margin-right: 8px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .write-title-status {
+  margin-left: auto !important;
+  width: 126px !important;
+  min-width: 126px !important;
+  flex: 0 0 126px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .write-title-status .word-count {
+  min-height: 22px !important;
+  padding-inline: 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 999px !important;
+  font-size: 11.5px !important;
+  font-weight: 650 !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .write-title-status .save-indicator:not(:empty) {
+  min-height: 20px !important;
+  padding-inline: 7px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-actions {
+  margin-left: 6px !important;
+}
+
+
 /* Split View follows the same compact vertical rhythm as the primary Write editor. */
 .folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-top-strip {
-  flex: 0 0 32px !important;
-  height: 32px !important;
-  min-height: 32px !important;
+  flex: 0 0 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-header {
-  flex: 0 0 52px !important;
-  height: 52px !important;
-  min-height: 52px !important;
-  padding-inline: 20px 16px !important;
+  flex: 0 0 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding-inline: 14px 12px !important;
 }
 
 .folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title {
   line-height: 1.08 !important;
+}
+
+
+/* Final Write chrome compaction: keep controls readable while letting the manuscript start sooner. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"]:not([data-focus-mode="true"]) .format-toolbar {
+  height: 36px !important;
+  min-height: 36px !important;
+  margin-bottom: 0 !important;
+  padding-block: 2px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .writing-split-toolbar {
+  flex: 0 0 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  margin-bottom: 0 !important;
+  padding-block: 2px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title {
+  gap: 3px !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title select {
+  height: 28px !important;
 }
 
 

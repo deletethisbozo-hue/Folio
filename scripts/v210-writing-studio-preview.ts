@@ -83,7 +83,7 @@ try {
   if (geometry.wordTop !== geometry.commandTop || geometry.wordHeight !== geometry.commandHeight) {
     throw new Error(`Wordmark masthead geometry drifted: ${JSON.stringify(geometry)}`);
   }
-  if (geometry.commandHeight !== 50) throw new Error(`Expected 50px masthead, got ${geometry.commandHeight}`);
+  if (geometry.commandHeight !== 46) throw new Error(`Expected 46px masthead, got ${geometry.commandHeight}`);
   if (geometry.kicker) throw new Error("Duplicate Chapter N kicker is still present");
 
   await page.waitForSelector(".preview-frame");
@@ -201,6 +201,28 @@ try {
   if (!settingsContract.hasChoose || !settingsContract.hasDefaultExportCopy) {
     throw new Error(`Export location setting missing or unclear: ${JSON.stringify(settingsContract)}`);
   }
+  const soundContract = await page.evaluate(() => {
+    const toggle = document.querySelector<HTMLInputElement>('input[aria-label="Enable typewriter sound"]');
+    const options = [...document.querySelectorAll<HTMLButtonElement>(".typewriter-sound-options button")].map((button) => button.textContent?.trim() ?? "");
+    return { enabled: toggle?.checked ?? null, options };
+  });
+  if (soundContract.enabled !== false || soundContract.options.length !== 3
+    || !["Classic", "Soft", "Mechanical"].every((label) => soundContract.options.some((copy) => copy.startsWith(label)))) {
+    throw new Error(`Typewriter sound settings contract failed: ${JSON.stringify(soundContract)}`);
+  }
+  await page.click('input[aria-label="Enable typewriter sound"]');
+  await page.evaluate(() => {
+    const mechanical = [...document.querySelectorAll<HTMLButtonElement>(".typewriter-sound-options button")]
+      .find((button) => button.textContent?.trim().startsWith("Mechanical"));
+    if (!mechanical) throw new Error("Mechanical typewriter sound option missing");
+    mechanical.click();
+  });
+  await page.waitForFunction(() =>
+    window.localStorage.getItem("folio-typewriter-sound-enabled") === "true"
+    && window.localStorage.getItem("folio-typewriter-sound-style") === "mechanical"
+    && document.querySelector<HTMLButtonElement>(".typewriter-sound-options button.active")?.textContent?.trim().startsWith("Mechanical"),
+  );
+
   const initialSpellcheck = await page.$eval<HTMLInputElement>('input[aria-label="Enable spellcheck"]', (input) => input.checked);
   if (!initialSpellcheck) throw new Error("Spellcheck should default to enabled");
   await page.click('input[aria-label="Enable spellcheck"]');
@@ -218,6 +240,29 @@ try {
 
   await settle(300);
   await page.screenshot({ path: path.join(qa, "03-write-single.png") });
+
+  const manuscriptBeforeNote = await page.$eval(".manuscript-editor", (editor) => editor.textContent ?? "");
+  await page.click(".editor-tools-toggle");
+  await page.waitForSelector('.write-studio-drawer[aria-label="Writing tools"]');
+  await page.evaluate(() => {
+    const notes = [...document.querySelectorAll<HTMLButtonElement>(".write-studio-tabs button")]
+      .find((button) => button.textContent?.trim() === "Notes");
+    if (!notes) throw new Error("Notes tab missing");
+    notes.click();
+  });
+  await page.waitForSelector(".notes-compose textarea");
+  await page.type(".notes-compose input", "QA private note");
+  await page.type(".notes-compose textarea", "This note belongs to the project notebook, not to the manuscript.");
+  await page.click(".notes-compose .write-small-button.primary");
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll<HTMLElement>(".note-list-card")].some((card) => card.textContent?.includes("QA private note")),
+  );
+  const manuscriptAfterNote = await page.$eval(".manuscript-editor", (editor) => editor.textContent ?? "");
+  if (manuscriptAfterNote !== manuscriptBeforeNote) throw new Error("Saving a project note changed manuscript content");
+  await settle(160);
+  await page.screenshot({ path: path.join(qa, "03aa-project-notes.png") });
+  await page.click('.write-studio-header button[aria-label="Close writing tools"]');
+  await page.waitForFunction(() => !document.querySelector('.write-studio-drawer[aria-label="Writing tools"]'));
 
   await page.click('.tone-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");

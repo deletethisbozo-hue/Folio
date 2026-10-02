@@ -16,6 +16,7 @@ import { applySafeContours } from "./contour-wrap";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
+import { playTypewriterSound, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import WritingSplitPane from "./WritingSplitPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
@@ -184,6 +185,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return Number.isFinite(stored) ? Math.max(0.7, Math.min(2, stored)) : 1;
   });
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(() => window.localStorage.getItem("folio-spellcheck-enabled") !== "false");
+  const [typewriterSoundEnabled, setTypewriterSoundEnabled] = useState(() => window.localStorage.getItem("folio-typewriter-sound-enabled") === "true");
+  const [typewriterSoundStyle, setTypewriterSoundStyle] = useState<TypewriterSoundStyle>(() => {
+    const stored = window.localStorage.getItem("folio-typewriter-sound-style");
+    return stored === "soft" || stored === "mechanical" ? stored : "classic";
+  });
   const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
@@ -293,6 +299,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
   useEffect(() => { window.localStorage.setItem("folio-editor-surface", editorSurface); }, [editorSurface]);
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
+  useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-enabled", typewriterSoundEnabled ? "true" : "false"); }, [typewriterSoundEnabled]);
+  useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-style", typewriterSoundStyle); }, [typewriterSoundStyle]);
   useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
   useEffect(() => {
     if (!project) { setWriteStudioState(null); return; }
@@ -1999,6 +2007,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (workspaceMode === "write" && document?.editable && typewriterSoundEnabled && shouldPlayTypewriterSound(event)) {
+      playTypewriterSound(typewriterSoundStyle);
+    }
     if (applyFastEditorKey(event)) return;
     if (!(event.ctrlKey || event.metaKey)) return;
     const key = event.key.toLowerCase();
@@ -2111,8 +2122,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </aside>
 
       <section className="editor-pane">
-        <div className="editor-topbar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}<div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div></div>
-        <div className="section-titlebar">{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
+        <div className="editor-topbar">{workspaceMode !== "write" && <div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div>}</div>
+        <div className="section-titlebar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>} {workspaceMode === "write" && <div className="write-title-status"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span><span className="word-count">{totalWords.toLocaleString()} Words</span></div>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration at cursor">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
@@ -2129,6 +2140,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         primarySectionId={selectedId}
         ornament={writingOrnament}
         typewriterMode={typewriterMode}
+        typewriterSoundEnabled={typewriterSoundEnabled}
+        typewriterSoundStyle={typewriterSoundStyle}
         spellcheckEnabled={spellcheckEnabled}
         writeZoom={writeZoom}
         onClose={() => setSplitView(false)}
@@ -2194,7 +2207,18 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
-      {showSettings && <SettingsDialog spellcheckEnabled={spellcheckEnabled} setSpellcheckEnabled={setSpellcheckEnabled} exportDirectory={exportDirectory} onChooseExportDirectory={() => void chooseExportDirectory()} onResetExportDirectory={() => setExportDirectory("")} onClose={() => setShowSettings(false)}/>}
+      {showSettings && <SettingsDialog
+        spellcheckEnabled={spellcheckEnabled}
+        setSpellcheckEnabled={setSpellcheckEnabled}
+        typewriterSoundEnabled={typewriterSoundEnabled}
+        setTypewriterSoundEnabled={setTypewriterSoundEnabled}
+        typewriterSoundStyle={typewriterSoundStyle}
+        setTypewriterSoundStyle={setTypewriterSoundStyle}
+        exportDirectory={exportDirectory}
+        onChooseExportDirectory={() => void chooseExportDirectory()}
+        onResetExportDirectory={() => setExportDirectory("")}
+        onClose={() => setShowSettings(false)}
+      />}
       {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
       {error && <button className="global-error" onClick={() => setError(null)} title="Dismiss">{error}</button>}
     </div>
@@ -2212,17 +2236,48 @@ function DialogShell(props: { title: string; children: React.ReactNode; footer: 
 function SettingsDialog(props: {
   spellcheckEnabled: boolean;
   setSpellcheckEnabled: (enabled: boolean) => void;
+  typewriterSoundEnabled: boolean;
+  setTypewriterSoundEnabled: (enabled: boolean) => void;
+  typewriterSoundStyle: TypewriterSoundStyle;
+  setTypewriterSoundStyle: (style: TypewriterSoundStyle) => void;
   exportDirectory: string;
   onChooseExportDirectory: () => void;
   onResetExportDirectory: () => void;
   onClose: () => void;
 }) {
+  const soundOptions: Array<{ value: TypewriterSoundStyle; label: string; description: string }> = [
+    { value: "classic", label: "Classic", description: "Balanced metal-and-key click." },
+    { value: "soft", label: "Soft", description: "Quieter, rounder key sound." },
+    { value: "mechanical", label: "Mechanical", description: "Sharper, heavier typebar click." },
+  ];
+
   return <DialogShell title="Settings" onClose={props.onClose} footer={<button className="native-button primary" onClick={props.onClose}>Done</button>}>
     <div className="settings-list">
       <label className="settings-row">
         <span className="settings-copy"><strong>Spellcheck</strong><small>Underline suspected spelling errors while writing. This setting applies to the main editor and Split View.</small></span>
         <input type="checkbox" checked={props.spellcheckEnabled} onChange={(event) => props.setSpellcheckEnabled(event.target.checked)} aria-label="Enable spellcheck"/>
       </label>
+      <div className="settings-row typewriter-sound-row">
+        <span className="settings-copy">
+          <strong>Typewriter sound</strong>
+          <small>Play a typewriter key sound for each writing keystroke in Write and Split View.</small>
+        </span>
+        <input type="checkbox" checked={props.typewriterSoundEnabled} onChange={(event) => props.setTypewriterSoundEnabled(event.target.checked)} aria-label="Enable typewriter sound"/>
+        <div className="typewriter-sound-options" aria-label="Typewriter sound style">
+          {soundOptions.map((option) => <button
+            key={option.value}
+            type="button"
+            className={props.typewriterSoundStyle === option.value ? "active" : ""}
+            aria-pressed={props.typewriterSoundStyle === option.value}
+            title={option.description}
+            onClick={() => {
+              props.setTypewriterSoundStyle(option.value);
+              playTypewriterSound(option.value);
+            }}
+          ><strong>{option.label}</strong><small>{option.description}</small></button>)}
+        </div>
+        <button type="button" className="native-button typewriter-sound-preview" onClick={() => playTypewriterSound(props.typewriterSoundStyle)}>Preview sound</button>
+      </div>
       <div className="settings-row export-location-row">
         <span className="settings-copy">
           <strong>Export location</strong>

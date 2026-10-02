@@ -93,6 +93,7 @@ export default function WriteStudioDrawer(props: Props) {
   const [targetsDirty, setTargetsDirty] = useState(false);
   const [researchTitle, setResearchTitle] = useState("");
   const [researchBody, setResearchBody] = useState("");
+  const [noteQuery, setNoteQuery] = useState("");
   const [editingResearch, setEditingResearch] = useState<string | null>(null);
   const [editResearchTitle, setEditResearchTitle] = useState("");
   const [editResearchBody, setEditResearchBody] = useState("");
@@ -197,6 +198,12 @@ export default function WriteStudioDrawer(props: Props) {
   const nearby = useMemo(() => nearbyRepetitions(analysisSource, props.language, analysisWindow), [analysisSource, props.language, analysisWindow]);
   const revisions = useMemo(() => (props.state?.revisions ?? []).filter((item) => item.scope === "book" || item.sectionId === props.selectedId), [props.state?.revisions, props.selectedId]);
   const comments = useMemo(() => (props.state?.comments ?? []).filter((item) => item.sectionId === props.selectedId).sort((a, b) => Number(a.resolved) - Number(b.resolved) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [props.state?.comments, props.selectedId]);
+  const notes = useMemo(() => {
+    const query = noteQuery.trim().toLocaleLowerCase();
+    return [...(props.state?.research ?? [])]
+      .filter((note) => !query || note.title.toLocaleLowerCase().includes(query) || note.body.toLocaleLowerCase().includes(query))
+      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  }, [props.state?.research, noteQuery]);
 
   let currentMatchCount = 0;
   let searchError = "";
@@ -208,7 +215,7 @@ export default function WriteStudioDrawer(props: Props) {
 
   const tabs: Array<{ key: WriteStudioTab; label: string }> = [
     { key: "session", label: "Session" },
-    { key: "research", label: "Research" },
+    { key: "research", label: "Notes" },
     { key: "comments", label: "Comments" },
     { key: "history", label: "History" },
     { key: "find", label: "Find" },
@@ -444,7 +451,7 @@ export default function WriteStudioDrawer(props: Props) {
 
   if (!props.open) return null;
 
-  return <aside className={"write-studio-drawer " + (props.activeTab === "history" && compareRevision ? "compare-expanded" : "")} aria-label="Writing tools">
+  return <aside className={"write-studio-drawer " + (props.activeTab === "history" && compareRevision ? "compare-expanded " : "") + (props.activeTab === "research" ? "notes-expanded" : "")} aria-label="Writing tools">
     <header className="write-studio-header">
       <div><span className="write-studio-eyebrow">Write</span><strong>Writing Studio</strong></div>
       <button type="button" onClick={props.onClose} aria-label="Close writing tools">×</button>
@@ -490,28 +497,58 @@ export default function WriteStudioDrawer(props: Props) {
         </div>
       </div>}
 
-      {props.state && props.activeTab === "research" && <div className="write-studio-section">
-        <div className="write-section-heading"><div><h3>Research</h3><p>Notes stay with this project and never enter export.</p></div></div>
-        <div className="research-compose">
-          <input value={researchTitle} placeholder="Note title" onChange={(event) => setResearchTitle(event.target.value)}/>
-          <textarea value={researchBody} placeholder="Research, facts, references, reminders…" onChange={(event) => setResearchBody(event.target.value)}/>
-          <button className="write-small-button primary" onClick={() => void addResearch()}>Add note</button>
+      {props.state && props.activeTab === "research" && <div className="write-studio-section notes-section">
+        <div className="write-section-heading"><div><h3>Project notes</h3><p>Private working notes stored with this .folio project. They never become book content and never enter export.</p></div></div>
+        <div className="notes-compose">
+          <input value={researchTitle} placeholder="Title (optional)" onChange={(event) => setResearchTitle(event.target.value)}/>
+          <textarea
+            value={researchBody}
+            placeholder="Ideas, reminders, character details, research, things to fix later…"
+            onChange={(event) => setResearchBody(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                void addResearch();
+              }
+            }}
+          />
+          <div className="notes-compose-footer"><small>Ctrl/Cmd + Enter to save</small><button className="write-small-button primary" disabled={!researchTitle.trim() && !researchBody.trim()} onClick={() => void addResearch()}>Save note</button></div>
         </div>
-        <div className="research-images-heading"><h4>Images</h4><label className={"write-small-button " + (imageBusy ? "disabled" : "")}>{imageBusy ? "Adding…" : "Add image"}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={imageBusy} onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void addResearchImage(file); event.currentTarget.value = ""; }}/></label></div>
+
+        <div className="notes-library-head">
+          <div><h4>Notebook</h4><span>{props.state.research.length} {props.state.research.length === 1 ? "note" : "notes"}</span></div>
+          <input value={noteQuery} placeholder="Search notes…" aria-label="Search project notes" onChange={(event) => setNoteQuery(event.target.value)}/>
+        </div>
+        <div className="notes-list">
+          {notes.map((note) => editingResearch === note.id
+            ? <article className="note-editor-card" key={note.id}>
+                <input value={editResearchTitle} placeholder="Title" onChange={(event) => setEditResearchTitle(event.target.value)}/>
+                <textarea autoFocus value={editResearchBody} placeholder="Write your note…" onChange={(event) => setEditResearchBody(event.target.value)}/>
+                <div className="write-card-actions"><button onClick={() => setEditingResearch(null)}>Cancel</button><button className="primary" onClick={() => void saveResearch(note.id)}>Save</button></div>
+              </article>
+            : <article className={"note-list-card " + (note.pinned ? "pinned" : "")} key={note.id}>
+                <button className="note-open" onClick={() => { setEditingResearch(note.id); setEditResearchTitle(note.title); setEditResearchBody(note.body); }}>
+                  <span className="note-card-head"><strong>{note.title.trim() || "Untitled note"}</strong>{note.pinned && <span>Pinned</span>}</span>
+                  <span className="note-card-preview">{note.body.trim() || "Empty note"}</span>
+                  <small>Edited {shortDate(note.updatedAt)}</small>
+                </button>
+                <div className="note-card-actions">
+                  <button onClick={() => void api.updateResearchNote(props.project.projectId, note.id, { pinned: !note.pinned }).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>{note.pinned ? "Unpin" : "Pin"}</button>
+                  <button className="danger" onClick={() => void api.deleteResearchNote(props.project.projectId, note.id).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>Delete</button>
+                </div>
+              </article>
+          )}
+          {!props.state.research.length && <div className="write-studio-empty">No notes yet. This is the place for everything that should stay out of the manuscript.</div>}
+          {Boolean(props.state.research.length) && !notes.length && <div className="write-studio-empty">No notes match that search.</div>}
+        </div>
+
+        <div className="research-images-heading"><h4>Reference images</h4><label className={"write-small-button " + (imageBusy ? "disabled" : "")}>{imageBusy ? "Adding…" : "Add image"}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={imageBusy} onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void addResearchImage(file); event.currentTarget.value = ""; }}/></label></div>
         <div className="research-image-grid">
           {props.state.researchImages.map((image) => <figure key={image.id} className="research-image-card">
             <img src={api.researchImageUrl(props.project.projectId, image.id)} alt={image.filename}/>
             <figcaption><span title={image.filename}>{image.filename}</span><button type="button" title="Delete reference image" aria-label={"Delete " + image.filename} onClick={() => void api.deleteResearchImage(props.project.projectId, image.id).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>×</button></figcaption>
           </figure>)}
           {!props.state.researchImages.length && <div className="research-image-empty">No reference images.</div>}
-        </div>
-        <h4 className="research-notes-heading">Notes</h4>
-        <div className="write-card-list">
-          {props.state.research.map((note) => editingResearch === note.id
-            ? <article className="write-card" key={note.id}><input value={editResearchTitle} onChange={(event) => setEditResearchTitle(event.target.value)}/><textarea value={editResearchBody} onChange={(event) => setEditResearchBody(event.target.value)}/><div className="write-card-actions"><button onClick={() => setEditingResearch(null)}>Cancel</button><button className="primary" onClick={() => void saveResearch(note.id)}>Save</button></div></article>
-            : <article className="write-card" key={note.id}><div className="write-card-title"><strong>{note.title}</strong>{note.pinned && <span>Pinned</span>}</div><p>{note.body || "Empty note"}</p><div className="write-card-actions"><button onClick={() => void api.updateResearchNote(props.project.projectId, note.id, { pinned: !note.pinned }).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>{note.pinned ? "Unpin" : "Pin"}</button><button onClick={() => { setEditingResearch(note.id); setEditResearchTitle(note.title); setEditResearchBody(note.body); }}>Edit</button><button className="danger" onClick={() => void api.deleteResearchNote(props.project.projectId, note.id).then(props.onState).catch((e) => props.onError(e instanceof Error ? e.message : String(e)))}>Delete</button></div></article>
-          )}
-          {!props.state.research.length && <div className="write-studio-empty">No research notes yet.</div>}
         </div>
       </div>}
 

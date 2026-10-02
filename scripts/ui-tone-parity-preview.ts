@@ -304,7 +304,7 @@ try {
   await page.click(".editor-tools-toggle");
   await page.waitForSelector('.write-studio-drawer[aria-label="Writing tools"]');
   await page.waitForFunction(() => Boolean(document.querySelector(".write-studio-section") || document.querySelector(".write-studio-empty")));
-  for (const tab of ["Session", "Research", "Comments", "History", "Find", "Analysis"]) {
+  for (const tab of ["Session", "Notes", "Comments", "History", "Find", "Analysis"]) {
     await page.evaluate((tab) => {
       const button = [...document.querySelectorAll<HTMLButtonElement>(".write-studio-tabs button")]
         .find((node) => node.textContent?.trim() === tab);
