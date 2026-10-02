@@ -133,7 +133,7 @@ try {
   });
   check("live preview applies crop and scale immediately", true);
 
-  await page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved");
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
   await page.waitForFunction(() => [...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Preface")));
   await page.evaluate(() => {
