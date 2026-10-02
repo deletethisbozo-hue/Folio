@@ -216,7 +216,7 @@ try {
   await page.click('[title="Insert ornamental scene break"]');
   await stage("ornamental break preview", () => page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break"))));
   check("ornamental break button inserts a semantic break and renders the ornament", await page.$eval(".rich-editor", (el) => (el as HTMLElement).dataset.markdown?.includes("---") ?? false));
-  await stage("sample autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 }));
+  await stage("sample autosave", () => page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 30000 }));
   check("the browser flow reaches Saved instead of Save failed", true);
 
   await page.evaluate(() => {
@@ -434,7 +434,7 @@ await stage("switch to phone size class", () => page.waitForSelector('.reader-de
     rapidPreviewScroll.ok && rapidPreviewScroll.maxFrameDelay < 250,
     JSON.stringify(rapidPreviewScroll),
   );
-  await stage("whole-book autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 60000 }));
+  await stage("whole-book autosave", () => page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 }));
   check("the complete pasted book reaches autosave", true);
 
   await page.click('[data-command="design"]');
@@ -750,7 +750,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
 
   await page.click(".rich-editor");
   await page.keyboard.type("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY.");
-  await stage("heading-safety body autosave", () => page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved"));
+  await stage("heading-safety body autosave", () => page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved"));
 
   await page.evaluate(() => {
     const paper = document.querySelector(".editor-paper")!;

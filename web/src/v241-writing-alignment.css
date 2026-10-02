@@ -1,0 +1,196 @@
+/* Folio 2.7.1 alignment polish + selectable word-count scope. */
+
+/* Toolbar controls should share one optical center. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar > .search-pill {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 0 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .format-toolbar > .search-pill .ui-icon {
+  width: 16px !important;
+  height: 16px !important;
+  display: block !important;
+  flex: 0 0 16px !important;
+  margin: 0 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-titlebar > .write-sidebar-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transform: none !important;
+  line-height: 0 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .section-titlebar > .write-sidebar-toggle .ui-icon {
+  width: 15px !important;
+  height: 15px !important;
+  display: block !important;
+  flex: 0 0 15px !important;
+  margin: 0 !important;
+}
+
+/* The Split selector belongs on one centered line. Stacking a label over a
+ * 25px select inside a 40px header was mathematically optimistic. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-header {
+  align-items: center !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title {
+  height: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  align-content: normal !important;
+  gap: 8px !important;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title > span {
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  font-size: 7.25px !important;
+  line-height: 1 !important;
+  letter-spacing: .11em !important;
+  white-space: nowrap !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-title select {
+  height: 28px !important;
+  min-height: 28px !important;
+  min-width: 150px !important;
+  margin: 0 !important;
+}
+
+/* Word count is a compact scope selector, not a static status label. */
+.folio-shell[data-ui-tone] .word-count-picker {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.folio-shell[data-ui-tone] .word-count-picker.open {
+  z-index: 90;
+}
+
+.folio-shell[data-ui-tone] .word-count-picker > .word-count-button {
+  list-style: none;
+}
+
+.folio-shell[data-ui-tone] .word-count-picker > .word-count-button::-webkit-details-marker {
+  display: none;
+}
+
+.folio-shell[data-ui-tone] .word-count-button {
+  min-height: 24px !important;
+  padding: 0 8px 0 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 999px !important;
+  cursor: default;
+  user-select: none;
+  line-height: 1 !important;
+}
+
+.folio-shell[data-ui-tone] .word-count-button small {
+  font: 650 8px/1 var(--folio-ui-font);
+  opacity: .72;
+}
+
+.folio-shell[data-ui-tone] .word-count-chevron {
+  position: relative;
+  top: -1px;
+  font-size: 10px;
+  line-height: 1;
+  opacity: .62;
+}
+
+.folio-shell[data-ui-tone] .word-count-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 168px;
+  display: grid;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--folio-border);
+  border-radius: 9px;
+  background: var(--folio-surface);
+  box-shadow: 0 12px 30px rgba(0,0,0,.18);
+}
+
+.folio-shell[data-ui-tone] .word-count-menu button {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--folio-text);
+  text-align: left;
+}
+
+.folio-shell[data-ui-tone] .word-count-menu button:hover,
+.folio-shell[data-ui-tone] .word-count-menu button.active {
+  background: var(--folio-hover);
+}
+
+.folio-shell[data-ui-tone] .word-count-menu button.active > span::before {
+  content: "✓";
+  margin-right: 6px;
+  color: var(--folio-accent);
+}
+
+.folio-shell[data-ui-tone] .word-count-menu button small {
+  color: var(--folio-muted);
+  font: 8px/1 var(--folio-ui-font);
+  white-space: nowrap;
+}
+
+.folio-shell[data-ui-tone] .word-count-menu button:disabled {
+  opacity: .45;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .write-title-status {
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .write-title-status .word-count-button {
+  font-size: 10.5px !important;
+  font-weight: 650 !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .word-count-button {
+  border-color: rgba(82,85,120,.10) !important;
+  background: rgba(255,255,255,.40) !important;
+  color: #74798c !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.62) !important;
+}
+
+.folio-shell[data-ui-tone="midnight"] .word-count-button {
+  border-color: rgba(190,195,224,.09) !important;
+  background: rgba(255,255,255,.035) !important;
+  color: #abb1c4 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+
+.folio-shell[data-ui-tone] .word-count-button:hover {
+  border-color: color-mix(in srgb, var(--folio-accent) 28%, var(--folio-border)) !important;
+  background: var(--folio-hover) !important;
+}

@@ -100,7 +100,7 @@ try {
     return Boolean(image?.complete && image.naturalWidth > 0 && image.dataset.folioAsset?.startsWith("assets/") && markdown.includes("{.folio-illustration"));
   });
 
-  await page.waitForFunction(() => document.querySelector(".save-indicator")?.textContent === "Saved", { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 30000 });
   const beforeReload = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
   check("inline illustration reaches autosave", /!\[[^\]]+\]\(assets\/[a-z0-9._-]+\.png\)\{\.folio-illustration\b[^}]*\}/i.test(beforeReload), beforeReload);
 

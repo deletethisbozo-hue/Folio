@@ -8,14 +8,50 @@ type KeyboardLikeEvent = {
 };
 
 let audioContext: AudioContext | null = null;
+let masterGain: GainNode | null = null;
+let masterCompressor: DynamicsCompressorNode | null = null;
 
 function getAudioContext(): AudioContext | null {
   if (audioContext) return audioContext;
   const AudioContextCtor = window.AudioContext
     ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextCtor) return null;
+
   audioContext = new AudioContextCtor();
+
+  // A small master stage makes the synthesized clicks actually audible on
+  // ordinary laptop speakers while the compressor keeps rapid typing from
+  // stacking into harsh clipping.
+  masterGain = audioContext.createGain();
+  masterGain.gain.value = 0.92;
+
+  masterCompressor = audioContext.createDynamicsCompressor();
+  masterCompressor.threshold.value = -18;
+  masterCompressor.knee.value = 12;
+  masterCompressor.ratio.value = 5;
+  masterCompressor.attack.value = 0.002;
+  masterCompressor.release.value = 0.08;
+
+  masterGain.connect(masterCompressor);
+  masterCompressor.connect(audioContext.destination);
   return audioContext;
+}
+
+async function ensureAudioReady(): Promise<AudioContext | null> {
+  const context = getAudioContext();
+  if (!context) return null;
+  if (context.state === "suspended") {
+    try {
+      await context.resume();
+    } catch {
+      return null;
+    }
+  }
+  return context.state === "running" ? context : null;
+}
+
+function outputNode(context: AudioContext): AudioNode {
+  return masterGain ?? context.destination;
 }
 
 function noiseBuffer(context: AudioContext, duration: number): AudioBuffer {
@@ -34,7 +70,7 @@ function envelopeGain(context: AudioContext, now: number, peak: number, duration
   gain.gain.setValueAtTime(0.0001, now);
   gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + 0.002);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  gain.connect(context.destination);
+  gain.connect(outputNode(context));
   return gain;
 }
 
@@ -55,7 +91,7 @@ function playNoise(
   source.connect(filter);
   filter.connect(envelopeGain(context, now, peak, duration));
   source.start(now);
-  source.stop(now + duration + 0.005);
+  source.stop(now + duration + 0.006);
 }
 
 function playTone(
@@ -71,7 +107,7 @@ function playTone(
   oscillator.frequency.setValueAtTime(frequency, now);
   oscillator.connect(envelopeGain(context, now, peak, duration));
   oscillator.start(now);
-  oscillator.stop(now + duration + 0.005);
+  oscillator.stop(now + duration + 0.006);
 }
 
 export function shouldPlayTypewriterSound(event: KeyboardLikeEvent): boolean {
@@ -83,27 +119,29 @@ export function shouldPlayTypewriterSound(event: KeyboardLikeEvent): boolean {
     || event.key === "Tab";
 }
 
-export function playTypewriterSound(style: TypewriterSoundStyle): void {
-  const context = getAudioContext();
+export async function playTypewriterSound(style: TypewriterSoundStyle): Promise<void> {
+  // Resume must finish before scheduling the sources. Previously the first
+  // preview/keypress could schedule into a suspended context and effectively
+  // disappear, especially in Electron/Chromium.
+  const context = await ensureAudioReady();
   if (!context) return;
 
-  if (context.state === "suspended") void context.resume();
-  const now = context.currentTime + 0.001;
+  const now = context.currentTime + 0.004;
   const drift = 0.94 + Math.random() * 0.12;
 
   if (style === "soft") {
-    playNoise(context, now, 0.018, 0.018, 1050 * drift, 0.85);
-    playTone(context, now, "sine", 245 * drift, 0.022, 0.012);
+    playNoise(context, now, 0.026, 0.075, 1050 * drift, 0.85);
+    playTone(context, now, "sine", 245 * drift, 0.030, 0.040);
     return;
   }
 
   if (style === "mechanical") {
-    playNoise(context, now, 0.036, 0.032, 2450 * drift, 1.35);
-    playTone(context, now, "square", 105 * drift, 0.026, 0.021);
-    playTone(context, now + 0.004, "triangle", 1850 * drift, 0.018, 0.009);
+    playNoise(context, now, 0.044, 0.160, 2450 * drift, 1.35);
+    playTone(context, now, "square", 105 * drift, 0.034, 0.095);
+    playTone(context, now + 0.004, "triangle", 1850 * drift, 0.024, 0.040);
     return;
   }
 
-  playNoise(context, now, 0.028, 0.026, 1750 * drift, 1.05);
-  playTone(context, now, "square", 145 * drift, 0.021, 0.017);
+  playNoise(context, now, 0.036, 0.125, 1750 * drift, 1.05);
+  playTone(context, now, "square", 145 * drift, 0.030, 0.070);
 }

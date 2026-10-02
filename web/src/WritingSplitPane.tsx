@@ -201,7 +201,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
         </select>
       </div>
       <div className="writing-split-status">
-        <span>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : ""}</span>
+        <span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span>
       </div>
     </header>
 
