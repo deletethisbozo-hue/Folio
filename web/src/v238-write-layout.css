@@ -127,7 +127,8 @@
   padding-block: 3px !important;
 }
 
-.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"]:not([data-focus-mode="true"]) .writing-split-toolbar {
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .writing-split-toolbar {
+  flex: 0 0 40px !important;
   height: 40px !important;
   min-height: 40px !important;
   margin-bottom: 4px !important;
