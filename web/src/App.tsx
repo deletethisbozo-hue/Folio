@@ -2007,7 +2007,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (workspaceMode === "write" && typewriterSoundEnabled && shouldPlayTypewriterSound(event)) {
+    if (workspaceMode === "write" && document?.editable && typewriterSoundEnabled && shouldPlayTypewriterSound(event)) {
       playTypewriterSound(typewriterSoundStyle);
     }
     if (applyFastEditorKey(event)) return;
