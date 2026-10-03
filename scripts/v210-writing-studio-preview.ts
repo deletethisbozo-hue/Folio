@@ -220,7 +220,9 @@ try {
     mechanical.click();
   });
   await page.$eval<HTMLInputElement>('input[aria-label="Typewriter sound volume"]', (input) => {
-    input.value = "100";
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "100");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.waitForFunction(() =>
@@ -253,8 +255,10 @@ try {
     const target = Math.max(1000, Math.ceil((current / .72) / 1000) * 1000);
     const input = document.querySelector<HTMLInputElement>(".progress-goal-field input");
     if (!input) throw new Error("Progress goal input missing");
-    input.value = String(target);
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, String(target));
     input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
     return { current, target };
   });
   await page.click(".progress-goal-field button");
