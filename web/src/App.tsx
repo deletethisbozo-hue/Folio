@@ -2174,7 +2174,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
   function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (workspaceMode === "write" && document?.editable && typewriterSoundEnabled && shouldPlayTypewriterSound(event)) {
-      playTypewriterSound(typewriterSoundStyle, typewriterSoundVolume);
+      playTypewriterSound(typewriterSoundStyle, typewriterSoundVolume, event.key);
     }
     if (applyFastEditorKey(event)) return;
     if (!(event.ctrlKey || event.metaKey)) return;
