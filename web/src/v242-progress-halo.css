@@ -1,0 +1,420 @@
+/* Folio writing progress halo + typewriter volume.
+ * The widget follows UI tone only (Light/Midnight), never book-format themes.
+ */
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .editor-pane {
+  position: relative;
+}
+
+.writing-progress-halo {
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  z-index: 72;
+  width: 118px;
+  height: 118px;
+  pointer-events: none;
+}
+
+.progress-halo-orb {
+  width: 118px;
+  height: 118px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 10px 24px rgba(22, 22, 38, .16));
+}
+
+.progress-halo-rings {
+  position: absolute;
+  inset: 0;
+  width: 118px;
+  height: 118px;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.progress-halo-track,
+.progress-halo-ring,
+.progress-halo-today-track {
+  fill: none;
+  transform-origin: 56px 56px;
+}
+
+.progress-halo-track {
+  stroke-width: 7.5;
+}
+
+.progress-halo-ring-main {
+  stroke-width: 7.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 260ms ease;
+}
+
+.progress-halo-today-track {
+  stroke-width: 1.7;
+}
+
+.progress-halo-ring-today {
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 260ms ease;
+}
+
+.progress-halo-notch {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+
+.progress-halo-copy {
+  position: relative;
+  z-index: 2;
+  width: 76px;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.progress-halo-copy > small {
+  font: 750 7px/1.1 var(--folio-ui-font);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.progress-halo-copy > strong {
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 700 17px/1.05 var(--folio-ui-font);
+  letter-spacing: -.035em;
+}
+
+.progress-halo-copy > span {
+  font: 600 7.5px/1.2 var(--folio-ui-font);
+}
+
+.progress-halo-copy > em {
+  margin-top: 2px;
+  font: 600 6.7px/1.1 var(--folio-ui-font);
+  font-style: normal;
+  opacity: .72;
+}
+
+.writing-progress-halo.open {
+  z-index: 96;
+}
+
+.progress-halo-popover {
+  position: absolute;
+  right: 0;
+  bottom: 130px;
+  width: 300px;
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+  border-radius: 14px;
+  pointer-events: auto;
+  box-shadow: 0 20px 55px rgba(15, 15, 30, .22);
+  backdrop-filter: blur(22px) saturate(125%);
+}
+
+.progress-halo-popover > header {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.progress-halo-popover > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.progress-halo-popover > header small {
+  font: 700 7px/1 var(--folio-ui-font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: .62;
+}
+
+.progress-halo-popover > header strong {
+  font: 680 12px/1.15 var(--folio-ui-font);
+}
+
+.progress-halo-popover > header button {
+  width: 25px;
+  height: 25px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.progress-scope-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.progress-scope-tabs button {
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: 650 9px/1 var(--folio-ui-font);
+}
+
+.progress-scope-tabs button:disabled {
+  opacity: .34;
+}
+
+.progress-halo-stat {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.progress-halo-stat > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border-radius: 9px;
+}
+
+.progress-halo-stat small,
+.progress-goal-field > span,
+.progress-halo-today-row > span,
+.progress-halo-today-row > small {
+  font: 650 7.5px/1.1 var(--folio-ui-font);
+  opacity: .64;
+}
+
+.progress-halo-stat strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 700 11px/1.1 var(--folio-ui-font);
+}
+
+.progress-goal-field {
+  display: grid;
+  gap: 6px;
+}
+
+.progress-goal-field > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.progress-goal-field input {
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: inherit;
+  font: 650 10px/1 var(--folio-ui-font);
+  outline: 0;
+}
+
+.progress-goal-field button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font: 700 9px/1 var(--folio-ui-font);
+}
+
+.progress-halo-today-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 7px;
+  padding-top: 10px;
+}
+
+.progress-halo-today-row strong {
+  font: 700 11px/1 var(--folio-ui-font);
+}
+
+.typewriter-volume-control {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) 38px;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+}
+
+.typewriter-volume-control > span,
+.typewriter-volume-control > strong {
+  font: 650 9px/1 var(--folio-ui-font);
+}
+
+.typewriter-volume-control > strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.typewriter-volume-control input[type="range"] {
+  width: 100%;
+}
+
+/* Light */
+.folio-shell[data-ui-tone="ivory"] .progress-halo-orb {
+  background: rgba(249, 250, 255, .88);
+  box-shadow:
+    inset 0 0 0 1px rgba(81, 84, 124, .09),
+    inset 0 1px 0 rgba(255, 255, 255, .92),
+    0 12px 30px rgba(60, 63, 108, .14);
+  color: #50556b;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-track {
+  stroke: rgba(96, 99, 139, .10);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-main {
+  stroke: #7569ee;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-today-track {
+  stroke: rgba(84, 91, 130, .10);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-today {
+  stroke: #5bb9d8;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-notch {
+  stroke: rgba(249, 250, 255, .98);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-copy > small,
+.folio-shell[data-ui-tone="ivory"] .progress-halo-copy > span {
+  color: #777c91;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-popover {
+  border: 1px solid rgba(80, 84, 124, .10);
+  background: rgba(249, 250, 255, .94);
+  color: #4e536a;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-scope-tabs,
+.folio-shell[data-ui-tone="ivory"] .progress-halo-stat > span {
+  background: rgba(104, 107, 150, .055);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-scope-tabs button.active {
+  background: #fff;
+  color: #6156d7;
+  box-shadow: 0 2px 8px rgba(69, 65, 125, .10);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-goal-field input {
+  border: 1px solid rgba(80, 84, 124, .14);
+  background: rgba(255,255,255,.82);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-goal-field button {
+  border: 1px solid rgba(100, 91, 222, .18);
+  background: rgba(117, 105, 238, .12);
+  color: #5d53cd;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-today-row {
+  border-top: 1px solid rgba(80, 84, 124, .08);
+}
+
+/* Midnight */
+.folio-shell[data-ui-tone="midnight"] .progress-halo-orb {
+  background: rgba(28, 31, 45, .92);
+  box-shadow:
+    inset 0 0 0 1px rgba(191, 197, 227, .08),
+    inset 0 1px 0 rgba(255, 255, 255, .035),
+    0 15px 34px rgba(0, 0, 0, .34);
+  color: #eef0fa;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-track {
+  stroke: rgba(196, 201, 230, .085);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-main {
+  stroke: #8b8fff;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-today-track {
+  stroke: rgba(196, 201, 230, .065);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-today {
+  stroke: #63c4df;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-notch {
+  stroke: rgba(28, 31, 45, .98);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-copy > small,
+.folio-shell[data-ui-tone="midnight"] .progress-halo-copy > span {
+  color: #aeb4c8;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-popover {
+  border: 1px solid rgba(190, 195, 224, .085);
+  background: rgba(27, 30, 43, .94);
+  color: #eef0fa;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-scope-tabs,
+.folio-shell[data-ui-tone="midnight"] .progress-halo-stat > span {
+  background: rgba(255,255,255,.035);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-scope-tabs button.active {
+  background: rgba(139, 143, 255, .16);
+  color: #d9dbff;
+  box-shadow: inset 0 0 0 1px rgba(139, 143, 255, .14);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-goal-field input {
+  border: 1px solid rgba(190, 195, 224, .10);
+  background: rgba(255,255,255,.035);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-goal-field button {
+  border: 1px solid rgba(139, 143, 255, .18);
+  background: rgba(139, 143, 255, .13);
+  color: #daddff;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-today-row {
+  border-top: 1px solid rgba(190, 195, 224, .07);
+}
+
+@media (max-width: 900px) {
+  .writing-progress-halo {
+    right: 12px;
+    bottom: 12px;
+    transform: scale(.9);
+    transform-origin: bottom right;
+  }
+}
