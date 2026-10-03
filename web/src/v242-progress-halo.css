@@ -11,14 +11,14 @@
   right: 20px;
   bottom: 18px;
   z-index: 72;
-  width: 118px;
-  height: 118px;
+  width: var(--folio-halo-size, 118px);
+  height: var(--folio-halo-size, 118px);
   pointer-events: none;
 }
 
 .progress-halo-orb {
-  width: 118px;
-  height: 118px;
+  width: 100%;
+  height: 100%;
   position: relative;
   display: grid;
   place-items: center;
@@ -35,8 +35,8 @@
 .progress-halo-rings {
   position: absolute;
   inset: 0;
-  width: 118px;
-  height: 118px;
+  width: 100%;
+  height: 100%;
   transform: rotate(-90deg);
   overflow: visible;
 }
@@ -78,6 +78,7 @@
   position: relative;
   z-index: 2;
   width: 76px;
+  transform: scale(var(--folio-halo-scale, 1));
   display: grid;
   justify-items: center;
   gap: 1px;
@@ -114,10 +115,26 @@
   z-index: 96;
 }
 
+.progress-halo-resize-edge {
+  position: absolute;
+  inset: -6px;
+  z-index: 4;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.progress-halo-resize-edge circle {
+  pointer-events: stroke;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
 .progress-halo-popover {
   position: absolute;
   right: 0;
-  bottom: 130px;
+  bottom: calc(var(--folio-halo-size, 118px) + 12px);
   width: 300px;
   display: grid;
   gap: 12px;
@@ -414,7 +431,5 @@
   .writing-progress-halo {
     right: 12px;
     bottom: 12px;
-    transform: scale(.9);
-    transform-origin: bottom right;
   }
 }
