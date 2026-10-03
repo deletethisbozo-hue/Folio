@@ -245,7 +245,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
               data-placeholder="Start writing…"
               onInput={recordInput}
               onKeyDown={(event) => {
-                if (documentRef.current?.editable && props.typewriterSoundEnabled && shouldPlayTypewriterSound(event)) playTypewriterSound(props.typewriterSoundStyle, props.typewriterSoundVolume);
+                if (documentRef.current?.editable && props.typewriterSoundEnabled && shouldPlayTypewriterSound(event)) playTypewriterSound(props.typewriterSoundStyle, props.typewriterSoundVolume, event.key);
               }}
               onClick={() => {
                 if (selectedId) props.onActivateSection(selectedId);
