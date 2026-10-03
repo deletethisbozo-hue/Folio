@@ -260,6 +260,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [styleCategory, setStyleCategory] = useState<StyleCategory>("Book Style");
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchState, setSearchMatchState] = useState({ index: -1, total: 0 });
   const [coverVersion, setCoverVersion] = useState(0);
   const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
@@ -300,6 +301,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const fastPreviewComposeTimerRef = useRef<number | null>(null);
   const pendingPreviewWordRef = useRef<{ ordinal: number } | null>(null);
   const previewHighlightTimerRef = useRef<number | null>(null);
+  const searchIdentityRef = useRef("");
+  const searchIndexRef = useRef(-1);
 
   const resetDocumentView = () => {
     draftRef.current = "";
@@ -383,10 +386,17 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return () => { cancelled = true; };
   }, [project?.projectId]);
   useEffect(() => {
+    clearFindHighlights();
+    searchIdentityRef.current = "";
+    searchIndexRef.current = -1;
+    setSearchMatchState({ index: -1, total: 0 });
+  }, [searchQuery, progressSectionId, selectedId, splitView]);
+
+  useEffect(() => {
     if (!focusMode) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setShowSearch(false);
+      closeSearch();
       setFocusMode(false);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -2065,11 +2075,101 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (el) { el.innerHTML = markdownToEditorHtml(next, typography.sceneOrnament ?? "❦"); el.dataset.markdown = next; el.focus(); }
   }
 
-  function findNext() {
-    const el = editorRef.current;
-    if (!el || !searchQuery) return;
-    el.focus();
-    (window as Window & { find?: (text: string, caseSensitive?: boolean, backwards?: boolean, wrap?: boolean) => boolean }).find?.(searchQuery, false, false, true);
+  function clearFindHighlights() {
+    const registry = (CSS as unknown as { highlights?: { delete: (name: string) => unknown } }).highlights;
+    registry?.delete("folio-find-match");
+    registry?.delete("folio-find-active");
+  }
+
+  function closeSearch() {
+    clearFindHighlights();
+    searchIdentityRef.current = "";
+    searchIndexRef.current = -1;
+    setSearchMatchState({ index: -1, total: 0 });
+    setShowSearch(false);
+  }
+
+  function activeFindEditor(): HTMLElement | null {
+    if (splitView && progressSectionId && progressSectionId !== selectedId) {
+      const splitEditor = document.querySelector<HTMLElement>(".writing-split-editor");
+      if (splitEditor?.dataset.sectionId === progressSectionId) return splitEditor;
+    }
+    return editorRef.current;
+  }
+
+  function editorFindRanges(editor: HTMLElement, query: string): Range[] {
+    const needle = query.toLocaleLowerCase();
+    if (!needle) return [];
+    const ranges: Range[] = [];
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = (node as Text).parentElement;
+        if (!parent || parent.closest(".editor-scene-break-remove, .editor-illustration-remove")) return NodeFilter.FILTER_REJECT;
+        return node.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      },
+    });
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const haystack = node.data.toLocaleLowerCase();
+      let offset = 0;
+      while (offset <= haystack.length - needle.length) {
+        const match = haystack.indexOf(needle, offset);
+        if (match < 0) break;
+        const range = document.createRange();
+        range.setStart(node, match);
+        range.setEnd(node, match + needle.length);
+        ranges.push(range);
+        offset = match + Math.max(1, needle.length);
+      }
+    }
+    return ranges;
+  }
+
+  function findNext(direction: 1 | -1 = 1) {
+    const editor = activeFindEditor();
+    const query = searchQuery.trim();
+    if (!editor || !query) {
+      clearFindHighlights();
+      setSearchMatchState({ index: -1, total: 0 });
+      return;
+    }
+
+    const ranges = editorFindRanges(editor, query);
+    if (!ranges.length) {
+      clearFindHighlights();
+      searchIdentityRef.current = "";
+      searchIndexRef.current = -1;
+      setSearchMatchState({ index: -1, total: 0 });
+      return;
+    }
+
+    const sectionIdentity = editor.dataset.sectionId ?? progressSectionId ?? selectedId ?? "";
+    const identity = sectionIdentity + "\u0000" + query.toLocaleLowerCase();
+    const nextIndex = searchIdentityRef.current !== identity || searchIndexRef.current < 0
+      ? (direction === 1 ? 0 : ranges.length - 1)
+      : (searchIndexRef.current + direction + ranges.length) % ranges.length;
+
+    searchIdentityRef.current = identity;
+    searchIndexRef.current = nextIndex;
+    setSearchMatchState({ index: nextIndex, total: ranges.length });
+
+    const registry = (CSS as unknown as {
+      highlights?: { set: (name: string, highlight: unknown) => unknown; delete: (name: string) => unknown };
+    }).highlights;
+    const HighlightCtor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
+    if (registry && HighlightCtor) {
+      registry.set("folio-find-match", new HighlightCtor(...ranges));
+      registry.set("folio-find-active", new HighlightCtor(ranges[nextIndex]));
+    }
+
+    const activeRange = ranges[nextIndex];
+    const matchRect = activeRange.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const comfortableTop = editorRect.top + Math.min(90, editorRect.height * .18);
+    const comfortableBottom = editorRect.bottom - Math.min(90, editorRect.height * .18);
+    if (matchRect.top < comfortableTop || matchRect.bottom > comfortableBottom) {
+      editor.scrollTop += matchRect.top - editorRect.top - editor.clientHeight * .42;
+    }
   }
 
   function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -2087,7 +2187,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (key === "b") applyInlineFormat("bold", "bold text");
       if (key === "i") applyInlineFormat("italic", "italic text");
       if (key === "u") applyInlineFormat("underline", "underlined text");
-    } else if (key === "f") { event.preventDefault(); setShowSearch(true); }
+    } else if (key === "f") { event.preventDefault(); clearFindHighlights(); searchIdentityRef.current = ""; searchIndexRef.current = -1; setSearchMatchState({ index: -1, total: 0 }); setShowSearch(true); }
     else if (key === "s") { event.preventDefault(); void saveCurrent(); }
   }
 
