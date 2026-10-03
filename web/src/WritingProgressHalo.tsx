@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type { WritingTargets } from "./write-studio";
 
 export type ProgressScope = "book" | "chapter" | "today";
@@ -36,7 +37,7 @@ export default function WritingProgressHalo(props: Props) {
     const stored = Number(window.localStorage.getItem("folio-progress-halo-size"));
     return Number.isFinite(stored) && stored >= 88 && stored <= 184 ? stored : 118;
   });
-  const resizeRef = useRef<{ startX: number; startY: number; startSize: number } | null>(null);
+  const resizeRef = useRef<{ centerX: number; centerY: number; startDistance: number; startSize: number } | null>(null);
 
   const effectiveScope: ProgressScope = scope === "chapter" && !props.chapterAvailable ? "book" : scope;
   const chapterTarget = props.selectedSectionId ? props.targets?.chapters[props.selectedSectionId] ?? null : null;
@@ -90,21 +91,31 @@ export default function WritingProgressHalo(props: Props) {
     setScope(next);
   }
 
-  function startResize(event: React.PointerEvent<HTMLButtonElement>) {
+  function startResize(event: ReactPointerEvent<SVGCircleElement>) {
     event.preventDefault();
     event.stopPropagation();
-    resizeRef.current = { startX: event.clientX, startY: event.clientY, startSize: haloSize };
+    const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
+    if (!bounds) return;
+    const centerX = bounds.left + bounds.width / 2;
+    const centerY = bounds.top + bounds.height / 2;
+    resizeRef.current = {
+      centerX,
+      centerY,
+      startDistance: Math.hypot(event.clientX - centerX, event.clientY - centerY),
+      startSize: haloSize,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function resize(event: React.PointerEvent<HTMLButtonElement>) {
+  function resize(event: ReactPointerEvent<SVGCircleElement>) {
     const state = resizeRef.current;
     if (!state) return;
-    const delta = ((state.startX - event.clientX) + (state.startY - event.clientY)) / 2;
-    setHaloSize(Math.max(88, Math.min(184, Math.round(state.startSize + delta))));
+    const distance = Math.hypot(event.clientX - state.centerX, event.clientY - state.centerY);
+    const nextSize = state.startSize + (distance - state.startDistance) * 2;
+    setHaloSize(Math.max(88, Math.min(184, Math.round(nextSize))));
   }
 
-  function stopResize(event: React.PointerEvent<HTMLButtonElement>) {
+  function stopResize(event: ReactPointerEvent<SVGCircleElement>) {
     resizeRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }
@@ -114,7 +125,7 @@ export default function WritingProgressHalo(props: Props) {
     style={{
       "--folio-halo-size": `${haloSize}px`,
       "--folio-halo-scale": haloSize / 118,
-    } as React.CSSProperties}
+    } as CSSProperties}
   >
     <button
       type="button"
@@ -147,16 +158,21 @@ export default function WritingProgressHalo(props: Props) {
         <em>{subtitle}</em>
       </span>
     </button>
-    <button
-      type="button"
-      className="progress-halo-resize-handle"
-      aria-label="Resize writing progress halo"
-      title="Drag to resize"
-      onPointerDown={startResize}
-      onPointerMove={resize}
-      onPointerUp={stopResize}
-      onPointerCancel={stopResize}
-    ><span aria-hidden="true">↖</span></button>
+    <svg className="progress-halo-resize-edge" viewBox="0 0 112 112" aria-hidden="true">
+      <circle
+        cx="56"
+        cy="56"
+        r="52"
+        fill="none"
+        stroke="transparent"
+        strokeWidth="12"
+        pointerEvents="stroke"
+        onPointerDown={startResize}
+        onPointerMove={resize}
+        onPointerUp={stopResize}
+        onPointerCancel={stopResize}
+      />
+    </svg>
 
     {open && <div className="progress-halo-popover">
       <header>
