@@ -122,6 +122,8 @@ export default function WritingProgressHalo(props: Props) {
 
   return <div
     className={`writing-progress-halo ${open ? "open" : ""}`}
+    data-progress-section-id={props.selectedSectionId ?? ""}
+    data-progress-scope={effectiveScope}
     style={{
       "--folio-halo-size": `${haloSize}px`,
       "--folio-halo-scale": haloSize / 118,
