@@ -669,12 +669,12 @@ try {
 
   const findProbe = await page.evaluate(() => {
     const editors = [...document.querySelectorAll<HTMLElement>(".manuscript-editor, .writing-split-editor")];
-    const editor = editors.find((candidate) => /\\S{4,}/.test(candidate.innerText));
+    const editor = editors.find((candidate) => /\S{4,}/.test(candidate.innerText));
     if (!editor) throw new Error("Find QA could not locate a searchable word");
     editor.click();
     editor.focus();
     const text = editor.innerText;
-    const query = text.match(/\\S{4,}/)?.[0] ?? "";
+    const query = text.match(/\S{4,}/)?.[0] ?? "";
     if (!query) throw new Error("Find QA could not extract a searchable word");
     return {
       selector: editor.classList.contains("writing-split-editor") ? ".writing-split-editor" : ".manuscript-editor",
