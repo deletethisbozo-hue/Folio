@@ -667,12 +667,21 @@ try {
     throw new Error(`Word count did not follow secondary Split pane: ${JSON.stringify({ wordCountSplitContext, haloContextBefore })}`);
   }
 
-  await page.click(".manuscript-editor");
-  const findProbe = await page.$eval<HTMLElement, { query: string; html: string; text: string }>(".manuscript-editor", (editor) => {
+  const findProbe = await page.evaluate(() => {
+    const editors = [...document.querySelectorAll<HTMLElement>(".manuscript-editor, .writing-split-editor")];
+    const editor = editors.find((candidate) => /\\S{4,}/.test(candidate.innerText));
+    if (!editor) throw new Error("Find QA could not locate a searchable word");
+    editor.click();
+    editor.focus();
     const text = editor.innerText;
-    const query = text.match(/[\\p{L}\\p{N}]{4,}/u)?.[0] ?? "";
-    if (!query) throw new Error("Find QA could not locate a searchable word");
-    return { query, html: editor.innerHTML, text };
+    const query = text.match(/\\S{4,}/)?.[0] ?? "";
+    if (!query) throw new Error("Find QA could not extract a searchable word");
+    return {
+      selector: editor.classList.contains("writing-split-editor") ? ".writing-split-editor" : ".manuscript-editor",
+      query,
+      html: editor.innerHTML,
+      text,
+    };
   });
   await page.click(".search-pill");
   await page.waitForSelector(".editor-search input");
@@ -691,7 +700,7 @@ try {
     return Boolean(count && count !== "0 / 0");
   });
   await page.keyboard.press("Enter");
-  const findAfter = await page.$eval<HTMLElement, { html: string; text: string }>(".manuscript-editor", (editor) => ({
+  const findAfter = await page.$eval<HTMLElement, { html: string; text: string }>(findProbe.selector, (editor) => ({
     html: editor.innerHTML,
     text: editor.innerText,
   }));
