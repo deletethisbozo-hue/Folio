@@ -21,6 +21,7 @@ type WritingSplitPaneProps = {
   onError: (message: string) => void;
   onWordDelta: (delta: number) => void;
   onLiveWordCount: (sectionId: string, count: number) => void;
+  onActivateSection: (sectionId: string) => void;
   onWritingActivity: () => void;
   onContentChanged: (sectionId: string) => void;
   onRegisterFlush: (flush: (() => Promise<boolean>) | null) => void;
@@ -97,6 +98,7 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
     editor.dataset.sectionId = document.id;
     editor.dataset.markdown = document.markdown;
     liveWordCountRef.current = editor.innerText.trim().match(/\S+/g)?.length ?? 0;
+    props.onLiveWordCount(document.id, liveWordCountRef.current);
     dirtyRef.current = false;
   }, [document?.id, document?.markdown, document?.editable, props.ornament, props.project.projectId]);
 
@@ -183,9 +185,13 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
   }
 
   async function changeSection(nextId: string) {
-    if (nextId === selectedId) return;
+    if (nextId === selectedId) {
+      props.onActivateSection(nextId);
+      return;
+    }
     if (!(await flush())) return;
     setSelectedId(nextId);
+    props.onActivateSection(nextId);
   }
 
   return <section className="writing-split-pane" aria-label="Split writing editor" data-write-zoom={Math.round(props.writeZoom * 100)}>
@@ -241,9 +247,15 @@ export default function WritingSplitPane(props: WritingSplitPaneProps) {
               onKeyDown={(event) => {
                 if (documentRef.current?.editable && props.typewriterSoundEnabled && shouldPlayTypewriterSound(event)) playTypewriterSound(props.typewriterSoundStyle, props.typewriterSoundVolume);
               }}
-              onClick={() => { if (props.typewriterMode) centerTypewriterCaret(editorRef.current); }}
+              onClick={() => {
+                if (selectedId) props.onActivateSection(selectedId);
+                if (props.typewriterMode) centerTypewriterCaret(editorRef.current);
+              }}
               onKeyUp={() => { if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current); }}
-              onFocus={() => { if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current); }}
+              onFocus={() => {
+                if (selectedId) props.onActivateSection(selectedId);
+                if (props.typewriterMode) scheduleTypewriterCaret(editorRef.current);
+              }}
               aria-label={`Edit ${document.title} in split view`}
             />
           : <div className="writing-split-loading">Loading section…</div>
