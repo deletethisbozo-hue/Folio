@@ -653,6 +653,55 @@ try {
     throw new Error(`Halo did not follow active Split pane: ${JSON.stringify({ haloContextBefore, splitHaloContext, primaryHaloContext })}`);
   }
 
+  const wordCountPrimaryContext = await page.$eval<HTMLElement, string>(".write-title-status", (node) => node.dataset.wordCountSectionId ?? "");
+  if (wordCountPrimaryContext !== haloContextBefore.primary) {
+    throw new Error(`Word count did not follow primary Split pane: ${JSON.stringify({ wordCountPrimaryContext, haloContextBefore })}`);
+  }
+  await page.click(".writing-split-editor");
+  await page.waitForFunction(() => {
+    const split = document.querySelector<HTMLElement>(".writing-split-editor")?.dataset.sectionId;
+    return Boolean(split) && document.querySelector<HTMLElement>(".write-title-status")?.dataset.wordCountSectionId === split;
+  });
+  const wordCountSplitContext = await page.$eval<HTMLElement, string>(".write-title-status", (node) => node.dataset.wordCountSectionId ?? "");
+  if (wordCountSplitContext !== haloContextBefore.split) {
+    throw new Error(`Word count did not follow secondary Split pane: ${JSON.stringify({ wordCountSplitContext, haloContextBefore })}`);
+  }
+
+  await page.click(".manuscript-editor");
+  const findProbe = await page.$eval<HTMLElement, { query: string; html: string; text: string }>(".manuscript-editor", (editor) => {
+    const text = editor.innerText;
+    const query = text.match(/[\\p{L}\\p{N}]{4,}/u)?.[0] ?? "";
+    if (!query) throw new Error("Find QA could not locate a searchable word");
+    return { query, html: editor.innerHTML, text };
+  });
+  await page.click(".search-pill");
+  await page.waitForSelector(".editor-search input");
+  const findGeometry = await page.evaluate(() => {
+    const toolbar = document.querySelector<HTMLElement>(".format-toolbar")!.getBoundingClientRect();
+    const search = document.querySelector<HTMLElement>(".editor-search")!.getBoundingClientRect();
+    return { toolbarBottom: toolbar.bottom, searchTop: search.top };
+  });
+  if (findGeometry.searchTop < findGeometry.toolbarBottom - 1) {
+    throw new Error(`Find panel overlaps toolbar controls: ${JSON.stringify(findGeometry)}`);
+  }
+  await page.type(".editor-search input", findProbe.query);
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const count = document.querySelector(".editor-search-count")?.textContent?.trim() ?? "";
+    return Boolean(count && count !== "0 / 0");
+  });
+  await page.keyboard.press("Enter");
+  const findAfter = await page.$eval<HTMLElement, { html: string; text: string }>(".manuscript-editor", (editor) => ({
+    html: editor.innerHTML,
+    text: editor.innerText,
+  }));
+  if (findAfter.html !== findProbe.html || findAfter.text !== findProbe.text) {
+    throw new Error("Find mutated manuscript content while navigating matches");
+  }
+  await page.screenshot({ path: path.join(qa, "04a-find-safe.png") });
+  await page.click('.editor-search button[aria-label="Close search"]');
+  await page.waitForFunction(() => !document.querySelector(".editor-search"));
+
   await settle(900);
   const richState = await page.evaluate(() => {
     const editor = document.querySelector(".writing-split-editor");
