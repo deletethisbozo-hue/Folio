@@ -626,6 +626,33 @@ try {
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatForeColor" }));
   });
 
+  const haloContextBefore = await page.evaluate(() => ({
+    primary: document.querySelector<HTMLElement>(".manuscript-editor")?.dataset.sectionId ?? "",
+    split: document.querySelector<HTMLElement>(".writing-split-editor")?.dataset.sectionId ?? "",
+    halo: document.querySelector<HTMLElement>(".writing-progress-halo")?.dataset.progressSectionId ?? "",
+  }));
+  if (!haloContextBefore.primary || !haloContextBefore.split || haloContextBefore.primary === haloContextBefore.split) {
+    throw new Error(`Split Halo QA missing distinct editor sections: ${JSON.stringify(haloContextBefore)}`);
+  }
+
+  await page.click(".writing-split-editor");
+  await page.waitForFunction(() => {
+    const split = document.querySelector<HTMLElement>(".writing-split-editor")?.dataset.sectionId;
+    return Boolean(split) && document.querySelector<HTMLElement>(".writing-progress-halo")?.dataset.progressSectionId === split;
+  });
+  const splitHaloContext = await page.$eval<HTMLElement, string>(".writing-progress-halo", (halo) => halo.dataset.progressSectionId ?? "");
+
+  await page.click(".manuscript-editor");
+  await page.waitForFunction(() => {
+    const primary = document.querySelector<HTMLElement>(".manuscript-editor")?.dataset.sectionId;
+    return Boolean(primary) && document.querySelector<HTMLElement>(".writing-progress-halo")?.dataset.progressSectionId === primary;
+  });
+  const primaryHaloContext = await page.$eval<HTMLElement, string>(".writing-progress-halo", (halo) => halo.dataset.progressSectionId ?? "");
+
+  if (splitHaloContext !== haloContextBefore.split || primaryHaloContext !== haloContextBefore.primary) {
+    throw new Error(`Halo did not follow active Split pane: ${JSON.stringify({ haloContextBefore, splitHaloContext, primaryHaloContext })}`);
+  }
+
   await settle(900);
   const richState = await page.evaluate(() => {
     const editor = document.querySelector(".writing-split-editor");
