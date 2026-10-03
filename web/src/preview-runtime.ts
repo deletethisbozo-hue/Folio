@@ -54,8 +54,13 @@ function ensureStatsNode(): HTMLElement | null {
   if (!node) {
     node = document.createElement("span");
     node.className = "page-counts";
-    const words = host.querySelector(".word-count");
-    host.insertBefore(node, words ?? null);
+    // Word count is now wrapped in a scope-picker. insertBefore requires its
+    // reference node to be a direct child of host, otherwise Chromium throws
+    // NotFoundError on every preview-runtime scan.
+    const words = host.querySelector<HTMLElement>(".word-count");
+    const directReference = words?.closest<HTMLElement>(".word-count-picker") ?? words;
+    if (directReference?.parentElement === host) host.insertBefore(node, directReference);
+    else host.appendChild(node);
   }
   return node;
 }
