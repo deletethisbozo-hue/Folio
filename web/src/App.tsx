@@ -2091,7 +2091,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
   function activeFindEditor(): HTMLElement | null {
     if (splitView && progressSectionId && progressSectionId !== selectedId) {
-      const splitEditor = document.querySelector<HTMLElement>(".writing-split-editor");
+      const splitEditor = window.document.querySelector<HTMLElement>(".writing-split-editor");
       if (splitEditor?.dataset.sectionId === progressSectionId) return splitEditor;
     }
     return editorRef.current;
@@ -2101,7 +2101,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const needle = query.toLocaleLowerCase();
     if (!needle) return [];
     const ranges: Range[] = [];
-    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
+    const walker = window.document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent = (node as Text).parentElement;
         if (!parent || parent.closest(".editor-scene-break-remove, .editor-illustration-remove")) return NodeFilter.FILTER_REJECT;
@@ -2115,7 +2115,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       while (offset <= haystack.length - needle.length) {
         const match = haystack.indexOf(needle, offset);
         if (match < 0) break;
-        const range = document.createRange();
+        const range = window.document.createRange();
         range.setStart(node, match);
         range.setEnd(node, match + needle.length);
         ranges.push(range);
