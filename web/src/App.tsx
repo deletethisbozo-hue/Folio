@@ -238,7 +238,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return stored === "soft" || stored === "mechanical" ? stored : "classic";
   });
   const [typewriterSoundVolume, setTypewriterSoundVolume] = useState(() => {
-    const stored = Number(window.localStorage.getItem("folio-typewriter-sound-volume"));
+    const raw = window.localStorage.getItem("folio-typewriter-sound-volume");
+    if (raw === null) return 90;
+    const stored = Number(raw);
     return Number.isFinite(stored) ? Math.max(0, Math.min(100, stored)) : 90;
   });
   const [progressHaloEnabled, setProgressHaloEnabled] = useState(() => window.localStorage.getItem("folio-progress-halo-enabled") !== "false");
