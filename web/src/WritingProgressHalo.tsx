@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { WritingTargets } from "./write-studio";
 
 export type ProgressScope = "book" | "chapter" | "today";
@@ -32,6 +32,11 @@ export default function WritingProgressHalo(props: Props) {
   const [open, setOpen] = useState(false);
   const [goalDraft, setGoalDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [haloSize, setHaloSize] = useState(() => {
+    const stored = Number(window.localStorage.getItem("folio-progress-halo-size"));
+    return Number.isFinite(stored) && stored >= 88 && stored <= 184 ? stored : 118;
+  });
+  const resizeRef = useRef<{ startX: number; startY: number; startSize: number } | null>(null);
 
   const effectiveScope: ProgressScope = scope === "chapter" && !props.chapterAvailable ? "book" : scope;
   const chapterTarget = props.selectedSectionId ? props.targets?.chapters[props.selectedSectionId] ?? null : null;
@@ -45,6 +50,10 @@ export default function WritingProgressHalo(props: Props) {
   useEffect(() => {
     window.localStorage.setItem("folio-progress-scope", scope);
   }, [scope]);
+
+  useEffect(() => {
+    window.localStorage.setItem("folio-progress-halo-size", String(Math.round(haloSize)));
+  }, [haloSize]);
 
   useEffect(() => {
     setGoalDraft(target ? String(target) : "");
@@ -81,7 +90,32 @@ export default function WritingProgressHalo(props: Props) {
     setScope(next);
   }
 
-  return <div className={`writing-progress-halo ${open ? "open" : ""}`}>
+  function startResize(event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeRef.current = { startX: event.clientX, startY: event.clientY, startSize: haloSize };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function resize(event: React.PointerEvent<HTMLButtonElement>) {
+    const state = resizeRef.current;
+    if (!state) return;
+    const delta = ((state.startX - event.clientX) + (state.startY - event.clientY)) / 2;
+    setHaloSize(Math.max(88, Math.min(184, Math.round(state.startSize + delta))));
+  }
+
+  function stopResize(event: React.PointerEvent<HTMLButtonElement>) {
+    resizeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  return <div
+    className={`writing-progress-halo ${open ? "open" : ""}`}
+    style={{
+      "--folio-halo-size": `${haloSize}px`,
+      "--folio-halo-scale": haloSize / 118,
+    } as React.CSSProperties}
+  >
     <button
       type="button"
       className="progress-halo-orb"
@@ -113,6 +147,16 @@ export default function WritingProgressHalo(props: Props) {
         <em>{subtitle}</em>
       </span>
     </button>
+    <button
+      type="button"
+      className="progress-halo-resize-handle"
+      aria-label="Resize writing progress halo"
+      title="Drag to resize"
+      onPointerDown={startResize}
+      onPointerMove={resize}
+      onPointerUp={stopResize}
+      onPointerCancel={stopResize}
+    ><span aria-hidden="true">↖</span></button>
 
     {open && <div className="progress-halo-popover">
       <header>
