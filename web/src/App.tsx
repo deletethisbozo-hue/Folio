@@ -19,6 +19,7 @@ import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import { playTypewriterSound, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import WritingSplitPane from "./WritingSplitPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
+import WritingProgressHalo from "./WritingProgressHalo";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
@@ -236,6 +237,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const stored = window.localStorage.getItem("folio-typewriter-sound-style");
     return stored === "soft" || stored === "mechanical" ? stored : "classic";
   });
+  const [typewriterSoundVolume, setTypewriterSoundVolume] = useState(() => {
+    const stored = Number(window.localStorage.getItem("folio-typewriter-sound-volume"));
+    return Number.isFinite(stored) ? Math.max(0, Math.min(100, stored)) : 90;
+  });
+  const [progressHaloEnabled, setProgressHaloEnabled] = useState(() => window.localStorage.getItem("folio-progress-halo-enabled") !== "false");
   const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
@@ -348,6 +354,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-enabled", typewriterSoundEnabled ? "true" : "false"); }, [typewriterSoundEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-style", typewriterSoundStyle); }, [typewriterSoundStyle]);
+  useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-volume", String(typewriterSoundVolume)); }, [typewriterSoundVolume]);
+  useEffect(() => { window.localStorage.setItem("folio-progress-halo-enabled", progressHaloEnabled ? "true" : "false"); }, [progressHaloEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
   useEffect(() => {
     if (!project) { setWriteStudioState(null); return; }
@@ -2055,7 +2063,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
   function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (workspaceMode === "write" && document?.editable && typewriterSoundEnabled && shouldPlayTypewriterSound(event)) {
-      playTypewriterSound(typewriterSoundStyle);
+      playTypewriterSound(typewriterSoundStyle, typewriterSoundVolume);
     }
     if (applyFastEditorKey(event)) return;
     if (!(event.ctrlKey || event.metaKey)) return;
@@ -2179,6 +2187,18 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className="editor-surface-toggle" aria-label={effectiveEditorSurface === "light" ? "Use dark editor background" : "Use light editor background"} title={effectiveEditorSurface === "light" ? "Dark editor background" : "Light editor background"} onMouseDown={(event) => event.preventDefault()} onClick={() => setEditorSurface(effectiveEditorSurface === "light" ? "dark" : "light")}><UiIcon name={effectiveEditorSurface === "light" ? "moon" : "sun"}/></button><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
         <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        {workspaceMode === "write" && progressHaloEnabled && !coverSelected && document?.editable && <WritingProgressHalo
+          totalWords={totalWords}
+          chapterWords={draftWords}
+          todayWords={Math.max(0, (writeStudioState?.dailyProgress[todayKey()] ?? 0) + (sessionNet - reportedSessionNetRef.current))}
+          selectedSectionId={selectedId}
+          chapterAvailable={selectedSection?.kind === "chapter"}
+          targets={writeStudioState?.targets ?? null}
+          onSaveTargets={async (targets) => {
+            const updated = await api.saveWritingTargets(project.projectId, targets);
+            setWriteStudioState(updated);
+          }}
+        />}
       </section>
 
       {splitView && <WritingSplitPane
@@ -2189,6 +2209,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         typewriterMode={typewriterMode}
         typewriterSoundEnabled={typewriterSoundEnabled}
         typewriterSoundStyle={typewriterSoundStyle}
+        typewriterSoundVolume={typewriterSoundVolume}
         spellcheckEnabled={spellcheckEnabled}
         writeZoom={writeZoom}
         onClose={() => setSplitView(false)}
@@ -2261,6 +2282,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         setTypewriterSoundEnabled={setTypewriterSoundEnabled}
         typewriterSoundStyle={typewriterSoundStyle}
         setTypewriterSoundStyle={setTypewriterSoundStyle}
+        typewriterSoundVolume={typewriterSoundVolume}
+        setTypewriterSoundVolume={setTypewriterSoundVolume}
+        progressHaloEnabled={progressHaloEnabled}
+        setProgressHaloEnabled={setProgressHaloEnabled}
         exportDirectory={exportDirectory}
         onChooseExportDirectory={() => void chooseExportDirectory()}
         onResetExportDirectory={() => setExportDirectory("")}
@@ -2287,6 +2312,10 @@ function SettingsDialog(props: {
   setTypewriterSoundEnabled: (enabled: boolean) => void;
   typewriterSoundStyle: TypewriterSoundStyle;
   setTypewriterSoundStyle: (style: TypewriterSoundStyle) => void;
+  typewriterSoundVolume: number;
+  setTypewriterSoundVolume: (volume: number) => void;
+  progressHaloEnabled: boolean;
+  setProgressHaloEnabled: (enabled: boolean) => void;
   exportDirectory: string;
   onChooseExportDirectory: () => void;
   onResetExportDirectory: () => void;
@@ -2319,12 +2348,21 @@ function SettingsDialog(props: {
             title={option.description}
             onClick={() => {
               props.setTypewriterSoundStyle(option.value);
-              playTypewriterSound(option.value);
+              playTypewriterSound(option.value, props.typewriterSoundVolume);
             }}
           ><strong>{option.label}</strong><small>{option.description}</small></button>)}
         </div>
-        <button type="button" className="native-button typewriter-sound-preview" onClick={() => playTypewriterSound(props.typewriterSoundStyle)}>Preview sound</button>
+        <div className="typewriter-volume-control">
+          <span>Volume</span>
+          <input type="range" min="0" max="100" step="1" value={props.typewriterSoundVolume} onChange={(event) => props.setTypewriterSoundVolume(Number(event.target.value))} aria-label="Typewriter sound volume"/>
+          <strong>{props.typewriterSoundVolume}%</strong>
+        </div>
+        <button type="button" className="native-button typewriter-sound-preview" onClick={() => playTypewriterSound(props.typewriterSoundStyle, props.typewriterSoundVolume)}>Preview sound</button>
       </div>
+      <label className="settings-row">
+        <span className="settings-copy"><strong>Writing progress halo</strong><small>Show a floating Book / Chapter / Today progress dial in Write. Goals are stored with the current .folio project.</small></span>
+        <input type="checkbox" checked={props.progressHaloEnabled} onChange={(event) => props.setProgressHaloEnabled(event.target.checked)} aria-label="Show writing progress halo"/>
+      </label>
       <div className="settings-row export-location-row">
         <span className="settings-copy">
           <strong>Export location</strong>
