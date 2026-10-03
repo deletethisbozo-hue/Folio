@@ -203,12 +203,14 @@ try {
   }
   const soundContract = await page.evaluate(() => {
     const toggle = document.querySelector<HTMLInputElement>('input[aria-label="Enable typewriter sound"]');
+    const volume = document.querySelector<HTMLInputElement>('input[aria-label="Typewriter sound volume"]');
+    const halo = document.querySelector<HTMLInputElement>('input[aria-label="Show writing progress halo"]');
     const options = [...document.querySelectorAll<HTMLButtonElement>(".typewriter-sound-options button")].map((button) => button.textContent?.trim() ?? "");
-    return { enabled: toggle?.checked ?? null, options };
+    return { enabled: toggle?.checked ?? null, volume: Number(volume?.value ?? -1), halo: halo?.checked ?? null, options };
   });
-  if (soundContract.enabled !== false || soundContract.options.length !== 3
+  if (soundContract.enabled !== false || soundContract.volume !== 90 || soundContract.halo !== true || soundContract.options.length !== 3
     || !["Classic", "Soft", "Mechanical"].every((label) => soundContract.options.some((copy) => copy.startsWith(label)))) {
-    throw new Error(`Typewriter sound settings contract failed: ${JSON.stringify(soundContract)}`);
+    throw new Error(`Typewriter/progress settings contract failed: ${JSON.stringify(soundContract)}`);
   }
   await page.click('input[aria-label="Enable typewriter sound"]');
   await page.evaluate(() => {
@@ -217,9 +219,16 @@ try {
     if (!mechanical) throw new Error("Mechanical typewriter sound option missing");
     mechanical.click();
   });
+  await page.$eval<HTMLInputElement>('input[aria-label="Typewriter sound volume"]', (input) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "100");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   await page.waitForFunction(() =>
     window.localStorage.getItem("folio-typewriter-sound-enabled") === "true"
     && window.localStorage.getItem("folio-typewriter-sound-style") === "mechanical"
+    && window.localStorage.getItem("folio-typewriter-sound-volume") === "100"
     && document.querySelector<HTMLButtonElement>(".typewriter-sound-options button.active")?.textContent?.trim().startsWith("Mechanical"),
   );
 
@@ -237,6 +246,32 @@ try {
   await page.screenshot({ path: path.join(qa, "03a-settings-spellcheck-off.png") });
   await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
+
+  await page.waitForSelector(".writing-progress-halo .progress-halo-orb");
+  await page.click(".writing-progress-halo .progress-halo-orb");
+  await page.waitForSelector(".progress-halo-popover");
+  const progressSetup = await page.evaluate(() => {
+    const current = Number((document.querySelector(".progress-halo-stat > span:first-child strong")?.textContent ?? "0").replace(/[^0-9]/g, ""));
+    const target = Math.max(1000, Math.ceil((current / .72) / 1000) * 1000);
+    const input = document.querySelector<HTMLInputElement>(".progress-goal-field input");
+    if (!input) throw new Error("Progress goal input missing");
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, String(target));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return { current, target };
+  });
+  await page.click(".progress-goal-field button");
+  await page.waitForFunction((target) => {
+    const copy = document.querySelector(".progress-halo-orb")?.textContent ?? "";
+    return copy.includes("of " + Number(target).toLocaleString());
+  }, {}, progressSetup.target);
+  await settle(180);
+  await page.screenshot({ path: path.join(qa, "03ac-progress-halo-popover-light.png") });
+  await page.click('.progress-halo-popover button[aria-label="Close progress"]');
+  await page.waitForFunction(() => !document.querySelector(".progress-halo-popover"));
+  await settle(160);
+  await page.screenshot({ path: path.join(qa, "03ad-progress-halo-light.png") });
 
   await settle(300);
   const writeControlAlignment = await page.evaluate(() => {
@@ -306,6 +341,11 @@ try {
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark");
   await settle(240);
   await page.screenshot({ path: path.join(qa, "03d-write-midnight.png") });
+  await page.click(".writing-progress-halo .progress-halo-orb");
+  await page.waitForSelector(".progress-halo-popover");
+  await settle(140);
+  await page.screenshot({ path: path.join(qa, "03de-progress-halo-midnight.png") });
+  await page.click('.progress-halo-popover button[aria-label="Close progress"]');
 
   await page.click('.editor-surface-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "light"
@@ -585,6 +625,91 @@ try {
     document.execCommand("foreColor", false, "#b42318");
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "formatForeColor" }));
   });
+
+  const haloContextBefore = await page.evaluate(() => ({
+    primary: document.querySelector<HTMLElement>(".manuscript-editor")?.dataset.sectionId ?? "",
+    split: document.querySelector<HTMLElement>(".writing-split-editor")?.dataset.sectionId ?? "",
+    halo: document.querySelector<HTMLElement>(".writing-progress-halo")?.dataset.progressSectionId ?? "",
+  }));
+  if (!haloContextBefore.primary || !haloContextBefore.split || haloContextBefore.primary === haloContextBefore.split) {
+    throw new Error(`Split Halo QA missing distinct editor sections: ${JSON.stringify(haloContextBefore)}`);
+  }
+
+  await page.click(".writing-split-editor");
+  await page.waitForFunction(() => {
+    const split = document.querySelector<HTMLElement>(".writing-split-editor")?.dataset.sectionId;
+    return Boolean(split) && document.querySelector<HTMLElement>(".writing-progress-halo")?.dataset.progressSectionId === split;
+  });
+  const splitHaloContext = await page.$eval<HTMLElement, string>(".writing-progress-halo", (halo) => halo.dataset.progressSectionId ?? "");
+
+  await page.click(".manuscript-editor");
+  await page.waitForFunction(() => {
+    const primary = document.querySelector<HTMLElement>(".manuscript-editor")?.dataset.sectionId;
+    return Boolean(primary) && document.querySelector<HTMLElement>(".writing-progress-halo")?.dataset.progressSectionId === primary;
+  });
+  const primaryHaloContext = await page.$eval<HTMLElement, string>(".writing-progress-halo", (halo) => halo.dataset.progressSectionId ?? "");
+
+  if (splitHaloContext !== haloContextBefore.split || primaryHaloContext !== haloContextBefore.primary) {
+    throw new Error(`Halo did not follow active Split pane: ${JSON.stringify({ haloContextBefore, splitHaloContext, primaryHaloContext })}`);
+  }
+
+  const wordCountPrimaryContext = await page.$eval<HTMLElement, string>(".write-title-status", (node) => node.dataset.wordCountSectionId ?? "");
+  if (wordCountPrimaryContext !== haloContextBefore.primary) {
+    throw new Error(`Word count did not follow primary Split pane: ${JSON.stringify({ wordCountPrimaryContext, haloContextBefore })}`);
+  }
+  await page.click(".writing-split-editor");
+  await page.waitForFunction(() => {
+    const split = document.querySelector<HTMLElement>(".writing-split-editor")?.dataset.sectionId;
+    return Boolean(split) && document.querySelector<HTMLElement>(".write-title-status")?.dataset.wordCountSectionId === split;
+  });
+  const wordCountSplitContext = await page.$eval<HTMLElement, string>(".write-title-status", (node) => node.dataset.wordCountSectionId ?? "");
+  if (wordCountSplitContext !== haloContextBefore.split) {
+    throw new Error(`Word count did not follow secondary Split pane: ${JSON.stringify({ wordCountSplitContext, haloContextBefore })}`);
+  }
+
+  const findProbe = await page.evaluate(() => {
+    const editors = [...document.querySelectorAll<HTMLElement>(".manuscript-editor, .writing-split-editor")];
+    const editor = editors.find((candidate) => /\S{4,}/.test(candidate.innerText));
+    if (!editor) throw new Error("Find QA could not locate a searchable word");
+    editor.click();
+    editor.focus();
+    const text = editor.innerText;
+    const query = text.match(/\S{4,}/)?.[0] ?? "";
+    if (!query) throw new Error("Find QA could not extract a searchable word");
+    return {
+      selector: editor.classList.contains("writing-split-editor") ? ".writing-split-editor" : ".manuscript-editor",
+      query,
+      html: editor.innerHTML,
+      text,
+    };
+  });
+  await page.click(".search-pill");
+  await page.waitForSelector(".editor-search input");
+  const findGeometry = await page.evaluate(() => {
+    const toolbar = document.querySelector<HTMLElement>(".format-toolbar")!.getBoundingClientRect();
+    const search = document.querySelector<HTMLElement>(".editor-search")!.getBoundingClientRect();
+    return { toolbarBottom: toolbar.bottom, searchTop: search.top };
+  });
+  if (findGeometry.searchTop < findGeometry.toolbarBottom - 1) {
+    throw new Error(`Find panel overlaps toolbar controls: ${JSON.stringify(findGeometry)}`);
+  }
+  await page.type(".editor-search input", findProbe.query);
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const count = document.querySelector(".editor-search-count")?.textContent?.trim() ?? "";
+    return Boolean(count && count !== "0 / 0");
+  });
+  await page.keyboard.press("Enter");
+  const findAfter = await page.$eval<HTMLElement, { html: string; text: string }>(findProbe.selector, (editor) => ({
+    html: editor.innerHTML,
+    text: editor.innerText,
+  }));
+  if (findAfter.html !== findProbe.html || findAfter.text !== findProbe.text) {
+    throw new Error("Find mutated manuscript content while navigating matches");
+  }
+  await page.screenshot({ path: path.join(qa, "04a-find-safe.png") });
+  await page.click('.editor-search button[aria-label="Close search"]');
+  await page.waitForFunction(() => !document.querySelector(".editor-search"));
 
   await settle(900);
   const richState = await page.evaluate(() => {
