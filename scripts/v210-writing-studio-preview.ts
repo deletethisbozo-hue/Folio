@@ -203,12 +203,14 @@ try {
   }
   const soundContract = await page.evaluate(() => {
     const toggle = document.querySelector<HTMLInputElement>('input[aria-label="Enable typewriter sound"]');
+    const volume = document.querySelector<HTMLInputElement>('input[aria-label="Typewriter sound volume"]');
+    const halo = document.querySelector<HTMLInputElement>('input[aria-label="Show writing progress halo"]');
     const options = [...document.querySelectorAll<HTMLButtonElement>(".typewriter-sound-options button")].map((button) => button.textContent?.trim() ?? "");
-    return { enabled: toggle?.checked ?? null, options };
+    return { enabled: toggle?.checked ?? null, volume: Number(volume?.value ?? -1), halo: halo?.checked ?? null, options };
   });
-  if (soundContract.enabled !== false || soundContract.options.length !== 3
+  if (soundContract.enabled !== false || soundContract.volume !== 90 || soundContract.halo !== true || soundContract.options.length !== 3
     || !["Classic", "Soft", "Mechanical"].every((label) => soundContract.options.some((copy) => copy.startsWith(label)))) {
-    throw new Error(`Typewriter sound settings contract failed: ${JSON.stringify(soundContract)}`);
+    throw new Error(`Typewriter/progress settings contract failed: ${JSON.stringify(soundContract)}`);
   }
   await page.click('input[aria-label="Enable typewriter sound"]');
   await page.evaluate(() => {
@@ -217,9 +219,14 @@ try {
     if (!mechanical) throw new Error("Mechanical typewriter sound option missing");
     mechanical.click();
   });
+  await page.$eval<HTMLInputElement>('input[aria-label="Typewriter sound volume"]', (input) => {
+    input.value = "100";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   await page.waitForFunction(() =>
     window.localStorage.getItem("folio-typewriter-sound-enabled") === "true"
     && window.localStorage.getItem("folio-typewriter-sound-style") === "mechanical"
+    && window.localStorage.getItem("folio-typewriter-sound-volume") === "100"
     && document.querySelector<HTMLButtonElement>(".typewriter-sound-options button.active")?.textContent?.trim().startsWith("Mechanical"),
   );
 
@@ -237,6 +244,30 @@ try {
   await page.screenshot({ path: path.join(qa, "03a-settings-spellcheck-off.png") });
   await page.click('[role="dialog"][aria-label="Settings"] footer .native-button.primary');
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
+
+  await page.waitForSelector(".writing-progress-halo .progress-halo-orb");
+  await page.click(".writing-progress-halo .progress-halo-orb");
+  await page.waitForSelector(".progress-halo-popover");
+  const progressSetup = await page.evaluate(() => {
+    const current = Number((document.querySelector(".progress-halo-stat > span:first-child strong")?.textContent ?? "0").replace(/[^0-9]/g, ""));
+    const target = Math.max(1000, Math.ceil((current / .72) / 1000) * 1000);
+    const input = document.querySelector<HTMLInputElement>(".progress-goal-field input");
+    if (!input) throw new Error("Progress goal input missing");
+    input.value = String(target);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    return { current, target };
+  });
+  await page.click(".progress-goal-field button");
+  await page.waitForFunction((target) => {
+    const copy = document.querySelector(".progress-halo-orb")?.textContent ?? "";
+    return copy.includes("of " + Number(target).toLocaleString());
+  }, {}, progressSetup.target);
+  await settle(180);
+  await page.screenshot({ path: path.join(qa, "03ac-progress-halo-popover-light.png") });
+  await page.click('.progress-halo-popover button[aria-label="Close progress"]');
+  await page.waitForFunction(() => !document.querySelector(".progress-halo-popover"));
+  await settle(160);
+  await page.screenshot({ path: path.join(qa, "03ad-progress-halo-light.png") });
 
   await settle(300);
   const writeControlAlignment = await page.evaluate(() => {
@@ -306,6 +337,11 @@ try {
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark");
   await settle(240);
   await page.screenshot({ path: path.join(qa, "03d-write-midnight.png") });
+  await page.click(".writing-progress-halo .progress-halo-orb");
+  await page.waitForSelector(".progress-halo-popover");
+  await settle(140);
+  await page.screenshot({ path: path.join(qa, "03de-progress-halo-midnight.png") });
+  await page.click('.progress-halo-popover button[aria-label="Close progress"]');
 
   await page.click('.editor-surface-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "light"
