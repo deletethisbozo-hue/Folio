@@ -13,7 +13,8 @@
   position: absolute !important;
   top: calc(100% + 7px);
   right: 7px;
-  z-index: 92;
+  z-index: 1000;
+  pointer-events: auto !important;
   width: min(286px, calc(100vw - 28px));
   height: 34px !important;
   display: grid !important;
@@ -77,6 +78,9 @@
   background: transparent !important;
   color: var(--folio-muted) !important;
   font: 700 12px/1 var(--folio-ui-font) !important;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 2;
 }
 
 .folio-shell[data-ui-tone] .editor-search button:hover {
