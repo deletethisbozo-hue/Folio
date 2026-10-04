@@ -279,12 +279,20 @@ try {
   await page.mouse.move(haloBox.x + haloBox.width / 2, 1022, { steps: 8 });
   await page.mouse.up();
   await settle(80);
-  const haloStatusGap = await page.evaluate(() => {
-    const halo = document.querySelector<HTMLElement>(".writing-progress-halo")!.getBoundingClientRect();
+  const haloStatusCheck = await page.evaluate(() => {
+    const node = document.querySelector<HTMLElement>(".writing-progress-halo")!;
+    const halo = node.getBoundingClientRect();
     const status = document.querySelector<HTMLElement>(".folio-statusbar")!.getBoundingClientRect();
-    return status.top - halo.bottom;
+    return {
+      gap: status.top - halo.bottom,
+      viewport: { width: innerWidth, height: innerHeight },
+      halo: { top: halo.top, bottom: halo.bottom, left: halo.left, height: halo.height },
+      status: { top: status.top, bottom: status.bottom, height: status.height },
+      inline: { top: node.style.top, bottom: node.style.bottom, left: node.style.left, right: node.style.right },
+      stored: localStorage.getItem("folio-progress-halo-position"),
+    };
   });
-  if (haloStatusGap < 7) throw new Error(`Folio Halo can overlap the status bar: gap=${haloStatusGap}`);
+  if (haloStatusCheck.gap < 7) throw new Error(`Folio Halo can overlap the status bar: ${JSON.stringify(haloStatusCheck)}`);
 
   await page.click(".writing-progress-halo .progress-halo-orb");
   await page.waitForSelector(".progress-halo-popover");
