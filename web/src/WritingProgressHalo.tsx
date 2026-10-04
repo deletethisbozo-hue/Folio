@@ -44,13 +44,11 @@ function clampHaloPosition(position: HaloPosition, size: number): HaloPosition {
   const margin = 8;
   const maxX = Math.max(margin, window.innerWidth - size - margin);
   const statusBar = document.querySelector<HTMLElement>(".folio-statusbar");
-  const statusTop = statusBar && getComputedStyle(statusBar).display !== "none"
-    ? statusBar.getBoundingClientRect().top
-    : window.innerHeight;
-  const maxY = Math.max(margin, Math.min(
-    window.innerHeight - size - margin,
-    statusTop - size - margin,
-  ));
+  const statusBarHeight = statusBar && getComputedStyle(statusBar).display !== "none"
+    ? Math.max(20, statusBar.getBoundingClientRect().height)
+    : 20;
+  const bottomSafeInset = statusBarHeight + margin;
+  const maxY = Math.max(margin, window.innerHeight - size - bottomSafeInset);
   return {
     x: Math.max(margin, Math.min(maxX, position.x)),
     y: Math.max(margin, Math.min(maxY, position.y)),
