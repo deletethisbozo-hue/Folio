@@ -259,6 +259,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [contentTitle, setContentTitle] = useState("New Chapter");
   const [styleCategory, setStyleCategory] = useState<StyleCategory>("Book Style");
   const [showSearch, setShowSearch] = useState(false);
+  const [searchCloseCooldown, setSearchCloseCooldown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchState, setSearchMatchState] = useState({ index: -1, total: 0 });
   const [coverVersion, setCoverVersion] = useState(0);
@@ -303,6 +304,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const previewHighlightTimerRef = useRef<number | null>(null);
   const searchIdentityRef = useRef("");
   const searchIndexRef = useRef(-1);
+  const searchCooldownTimerRef = useRef<number | null>(null);
   const searchCloseGuardRef = useRef(0);
 
   const resetDocumentView = () => {
@@ -2087,7 +2089,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function openSearch() {
-    if (performance.now() < searchCloseGuardRef.current) return;
+    if (searchCloseCooldown || performance.now() < searchCloseGuardRef.current) return;
     clearFindHighlights();
     searchIdentityRef.current = "";
     searchIndexRef.current = -1;
@@ -2096,9 +2098,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function closeSearch() {
-    searchCloseGuardRef.current = performance.now() + 240;
-    // Hide first. Highlight cleanup is secondary and must not strand the panel open.
+    searchCloseGuardRef.current = performance.now() + 500;
+    // Hide first, then keep the replacement Find button disabled briefly so
+    // the same physical click cannot fall through and reopen the panel.
     setShowSearch(false);
+    setSearchCloseCooldown(true);
+    if (searchCooldownTimerRef.current !== null) window.clearTimeout(searchCooldownTimerRef.current);
+    searchCooldownTimerRef.current = window.setTimeout(() => {
+      setSearchCloseCooldown(false);
+      searchCooldownTimerRef.current = null;
+    }, 500);
     searchIdentityRef.current = "";
     searchIndexRef.current = -1;
     setSearchMatchState({ index: -1, total: 0 });
@@ -2333,7 +2342,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
               onMouseDownCapture={(event) => { event.preventDefault(); event.stopPropagation(); closeSearch(); }}
               onClickCapture={(event) => { event.preventDefault(); event.stopPropagation(); closeSearch(); }}
             >×</button>
-          </div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={openSearch}><UiIcon name="search"/></button>}
+          </div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" disabled={searchCloseCooldown} onClick={openSearch}><UiIcon name="search"/></button>}
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className="editor-surface-toggle" aria-label={effectiveEditorSurface === "light" ? "Use dark editor background" : "Use light editor background"} title={effectiveEditorSurface === "light" ? "Dark editor background" : "Light editor background"} onMouseDown={(event) => event.preventDefault()} onClick={() => setEditorSurface(effectiveEditorSurface === "light" ? "dark" : "light")}><UiIcon name={effectiveEditorSurface === "light" ? "moon" : "sun"}/></button><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
         <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-section-id={selectedId ?? ""} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { if (selectedId) setProgressSectionId(selectedId); editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (selectedId) setProgressSectionId(selectedId); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
