@@ -9,6 +9,11 @@
   overflow: visible !important;
 }
 
+.folio-shell[data-ui-tone] .format-toolbar:has(.editor-search) {
+  z-index: 1200;
+  isolation: isolate;
+}
+
 .folio-shell[data-ui-tone] .editor-search {
   position: absolute !important;
   top: calc(100% + 7px);
