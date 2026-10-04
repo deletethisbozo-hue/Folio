@@ -52,7 +52,8 @@ check(
 check(
   "Halo drag clamp reserves space above the bottom status bar",
   haloSource.includes('document.querySelector<HTMLElement>(".folio-statusbar")') &&
-  haloSource.includes("statusTop - size - margin"),
+  haloSource.includes("statusBarHeight + margin") &&
+  haloSource.includes("window.innerHeight - size - bottomSafeInset"),
 );
 
 check(
