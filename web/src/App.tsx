@@ -303,6 +303,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const previewHighlightTimerRef = useRef<number | null>(null);
   const searchIdentityRef = useRef("");
   const searchIndexRef = useRef(-1);
+  const searchCloseGuardRef = useRef(0);
 
   const resetDocumentView = () => {
     draftRef.current = "";
@@ -2081,7 +2082,17 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     registry?.delete("folio-find-active");
   }
 
+  function openSearch() {
+    if (performance.now() < searchCloseGuardRef.current) return;
+    clearFindHighlights();
+    searchIdentityRef.current = "";
+    searchIndexRef.current = -1;
+    setSearchMatchState({ index: -1, total: 0 });
+    setShowSearch(true);
+  }
+
   function closeSearch() {
+    searchCloseGuardRef.current = performance.now() + 240;
     clearFindHighlights();
     searchIdentityRef.current = "";
     searchIndexRef.current = -1;
@@ -2187,7 +2198,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (key === "b") applyInlineFormat("bold", "bold text");
       if (key === "i") applyInlineFormat("italic", "italic text");
       if (key === "u") applyInlineFormat("underline", "underlined text");
-    } else if (key === "f") { event.preventDefault(); clearFindHighlights(); searchIdentityRef.current = ""; searchIndexRef.current = -1; setSearchMatchState({ index: -1, total: 0 }); setShowSearch(true); }
+    } else if (key === "f") { event.preventDefault(); openSearch(); }
     else if (key === "s") { event.preventDefault(); void saveCurrent(); }
   }
 
@@ -2317,7 +2328,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
               onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); closeSearch(); }}
               onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeSearch(); }}
             >×</button>
-          </div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => { clearFindHighlights(); searchIdentityRef.current = ""; searchIndexRef.current = -1; setSearchMatchState({ index: -1, total: 0 }); setShowSearch(true); }}><UiIcon name="search"/></button>}
+          </div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={openSearch}><UiIcon name="search"/></button>}
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className="editor-surface-toggle" aria-label={effectiveEditorSurface === "light" ? "Use dark editor background" : "Use light editor background"} title={effectiveEditorSurface === "light" ? "Dark editor background" : "Light editor background"} onMouseDown={(event) => event.preventDefault()} onClick={() => setEditorSurface(effectiveEditorSurface === "light" ? "dark" : "light")}><UiIcon name={effectiveEditorSurface === "light" ? "moon" : "sun"}/></button><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
         <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-section-id={selectedId ?? ""} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { if (selectedId) setProgressSectionId(selectedId); editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (selectedId) setProgressSectionId(selectedId); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
