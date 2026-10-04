@@ -86,3 +86,13 @@ jobs:
         run: npm run build
       - name: Writing Studio interaction and screenshot QA
         run: node --import tsx scripts/v210-writing-studio-preview.ts
+      - name: Upload Halo QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Halo-QA
+          path: |
+            build/qa-v210-writing-studio/03ac-progress-halo-popover-light.png
+            build/qa-v210-writing-studio/03ad-progress-halo-light.png
+            build/qa-v210-writing-studio/03de-progress-halo-midnight.png
+          if-no-files-found: error
