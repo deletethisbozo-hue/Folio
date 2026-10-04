@@ -78,6 +78,8 @@ check(
   audioSource.includes('"/audio/typewriter/classic-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/soft-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/mechanical-keys.mp3"') &&
+  audioSource.includes('"/audio/typewriter/space-keys.mp3"') &&
+  audioSource.includes('"/audio/typewriter/backspace-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/carriage-return.mp3"') &&
   audioSource.includes("decodeAudioData") &&
   audioSource.includes("playSprite(") &&
@@ -91,6 +93,14 @@ check(
   audioSource.includes("1787") &&
   audioSource.includes("2860") &&
   audioSource.includes("5407"),
+);
+
+check(
+  "Space and Backspace use their own real mechanism sample banks",
+  audioSource.includes("bank.space") &&
+  audioSource.includes("bank.backspace") &&
+  audioSource.includes("SPECIAL_CLIP_SECONDS") &&
+  audioSource.includes('kind === "erase"'),
 );
 
 check(

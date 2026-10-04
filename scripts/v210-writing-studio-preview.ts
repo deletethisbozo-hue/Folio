@@ -237,6 +237,8 @@ try {
       "/audio/typewriter/classic-keys.mp3",
       "/audio/typewriter/soft-keys.mp3",
       "/audio/typewriter/mechanical-keys.mp3",
+      "/audio/typewriter/space-keys.mp3",
+      "/audio/typewriter/backspace-keys.mp3",
       "/audio/typewriter/carriage-return.mp3",
     ];
     return Promise.all(urls.map(async (url) => {

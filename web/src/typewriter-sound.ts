@@ -14,6 +14,8 @@ type SampleBank = {
   classic: AudioBuffer;
   soft: AudioBuffer;
   mechanical: AudioBuffer;
+  space: AudioBuffer;
+  backspace: AudioBuffer;
   carriage: AudioBuffer;
 };
 
@@ -28,11 +30,15 @@ const SAMPLE_ASSETS = {
   classic: "/audio/typewriter/classic-keys.mp3",
   soft: "/audio/typewriter/soft-keys.mp3",
   mechanical: "/audio/typewriter/mechanical-keys.mp3",
+  space: "/audio/typewriter/space-keys.mp3",
+  backspace: "/audio/typewriter/backspace-keys.mp3",
   carriage: "/audio/typewriter/carriage-return.mp3",
 } as const;
 
 const SPRITE_SLOT_SECONDS = 0.18;
 const SPRITE_CLIP_SECONDS = 0.145;
+const SPECIAL_SLOT_SECONDS = 0.12;
+const SPECIAL_CLIP_SECONDS = 0.028;
 
 const STYLE_PROFILES: Record<TypewriterSoundStyle, StyleProfile> = {
   // Classic keeps the full body of the supplied manual-typewriter recording.
@@ -103,8 +109,10 @@ function ensureSampleBank(context: AudioContext): Promise<SampleBank | null> {
     loadAudioBuffer(context, SAMPLE_ASSETS.classic),
     loadAudioBuffer(context, SAMPLE_ASSETS.soft),
     loadAudioBuffer(context, SAMPLE_ASSETS.mechanical),
+    loadAudioBuffer(context, SAMPLE_ASSETS.space),
+    loadAudioBuffer(context, SAMPLE_ASSETS.backspace),
     loadAudioBuffer(context, SAMPLE_ASSETS.carriage),
-  ]).then(([classic, soft, mechanical, carriage]) => ({ classic, soft, mechanical, carriage }))
+  ]).then(([classic, soft, mechanical, space, backspace, carriage]) => ({ classic, soft, mechanical, space, backspace, carriage }))
     .catch((error) => {
       console.warn("Folio Typewriter Sound samples unavailable; using safety fallback.", error);
       sampleBankPromise = null;
@@ -159,6 +167,8 @@ function playSprite(
   gainValue: number,
   playbackRate: number,
   lowpass: number | null,
+  slotSeconds = SPRITE_SLOT_SECONDS,
+  clipSeconds = SPRITE_CLIP_SECONDS,
 ): void {
   const source = context.createBufferSource();
   const gain = context.createGain();
@@ -178,9 +188,9 @@ function playSprite(
     source.connect(gain);
   }
 
-  const requestedOffset = variant * SPRITE_SLOT_SECONDS;
-  const offset = Math.min(requestedOffset, Math.max(0, buffer.duration - 0.035));
-  const duration = Math.max(0.025, Math.min(SPRITE_CLIP_SECONDS, buffer.duration - offset));
+  const requestedOffset = variant * slotSeconds;
+  const offset = Math.min(requestedOffset, Math.max(0, buffer.duration - 0.018));
+  const duration = Math.max(0.018, Math.min(clipSeconds, buffer.duration - offset));
   source.start(now, offset, duration);
 }
 
@@ -261,17 +271,43 @@ function playSampledKey(
 ): void {
   const profile = STYLE_PROFILES[style];
   const kind = keyKind(key);
-  const buffer = bank[profile.bank];
   const variation = keyVariation(key);
-  playSprite(
-    context,
-    buffer,
-    now,
-    nextVariant(key),
-    profile.gain * keyGain(kind),
-    profile.rate * variation * (kind === "space" ? 0.97 : kind === "erase" ? 0.95 : 1),
-    profile.lowpass,
-  );
+
+  if (kind === "space" || kind === "tab") {
+    playSprite(
+      context,
+      bank.space,
+      now,
+      nextVariant(key),
+      profile.gain * (kind === "tab" ? 0.52 : 0.62),
+      profile.rate * variation * 0.96,
+      style === "soft" ? 2600 : 3900,
+      SPECIAL_SLOT_SECONDS,
+      SPECIAL_CLIP_SECONDS,
+    );
+  } else if (kind === "erase") {
+    playSprite(
+      context,
+      bank.backspace,
+      now,
+      nextVariant(key),
+      profile.gain * 0.78,
+      profile.rate * variation * 0.98,
+      style === "soft" ? 4300 : 7600,
+      SPECIAL_SLOT_SECONDS,
+      SPECIAL_CLIP_SECONDS,
+    );
+  } else {
+    playSprite(
+      context,
+      bank[profile.bank],
+      now,
+      nextVariant(key),
+      profile.gain * keyGain(kind),
+      profile.rate * variation,
+      profile.lowpass,
+    );
+  }
 
   if (kind === "enter") {
     playCarriageReturn(context, bank.carriage, now + 0.026, style);
