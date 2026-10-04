@@ -26,11 +26,13 @@ function getAudioContext(): AudioContext | null {
   masterGain.gain.value = 1;
 
   masterCompressor = audioContext.createDynamicsCompressor();
-  masterCompressor.threshold.value = -14;
-  masterCompressor.knee.value = 10;
-  masterCompressor.ratio.value = 4;
-  masterCompressor.attack.value = 0.0015;
-  masterCompressor.release.value = 0.075;
+  // Gentle safety compression only. The old aggressive stage made every
+  // synthetic transient pump and ring, which is exactly the "fake" sound.
+  masterCompressor.threshold.value = -6;
+  masterCompressor.knee.value = 18;
+  masterCompressor.ratio.value = 2.2;
+  masterCompressor.attack.value = 0.002;
+  masterCompressor.release.value = 0.06;
 
   masterGain.connect(masterCompressor);
   masterCompressor.connect(audioContext.destination);
@@ -119,6 +121,14 @@ function noiseImpact(
   source.start(now, offset, Math.min(source.buffer.duration - offset, duration + 0.004));
 }
 
+function keyVariation(key: string): number {
+  let hash = 0;
+  for (let index = 0; index < key.length; index++) hash = ((hash * 31) + key.charCodeAt(index)) >>> 0;
+  const keyOffset = ((hash % 13) - 6) * 0.0025;
+  const humanOffset = (Math.random() - 0.5) * 0.012;
+  return 1 + keyOffset + humanOffset;
+}
+
 function resonantBody(
   context: AudioContext,
   now: number,
@@ -145,12 +155,21 @@ function resonantBody(
   oscillator.stop(now + duration + 0.008);
 }
 
-function metalPing(context: AudioContext, now: number, peak: number, frequency: number, duration: number): void {
-  const bus = context.createGain();
-  bus.gain.value = 1;
-  bus.connect(outputNode(context));
-  resonantBody(context, now, { frequency, peak, duration, type: "sine" });
-  resonantBody(context, now + 0.0015, { frequency: frequency * 1.47, peak: peak * 0.33, duration: duration * 0.72, type: "sine", detune: 5 });
+function carriageBell(context: AudioContext, now: number, drift: number): void {
+  // A carriage-return bell is the only deliberately tonal part. Keep it
+  // quiet and short so it reads as hardware in the room, not a UI chime.
+  resonantBody(context, now, {
+    frequency: 1760 * drift,
+    peak: 0.007,
+    duration: 0.045,
+    type: "sine",
+  });
+  resonantBody(context, now + 0.001, {
+    frequency: 2640 * drift,
+    peak: 0.0025,
+    duration: 0.032,
+    type: "sine",
+  });
 }
 
 function playClassic(context: AudioContext, now: number, kind: KeyKind, drift: number): void {
@@ -159,75 +178,68 @@ function playClassic(context: AudioContext, now: number, kind: KeyKind, drift: n
   const isErase = kind === "erase";
   const isTab = kind === "tab";
 
-  // Manual typewriter: keycap movement -> typebar/platen strike -> case resonance -> key return.
+  // Dry manual typewriter: key travel, typebar/platen impact, tiny return.
+  // Noise transients carry the ordinary keys; no pitched oscillator body.
   noiseImpact(context, now, {
-    peak: isSpace ? 0.055 : 0.105,
-    frequency: (isSpace ? 1050 : 2350) * drift,
-    q: isSpace ? 0.72 : 1.2,
-    duration: isSpace ? 0.014 : 0.010,
+    peak: isSpace ? 0.034 : 0.050,
+    frequency: (isSpace ? 1250 : 2850) * drift,
+    q: isSpace ? 0.62 : 0.92,
+    duration: isSpace ? 0.009 : 0.006,
   });
 
-  noiseImpact(context, now + (isSpace ? 0.004 : 0.0055), {
-    peak: isSpace ? 0.115 : isEnter ? 0.205 : isErase ? 0.175 : 0.155,
-    frequency: (isSpace ? 520 : isEnter ? 980 : 1320) * drift,
-    q: isSpace ? 0.58 : 0.9,
-    duration: isEnter ? 0.032 : 0.022,
+  noiseImpact(context, now + (isSpace ? 0.003 : 0.0035), {
+    peak: isSpace ? 0.068 : isEnter ? 0.145 : isErase ? 0.112 : 0.098,
+    frequency: (isSpace ? 480 : isEnter ? 720 : isErase ? 1420 : 1080) * drift,
+    q: isSpace ? 0.48 : 0.72,
+    duration: isEnter ? 0.024 : isSpace ? 0.016 : 0.012,
   });
 
-  resonantBody(context, now + 0.006, {
-    frequency: (isSpace ? 118 : isEnter ? 142 : 176) * drift,
-    peak: isSpace ? 0.052 : isEnter ? 0.11 : 0.072,
-    duration: isEnter ? 0.055 : 0.036,
-    type: "triangle",
+  noiseImpact(context, now + 0.006, {
+    peak: isSpace ? 0.024 : isEnter ? 0.066 : 0.040,
+    frequency: (isSpace ? 250 : isEnter ? 300 : 360) * drift,
+    q: 0.42,
+    duration: isEnter ? 0.030 : 0.020,
+    type: "lowpass",
   });
 
   if (!isSpace) {
-    noiseImpact(context, now + (isEnter ? 0.026 : 0.020), {
-      peak: isEnter ? 0.070 : 0.045,
-      frequency: (isErase ? 2100 : 3150) * drift,
-      q: 1.45,
-      duration: 0.008,
+    noiseImpact(context, now + (isEnter ? 0.024 : 0.015), {
+      peak: isEnter ? 0.030 : isTab ? 0.034 : 0.021,
+      frequency: (isErase ? 2200 : 3150) * drift,
+      q: 1.05,
+      duration: 0.005,
     });
   }
 
-  if (isEnter) {
-    metalPing(context, now + 0.018, 0.026, 1320 * drift, 0.075);
-  } else if (isTab) {
-    resonantBody(context, now + 0.010, {
-      frequency: 510 * drift,
-      peak: 0.032,
-      duration: 0.028,
-      type: "triangle",
-    });
-  }
+  if (isEnter) carriageBell(context, now + 0.020, drift);
 }
 
 function playSoft(context: AudioContext, now: number, kind: KeyKind, drift: number): void {
   const isSpace = kind === "space";
   const isEnter = kind === "enter";
+  const isErase = kind === "erase";
 
-  // Felted/quiet machine: rounded key travel and a muted platen impact.
+  // Felted machine: dull key travel plus a restrained platen contact.
   noiseImpact(context, now, {
-    peak: isSpace ? 0.035 : 0.060,
-    frequency: (isSpace ? 620 : 1080) * drift,
-    q: 0.55,
-    duration: 0.018,
+    peak: isSpace ? 0.022 : 0.036,
+    frequency: (isSpace ? 720 : 1180) * drift,
+    q: 0.46,
+    duration: 0.012,
     type: "lowpass",
   });
-
-  noiseImpact(context, now + 0.005, {
-    peak: isSpace ? 0.060 : isEnter ? 0.095 : 0.078,
-    frequency: (isSpace ? 390 : 720) * drift,
-    q: 0.62,
-    duration: isEnter ? 0.030 : 0.020,
+  noiseImpact(context, now + 0.004, {
+    peak: isSpace ? 0.042 : isEnter ? 0.076 : isErase ? 0.066 : 0.056,
+    frequency: (isSpace ? 380 : isEnter ? 520 : 650) * drift,
+    q: 0.50,
+    duration: isEnter ? 0.024 : 0.016,
     type: "bandpass",
   });
-
-  resonantBody(context, now + 0.006, {
-    frequency: (isSpace ? 92 : isEnter ? 122 : 148) * drift,
-    peak: isSpace ? 0.030 : isEnter ? 0.054 : 0.040,
-    duration: isEnter ? 0.045 : 0.030,
-    type: "sine",
+  noiseImpact(context, now + 0.007, {
+    peak: isSpace ? 0.014 : 0.024,
+    frequency: 270 * drift,
+    q: 0.38,
+    duration: 0.018,
+    type: "lowpass",
   });
 }
 
@@ -236,36 +248,26 @@ function playMechanical(context: AudioContext, now: number, kind: KeyKind, drift
   const isEnter = kind === "enter";
   const isErase = kind === "erase";
 
-  // Hard mechanical switch/typebar feel: switch click, bottom-out and return.
+  // Crisp mechanism: switch click, bottom-out and a much quieter return.
   noiseImpact(context, now, {
-    peak: isSpace ? 0.060 : 0.125,
-    frequency: (isSpace ? 1450 : 3600) * drift,
-    q: 1.55,
-    duration: 0.007,
+    peak: isSpace ? 0.036 : 0.062,
+    frequency: (isSpace ? 1700 : 3900) * drift,
+    q: 1.20,
+    duration: 0.0045,
   });
-
-  resonantBody(context, now + 0.0025, {
-    frequency: (isSpace ? 185 : isEnter ? 225 : 255) * drift,
-    peak: isSpace ? 0.050 : isEnter ? 0.095 : 0.068,
-    duration: isEnter ? 0.034 : 0.022,
-    type: "triangle",
+  noiseImpact(context, now + 0.003, {
+    peak: isSpace ? 0.070 : isEnter ? 0.130 : isErase ? 0.118 : 0.100,
+    frequency: (isSpace ? 720 : isEnter ? 980 : 1480) * drift,
+    q: 0.82,
+    duration: isEnter ? 0.017 : 0.010,
   });
-
-  noiseImpact(context, now + 0.006, {
-    peak: isSpace ? 0.105 : isEnter ? 0.185 : isErase ? 0.165 : 0.145,
-    frequency: (isSpace ? 760 : 1650) * drift,
-    q: 1.02,
-    duration: isEnter ? 0.024 : 0.014,
+  noiseImpact(context, now + (isEnter ? 0.019 : 0.012), {
+    peak: isSpace ? 0.016 : 0.026,
+    frequency: 3300 * drift,
+    q: 1.12,
+    duration: 0.004,
   });
-
-  noiseImpact(context, now + (isEnter ? 0.028 : 0.019), {
-    peak: isSpace ? 0.040 : 0.072,
-    frequency: 4200 * drift,
-    q: 1.8,
-    duration: 0.006,
-  });
-
-  if (isEnter) metalPing(context, now + 0.016, 0.018, 1560 * drift, 0.055);
+  if (isEnter) carriageBell(context, now + 0.017, drift);
 }
 
 export function shouldPlayTypewriterSound(event: KeyboardLikeEvent): boolean {
@@ -289,12 +291,14 @@ export async function playTypewriterSound(
   if (normalizedVolume <= 0) return;
 
   if (masterGain) {
-    // Keep 100% clearly audible without relying on square-wave loudness.
-    masterGain.gain.setTargetAtTime(0.18 + normalizedVolume * 1.85, context.currentTime, 0.006);
+    // A real volume curve: no loudness floor and no >2x gain smashing into
+    // the compressor. This preserves the short impact instead of making it honk.
+    const amplitude = Math.pow(normalizedVolume, 1.25);
+    masterGain.gain.setTargetAtTime(amplitude * 0.92, context.currentTime, 0.008);
   }
 
-  const now = context.currentTime + 0.003;
-  const drift = 0.965 + Math.random() * 0.07;
+  const now = context.currentTime + 0.002;
+  const drift = keyVariation(key);
   const kind = keyKind(key);
 
   if (style === "soft") {

@@ -1,0 +1,64 @@
+/* Folio 2.8.0 release-feedback fixes.
+ * Keep overlays in the correct stacking order and make Folio Halo a
+ * viewport-level tool instead of an accidental child of the left editor.
+ */
+
+/* The word-count menu opens from the chapter header but overlaps the toolbar.
+ * Elevate the whole header stacking context, not just the menu inside it. */
+.folio-shell[data-ui-tone] .section-titlebar:has(.word-count-picker.open) {
+  position: relative;
+  z-index: 2600 !important;
+  overflow: visible !important;
+}
+
+.folio-shell[data-ui-tone] .section-titlebar:has(.word-count-picker.open) .write-title-status {
+  overflow: visible !important;
+}
+
+.folio-shell[data-ui-tone] .word-count-picker.open {
+  z-index: 2610 !important;
+}
+
+.folio-shell[data-ui-tone] .word-count-menu {
+  z-index: 2620 !important;
+}
+
+/* Halo is a writing HUD, not content inside the primary editor pane. Fixed
+ * positioning also means Split View cannot pin it to the left editor. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .writing-progress-halo {
+  position: fixed !important;
+  right: 20px;
+  bottom: 38px;
+  z-index: 1500;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .writing-progress-halo.open {
+  z-index: 1600;
+}
+
+.progress-halo-orb {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.writing-progress-halo.dragging .progress-halo-orb {
+  cursor: grabbing;
+}
+
+.writing-progress-halo.popover-below .progress-halo-popover {
+  top: calc(var(--folio-halo-size, 118px) + 12px);
+  bottom: auto;
+}
+
+.writing-progress-halo.popover-align-left .progress-halo-popover {
+  left: 0;
+  right: auto;
+}
+
+@media (max-width: 900px) {
+  .folio-shell[data-ui-tone][data-workspace-mode="write"] .writing-progress-halo {
+    right: 12px;
+    bottom: 32px;
+  }
+}

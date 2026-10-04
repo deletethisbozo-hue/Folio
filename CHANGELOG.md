@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.1] - 2026-10-04
+
+### Changed
+- Reworked Typewriter Sound around short, dry mechanical transients with a natural volume curve and far less synthetic ringing/compression.
+
+### Fixed
+- Word-count scope dropdown now renders above the floating Write toolbar instead of being clipped behind it.
+- Folio Halo now uses viewport positioning, can be dragged anywhere on screen, persists its position, stays movable in Split View, and keeps its popover on-screen near viewport edges.
+
 ## [2.6.1] - 2026-09-30
 
 ### Changed

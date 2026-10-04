@@ -42,6 +42,7 @@ import "./v240-edge-polish.css";
 import "./v241-writing-alignment.css";
 import "./v242-progress-halo.css";
 import "./v243-find-polish.css";
+import "./v244-release-feedback.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
