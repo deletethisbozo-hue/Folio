@@ -12,7 +12,7 @@ const check = (label: string, ok: boolean, detail = "") => {
   ok ? passed++ : failed++;
 };
 
-console.log("\nFolio Halo identity + audible typewriter regressions");
+console.log("\nFolio Halo identity + sampled typewriter regressions");
 
 const [haloSource, audioSource, appSource, css, mainSource] = await Promise.all([
   fs.readFile(path.join(ROOT, "web", "src", "WritingProgressHalo.tsx"), "utf8"),
@@ -73,20 +73,32 @@ check(
   mainSource.indexOf('import "./v245-halo-audio-polish.css"') > mainSource.indexOf('import "./v244-release-feedback.css"'),
 );
 
-const gain = Number(audioSource.match(/const IMPACT_GAIN\s*=\s*([\d.]+)/)?.[1] ?? 0);
 check(
-  "filtered key impacts restore enough acoustic energy to be audible",
-  gain >= 4 &&
-  audioSource.includes("peak * IMPACT_GAIN") &&
-  audioSource.includes("Math.min(0.85"),
-  `impactGain=${gain}`,
+  "Typewriter Sound loads real local sample banks instead of synthesizing ordinary keys",
+  audioSource.includes('"/audio/typewriter/classic-keys.mp3"') &&
+  audioSource.includes('"/audio/typewriter/soft-keys.mp3"') &&
+  audioSource.includes('"/audio/typewriter/mechanical-keys.mp3"') &&
+  audioSource.includes('"/audio/typewriter/carriage-return.mp3"') &&
+  audioSource.includes("decodeAudioData") &&
+  audioSource.includes("playSprite(") &&
+  !audioSource.includes("IMPACT_GAIN"),
+);
+
+check(
+  "Enter uses a sampled carriage return and bell partials calibrated from the supplied reference",
+  audioSource.includes("playCarriageReturn(") &&
+  audioSource.includes("playReferenceBell(") &&
+  audioSource.includes("1787") &&
+  audioSource.includes("2860") &&
+  audioSource.includes("5407"),
 );
 
 check(
   "sound Preview plays a real multi-key sample rather than one tiny click",
   audioSource.includes("playTypewriterPreview") &&
   audioSource.includes('["F", "o", "l", "i", "o", " ", "Enter"]') &&
-  appSource.includes("playTypewriterPreview(props.typewriterSoundStyle, props.typewriterSoundVolume)"),
+  appSource.includes("playTypewriterPreview(props.typewriterSoundStyle, props.typewriterSoundVolume)") &&
+  appSource.includes("preloadTypewriterSounds()"),
 );
 
 console.log(`\n${passed} passed, ${failed} failed`);

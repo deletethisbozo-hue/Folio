@@ -11,10 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Restored Folio Halo's immediately readable concentric-ring mechanic with three simultaneous rings for Book, Chapter and Today progress, while removing the decorative resize notch.
-- Raised the acoustic energy of Typewriter Sound transients and made Preview play a short Folio keystroke sequence so volume/style changes are actually audible.
+- Rebuilt Typewriter Sound around trimmed real typewriter samples supplied as references: Classic and Soft use a manual-machine key bank with different playback/filter profiles, Mechanical uses a harder source bank, and Enter layers a sampled carriage return with a bell tuned to the supplied reference. Preview still plays a short Folio keystroke sequence for direct comparison.
 
 ### Fixed
-- Typewriter Sound is no longer effectively inaudible after the 2.8.1 transient rewrite.
+- Typewriter Sound is no longer effectively inaudible or synthetic-sounding after the 2.8.1 transient rewrite.
 - Folio Halo can no longer be dragged underneath the bottom status bar.
 
 ## [2.8.1] - 2026-10-04

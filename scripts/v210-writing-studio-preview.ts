@@ -232,6 +232,23 @@ try {
     && document.querySelector<HTMLButtonElement>(".typewriter-sound-options button.active")?.textContent?.trim().startsWith("Mechanical"),
   );
 
+  const typewriterAssets = await page.evaluate(async () => {
+    const urls = [
+      "/audio/typewriter/classic-keys.mp3",
+      "/audio/typewriter/soft-keys.mp3",
+      "/audio/typewriter/mechanical-keys.mp3",
+      "/audio/typewriter/carriage-return.mp3",
+    ];
+    return Promise.all(urls.map(async (url) => {
+      const response = await fetch(url);
+      return { url, ok: response.ok, status: response.status, bytes: (await response.arrayBuffer()).byteLength };
+    }));
+  });
+  const missingTypewriterAsset = typewriterAssets.find((asset) => !asset.ok || asset.bytes < 2000);
+  if (missingTypewriterAsset) throw new Error(`Typewriter sample asset failed QA: ${JSON.stringify(typewriterAssets)}`);
+  await page.click(".typewriter-sound-preview");
+  await settle(180);
+
   const initialSpellcheck = await page.$eval<HTMLInputElement>('input[aria-label="Enable spellcheck"]', (input) => input.checked);
   if (!initialSpellcheck) throw new Error("Spellcheck should default to enabled");
   await page.click('input[aria-label="Enable spellcheck"]');

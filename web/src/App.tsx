@@ -16,7 +16,7 @@ import { applySafeContours } from "./contour-wrap";
 import { getPreviewProfile, previewProfileGroups, previewProfiles, type PreviewMode } from "./device-profiles";
 import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
-import { playTypewriterPreview, playTypewriterSound, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
+import { playTypewriterPreview, playTypewriterSound, preloadTypewriterSounds, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import WritingSplitPane from "./WritingSplitPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
 import WritingProgressHalo from "./WritingProgressHalo";
@@ -362,6 +362,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { window.localStorage.setItem("folio-word-count-scope", wordCountScope); }, [wordCountScope]);
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-enabled", typewriterSoundEnabled ? "true" : "false"); }, [typewriterSoundEnabled]);
+  useEffect(() => { if (typewriterSoundEnabled) preloadTypewriterSounds(); }, [typewriterSoundEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-style", typewriterSoundStyle); }, [typewriterSoundStyle]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-volume", String(typewriterSoundVolume)); }, [typewriterSoundVolume]);
   useEffect(() => { window.localStorage.setItem("folio-progress-halo-enabled", progressHaloEnabled ? "true" : "false"); }, [progressHaloEnabled]);
