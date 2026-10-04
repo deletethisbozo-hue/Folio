@@ -23,33 +23,46 @@ const [haloSource, audioSource, appSource, css, mainSource] = await Promise.all(
 ]);
 
 check(
-  "Halo is one three-segment Book / Chapter / Today orbit",
-  haloSource.includes('{ scope: "book"') &&
-  haloSource.includes('{ scope: "chapter"') &&
-  haloSource.includes('{ scope: "today"') &&
-  haloSource.includes("progress-halo-segment-track") &&
-  haloSource.includes("progress-halo-segment-fill") &&
-  haloSource.includes("haloArcPath(") &&
-  !haloSource.includes("strokeDasharray="),
+  "Halo shows Book / Chapter / Today as three concentric progress rings",
+  haloSource.includes("bookCircumference") &&
+  haloSource.includes("chapterCircumference") &&
+  haloSource.includes("todayCircumference") &&
+  haloSource.includes("progress-halo-ring-book") &&
+  haloSource.includes("progress-halo-ring-chapter") &&
+  haloSource.includes("progress-halo-ring-today") &&
+  haloSource.includes('r="47"') &&
+  haloSource.includes('r="40"') &&
+  haloSource.includes('r="34"'),
 );
 
 check(
-  "Halo segments directly select their progress scope",
-  haloSource.includes("choose(segment.scope)") &&
-  haloSource.includes('aria-pressed={active}') &&
-  haloSource.includes('role="button"'),
+  "Halo uses the original whole-orb click/drag interaction instead of ring-segment buttons",
+  haloSource.includes('className="progress-halo-orb"') &&
+  haloSource.includes("onPointerMove={dragHalo}") &&
+  !haloSource.includes("progress-halo-segment-hit") &&
+  !haloSource.includes("choose(segment.scope)"),
 );
 
 check(
-  "decorative notch is gone instead of pretending to be a resize affordance",
+  "decorative notch stays removed",
   !haloSource.includes("progress-halo-notch") &&
   !haloSource.includes('d="M84 94 L94 84"'),
 );
 
 check(
-  "selected Halo segment has its own visual emphasis",
-  css.includes(".progress-halo-segment.is-active") &&
-  css.includes("stroke-width: 8.6"),
+  "Halo drag clamp reserves space above the bottom status bar",
+  haloSource.includes('document.querySelector<HTMLElement>(".folio-statusbar")') &&
+  haloSource.includes("statusTop - size - margin"),
+);
+
+check(
+  "all three rings have distinct Light and Midnight styling",
+  css.includes(".progress-halo-ring-book") &&
+  css.includes(".progress-halo-ring-chapter") &&
+  css.includes(".progress-halo-ring-today") &&
+  css.includes("#7569ee") &&
+  css.includes("#718ee9") &&
+  css.includes("#5bb9d8"),
 );
 
 check(
