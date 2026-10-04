@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.8.2 version consistency
+      - name: Verify Folio 2.8.3 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.8.2") { throw "Windows release is scoped to Folio 2.8.2, found $version." }
+          if ($version -ne "2.8.3") { throw "Windows release is scoped to Folio 2.8.3, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -271,4 +271,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.8.2 restores Folio Halo's concentric progress design with three simultaneous Book, Chapter and Today rings, removes the misleading decorative notch, and keeps the draggable Halo above the bottom status bar. Typewriter Sound now uses compact real typewriter sample banks derived from supplied reference SFX, including dedicated Space and Backspace mechanisms, a sampled carriage return and a bell tuned to the reference recording; Preview plays a short Folio-plus-Enter sequence for meaningful style comparison. The Windows build is gated by typecheck, the formatter/UI suite with retries, Writing Studio QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.8.3 is a focused Typewriter Sound polish release. Spacebar sounds in Classic, Soft and Mechanical keep their dedicated real mechanism samples but no longer have the unnaturally low, bass-heavy character from 2.8.2: the samples are slightly faster, high-passed to remove cabinet boom and less aggressively low-passed. Letter, Backspace/Delete, Enter carriage return and bell behavior are unchanged. The Windows build is gated by typecheck, the formatter/UI suite with retries, Writing Studio QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
