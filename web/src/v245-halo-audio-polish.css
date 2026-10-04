@@ -1,81 +1,50 @@
-/* Folio Halo identity + audible typewriter preview polish.
- * The Halo is intentionally one incomplete three-part orbit, not a generic
- * pair of circular progress bars.
+/* Folio Halo + audible typewriter preview polish.
+ * Halo intentionally keeps the original immediately-readable concentric-ring
+ * mechanic: Book, Chapter and Today are always visible at the same time.
  */
 
 .progress-halo-orb {
-  cursor: default;
+  cursor: grab;
+}
+
+.writing-progress-halo.dragging .progress-halo-orb {
+  cursor: grabbing;
 }
 
 .progress-halo-rings {
-  z-index: 2;
-  transform: none;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
-.progress-halo-segment-track,
-.progress-halo-segment-fill,
-.progress-halo-segment-hit {
+.progress-halo-track-book,
+.progress-halo-ring-book,
+.progress-halo-chapter-track,
+.progress-halo-ring-chapter,
+.progress-halo-today-track,
+.progress-halo-ring-today {
   fill: none;
+  transform-origin: 56px 56px;
 }
 
-.progress-halo-segment-track {
-  stroke-width: 6.4;
+.progress-halo-track-book,
+.progress-halo-ring-book {
+  stroke-width: 5.8;
+}
+
+.progress-halo-chapter-track,
+.progress-halo-ring-chapter {
+  stroke-width: 4.4;
+}
+
+.progress-halo-today-track,
+.progress-halo-ring-today {
+  stroke-width: 3.2;
+}
+
+.progress-halo-ring-book,
+.progress-halo-ring-chapter,
+.progress-halo-ring-today {
   stroke-linecap: round;
-}
-
-.progress-halo-segment-fill {
-  stroke-width: 6.4;
-  stroke-linecap: round;
-  transition:
-    stroke-width 180ms ease,
-    opacity 180ms ease,
-    filter 180ms ease;
-}
-
-.progress-halo-segment.is-active .progress-halo-segment-fill {
-  stroke-width: 8.6;
-  filter: drop-shadow(0 1.5px 2.5px rgba(82, 76, 190, .22));
-}
-
-.progress-halo-segment.is-disabled {
-  opacity: .34;
-}
-
-.progress-halo-segment-hit {
-  stroke: transparent;
-  stroke-width: 13;
-  pointer-events: stroke;
-  cursor: pointer;
-  outline: none;
-}
-
-.progress-halo-segment.is-disabled .progress-halo-segment-hit {
-  cursor: default;
-}
-
-.progress-halo-segment-hit:focus-visible {
-  stroke: rgba(117, 105, 238, .28);
-}
-
-.progress-halo-center {
-  position: absolute;
-  inset: 17%;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: inherit;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-}
-
-.writing-progress-halo.dragging .progress-halo-center {
-  cursor: grabbing;
+  transition: stroke-dashoffset 260ms ease;
 }
 
 .progress-halo-resize-edge {
@@ -84,36 +53,52 @@
   height: calc(100% + 8px);
 }
 
-/* Light orbit */
-.folio-shell[data-ui-tone="ivory"] .progress-halo-segment-track {
-  stroke: rgba(96, 99, 139, .095);
+/* Light: Book / Chapter / Today */
+.folio-shell[data-ui-tone="ivory"] .progress-halo-track-book {
+  stroke: rgba(96, 99, 139, .10);
 }
 
-.folio-shell[data-ui-tone="ivory"] .progress-halo-segment.scope-book .progress-halo-segment-fill {
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-book {
   stroke: #7569ee;
 }
 
-.folio-shell[data-ui-tone="ivory"] .progress-halo-segment.scope-chapter .progress-halo-segment-fill {
-  stroke: #758fe8;
+.folio-shell[data-ui-tone="ivory"] .progress-halo-chapter-track {
+  stroke: rgba(94, 109, 154, .09);
 }
 
-.folio-shell[data-ui-tone="ivory"] .progress-halo-segment.scope-today .progress-halo-segment-fill {
-  stroke: #58b8d6;
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-chapter {
+  stroke: #718ee9;
 }
 
-/* Midnight orbit */
-.folio-shell[data-ui-tone="midnight"] .progress-halo-segment-track {
-  stroke: rgba(196, 201, 230, .075);
+.folio-shell[data-ui-tone="ivory"] .progress-halo-today-track {
+  stroke: rgba(84, 91, 130, .085);
 }
 
-.folio-shell[data-ui-tone="midnight"] .progress-halo-segment.scope-book .progress-halo-segment-fill {
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-today {
+  stroke: #5bb9d8;
+}
+
+/* Midnight: Book / Chapter / Today */
+.folio-shell[data-ui-tone="midnight"] .progress-halo-track-book {
+  stroke: rgba(196, 201, 230, .085);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-book {
   stroke: #8b8fff;
 }
 
-.folio-shell[data-ui-tone="midnight"] .progress-halo-segment.scope-chapter .progress-halo-segment-fill {
+.folio-shell[data-ui-tone="midnight"] .progress-halo-chapter-track {
+  stroke: rgba(196, 201, 230, .07);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-chapter {
   stroke: #82a4ff;
 }
 
-.folio-shell[data-ui-tone="midnight"] .progress-halo-segment.scope-today .progress-halo-segment-fill {
+.folio-shell[data-ui-tone="midnight"] .progress-halo-today-track {
+  stroke: rgba(196, 201, 230, .06);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-today {
   stroke: #63c4df;
 }
