@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.1] - 2026-10-04
+
 ### Changed
 - Reworked Typewriter Sound around short, dry mechanical transients with a natural volume curve and far less synthetic ringing/compression.
 
