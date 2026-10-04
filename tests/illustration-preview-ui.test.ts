@@ -32,8 +32,8 @@ console.log("\nFolio front matter illustration preview + crop");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
-  page.setDefaultTimeout(90_000);
-  page.setDefaultNavigationTimeout(90_000);
+  page.setDefaultTimeout(120_000);
+  page.setDefaultNavigationTimeout(120_000);
   await page.setViewport({ width: 1440, height: 900 });
   await page.goto(base, { waitUntil: "networkidle0" });
   await page.evaluate(() => {

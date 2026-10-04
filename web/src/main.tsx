@@ -40,6 +40,8 @@ import "./v238-write-layout.css";
 import "./v239-writing-features.css";
 import "./v240-edge-polish.css";
 import "./v241-writing-alignment.css";
+import "./v242-progress-halo.css";
+import "./v243-find-polish.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);

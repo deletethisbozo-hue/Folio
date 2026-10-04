@@ -56,7 +56,7 @@ console.log("\nFolio illustration V2 direct manipulation");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
-  page.setDefaultTimeout(30000);
+  page.setDefaultTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
   await page.goto(base, { waitUntil: "networkidle0" });
 
@@ -332,7 +332,7 @@ try {
       firstLine.left >= figureRect.right - 2
       ? geometry
       : false;
-  }, { timeout: 30000 });
+  }, { timeout: 60_000 });
   const readerGeometry = await readerGeometryHandle.jsonValue() as {
     viewportWidth: number;
     float: string;

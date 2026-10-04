@@ -19,6 +19,7 @@ import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import { playTypewriterSound, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import WritingSplitPane from "./WritingSplitPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
+import WritingProgressHalo from "./WritingProgressHalo";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
@@ -95,7 +96,7 @@ function WordCountPicker(props: {
     props.setOpen(false);
   }
 
-  return <div className={`word-count-picker ${props.open ? "open" : ""}`}>
+  return <div className={`word-count-picker ${props.open ? "open" : ""}`} data-word-count-scope={effectiveScope} data-word-count={count}>
     <button
       type="button"
       className="word-count word-count-button"
@@ -224,6 +225,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [wordCountScope, setWordCountScope] = useState<WordCountScope>(() => window.localStorage.getItem("folio-word-count-scope") === "chapter" ? "chapter" : "book");
   const [wordCountMenuOpen, setWordCountMenuOpen] = useState(false);
   const [liveSectionWordCounts, setLiveSectionWordCounts] = useState<Record<string, number>>({});
+  const [progressSectionId, setProgressSectionId] = useState<string | null>(initialSection?.id ?? null);
   const [splitEditRevision, setSplitEditRevision] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats>({ startedAt: Date.now(), activeMs: 0, gross: 0, deleted: 0 });
   const [writeZoom, setWriteZoom] = useState(() => {
@@ -236,6 +238,13 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const stored = window.localStorage.getItem("folio-typewriter-sound-style");
     return stored === "soft" || stored === "mechanical" ? stored : "classic";
   });
+  const [typewriterSoundVolume, setTypewriterSoundVolume] = useState(() => {
+    const raw = window.localStorage.getItem("folio-typewriter-sound-volume");
+    if (raw === null) return 90;
+    const stored = Number(raw);
+    return Number.isFinite(stored) ? Math.max(0, Math.min(100, stored)) : 90;
+  });
+  const [progressHaloEnabled, setProgressHaloEnabled] = useState(() => window.localStorage.getItem("folio-progress-halo-enabled") !== "false");
   const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
@@ -250,7 +259,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [contentTitle, setContentTitle] = useState("New Chapter");
   const [styleCategory, setStyleCategory] = useState<StyleCategory>("Book Style");
   const [showSearch, setShowSearch] = useState(false);
+  const [searchCloseCooldown, setSearchCloseCooldown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchState, setSearchMatchState] = useState({ index: -1, total: 0 });
   const [coverVersion, setCoverVersion] = useState(0);
   const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
@@ -291,6 +302,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const fastPreviewComposeTimerRef = useRef<number | null>(null);
   const pendingPreviewWordRef = useRef<{ ordinal: number } | null>(null);
   const previewHighlightTimerRef = useRef<number | null>(null);
+  const searchIdentityRef = useRef("");
+  const searchIndexRef = useRef(-1);
+  const searchCooldownTimerRef = useRef<number | null>(null);
+  const searchCloseGuardRef = useRef(0);
 
   const resetDocumentView = () => {
     draftRef.current = "";
@@ -348,6 +363,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-enabled", typewriterSoundEnabled ? "true" : "false"); }, [typewriterSoundEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-style", typewriterSoundStyle); }, [typewriterSoundStyle]);
+  useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-volume", String(typewriterSoundVolume)); }, [typewriterSoundVolume]);
+  useEffect(() => { window.localStorage.setItem("folio-progress-halo-enabled", progressHaloEnabled ? "true" : "false"); }, [progressHaloEnabled]);
   useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
   useEffect(() => {
     if (!project) { setWriteStudioState(null); return; }
@@ -372,10 +389,17 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return () => { cancelled = true; };
   }, [project?.projectId]);
   useEffect(() => {
+    clearFindHighlights();
+    searchIdentityRef.current = "";
+    searchIndexRef.current = -1;
+    setSearchMatchState({ index: -1, total: 0 });
+  }, [searchQuery, progressSectionId, selectedId, splitView]);
+
+  useEffect(() => {
     if (!focusMode) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setShowSearch(false);
+      closeSearch();
       setFocusMode(false);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -441,6 +465,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const frontMatter = useMemo(() => project?.sections.filter((s) => s.kind !== "chapter" && s.kind !== "backmatter") ?? [], [project]);
   const backMatter = useMemo(() => project?.sections.filter((s) => s.kind === "backmatter") ?? [], [project]);
   const selectedSection = project?.sections.find((s) => s.id === selectedId) ?? null;
+  const progressSection = project?.sections.find((s) => s.id === progressSectionId) ?? selectedSection;
   const coverSelected = selectedId === COVER_ID;
   const stylePreviewSectionId = selectedSection?.kind === "chapter" ? selectedSection.id : chapters[0]?.id;
   const stylePreviewDraft = stylePreviewSectionId && stylePreviewSectionId === selectedId ? draft : undefined;
@@ -471,7 +496,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return count;
   }, [draft]);
   const totalWords = useMemo(() => project ? Math.max(draftWords, Math.round(project.bodyChars / 5.1)) : 0, [project, draftWords]);
+  const progressSectionWords = progressSectionId && progressSectionId !== selectedId
+    ? (liveSectionWordCounts[progressSectionId] ?? 0)
+    : draftWords;
   const sessionNet = sessionStats.gross - sessionStats.deleted;
+
+  useEffect(() => {
+    if (selectedId) setProgressSectionId(selectedId);
+  }, [selectedId]);
 
   useEffect(() => {
     if (workspaceMode !== "write" || !selectedId || document?.id !== selectedId || !document?.editable) return;
@@ -2046,16 +2078,128 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (el) { el.innerHTML = markdownToEditorHtml(next, typography.sceneOrnament ?? "❦"); el.dataset.markdown = next; el.focus(); }
   }
 
-  function findNext() {
-    const el = editorRef.current;
-    if (!el || !searchQuery) return;
-    el.focus();
-    (window as Window & { find?: (text: string, caseSensitive?: boolean, backwards?: boolean, wrap?: boolean) => boolean }).find?.(searchQuery, false, false, true);
+  function clearFindHighlights() {
+    try {
+      const registry = (CSS as unknown as { highlights?: { delete: (name: string) => unknown } }).highlights;
+      registry?.delete("folio-find-match");
+      registry?.delete("folio-find-active");
+    } catch {
+      // Highlight cleanup must never block opening/closing the Find UI.
+    }
+  }
+
+  function openSearch() {
+    if (searchCloseCooldown || performance.now() < searchCloseGuardRef.current) return;
+    clearFindHighlights();
+    searchIdentityRef.current = "";
+    searchIndexRef.current = -1;
+    setSearchMatchState({ index: -1, total: 0 });
+    setShowSearch(true);
+  }
+
+  function closeSearch() {
+    searchCloseGuardRef.current = performance.now() + 500;
+    // Hide first, then keep the replacement Find button disabled briefly so
+    // the same physical click cannot fall through and reopen the panel.
+    setShowSearch(false);
+    setSearchCloseCooldown(true);
+    if (searchCooldownTimerRef.current !== null) window.clearTimeout(searchCooldownTimerRef.current);
+    searchCooldownTimerRef.current = window.setTimeout(() => {
+      setSearchCloseCooldown(false);
+      searchCooldownTimerRef.current = null;
+    }, 500);
+    searchIdentityRef.current = "";
+    searchIndexRef.current = -1;
+    setSearchMatchState({ index: -1, total: 0 });
+    clearFindHighlights();
+  }
+
+  function activeFindEditor(): HTMLElement | null {
+    if (splitView && progressSectionId && progressSectionId !== selectedId) {
+      const splitEditor = window.document.querySelector<HTMLElement>(".writing-split-editor");
+      if (splitEditor?.dataset.sectionId === progressSectionId) return splitEditor;
+    }
+    return editorRef.current;
+  }
+
+  function editorFindRanges(editor: HTMLElement, query: string): Range[] {
+    const needle = query.toLocaleLowerCase();
+    if (!needle) return [];
+    const ranges: Range[] = [];
+    const walker = window.document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = (node as Text).parentElement;
+        if (!parent || parent.closest(".editor-scene-break-remove, .editor-illustration-remove")) return NodeFilter.FILTER_REJECT;
+        return node.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      },
+    });
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const haystack = node.data.toLocaleLowerCase();
+      let offset = 0;
+      while (offset <= haystack.length - needle.length) {
+        const match = haystack.indexOf(needle, offset);
+        if (match < 0) break;
+        const range = window.document.createRange();
+        range.setStart(node, match);
+        range.setEnd(node, match + needle.length);
+        ranges.push(range);
+        offset = match + Math.max(1, needle.length);
+      }
+    }
+    return ranges;
+  }
+
+  function findNext(direction: 1 | -1 = 1) {
+    const editor = activeFindEditor();
+    const query = searchQuery.trim();
+    if (!editor || !query) {
+      clearFindHighlights();
+      setSearchMatchState({ index: -1, total: 0 });
+      return;
+    }
+
+    const ranges = editorFindRanges(editor, query);
+    if (!ranges.length) {
+      clearFindHighlights();
+      searchIdentityRef.current = "";
+      searchIndexRef.current = -1;
+      setSearchMatchState({ index: -1, total: 0 });
+      return;
+    }
+
+    const sectionIdentity = editor.dataset.sectionId ?? progressSectionId ?? selectedId ?? "";
+    const identity = sectionIdentity + "\u0000" + query.toLocaleLowerCase();
+    const nextIndex = searchIdentityRef.current !== identity || searchIndexRef.current < 0
+      ? (direction === 1 ? 0 : ranges.length - 1)
+      : (searchIndexRef.current + direction + ranges.length) % ranges.length;
+
+    searchIdentityRef.current = identity;
+    searchIndexRef.current = nextIndex;
+    setSearchMatchState({ index: nextIndex, total: ranges.length });
+
+    const registry = (CSS as unknown as {
+      highlights?: { set: (name: string, highlight: unknown) => unknown; delete: (name: string) => unknown };
+    }).highlights;
+    const HighlightCtor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
+    if (registry && HighlightCtor) {
+      registry.set("folio-find-match", new HighlightCtor(...ranges));
+      registry.set("folio-find-active", new HighlightCtor(ranges[nextIndex]));
+    }
+
+    const activeRange = ranges[nextIndex];
+    const matchRect = activeRange.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const comfortableTop = editorRect.top + Math.min(90, editorRect.height * .18);
+    const comfortableBottom = editorRect.bottom - Math.min(90, editorRect.height * .18);
+    if (matchRect.top < comfortableTop || matchRect.bottom > comfortableBottom) {
+      editor.scrollTop += matchRect.top - editorRect.top - editor.clientHeight * .42;
+    }
   }
 
   function editorKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (workspaceMode === "write" && document?.editable && typewriterSoundEnabled && shouldPlayTypewriterSound(event)) {
-      playTypewriterSound(typewriterSoundStyle);
+      playTypewriterSound(typewriterSoundStyle, typewriterSoundVolume, event.key);
     }
     if (applyFastEditorKey(event)) return;
     if (!(event.ctrlKey || event.metaKey)) return;
@@ -2068,7 +2212,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (key === "b") applyInlineFormat("bold", "bold text");
       if (key === "i") applyInlineFormat("italic", "italic text");
       if (key === "u") applyInlineFormat("underline", "underlined text");
-    } else if (key === "f") { event.preventDefault(); setShowSearch(true); }
+    } else if (key === "f") { event.preventDefault(); openSearch(); }
     else if (key === "s") { event.preventDefault(); void saveCurrent(); }
   }
 
@@ -2170,15 +2314,49 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
       <section className="editor-pane">
         <div className="editor-topbar">{workspaceMode !== "write" && <div className="editor-topbar-right"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={draftWords} chapterAvailable={selectedSection?.kind === "chapter"} open={wordCountMenuOpen} setOpen={setWordCountMenuOpen}/></div>}</div>
-        <div className="section-titlebar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>} {workspaceMode === "write" && <div className="write-title-status"><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={draftWords} chapterAvailable={selectedSection?.kind === "chapter"} open={wordCountMenuOpen} setOpen={setWordCountMenuOpen}/></div>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
+        <div className="section-titlebar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>} {workspaceMode === "write" && <div className="write-title-status" data-word-count-section-id={progressSectionId ?? ""}><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={progressSectionWords} chapterAvailable={progressSection?.kind === "chapter"} open={wordCountMenuOpen} setOpen={setWordCountMenuOpen}/></div>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
           <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration at cursor">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept="image/png,image/jpeg" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
           <div className="toolbar-spacer"/>
-          {showSearch ? <div className="editor-search"><input autoFocus value={searchQuery} placeholder="Find" onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") findNext(); if (e.key === "Escape") setShowSearch(false); }}/><button onClick={findNext}>Next</button><button onClick={() => setShowSearch(false)} aria-label="Close search">×</button></div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => setShowSearch(true)}><UiIcon name="search"/></button>}
+          {showSearch ? <div className="editor-search" role="search" aria-label="Find in active editor">
+            <UiIcon name="search"/>
+            <input
+              autoFocus
+              value={searchQuery}
+              placeholder="Find in chapter"
+              aria-label="Find text"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); findNext(e.shiftKey ? -1 : 1); }
+                if (e.key === "Escape") { e.preventDefault(); closeSearch(); }
+              }}
+            />
+            <span className="editor-search-count">{searchMatchState.total ? `${searchMatchState.index + 1} / ${searchMatchState.total}` : searchQuery.trim() ? "0 / 0" : ""}</span>
+            <button type="button" title="Previous match" aria-label="Previous match" onMouseDown={(e) => e.preventDefault()} onClick={() => findNext(-1)}>↑</button>
+            <button type="button" title="Next match" aria-label="Next match" onMouseDown={(e) => e.preventDefault()} onClick={() => findNext(1)}>↓</button>
+            <button
+              type="button"
+              title="Close find"
+              aria-label="Close search"
+              onClick={closeSearch}
+            >×</button>
+          </div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" disabled={searchCloseCooldown} onClick={openSearch}><UiIcon name="search"/></button>}
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className="editor-surface-toggle" aria-label={effectiveEditorSurface === "light" ? "Use dark editor background" : "Use light editor background"} title={effectiveEditorSurface === "light" ? "Dark editor background" : "Light editor background"} onMouseDown={(event) => event.preventDefault()} onClick={() => setEditorSurface(effectiveEditorSurface === "light" ? "dark" : "light")}><UiIcon name={effectiveEditorSurface === "light" ? "moon" : "sun"}/></button><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
-        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-section-id={selectedId ?? ""} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { if (selectedId) setProgressSectionId(selectedId); editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (selectedId) setProgressSectionId(selectedId); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
+        {workspaceMode === "write" && progressHaloEnabled && !coverSelected && document?.editable && <WritingProgressHalo
+          totalWords={totalWords}
+          chapterWords={progressSectionWords}
+          todayWords={Math.max(0, (writeStudioState?.dailyProgress[todayKey()] ?? 0) + (sessionNet - reportedSessionNetRef.current))}
+          selectedSectionId={progressSectionId}
+          chapterAvailable={progressSection?.kind === "chapter"}
+          targets={writeStudioState?.targets ?? null}
+          onSaveTargets={async (targets) => {
+            const updated = await api.saveWritingTargets(project.projectId, targets);
+            setWriteStudioState(updated);
+          }}
+        />}
       </section>
 
       {splitView && <WritingSplitPane
@@ -2189,14 +2367,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         typewriterMode={typewriterMode}
         typewriterSoundEnabled={typewriterSoundEnabled}
         typewriterSoundStyle={typewriterSoundStyle}
+        typewriterSoundVolume={typewriterSoundVolume}
         spellcheckEnabled={spellcheckEnabled}
         writeZoom={writeZoom}
-        onClose={() => setSplitView(false)}
+        onClose={() => { setSplitView(false); setProgressSectionId(selectedId); }}
         onError={(message) => setError(message)}
         onWordDelta={(delta) => setSessionStats((current) => delta > 0
           ? { ...current, gross: current.gross + delta }
           : { ...current, deleted: current.deleted + Math.abs(delta) })}
         onLiveWordCount={(sectionId, count) => setLiveSectionWordCounts((current) => current[sectionId] === count ? current : { ...current, [sectionId]: count })}
+        onActivateSection={(sectionId) => setProgressSectionId(sectionId)}
         onWritingActivity={noteWritingActivity}
         onContentChanged={() => setSplitEditRevision((value) => value + 1)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
@@ -2261,6 +2441,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         setTypewriterSoundEnabled={setTypewriterSoundEnabled}
         typewriterSoundStyle={typewriterSoundStyle}
         setTypewriterSoundStyle={setTypewriterSoundStyle}
+        typewriterSoundVolume={typewriterSoundVolume}
+        setTypewriterSoundVolume={setTypewriterSoundVolume}
+        progressHaloEnabled={progressHaloEnabled}
+        setProgressHaloEnabled={setProgressHaloEnabled}
         exportDirectory={exportDirectory}
         onChooseExportDirectory={() => void chooseExportDirectory()}
         onResetExportDirectory={() => setExportDirectory("")}
@@ -2287,6 +2471,10 @@ function SettingsDialog(props: {
   setTypewriterSoundEnabled: (enabled: boolean) => void;
   typewriterSoundStyle: TypewriterSoundStyle;
   setTypewriterSoundStyle: (style: TypewriterSoundStyle) => void;
+  typewriterSoundVolume: number;
+  setTypewriterSoundVolume: (volume: number) => void;
+  progressHaloEnabled: boolean;
+  setProgressHaloEnabled: (enabled: boolean) => void;
   exportDirectory: string;
   onChooseExportDirectory: () => void;
   onResetExportDirectory: () => void;
@@ -2319,12 +2507,21 @@ function SettingsDialog(props: {
             title={option.description}
             onClick={() => {
               props.setTypewriterSoundStyle(option.value);
-              playTypewriterSound(option.value);
+              playTypewriterSound(option.value, props.typewriterSoundVolume);
             }}
           ><strong>{option.label}</strong><small>{option.description}</small></button>)}
         </div>
-        <button type="button" className="native-button typewriter-sound-preview" onClick={() => playTypewriterSound(props.typewriterSoundStyle)}>Preview sound</button>
+        <div className="typewriter-volume-control">
+          <span>Volume</span>
+          <input type="range" min="0" max="100" step="1" value={props.typewriterSoundVolume} onChange={(event) => props.setTypewriterSoundVolume(Number(event.target.value))} aria-label="Typewriter sound volume"/>
+          <strong>{props.typewriterSoundVolume}%</strong>
+        </div>
+        <button type="button" className="native-button typewriter-sound-preview" onClick={() => playTypewriterSound(props.typewriterSoundStyle, props.typewriterSoundVolume)}>Preview sound</button>
       </div>
+      <label className="settings-row">
+        <span className="settings-copy"><strong>Writing progress halo</strong><small>Show a floating Book / Chapter / Today progress dial in Write. Goals are stored with the current .folio project.</small></span>
+        <input type="checkbox" checked={props.progressHaloEnabled} onChange={(event) => props.setProgressHaloEnabled(event.target.checked)} aria-label="Show writing progress halo"/>
+      </label>
       <div className="settings-row export-location-row">
         <span className="settings-copy">
           <strong>Export location</strong>

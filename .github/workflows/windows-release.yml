@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.7.1 version consistency
+      - name: Verify Folio 2.8.0 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.7.1") { throw "Windows release is scoped to Folio 2.7.1, found $version." }
+          if ($version -ne "2.8.0") { throw "Windows release is scoped to Folio 2.8.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -271,4 +271,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.7.1 polishes the writing workspace and fixes several rough edges from 2.7.0. Find, the sidebar toggle and Split Editor controls are optically centered; Split Editor now fits cleanly on one line; the word-count control can switch between whole-book and current-chapter counts; redundant Saved labels are removed while Saving and error states remain visible; Typewriter Sound is substantially louder and resumes reliably in Electron, including Preview Sound; Midnight borders, dashboard outlines and focus states are softened; and edge spacing is more consistent in both Light and Midnight. The release keeps Project Notes outside manuscript/export content and preserves Light/Midnight geometry parity. The Windows build is gated by typecheck, the formatter/UI suite with retries, Writing Studio QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.8.0 adds Folio Halo, a floating writing-progress dial for Write with real Book, Chapter and Today targets stored in the .folio project. The halo adapts to Light and Midnight, can be opened for detailed progress and goal editing, can be disabled in Settings, and can be resized directly by dragging its circular outer edge with the mouse. Typewriter Sound now has a 0-100 volume control, a louder output stage and stronger Classic/Mechanical attacks while preserving the softer profile. Existing 2.7.1 writing polish remains intact, including Book/Chapter word-count scope, compact Write/Split controls and the quieter Midnight chrome. The Windows build is gated by typecheck, the formatter/UI suite with retries, Writing Studio QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."

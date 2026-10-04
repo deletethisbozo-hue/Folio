@@ -1,0 +1,135 @@
+/* Folio 2.8.0 editor Find polish.
+ * Search is a floating panel below the toolbar so opening it never compresses
+ * or overlaps the writing controls. Matches use the CSS Highlight API and
+ * therefore never alter contenteditable DOM or the user's caret/selection.
+ */
+
+.folio-shell[data-ui-tone] .format-toolbar {
+  position: relative;
+  z-index: 120;
+  overflow: visible !important;
+}
+
+.folio-shell[data-ui-tone] .format-toolbar:has(.editor-search) {
+  z-index: 1200;
+  isolation: isolate;
+}
+
+.folio-shell[data-ui-tone] .editor-search {
+  position: absolute !important;
+  top: calc(100% + 7px);
+  right: 7px;
+  z-index: 1000;
+  pointer-events: auto !important;
+  width: min(286px, calc(100vw - 28px));
+  height: 34px !important;
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) 42px 28px 28px 28px;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 8px;
+  overflow: visible !important;
+  border: 1px solid var(--folio-border) !important;
+  border-radius: 10px !important;
+  background: var(--folio-surface) !important;
+  color: var(--folio-text);
+  box-shadow: 0 12px 30px rgba(19, 21, 35, .18);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+
+.folio-shell[data-ui-tone] .editor-search > .ui-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--folio-muted);
+}
+
+.folio-shell[data-ui-tone] .editor-search input {
+  min-width: 0;
+  width: 100% !important;
+  height: 26px !important;
+  padding: 0 5px !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  color: var(--folio-text) !important;
+  font: 500 10px/1 var(--folio-ui-font) !important;
+}
+
+.folio-shell[data-ui-tone] .editor-search input::placeholder {
+  color: var(--folio-muted);
+  opacity: .68;
+}
+
+.folio-shell[data-ui-tone] .editor-search-count {
+  min-width: 0;
+  text-align: center;
+  color: var(--folio-muted);
+  font: 650 8px/1 var(--folio-ui-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.folio-shell[data-ui-tone] .editor-search button {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  border: 0 !important;
+  border-left: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: var(--folio-muted) !important;
+  font: 700 12px/1 var(--folio-ui-font) !important;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 2;
+}
+
+.folio-shell[data-ui-tone] .editor-search button:hover {
+  background: var(--folio-hover) !important;
+  color: var(--folio-text) !important;
+}
+
+.folio-shell[data-ui-tone="ivory"] .editor-search {
+  background: rgba(250, 251, 255, .96) !important;
+  border-color: rgba(82, 85, 120, .12) !important;
+  box-shadow:
+    0 12px 30px rgba(55, 58, 97, .15),
+    inset 0 1px 0 rgba(255,255,255,.88);
+}
+
+.folio-shell[data-ui-tone="midnight"] .editor-search {
+  background: rgba(28, 31, 44, .96) !important;
+  border-color: rgba(190, 195, 224, .09) !important;
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, .34),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.folio-shell[data-ui-tone="ivory"] .manuscript-editor::highlight(folio-find-match),
+.folio-shell[data-ui-tone="ivory"] .writing-split-editor::highlight(folio-find-match) {
+  background: rgba(242, 201, 77, .32);
+  color: inherit;
+}
+
+.folio-shell[data-ui-tone="ivory"] .manuscript-editor::highlight(folio-find-active),
+.folio-shell[data-ui-tone="ivory"] .writing-split-editor::highlight(folio-find-active) {
+  background: rgba(255, 167, 38, .62);
+  color: #20180b;
+}
+
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor::highlight(folio-find-match),
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor::highlight(folio-find-match) {
+  background: rgba(139, 143, 255, .28);
+  color: inherit;
+}
+
+.folio-shell[data-ui-tone="midnight"] .manuscript-editor::highlight(folio-find-active),
+.folio-shell[data-ui-tone="midnight"] .writing-split-editor::highlight(folio-find-active) {
+  background: rgba(99, 196, 223, .52);
+  color: #f8fbff;
+}

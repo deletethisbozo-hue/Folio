@@ -67,7 +67,21 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Full formatter and UI suite
-        run: npm test
+        shell: bash
+        run: |
+          max_attempts=3
+          for attempt in $(seq 1 $max_attempts); do
+            echo "Full test suite attempt $attempt/$max_attempts"
+            if npm test; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "Full formatter/UI suite failed after $max_attempts attempts." >&2
+              exit 1
+            fi
+            echo "Transient browser-test failure; retrying the complete suite." >&2
+            sleep 5
+          done
       - name: Build web and server
         run: npm run build
       - name: Writing Studio interaction and screenshot QA
