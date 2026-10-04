@@ -10,11 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.8.2] - 2026-10-04
 
 ### Changed
-- Reworked Folio Halo into a three-segment Book / Chapter / Today orbit with direct segment selection and no decorative resize notch.
+- Restored Folio Halo's immediately readable concentric-ring mechanic with three simultaneous rings for Book, Chapter and Today progress, while removing the decorative resize notch.
 - Raised the acoustic energy of Typewriter Sound transients and made Preview play a short Folio keystroke sequence so volume/style changes are actually audible.
 
 ### Fixed
 - Typewriter Sound is no longer effectively inaudible after the 2.8.1 transient rewrite.
+- Folio Halo can no longer be dragged underneath the bottom status bar.
 
 ## [2.8.1] - 2026-10-04
 
