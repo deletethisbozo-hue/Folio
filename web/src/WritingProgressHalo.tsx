@@ -43,24 +43,18 @@ function readHaloPosition(): HaloPosition | null {
 function clampHaloPosition(position: HaloPosition, size: number): HaloPosition {
   const margin = 8;
   const maxX = Math.max(margin, window.innerWidth - size - margin);
-  const maxY = Math.max(margin, window.innerHeight - size - margin);
+  const statusBar = document.querySelector<HTMLElement>(".folio-statusbar");
+  const statusTop = statusBar && getComputedStyle(statusBar).display !== "none"
+    ? statusBar.getBoundingClientRect().top
+    : window.innerHeight;
+  const maxY = Math.max(margin, Math.min(
+    window.innerHeight - size - margin,
+    statusTop - size - margin,
+  ));
   return {
     x: Math.max(margin, Math.min(maxX, position.x)),
     y: Math.max(margin, Math.min(maxY, position.y)),
   };
-}
-
-function haloPoint(angle: number, radius = 46): { x: number; y: number } {
-  const radians = ((angle - 90) * Math.PI) / 180;
-  return { x: 56 + radius * Math.cos(radians), y: 56 + radius * Math.sin(radians) };
-}
-
-function haloArcPath(start: number, span: number, radius = 46): string {
-  if (span <= 0.01) return "";
-  const safeSpan = Math.min(359.99, span);
-  const from = haloPoint(start, radius);
-  const to = haloPoint(start + safeSpan, radius);
-  return `M ${from.x.toFixed(3)} ${from.y.toFixed(3)} A ${radius} ${radius} 0 ${safeSpan > 180 ? 1 : 0} 1 ${to.x.toFixed(3)} ${to.y.toFixed(3)}`;
 }
 
 export default function WritingProgressHalo(props: Props) {
@@ -96,18 +90,9 @@ export default function WritingProgressHalo(props: Props) {
   const bookPercent = clampPercent(props.totalWords, props.targets?.book);
   const chapterPercent = clampPercent(props.chapterWords, chapterTarget);
   const todayPercent = clampPercent(props.todayWords, props.targets?.daily);
-  const haloSegments: Array<{
-    scope: ProgressScope;
-    label: string;
-    percent: number;
-    start: number;
-    span: number;
-    available: boolean;
-  }> = [
-    { scope: "book", label: "Book", percent: bookPercent, start: -104, span: 148, available: true },
-    { scope: "chapter", label: "Chapter", percent: chapterPercent, start: 56, span: 104, available: props.chapterAvailable },
-    { scope: "today", label: "Today", percent: todayPercent, start: 172, span: 64, available: true },
-  ];
+  const bookCircumference = 2 * Math.PI * 47;
+  const chapterCircumference = 2 * Math.PI * 40;
+  const todayCircumference = 2 * Math.PI * 34;
 
   useEffect(() => {
     window.localStorage.setItem("folio-progress-scope", scope);
@@ -269,52 +254,53 @@ export default function WritingProgressHalo(props: Props) {
       } : {}),
     } as CSSProperties}
   >
-    <div className="progress-halo-orb">
-      <svg className="progress-halo-rings" viewBox="0 0 112 112" aria-label="Writing goal progress">
-        {haloSegments.map((segment) => {
-          const active = effectiveScope === segment.scope;
-          const trackPath = haloArcPath(segment.start, segment.span);
-          const fillPath = haloArcPath(segment.start, segment.span * (segment.percent / 100));
-          return <g key={segment.scope} className={`progress-halo-segment scope-${segment.scope} ${active ? "is-active" : ""} ${segment.available ? "" : "is-disabled"}`}>
-            <path className="progress-halo-segment-track" d={trackPath}/>
-            <path className="progress-halo-segment-fill" d={fillPath}/>
-            <path
-              className="progress-halo-segment-hit"
-              d={trackPath}
-              role="button"
-              tabIndex={segment.available ? 0 : -1}
-              aria-label={`${segment.label} progress: ${Math.round(segment.percent)}%`}
-              aria-pressed={active}
-              aria-disabled={!segment.available}
-              onClick={(event) => { event.stopPropagation(); choose(segment.scope); }}
-              onKeyDown={(event) => {
-                if (!segment.available || (event.key !== "Enter" && event.key !== " ")) return;
-                event.preventDefault();
-                choose(segment.scope);
-              }}
-            />
-          </g>;
-        })}
+    <button
+      type="button"
+      className="progress-halo-orb"
+      aria-label="Writing progress. Drag to move Folio Halo; click for details."
+      aria-expanded={open}
+      onClick={toggleOpen}
+      onPointerDown={startDrag}
+      onPointerMove={dragHalo}
+      onPointerUp={stopDrag}
+      onPointerCancel={stopDrag}
+    >
+      <svg className="progress-halo-rings" viewBox="0 0 112 112" aria-hidden="true">
+        <circle className="progress-halo-track progress-halo-track-book" cx="56" cy="56" r="47"/>
+        <circle
+          className="progress-halo-ring progress-halo-ring-main progress-halo-ring-book"
+          cx="56"
+          cy="56"
+          r="47"
+          strokeDasharray={bookCircumference}
+          strokeDashoffset={bookCircumference * (1 - bookPercent / 100)}
+        />
+        <circle className="progress-halo-chapter-track" cx="56" cy="56" r="40"/>
+        <circle
+          className="progress-halo-ring progress-halo-ring-chapter"
+          cx="56"
+          cy="56"
+          r="40"
+          strokeDasharray={chapterCircumference}
+          strokeDashoffset={chapterCircumference * (1 - chapterPercent / 100)}
+        />
+        <circle className="progress-halo-today-track" cx="56" cy="56" r="34"/>
+        <circle
+          className="progress-halo-ring progress-halo-ring-today"
+          cx="56"
+          cy="56"
+          r="34"
+          strokeDasharray={todayCircumference}
+          strokeDashoffset={todayCircumference * (1 - todayPercent / 100)}
+        />
       </svg>
-      <button
-        type="button"
-        className="progress-halo-center"
-        aria-label={`${scopeLabel(effectiveScope)} progress. Drag to move Folio Halo; click for details.`}
-        aria-expanded={open}
-        onClick={toggleOpen}
-        onPointerDown={startDrag}
-        onPointerMove={dragHalo}
-        onPointerUp={stopDrag}
-        onPointerCancel={stopDrag}
-      >
-        <span className="progress-halo-copy">
-          <small>{scopeLabel(effectiveScope)}</small>
-          <strong>{value.toLocaleString()}</strong>
-          <span>{target ? `of ${target.toLocaleString()}` : "words"}</span>
-          <em>{subtitle}</em>
-        </span>
-      </button>
-    </div>
+      <span className="progress-halo-copy">
+        <small>{scopeLabel(effectiveScope)}</small>
+        <strong>{value.toLocaleString()}</strong>
+        <span>{target ? `of ${target.toLocaleString()}` : "words"}</span>
+        <em>{subtitle}</em>
+      </span>
+    </button>
     <svg className="progress-halo-resize-edge" viewBox="0 0 112 112" aria-hidden="true">
       <circle
         cx="56"
