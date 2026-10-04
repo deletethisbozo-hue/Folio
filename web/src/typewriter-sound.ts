@@ -14,6 +14,8 @@ let masterGain: GainNode | null = null;
 let masterCompressor: DynamicsCompressorNode | null = null;
 let cachedNoise: AudioBuffer | null = null;
 
+const IMPACT_GAIN = 4.25;
+
 function getAudioContext(): AudioContext | null {
   if (audioContext) return audioContext;
   const AudioContextCtor = window.AudioContext
@@ -115,7 +117,11 @@ function noiseImpact(
   filter.Q.setValueAtTime(q, now);
   source.buffer = noiseBuffer(context);
   source.connect(filter);
-  filter.connect(envelope(context, now, peak, 0.0008, duration));
+  // Band-pass filtering removes a lot of energy from a millisecond-long noise
+  // burst. Restore that acoustic energy here instead of abusing the global
+  // volume control. The clamp keeps stacked Enter impacts safely below clipping.
+  const audiblePeak = Math.min(0.85, peak * IMPACT_GAIN);
+  filter.connect(envelope(context, now, audiblePeak, 0.0008, duration));
   const maxOffset = Math.max(0, source.buffer.duration - duration - 0.002);
   const offset = Math.random() * maxOffset;
   source.start(now, offset, Math.min(source.buffer.duration - offset, duration + 0.004));
@@ -270,6 +276,20 @@ function playMechanical(context: AudioContext, now: number, kind: KeyKind, drift
   if (isEnter) carriageBell(context, now + 0.017, drift);
 }
 
+function playStyleAt(context: AudioContext, style: TypewriterSoundStyle, key: string, now: number): void {
+  const drift = keyVariation(key);
+  const kind = keyKind(key);
+  if (style === "soft") {
+    playSoft(context, now, kind, drift);
+    return;
+  }
+  if (style === "mechanical") {
+    playMechanical(context, now, kind, drift);
+    return;
+  }
+  playClassic(context, now, kind, drift);
+}
+
 export function shouldPlayTypewriterSound(event: KeyboardLikeEvent): boolean {
   if (event.ctrlKey || event.metaKey || event.altKey) return false;
   if (event.key.length === 1) return true;
@@ -297,17 +317,28 @@ export async function playTypewriterSound(
     masterGain.gain.setTargetAtTime(amplitude * 0.92, context.currentTime, 0.008);
   }
 
-  const now = context.currentTime + 0.002;
-  const drift = keyVariation(key);
-  const kind = keyKind(key);
+  playStyleAt(context, style, key, context.currentTime + 0.002);
+}
 
-  if (style === "soft") {
-    playSoft(context, now, kind, drift);
-    return;
+export async function playTypewriterPreview(
+  style: TypewriterSoundStyle,
+  volume = 85,
+): Promise<void> {
+  const context = await ensureAudioReady();
+  if (!context) return;
+
+  const normalizedVolume = Math.max(0, Math.min(100, volume)) / 100;
+  if (normalizedVolume <= 0) return;
+  if (masterGain) {
+    const amplitude = Math.pow(normalizedVolume, 1.25);
+    masterGain.gain.setTargetAtTime(amplitude * 0.92, context.currentTime, 0.008);
   }
-  if (style === "mechanical") {
-    playMechanical(context, now, kind, drift);
-    return;
-  }
-  playClassic(context, now, kind, drift);
+
+  // A single 5–10 ms transient is a terrible preview. Play a short phrase so
+  // the user can actually compare the three mechanisms at the chosen volume.
+  const previewKeys = ["F", "o", "l", "i", "o", " ", "Enter"];
+  const start = context.currentTime + 0.012;
+  previewKeys.forEach((key, index) => {
+    playStyleAt(context, style, key, start + index * 0.072);
+  });
 }

@@ -1,0 +1,121 @@
+/* Folio Halo identity + audible typewriter preview polish.
+ * The Halo is intentionally one incomplete three-part orbit, not a generic
+ * pair of circular progress bars.
+ */
+
+.progress-halo-orb {
+  cursor: default;
+}
+
+.progress-halo-rings {
+  z-index: 2;
+  transform: none;
+  pointer-events: auto;
+}
+
+.progress-halo-segment-track,
+.progress-halo-segment-fill,
+.progress-halo-segment-hit {
+  fill: none;
+  transform-origin: 56px 56px;
+}
+
+.progress-halo-segment-track {
+  stroke-width: 6.4;
+  stroke-linecap: round;
+}
+
+.progress-halo-segment-fill {
+  stroke-width: 6.4;
+  stroke-linecap: round;
+  transition:
+    stroke-dasharray 260ms ease,
+    stroke-width 180ms ease,
+    opacity 180ms ease,
+    filter 180ms ease;
+}
+
+.progress-halo-segment.is-active .progress-halo-segment-fill {
+  stroke-width: 8.6;
+  filter: drop-shadow(0 1.5px 2.5px rgba(82, 76, 190, .22));
+}
+
+.progress-halo-segment.is-disabled {
+  opacity: .34;
+}
+
+.progress-halo-segment-hit {
+  stroke: transparent;
+  stroke-width: 13;
+  pointer-events: stroke;
+  cursor: pointer;
+  outline: none;
+}
+
+.progress-halo-segment.is-disabled .progress-halo-segment-hit {
+  cursor: default;
+}
+
+.progress-halo-segment-hit:focus-visible {
+  stroke: rgba(117, 105, 238, .28);
+}
+
+.progress-halo-center {
+  position: absolute;
+  inset: 17%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.writing-progress-halo.dragging .progress-halo-center {
+  cursor: grabbing;
+}
+
+.progress-halo-resize-edge {
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+}
+
+/* Light orbit */
+.folio-shell[data-ui-tone="ivory"] .progress-halo-segment-track {
+  stroke: rgba(96, 99, 139, .095);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-segment.scope-book .progress-halo-segment-fill {
+  stroke: #7569ee;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-segment.scope-chapter .progress-halo-segment-fill {
+  stroke: #758fe8;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-segment.scope-today .progress-halo-segment-fill {
+  stroke: #58b8d6;
+}
+
+/* Midnight orbit */
+.folio-shell[data-ui-tone="midnight"] .progress-halo-segment-track {
+  stroke: rgba(196, 201, 230, .075);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-segment.scope-book .progress-halo-segment-fill {
+  stroke: #8b8fff;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-segment.scope-chapter .progress-halo-segment-fill {
+  stroke: #82a4ff;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-segment.scope-today .progress-halo-segment-fill {
+  stroke: #63c4df;
+}
