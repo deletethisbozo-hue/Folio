@@ -708,7 +708,15 @@ try {
     throw new Error("Find mutated manuscript content while navigating matches");
   }
   await page.screenshot({ path: path.join(qa, "04a-find-safe.png") });
-  await page.click('.editor-search button[aria-label="Close search"]');
+  const closeHit = await page.$eval<HTMLButtonElement, { x: number; y: number; hit: boolean }>('.editor-search button[aria-label="Close search"]', (button) => {
+    const rect = button.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const hit = document.elementFromPoint(x, y)?.closest('button[aria-label="Close search"]') === button;
+    return { x, y, hit };
+  });
+  if (!closeHit.hit) throw new Error(`Find close button is obstructed: ${JSON.stringify(closeHit)}`);
+  await page.$eval<HTMLButtonElement>('.editor-search button[aria-label="Close search"]', (button) => button.click());
   await page.waitForFunction(() => !document.querySelector(".editor-search"));
 
   await settle(900);
