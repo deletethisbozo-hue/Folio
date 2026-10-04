@@ -2077,9 +2077,13 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function clearFindHighlights() {
-    const registry = (CSS as unknown as { highlights?: { delete: (name: string) => unknown } }).highlights;
-    registry?.delete("folio-find-match");
-    registry?.delete("folio-find-active");
+    try {
+      const registry = (CSS as unknown as { highlights?: { delete: (name: string) => unknown } }).highlights;
+      registry?.delete("folio-find-match");
+      registry?.delete("folio-find-active");
+    } catch {
+      // Highlight cleanup must never block opening/closing the Find UI.
+    }
   }
 
   function openSearch() {
@@ -2093,11 +2097,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
   function closeSearch() {
     searchCloseGuardRef.current = performance.now() + 240;
-    clearFindHighlights();
+    // Hide first. Highlight cleanup is secondary and must not strand the panel open.
+    setShowSearch(false);
     searchIdentityRef.current = "";
     searchIndexRef.current = -1;
     setSearchMatchState({ index: -1, total: 0 });
-    setShowSearch(false);
+    clearFindHighlights();
   }
 
   function activeFindEditor(): HTMLElement | null {
