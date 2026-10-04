@@ -2314,7 +2314,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
               type="button"
               title="Close find"
               aria-label="Close search"
-              onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); closeSearch(); }}
+              onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); closeSearch(); }}
               onClick={(event) => { event.preventDefault(); event.stopPropagation(); closeSearch(); }}
             >×</button>
           </div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" onClick={() => { clearFindHighlights(); searchIdentityRef.current = ""; searchIndexRef.current = -1; setSearchMatchState({ index: -1, total: 0 }); setShowSearch(true); }}><UiIcon name="search"/></button>}
