@@ -104,6 +104,18 @@ check(
 );
 
 check(
+  "Spacebar avoids the low, bass-heavy 2.8.2 tuning",
+  audioSource.includes("SPACE_PROFILES") &&
+  audioSource.includes("highpass: 300") &&
+  audioSource.includes("highpass: 260") &&
+  audioSource.includes("highpass: 340") &&
+  audioSource.includes("rate: 1.08") &&
+  audioSource.includes("rate: 1.06") &&
+  audioSource.includes("rate: 1.10") &&
+  !audioSource.includes("profile.rate * variation * 0.96"),
+);
+
+check(
   "sound Preview plays a real multi-key sample rather than one tiny click",
   audioSource.includes("playTypewriterPreview") &&
   audioSource.includes('["F", "o", "l", "i", "o", " ", "Enter"]') &&

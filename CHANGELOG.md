@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.3] - 2026-10-05
+
+### Fixed
+- Spacebar sounds in Classic, Soft, and Mechanical no longer have the unnaturally low, bass-heavy "thunk" from 2.8.2. The dedicated real spacebar samples are now slightly faster, high-passed to remove cabinet boom, and less aggressively low-passed while remaining distinct from letter impacts.
+
 ## [2.8.2] - 2026-10-04
 
 ### Changed

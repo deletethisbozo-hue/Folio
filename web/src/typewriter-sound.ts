@@ -26,6 +26,13 @@ type StyleProfile = {
   lowpass: number | null;
 };
 
+type SpaceProfile = {
+  gain: number;
+  rate: number;
+  highpass: number;
+  lowpass: number;
+};
+
 const SAMPLE_ASSETS = {
   classic: "/audio/typewriter/classic-keys.mp3",
   soft: "/audio/typewriter/soft-keys.mp3",
@@ -48,6 +55,16 @@ const STYLE_PROFILES: Record<TypewriterSoundStyle, StyleProfile> = {
   soft: { bank: "soft", gain: 0.68, rate: 0.92, lowpass: 3600 },
   // Mechanical uses the harder supplied machine recording with its own bank.
   mechanical: { bank: "mechanical", gain: 0.92, rate: 1.035, lowpass: 9200 },
+};
+
+// The raw spacebar sample has more cabinet/body resonance than the letter
+// impacts. 2.8.2 slowed and low-passed it, exaggerating that resonance into
+// an unnatural bassy "thunk". Keep it distinct, but remove the boom and play
+// the mechanism slightly faster so it reads as a short spacebar action.
+const SPACE_PROFILES: Record<TypewriterSoundStyle, SpaceProfile> = {
+  classic: { gain: 0.52, rate: 1.08, highpass: 300, lowpass: 7000 },
+  soft: { gain: 0.50, rate: 1.06, highpass: 260, lowpass: 5600 },
+  mechanical: { gain: 0.50, rate: 1.10, highpass: 340, lowpass: 8200 },
 };
 
 let audioContext: AudioContext | null = null;
@@ -169,6 +186,7 @@ function playSprite(
   lowpass: number | null,
   slotSeconds = SPRITE_SLOT_SECONDS,
   clipSeconds = SPRITE_CLIP_SECONDS,
+  highpass: number | null = null,
 ): void {
   const source = context.createBufferSource();
   const gain = context.createGain();
@@ -177,15 +195,25 @@ function playSprite(
   gain.gain.setValueAtTime(Math.max(0.0001, gainValue), now);
   gain.connect(outputNode(context));
 
+  let current: AudioNode = source;
+  if (highpass) {
+    const filter = context.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.setValueAtTime(highpass, now);
+    filter.Q.setValueAtTime(0.55, now);
+    current.connect(filter);
+    current = filter;
+  }
+
   if (lowpass) {
     const filter = context.createBiquadFilter();
     filter.type = "lowpass";
     filter.frequency.setValueAtTime(lowpass, now);
     filter.Q.setValueAtTime(0.45, now);
-    source.connect(filter);
+    current.connect(filter);
     filter.connect(gain);
   } else {
-    source.connect(gain);
+    current.connect(gain);
   }
 
   const requestedOffset = variant * slotSeconds;
@@ -252,7 +280,7 @@ function playFallbackClick(context: AudioContext, now: number, kind: KeyKind): v
   const gain = context.createGain();
   source.buffer = fallbackNoiseBuffer(context);
   filter.type = "bandpass";
-  filter.frequency.setValueAtTime(kind === "space" ? 850 : 2400, now);
+  filter.frequency.setValueAtTime(kind === "space" ? 1350 : 2400, now);
   filter.Q.setValueAtTime(0.75, now);
   gain.gain.setValueAtTime(kind === "space" ? 0.10 : 0.18, now);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.028);
@@ -273,17 +301,32 @@ function playSampledKey(
   const kind = keyKind(key);
   const variation = keyVariation(key);
 
-  if (kind === "space" || kind === "tab") {
+  if (kind === "space") {
+    const space = SPACE_PROFILES[style];
     playSprite(
       context,
       bank.space,
       now,
       nextVariant(key),
-      profile.gain * (kind === "tab" ? 0.52 : 0.62),
-      profile.rate * variation * 0.96,
-      style === "soft" ? 2600 : 3900,
+      profile.gain * space.gain,
+      space.rate * variation,
+      space.lowpass,
       SPECIAL_SLOT_SECONDS,
       SPECIAL_CLIP_SECONDS,
+      space.highpass,
+    );
+  } else if (kind === "tab") {
+    playSprite(
+      context,
+      bank.space,
+      now,
+      nextVariant(key),
+      profile.gain * 0.50,
+      1.03 * variation,
+      style === "soft" ? 5200 : 6800,
+      SPECIAL_SLOT_SECONDS,
+      SPECIAL_CLIP_SECONDS,
+      240,
     );
   } else if (kind === "erase") {
     playSprite(
