@@ -248,21 +248,44 @@ try {
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
 
   await page.waitForSelector(".writing-progress-halo .progress-halo-orb");
-  const haloOrbitGeometryOk = await page.evaluate(() => {
+  const haloRingGeometry = await page.evaluate(() => {
     const orb = document.querySelector<HTMLElement>(".progress-halo-orb");
-    const paths = [...document.querySelectorAll<SVGPathElement>(".progress-halo-segment-track")];
-    if (!orb || paths.length !== 3) return false;
+    const book = document.querySelector<SVGCircleElement>(".progress-halo-ring-book");
+    const chapter = document.querySelector<SVGCircleElement>(".progress-halo-ring-chapter");
+    const today = document.querySelector<SVGCircleElement>(".progress-halo-ring-today");
+    if (!orb || !book || !chapter || !today) return null;
     const bounds = orb.getBoundingClientRect();
-    return paths.every((path) => {
-      const rect = path.getBoundingClientRect();
+    const radii = [book, chapter, today].map((ring) => Number(ring.getAttribute("r")));
+    const circlesInside = [book, chapter, today].every((ring) => {
+      const rect = ring.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0
         && rect.left >= bounds.left - 3
         && rect.top >= bounds.top - 3
         && rect.right <= bounds.right + 3
         && rect.bottom <= bounds.bottom + 3;
     });
+    return { radii, circlesInside };
   });
-  if (!haloOrbitGeometryOk) throw new Error("Folio Halo orbit escaped the orb bounds");
+  if (!haloRingGeometry || haloRingGeometry.radii.join(",") !== "47,40,34" || !haloRingGeometry.circlesInside) {
+    throw new Error(`Folio Halo three-ring geometry failed: ${JSON.stringify(haloRingGeometry)}`);
+  }
+
+  const haloBox = await page.$eval(".writing-progress-halo", (node) => {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+  });
+  await page.mouse.move(haloBox.x + haloBox.width / 2, haloBox.y + haloBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(haloBox.x + haloBox.width / 2, 1022, { steps: 8 });
+  await page.mouse.up();
+  await settle(80);
+  const haloStatusGap = await page.evaluate(() => {
+    const halo = document.querySelector<HTMLElement>(".writing-progress-halo")!.getBoundingClientRect();
+    const status = document.querySelector<HTMLElement>(".folio-statusbar")!.getBoundingClientRect();
+    return status.top - halo.bottom;
+  });
+  if (haloStatusGap < 7) throw new Error(`Folio Halo can overlap the status bar: gap=${haloStatusGap}`);
+
   await page.click(".writing-progress-halo .progress-halo-orb");
   await page.waitForSelector(".progress-halo-popover");
   const progressSetup = await page.evaluate(() => {
