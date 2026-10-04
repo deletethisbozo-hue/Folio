@@ -59,18 +59,22 @@ check(
 );
 
 const ordinaryPlayers = audioSource.slice(
-  audioSource.indexOf("function playClassic"),
+  audioSource.indexOf("function playSampledKey"),
   audioSource.indexOf("export function shouldPlayTypewriterSound"),
 );
 check(
-  "ordinary typewriter keys no longer use pitched oscillator bodies",
-  ordinaryPlayers.length > 0 && !ordinaryPlayers.includes("resonantBody("),
+  "ordinary typewriter keys use sampled impacts rather than pitched oscillator bodies",
+  ordinaryPlayers.length > 0 &&
+  ordinaryPlayers.includes("playSprite(") &&
+  ordinaryPlayers.includes("bank[profile.bank]") &&
+  !ordinaryPlayers.includes("createOscillator("),
 );
 
 check(
-  "typewriter volume no longer has a loudness floor or >2x boost",
-  audioSource.includes("Math.pow(normalizedVolume, 1.25)") &&
-  audioSource.includes("amplitude * 0.92") &&
+  "typewriter volume keeps a zero floor and sub-unity master gain",
+  audioSource.includes("if (normalizedVolume <= 0) return false") &&
+  audioSource.includes("Math.pow(normalizedVolume, 1.18)") &&
+  audioSource.includes("amplitude * 0.95") &&
   !audioSource.includes("0.18 + normalizedVolume * 1.85"),
 );
 

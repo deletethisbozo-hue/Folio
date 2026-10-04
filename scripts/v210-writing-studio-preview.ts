@@ -232,6 +232,25 @@ try {
     && document.querySelector<HTMLButtonElement>(".typewriter-sound-options button.active")?.textContent?.trim().startsWith("Mechanical"),
   );
 
+  const typewriterAssets = await page.evaluate(async () => {
+    const urls = [
+      "/audio/typewriter/classic-keys.mp3",
+      "/audio/typewriter/soft-keys.mp3",
+      "/audio/typewriter/mechanical-keys.mp3",
+      "/audio/typewriter/space-keys.mp3",
+      "/audio/typewriter/backspace-keys.mp3",
+      "/audio/typewriter/carriage-return.mp3",
+    ];
+    return Promise.all(urls.map(async (url) => {
+      const response = await fetch(url);
+      return { url, ok: response.ok, status: response.status, bytes: (await response.arrayBuffer()).byteLength };
+    }));
+  });
+  const missingTypewriterAsset = typewriterAssets.find((asset) => !asset.ok || asset.bytes < 2000);
+  if (missingTypewriterAsset) throw new Error(`Typewriter sample asset failed QA: ${JSON.stringify(typewriterAssets)}`);
+  await page.click(".typewriter-sound-preview");
+  await settle(180);
+
   const initialSpellcheck = await page.$eval<HTMLInputElement>('input[aria-label="Enable spellcheck"]', (input) => input.checked);
   if (!initialSpellcheck) throw new Error("Spellcheck should default to enabled");
   await page.click('input[aria-label="Enable spellcheck"]');
@@ -248,6 +267,52 @@ try {
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
 
   await page.waitForSelector(".writing-progress-halo .progress-halo-orb");
+  const haloRingGeometry = await page.evaluate(() => {
+    const orb = document.querySelector<HTMLElement>(".progress-halo-orb");
+    const book = document.querySelector<SVGCircleElement>(".progress-halo-ring-book");
+    const chapter = document.querySelector<SVGCircleElement>(".progress-halo-ring-chapter");
+    const today = document.querySelector<SVGCircleElement>(".progress-halo-ring-today");
+    if (!orb || !book || !chapter || !today) return null;
+    const bounds = orb.getBoundingClientRect();
+    const radii = [book, chapter, today].map((ring) => Number(ring.getAttribute("r")));
+    const circlesInside = [book, chapter, today].every((ring) => {
+      const rect = ring.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0
+        && rect.left >= bounds.left - 3
+        && rect.top >= bounds.top - 3
+        && rect.right <= bounds.right + 3
+        && rect.bottom <= bounds.bottom + 3;
+    });
+    return { radii, circlesInside };
+  });
+  if (!haloRingGeometry || haloRingGeometry.radii.join(",") !== "47,40,34" || !haloRingGeometry.circlesInside) {
+    throw new Error(`Folio Halo three-ring geometry failed: ${JSON.stringify(haloRingGeometry)}`);
+  }
+
+  const haloBox = await page.$eval(".writing-progress-halo", (node) => {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+  });
+  await page.mouse.move(haloBox.x + haloBox.width / 2, haloBox.y + haloBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(haloBox.x + haloBox.width / 2, 1022, { steps: 8 });
+  await page.mouse.up();
+  await settle(80);
+  const haloStatusCheck = await page.evaluate(() => {
+    const node = document.querySelector<HTMLElement>(".writing-progress-halo")!;
+    const halo = node.getBoundingClientRect();
+    const status = document.querySelector<HTMLElement>(".folio-statusbar")!.getBoundingClientRect();
+    return {
+      gap: status.top - halo.bottom,
+      viewport: { width: innerWidth, height: innerHeight },
+      halo: { top: halo.top, bottom: halo.bottom, left: halo.left, height: halo.height },
+      status: { top: status.top, bottom: status.bottom, height: status.height },
+      inline: { top: node.style.top, bottom: node.style.bottom, left: node.style.left, right: node.style.right },
+      stored: localStorage.getItem("folio-progress-halo-position"),
+    };
+  });
+  if (haloStatusCheck.gap < 7) throw new Error(`Folio Halo can overlap the status bar: ${JSON.stringify(haloStatusCheck)}`);
+
   await page.click(".writing-progress-halo .progress-halo-orb");
   await page.waitForSelector(".progress-halo-popover");
   const progressSetup = await page.evaluate(() => {

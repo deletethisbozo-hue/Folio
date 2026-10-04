@@ -1,0 +1,104 @@
+/* Folio Halo + audible typewriter preview polish.
+ * Halo intentionally keeps the original immediately-readable concentric-ring
+ * mechanic: Book, Chapter and Today are always visible at the same time.
+ */
+
+.progress-halo-orb {
+  cursor: grab;
+}
+
+.writing-progress-halo.dragging .progress-halo-orb {
+  cursor: grabbing;
+}
+
+.progress-halo-rings {
+  pointer-events: none;
+}
+
+.progress-halo-track-book,
+.progress-halo-ring-book,
+.progress-halo-chapter-track,
+.progress-halo-ring-chapter,
+.progress-halo-today-track,
+.progress-halo-ring-today {
+  fill: none;
+  transform-origin: 56px 56px;
+}
+
+.progress-halo-track-book,
+.progress-halo-ring-book {
+  stroke-width: 5.8;
+}
+
+.progress-halo-chapter-track,
+.progress-halo-ring-chapter {
+  stroke-width: 4.4;
+}
+
+.progress-halo-today-track,
+.progress-halo-ring-today {
+  stroke-width: 3.2;
+}
+
+.progress-halo-ring-book,
+.progress-halo-ring-chapter,
+.progress-halo-ring-today {
+  stroke-linecap: round;
+  transition: stroke-dashoffset 260ms ease;
+}
+
+.progress-halo-resize-edge {
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+}
+
+/* Light: Book / Chapter / Today */
+.folio-shell[data-ui-tone="ivory"] .progress-halo-track-book {
+  stroke: rgba(96, 99, 139, .10);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-book {
+  stroke: #7569ee;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-chapter-track {
+  stroke: rgba(94, 109, 154, .09);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-chapter {
+  stroke: #718ee9;
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-today-track {
+  stroke: rgba(84, 91, 130, .085);
+}
+
+.folio-shell[data-ui-tone="ivory"] .progress-halo-ring-today {
+  stroke: #5bb9d8;
+}
+
+/* Midnight: Book / Chapter / Today */
+.folio-shell[data-ui-tone="midnight"] .progress-halo-track-book {
+  stroke: rgba(196, 201, 230, .085);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-book {
+  stroke: #8b8fff;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-chapter-track {
+  stroke: rgba(196, 201, 230, .07);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-chapter {
+  stroke: #82a4ff;
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-today-track {
+  stroke: rgba(196, 201, 230, .06);
+}
+
+.folio-shell[data-ui-tone="midnight"] .progress-halo-ring-today {
+  stroke: #63c4df;
+}

@@ -43,6 +43,7 @@ import "./v241-writing-alignment.css";
 import "./v242-progress-halo.css";
 import "./v243-find-polish.css";
 import "./v244-release-feedback.css";
+import "./v245-halo-audio-polish.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);

@@ -8,11 +8,54 @@ type KeyboardLikeEvent = {
 };
 
 type KeyKind = "character" | "space" | "enter" | "erase" | "tab";
+type SampleStyle = "classic" | "soft" | "mechanical";
+
+type SampleBank = {
+  classic: AudioBuffer;
+  soft: AudioBuffer;
+  mechanical: AudioBuffer;
+  space: AudioBuffer;
+  backspace: AudioBuffer;
+  carriage: AudioBuffer;
+};
+
+type StyleProfile = {
+  bank: SampleStyle;
+  gain: number;
+  rate: number;
+  lowpass: number | null;
+};
+
+const SAMPLE_ASSETS = {
+  classic: "/audio/typewriter/classic-keys.mp3",
+  soft: "/audio/typewriter/soft-keys.mp3",
+  mechanical: "/audio/typewriter/mechanical-keys.mp3",
+  space: "/audio/typewriter/space-keys.mp3",
+  backspace: "/audio/typewriter/backspace-keys.mp3",
+  carriage: "/audio/typewriter/carriage-return.mp3",
+} as const;
+
+const SPRITE_SLOT_SECONDS = 0.18;
+const SPRITE_CLIP_SECONDS = 0.145;
+const SPECIAL_SLOT_SECONDS = 0.12;
+const SPECIAL_CLIP_SECONDS = 0.028;
+
+const STYLE_PROFILES: Record<TypewriterSoundStyle, StyleProfile> = {
+  // Classic keeps the full body of the supplied manual-typewriter recording.
+  classic: { bank: "classic", gain: 0.96, rate: 1.00, lowpass: 7600 },
+  // Soft uses the same real mechanism source, slowed and rolled off rather
+  // than replacing it with a synthetic thump.
+  soft: { bank: "soft", gain: 0.68, rate: 0.92, lowpass: 3600 },
+  // Mechanical uses the harder supplied machine recording with its own bank.
+  mechanical: { bank: "mechanical", gain: 0.92, rate: 1.035, lowpass: 9200 },
+};
 
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let masterCompressor: DynamicsCompressorNode | null = null;
-let cachedNoise: AudioBuffer | null = null;
+let sampleBankPromise: Promise<SampleBank | null> | null = null;
+let fallbackNoise: AudioBuffer | null = null;
+let variantCursor = 0;
 
 function getAudioContext(): AudioContext | null {
   if (audioContext) return audioContext;
@@ -26,13 +69,11 @@ function getAudioContext(): AudioContext | null {
   masterGain.gain.value = 1;
 
   masterCompressor = audioContext.createDynamicsCompressor();
-  // Gentle safety compression only. The old aggressive stage made every
-  // synthetic transient pump and ring, which is exactly the "fake" sound.
-  masterCompressor.threshold.value = -6;
-  masterCompressor.knee.value = 18;
-  masterCompressor.ratio.value = 2.2;
+  masterCompressor.threshold.value = -5;
+  masterCompressor.knee.value = 15;
+  masterCompressor.ratio.value = 2;
   masterCompressor.attack.value = 0.002;
-  masterCompressor.release.value = 0.06;
+  masterCompressor.release.value = 0.075;
 
   masterGain.connect(masterCompressor);
   masterCompressor.connect(audioContext.destination);
@@ -56,15 +97,33 @@ function outputNode(context: AudioContext): AudioNode {
   return masterGain ?? context.destination;
 }
 
-function noiseBuffer(context: AudioContext): AudioBuffer {
-  if (cachedNoise && cachedNoise.sampleRate === context.sampleRate) return cachedNoise;
-  const duration = 0.12;
-  const frames = Math.max(1, Math.floor(context.sampleRate * duration));
-  const buffer = context.createBuffer(1, frames, context.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let index = 0; index < frames; index++) data[index] = Math.random() * 2 - 1;
-  cachedNoise = buffer;
-  return buffer;
+async function loadAudioBuffer(context: AudioContext, url: string): Promise<AudioBuffer> {
+  const response = await fetch(url, { cache: "force-cache" });
+  if (!response.ok) throw new Error("Typewriter sample failed to load: " + url + " (" + response.status + ")");
+  return context.decodeAudioData(await response.arrayBuffer());
+}
+
+function ensureSampleBank(context: AudioContext): Promise<SampleBank | null> {
+  if (sampleBankPromise) return sampleBankPromise;
+  sampleBankPromise = Promise.all([
+    loadAudioBuffer(context, SAMPLE_ASSETS.classic),
+    loadAudioBuffer(context, SAMPLE_ASSETS.soft),
+    loadAudioBuffer(context, SAMPLE_ASSETS.mechanical),
+    loadAudioBuffer(context, SAMPLE_ASSETS.space),
+    loadAudioBuffer(context, SAMPLE_ASSETS.backspace),
+    loadAudioBuffer(context, SAMPLE_ASSETS.carriage),
+  ]).then(([classic, soft, mechanical, space, backspace, carriage]) => ({ classic, soft, mechanical, space, backspace, carriage }))
+    .catch((error) => {
+      console.warn("Folio Typewriter Sound samples unavailable; using safety fallback.", error);
+      sampleBankPromise = null;
+      return null;
+    });
+  return sampleBankPromise;
+}
+
+export function preloadTypewriterSounds(): void {
+  const context = getAudioContext();
+  if (context) void ensureSampleBank(context);
 }
 
 function keyKind(key: string): KeyKind {
@@ -75,199 +134,195 @@ function keyKind(key: string): KeyKind {
   return "character";
 }
 
-function envelope(
-  context: AudioContext,
-  now: number,
-  peak: number,
-  attack: number,
-  decay: number,
-  destination: AudioNode = outputNode(context),
-): GainNode {
-  const gain = context.createGain();
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + Math.max(0.0005, attack));
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + attack + decay);
-  gain.connect(destination);
-  return gain;
-}
-
-function noiseImpact(
-  context: AudioContext,
-  now: number,
-  {
-    peak,
-    frequency,
-    q,
-    duration,
-    type = "bandpass",
-  }: {
-    peak: number;
-    frequency: number;
-    q: number;
-    duration: number;
-    type?: BiquadFilterType;
-  },
-): void {
-  const source = context.createBufferSource();
-  const filter = context.createBiquadFilter();
-  filter.type = type;
-  filter.frequency.setValueAtTime(frequency, now);
-  filter.Q.setValueAtTime(q, now);
-  source.buffer = noiseBuffer(context);
-  source.connect(filter);
-  filter.connect(envelope(context, now, peak, 0.0008, duration));
-  const maxOffset = Math.max(0, source.buffer.duration - duration - 0.002);
-  const offset = Math.random() * maxOffset;
-  source.start(now, offset, Math.min(source.buffer.duration - offset, duration + 0.004));
+function keyHash(key: string): number {
+  let hash = 0;
+  for (let index = 0; index < key.length; index++) hash = ((hash * 31) + key.charCodeAt(index)) >>> 0;
+  return hash;
 }
 
 function keyVariation(key: string): number {
-  let hash = 0;
-  for (let index = 0; index < key.length; index++) hash = ((hash * 31) + key.charCodeAt(index)) >>> 0;
-  const keyOffset = ((hash % 13) - 6) * 0.0025;
-  const humanOffset = (Math.random() - 0.5) * 0.012;
-  return 1 + keyOffset + humanOffset;
+  const stable = ((keyHash(key) % 11) - 5) * 0.002;
+  const human = (Math.random() - 0.5) * 0.012;
+  return 1 + stable + human;
 }
 
-function resonantBody(
+function nextVariant(key: string): number {
+  variantCursor = (variantCursor + 1) % 97;
+  return (keyHash(key) + variantCursor) % 3;
+}
+
+function keyGain(kind: KeyKind): number {
+  if (kind === "space") return 0.55;
+  if (kind === "erase") return 0.90;
+  if (kind === "tab") return 0.66;
+  if (kind === "enter") return 0.82;
+  return 1;
+}
+
+function playSprite(
   context: AudioContext,
+  buffer: AudioBuffer,
   now: number,
-  {
-    frequency,
-    peak,
-    duration,
-    type = "sine",
-    detune = 0,
-  }: {
-    frequency: number;
-    peak: number;
-    duration: number;
-    type?: OscillatorType;
-    detune?: number;
-  },
+  variant: number,
+  gainValue: number,
+  playbackRate: number,
+  lowpass: number | null,
+  slotSeconds = SPRITE_SLOT_SECONDS,
+  clipSeconds = SPRITE_CLIP_SECONDS,
 ): void {
-  const oscillator = context.createOscillator();
-  oscillator.type = type;
-  oscillator.frequency.setValueAtTime(frequency, now);
-  oscillator.detune.setValueAtTime(detune, now);
-  oscillator.connect(envelope(context, now, peak, 0.0008, duration));
-  oscillator.start(now);
-  oscillator.stop(now + duration + 0.008);
-}
+  const source = context.createBufferSource();
+  const gain = context.createGain();
+  source.buffer = buffer;
+  source.playbackRate.setValueAtTime(playbackRate, now);
+  gain.gain.setValueAtTime(Math.max(0.0001, gainValue), now);
+  gain.connect(outputNode(context));
 
-function carriageBell(context: AudioContext, now: number, drift: number): void {
-  // A carriage-return bell is the only deliberately tonal part. Keep it
-  // quiet and short so it reads as hardware in the room, not a UI chime.
-  resonantBody(context, now, {
-    frequency: 1760 * drift,
-    peak: 0.007,
-    duration: 0.045,
-    type: "sine",
-  });
-  resonantBody(context, now + 0.001, {
-    frequency: 2640 * drift,
-    peak: 0.0025,
-    duration: 0.032,
-    type: "sine",
-  });
-}
-
-function playClassic(context: AudioContext, now: number, kind: KeyKind, drift: number): void {
-  const isSpace = kind === "space";
-  const isEnter = kind === "enter";
-  const isErase = kind === "erase";
-  const isTab = kind === "tab";
-
-  // Dry manual typewriter: key travel, typebar/platen impact, tiny return.
-  // Noise transients carry the ordinary keys; no pitched oscillator body.
-  noiseImpact(context, now, {
-    peak: isSpace ? 0.034 : 0.050,
-    frequency: (isSpace ? 1250 : 2850) * drift,
-    q: isSpace ? 0.62 : 0.92,
-    duration: isSpace ? 0.009 : 0.006,
-  });
-
-  noiseImpact(context, now + (isSpace ? 0.003 : 0.0035), {
-    peak: isSpace ? 0.068 : isEnter ? 0.145 : isErase ? 0.112 : 0.098,
-    frequency: (isSpace ? 480 : isEnter ? 720 : isErase ? 1420 : 1080) * drift,
-    q: isSpace ? 0.48 : 0.72,
-    duration: isEnter ? 0.024 : isSpace ? 0.016 : 0.012,
-  });
-
-  noiseImpact(context, now + 0.006, {
-    peak: isSpace ? 0.024 : isEnter ? 0.066 : 0.040,
-    frequency: (isSpace ? 250 : isEnter ? 300 : 360) * drift,
-    q: 0.42,
-    duration: isEnter ? 0.030 : 0.020,
-    type: "lowpass",
-  });
-
-  if (!isSpace) {
-    noiseImpact(context, now + (isEnter ? 0.024 : 0.015), {
-      peak: isEnter ? 0.030 : isTab ? 0.034 : 0.021,
-      frequency: (isErase ? 2200 : 3150) * drift,
-      q: 1.05,
-      duration: 0.005,
-    });
+  if (lowpass) {
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(lowpass, now);
+    filter.Q.setValueAtTime(0.45, now);
+    source.connect(filter);
+    filter.connect(gain);
+  } else {
+    source.connect(gain);
   }
 
-  if (isEnter) carriageBell(context, now + 0.020, drift);
+  const requestedOffset = variant * slotSeconds;
+  const offset = Math.min(requestedOffset, Math.max(0, buffer.duration - 0.018));
+  const duration = Math.max(0.018, Math.min(clipSeconds, buffer.duration - offset));
+  source.start(now, offset, duration);
 }
 
-function playSoft(context: AudioContext, now: number, kind: KeyKind, drift: number): void {
-  const isSpace = kind === "space";
-  const isEnter = kind === "enter";
-  const isErase = kind === "erase";
-
-  // Felted machine: dull key travel plus a restrained platen contact.
-  noiseImpact(context, now, {
-    peak: isSpace ? 0.022 : 0.036,
-    frequency: (isSpace ? 720 : 1180) * drift,
-    q: 0.46,
-    duration: 0.012,
-    type: "lowpass",
-  });
-  noiseImpact(context, now + 0.004, {
-    peak: isSpace ? 0.042 : isEnter ? 0.076 : isErase ? 0.066 : 0.056,
-    frequency: (isSpace ? 380 : isEnter ? 520 : 650) * drift,
-    q: 0.50,
-    duration: isEnter ? 0.024 : 0.016,
-    type: "bandpass",
-  });
-  noiseImpact(context, now + 0.007, {
-    peak: isSpace ? 0.014 : 0.024,
-    frequency: 270 * drift,
-    q: 0.38,
-    duration: 0.018,
-    type: "lowpass",
-  });
+function playCarriageReturn(context: AudioContext, buffer: AudioBuffer, now: number, style: TypewriterSoundStyle): void {
+  const source = context.createBufferSource();
+  const gain = context.createGain();
+  source.buffer = buffer;
+  source.playbackRate.setValueAtTime(style === "soft" ? 0.94 : style === "mechanical" ? 1.03 : 1, now);
+  gain.gain.setValueAtTime(style === "soft" ? 0.34 : 0.48, now);
+  source.connect(gain);
+  gain.connect(outputNode(context));
+  source.start(now);
 }
 
-function playMechanical(context: AudioContext, now: number, kind: KeyKind, drift: number): void {
-  const isSpace = kind === "space";
-  const isEnter = kind === "enter";
-  const isErase = kind === "erase";
+function bellEnvelope(context: AudioContext, now: number, peak: number, decay: number): GainNode {
+  const gain = context.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(peak, now + 0.002);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+  gain.connect(outputNode(context));
+  return gain;
+}
 
-  // Crisp mechanism: switch click, bottom-out and a much quieter return.
-  noiseImpact(context, now, {
-    peak: isSpace ? 0.036 : 0.062,
-    frequency: (isSpace ? 1700 : 3900) * drift,
-    q: 1.20,
-    duration: 0.0045,
-  });
-  noiseImpact(context, now + 0.003, {
-    peak: isSpace ? 0.070 : isEnter ? 0.130 : isErase ? 0.118 : 0.100,
-    frequency: (isSpace ? 720 : isEnter ? 980 : 1480) * drift,
-    q: 0.82,
-    duration: isEnter ? 0.017 : 0.010,
-  });
-  noiseImpact(context, now + (isEnter ? 0.019 : 0.012), {
-    peak: isSpace ? 0.016 : 0.026,
-    frequency: 3300 * drift,
-    q: 1.12,
-    duration: 0.004,
-  });
-  if (isEnter) carriageBell(context, now + 0.017, drift);
+function playReferenceBell(context: AudioContext, now: number, style: TypewriterSoundStyle): void {
+  // Tuned from the supplied real bell reference. Its strongest partials are
+  // around 1.79 kHz and 2.86 kHz with a small metallic partial near 5.4 kHz.
+  // Keeping those inharmonic partials makes Enter read as a carriage bell
+  // instead of the old generic two-sine UI chime.
+  const level = style === "soft" ? 0.68 : 1;
+  const partials = [
+    { frequency: 1787, peak: 0.024 * level, decay: 0.34 },
+    { frequency: 2860, peak: 0.060 * level, decay: 0.43 },
+    { frequency: 5407, peak: 0.010 * level, decay: 0.18 },
+  ];
+  for (const partial of partials) {
+    const oscillator = context.createOscillator();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(partial.frequency, now);
+    oscillator.detune.setValueAtTime((Math.random() - 0.5) * 5, now);
+    oscillator.connect(bellEnvelope(context, now, partial.peak, partial.decay));
+    oscillator.start(now);
+    oscillator.stop(now + partial.decay + 0.02);
+  }
+}
+
+function fallbackNoiseBuffer(context: AudioContext): AudioBuffer {
+  if (fallbackNoise && fallbackNoise.sampleRate === context.sampleRate) return fallbackNoise;
+  const duration = 0.08;
+  const buffer = context.createBuffer(1, Math.max(1, Math.floor(context.sampleRate * duration)), context.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let index = 0; index < data.length; index++) data[index] = Math.random() * 2 - 1;
+  fallbackNoise = buffer;
+  return buffer;
+}
+
+function playFallbackClick(context: AudioContext, now: number, kind: KeyKind): void {
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const gain = context.createGain();
+  source.buffer = fallbackNoiseBuffer(context);
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(kind === "space" ? 850 : 2400, now);
+  filter.Q.setValueAtTime(0.75, now);
+  gain.gain.setValueAtTime(kind === "space" ? 0.10 : 0.18, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.028);
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(outputNode(context));
+  source.start(now, Math.random() * 0.03, 0.035);
+}
+
+function playSampledKey(
+  context: AudioContext,
+  bank: SampleBank,
+  style: TypewriterSoundStyle,
+  key: string,
+  now: number,
+): void {
+  const profile = STYLE_PROFILES[style];
+  const kind = keyKind(key);
+  const variation = keyVariation(key);
+
+  if (kind === "space" || kind === "tab") {
+    playSprite(
+      context,
+      bank.space,
+      now,
+      nextVariant(key),
+      profile.gain * (kind === "tab" ? 0.52 : 0.62),
+      profile.rate * variation * 0.96,
+      style === "soft" ? 2600 : 3900,
+      SPECIAL_SLOT_SECONDS,
+      SPECIAL_CLIP_SECONDS,
+    );
+  } else if (kind === "erase") {
+    playSprite(
+      context,
+      bank.backspace,
+      now,
+      nextVariant(key),
+      profile.gain * 0.78,
+      profile.rate * variation * 0.98,
+      style === "soft" ? 4300 : 7600,
+      SPECIAL_SLOT_SECONDS,
+      SPECIAL_CLIP_SECONDS,
+    );
+  } else {
+    playSprite(
+      context,
+      bank[profile.bank],
+      now,
+      nextVariant(key),
+      profile.gain * keyGain(kind),
+      profile.rate * variation,
+      profile.lowpass,
+    );
+  }
+
+  if (kind === "enter") {
+    playCarriageReturn(context, bank.carriage, now + 0.026, style);
+    playReferenceBell(context, now + 0.105, style);
+  }
+}
+
+function setVolume(context: AudioContext, volume: number): boolean {
+  const normalizedVolume = Math.max(0, Math.min(100, volume)) / 100;
+  if (normalizedVolume <= 0) return false;
+  if (masterGain) {
+    const amplitude = Math.pow(normalizedVolume, 1.18);
+    masterGain.gain.setTargetAtTime(amplitude * 0.95, context.currentTime, 0.008);
+  }
+  return true;
 }
 
 export function shouldPlayTypewriterSound(event: KeyboardLikeEvent): boolean {
@@ -285,29 +340,37 @@ export async function playTypewriterSound(
   key = "a",
 ): Promise<void> {
   const context = await ensureAudioReady();
-  if (!context) return;
+  if (!context || !setVolume(context, volume)) return;
 
-  const normalizedVolume = Math.max(0, Math.min(100, volume)) / 100;
-  if (normalizedVolume <= 0) return;
-
-  if (masterGain) {
-    // A real volume curve: no loudness floor and no >2x gain smashing into
-    // the compressor. This preserves the short impact instead of making it honk.
-    const amplitude = Math.pow(normalizedVolume, 1.25);
-    masterGain.gain.setTargetAtTime(amplitude * 0.92, context.currentTime, 0.008);
-  }
-
+  const bank = await ensureSampleBank(context);
   const now = context.currentTime + 0.002;
-  const drift = keyVariation(key);
-  const kind = keyKind(key);
+  if (bank) {
+    playSampledKey(context, bank, style, key, now);
+    return;
+  }
 
-  if (style === "soft") {
-    playSoft(context, now, kind, drift);
-    return;
-  }
-  if (style === "mechanical") {
-    playMechanical(context, now, kind, drift);
-    return;
-  }
-  playClassic(context, now, kind, drift);
+  const kind = keyKind(key);
+  playFallbackClick(context, now, kind);
+  if (kind === "enter") playReferenceBell(context, now + 0.045, style);
+}
+
+export async function playTypewriterPreview(
+  style: TypewriterSoundStyle,
+  volume = 85,
+): Promise<void> {
+  const context = await ensureAudioReady();
+  if (!context || !setVolume(context, volume)) return;
+
+  const bank = await ensureSampleBank(context);
+  const previewKeys = ["F", "o", "l", "i", "o", " ", "Enter"];
+  const start = context.currentTime + 0.018;
+  previewKeys.forEach((key, index) => {
+    const now = start + index * 0.086;
+    if (bank) playSampledKey(context, bank, style, key, now);
+    else {
+      const kind = keyKind(key);
+      playFallbackClick(context, now, kind);
+      if (kind === "enter") playReferenceBell(context, now + 0.045, style);
+    }
+  });
 }

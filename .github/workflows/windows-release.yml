@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 2.8.1 version consistency
+      - name: Verify Folio 2.8.2 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "2.8.1") { throw "Windows release is scoped to Folio 2.8.1, found $version." }
+          if ($version -ne "2.8.2") { throw "Windows release is scoped to Folio 2.8.2, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -271,4 +271,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 2.8.1 is a focused polish release for 2.8.0. The Book/Chapter word-count selector now renders above the Write toolbar instead of being obscured by it. Folio Halo is viewport-level, draggable anywhere across Write and Split View, remembers its position and keeps its detail popover on-screen near window edges. Typewriter Sound was rebuilt around short filtered mechanical transients with a natural volume curve and much less synthetic ringing; Enter keeps only a restrained carriage bell. The Windows build is gated by typecheck, the formatter/UI suite with retries, Writing Studio QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 2.8.2 restores Folio Halo's concentric progress design with three simultaneous Book, Chapter and Today rings, removes the misleading decorative notch, and keeps the draggable Halo above the bottom status bar. Typewriter Sound now uses compact real typewriter sample banks derived from supplied reference SFX, including dedicated Space and Backspace mechanisms, a sampled carriage return and a bell tuned to the reference recording; Preview plays a short Folio-plus-Enter sequence for meaningful style comparison. The Windows build is gated by typecheck, the formatter/UI suite with retries, Writing Studio QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
