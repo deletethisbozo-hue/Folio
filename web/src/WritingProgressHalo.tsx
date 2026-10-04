@@ -50,6 +50,19 @@ function clampHaloPosition(position: HaloPosition, size: number): HaloPosition {
   };
 }
 
+function haloPoint(angle: number, radius = 46): { x: number; y: number } {
+  const radians = ((angle - 90) * Math.PI) / 180;
+  return { x: 56 + radius * Math.cos(radians), y: 56 + radius * Math.sin(radians) };
+}
+
+function haloArcPath(start: number, span: number, radius = 46): string {
+  if (span <= 0.01) return "";
+  const safeSpan = Math.min(359.99, span);
+  const from = haloPoint(start, radius);
+  const to = haloPoint(start + safeSpan, radius);
+  return `M ${from.x.toFixed(3)} ${from.y.toFixed(3)} A ${radius} ${radius} 0 ${safeSpan > 180 ? 1 : 0} 1 ${to.x.toFixed(3)} ${to.y.toFixed(3)}`;
+}
+
 export default function WritingProgressHalo(props: Props) {
   const [scope, setScope] = useState<ProgressScope>(() => {
     const stored = window.localStorage.getItem("folio-progress-scope");
@@ -83,7 +96,6 @@ export default function WritingProgressHalo(props: Props) {
   const bookPercent = clampPercent(props.totalWords, props.targets?.book);
   const chapterPercent = clampPercent(props.chapterWords, chapterTarget);
   const todayPercent = clampPercent(props.todayWords, props.targets?.daily);
-  const ringCircumference = 2 * Math.PI * 46;
   const haloSegments: Array<{
     scope: ProgressScope;
     label: string;
@@ -260,33 +272,15 @@ export default function WritingProgressHalo(props: Props) {
     <div className="progress-halo-orb">
       <svg className="progress-halo-rings" viewBox="0 0 112 112" aria-label="Writing goal progress">
         {haloSegments.map((segment) => {
-          const segmentLength = ringCircumference * (segment.span / 360);
-          const filledLength = segmentLength * (segment.percent / 100);
           const active = effectiveScope === segment.scope;
+          const trackPath = haloArcPath(segment.start, segment.span);
+          const fillPath = haloArcPath(segment.start, segment.span * (segment.percent / 100));
           return <g key={segment.scope} className={`progress-halo-segment scope-${segment.scope} ${active ? "is-active" : ""} ${segment.available ? "" : "is-disabled"}`}>
-            <circle
-              className="progress-halo-segment-track"
-              cx="56"
-              cy="56"
-              r="46"
-              transform={`rotate(${segment.start} 56 56)`}
-              strokeDasharray={`${segmentLength} ${ringCircumference - segmentLength}`}
-            />
-            <circle
-              className="progress-halo-segment-fill"
-              cx="56"
-              cy="56"
-              r="46"
-              transform={`rotate(${segment.start} 56 56)`}
-              strokeDasharray={`${filledLength} ${ringCircumference - filledLength}`}
-            />
-            <circle
+            <path className="progress-halo-segment-track" d={trackPath}/>
+            <path className="progress-halo-segment-fill" d={fillPath}/>
+            <path
               className="progress-halo-segment-hit"
-              cx="56"
-              cy="56"
-              r="46"
-              transform={`rotate(${segment.start} 56 56)`}
-              strokeDasharray={`${segmentLength} ${ringCircumference - segmentLength}`}
+              d={trackPath}
               role="button"
               tabIndex={segment.available ? 0 : -1}
               aria-label={`${segment.label} progress: ${Math.round(segment.percent)}%`}

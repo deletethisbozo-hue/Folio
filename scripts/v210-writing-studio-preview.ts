@@ -248,6 +248,21 @@ try {
   await page.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Settings"]'));
 
   await page.waitForSelector(".writing-progress-halo .progress-halo-orb");
+  const haloOrbitGeometryOk = await page.evaluate(() => {
+    const orb = document.querySelector<HTMLElement>(".progress-halo-orb");
+    const paths = [...document.querySelectorAll<SVGPathElement>(".progress-halo-segment-track")];
+    if (!orb || paths.length !== 3) return false;
+    const bounds = orb.getBoundingClientRect();
+    return paths.every((path) => {
+      const rect = path.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0
+        && rect.left >= bounds.left - 3
+        && rect.top >= bounds.top - 3
+        && rect.right <= bounds.right + 3
+        && rect.bottom <= bounds.bottom + 3;
+    });
+  });
+  if (!haloOrbitGeometryOk) throw new Error("Folio Halo orbit escaped the orb bounds");
   await page.click(".writing-progress-halo .progress-halo-orb");
   await page.waitForSelector(".progress-halo-popover");
   const progressSetup = await page.evaluate(() => {

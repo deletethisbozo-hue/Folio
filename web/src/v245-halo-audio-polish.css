@@ -17,7 +17,6 @@
 .progress-halo-segment-fill,
 .progress-halo-segment-hit {
   fill: none;
-  transform-origin: 56px 56px;
 }
 
 .progress-halo-segment-track {
@@ -29,7 +28,6 @@
   stroke-width: 6.4;
   stroke-linecap: round;
   transition:
-    stroke-dasharray 260ms ease,
     stroke-width 180ms ease,
     opacity 180ms ease,
     filter 180ms ease;

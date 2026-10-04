@@ -28,7 +28,9 @@ check(
   haloSource.includes('{ scope: "chapter"') &&
   haloSource.includes('{ scope: "today"') &&
   haloSource.includes("progress-halo-segment-track") &&
-  haloSource.includes("progress-halo-segment-fill"),
+  haloSource.includes("progress-halo-segment-fill") &&
+  haloSource.includes("haloArcPath(") &&
+  !haloSource.includes("strokeDasharray="),
 );
 
 check(
