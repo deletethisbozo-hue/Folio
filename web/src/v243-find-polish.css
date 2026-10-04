@@ -6,6 +6,7 @@
 
 .folio-shell[data-ui-tone] .format-toolbar {
   position: relative;
+  z-index: 120;
   overflow: visible !important;
 }
 
