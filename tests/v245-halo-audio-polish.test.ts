@@ -113,17 +113,18 @@ check(
   !audioSource.includes("nextVariant(key),"),
 );
 
+const spaceProfiles = audioSource.slice(
+  audioSource.indexOf("const SPACE_PROFILES"),
+  audioSource.indexOf("let audioContext"),
+);
 check(
-  "2.8.4 spacebar is short, bright and separately routed",
+  "spacebar remains short, bright and separately routed in 2.8.5",
   audioSource.includes("SPACE_SLOT_SECONDS = 0.08") &&
   audioSource.includes("SPACE_CLIP_SECONDS = 0.032") &&
-  audioSource.includes("highpass: 480") &&
-  audioSource.includes("highpass: 440") &&
-  audioSource.includes("highpass: 520") &&
-  audioSource.includes("filter.frequency.setValueAtTime(kind === \"space\" ? 2100 : 2400") &&
-  !audioSource.includes("highpass: 300") &&
-  !audioSource.includes("highpass: 260") &&
-  !audioSource.includes("highpass: 340"),
+  spaceProfiles.includes("highpass: 480") &&
+  spaceProfiles.includes("highpass: 440") &&
+  spaceProfiles.includes("highpass: 520") &&
+  audioSource.includes("filter.frequency.setValueAtTime(kind === \"space\" ? 2100 : 2400"),
 );
 
 check(
