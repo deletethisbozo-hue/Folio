@@ -13,7 +13,7 @@ import type {
   Typography,
 } from "./types";
 import type { RecentProject } from "./recent-projects";
-import type { RevisionPayload, WriteStudioState, WritingTargets } from "./write-studio";
+import type { RevisionPayload, SecondDraftBlockStatus, SecondDraftCarryStatus, SecondDraftSealReveal, WriteStudioState, WritingTargets } from "./write-studio";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -68,6 +68,52 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ date, delta }),
     }).then((r) => json<WriteStudioState>(r)),
+
+  setSecondDraftPair: (projectId: string, targetSectionId: string, sourceSectionId: string, sourceTextLength: number, sourceFingerprint: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/pairs/${encodeURIComponent(targetSectionId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceSectionId, sourceTextLength, sourceFingerprint }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  removeSecondDraftPair: (projectId: string, targetSectionId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/pairs/${encodeURIComponent(targetSectionId)}`, { method: "DELETE" })
+      .then((r) => json<WriteStudioState>(r)),
+
+  createSecondDraftBlock: (projectId: string, payload: { targetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string; targetStart?: number }) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  updateSecondDraftBlock: (projectId: string, blockId: string, patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number }) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks/${encodeURIComponent(blockId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  sendSecondDraftAhead: (projectId: string, payload: { fromTargetSectionId: string; toTargetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string }) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/send-ahead`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  updateSecondDraftCarryover: (projectId: string, carryoverId: string, status: SecondDraftCarryStatus) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/carryovers/${encodeURIComponent(carryoverId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  sealSecondDraftChapter: (projectId: string, targetSectionId: string, markdown: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/seal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetSectionId, markdown }),
+    }).then((r) => json<{ state: WriteStudioState; reveal: SecondDraftSealReveal }>(r)),
 
   addResearchNote: (projectId: string, title: string, body: string) =>
     fetch(`/api/projects/${projectId}/write-studio/research`, {

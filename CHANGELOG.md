@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-06
+
+### Added
+- Second Draft, a dedicated rewrite workflow layered on top of the existing Write workspace while keeping the original Split View intact.
+- Source Burn: source text progressively fades as it is rewritten, cut, kept, or sent ahead, giving the old draft a live visual completion state.
+- Rewrite This and the compact Rewrite Rail for explicitly linking a selected source passage to the new draft and resolving it as Done, Cut, Later, or Keep.
+- Send Ahead for carrying selected source material directly to a later target chapter, where it reappears as a pending carried item.
+- Memory mode: hide the source while writing and hold Alt for a temporary peek without leaving the new draft.
+- Anchor-aware Paired Scroll that follows real source-to-target rewrite anchors instead of assuming both drafts have matching lengths.
+- Chapter Seal, which snapshots a completed second-draft chapter after all active/later source blocks are resolved.
+- Chapter Reveal, a post-seal summary showing source/new word counts plus rewritten, cut, kept, sent-ahead, and processed-source totals.
+
+### Changed
+- Write Studio project metadata now uses schema version 2 and automatically normalizes older project metadata with an empty Second Draft state.
+- Second Draft source chapters are read-only inside the dedicated workflow so Source Burn ranges and scroll anchors remain stable.
+
+### Tests
+- Added dedicated Folio 3.0 browser QA covering source pairing, Rewrite This, Source Burn, Memory/Alt peek, Send Ahead, Paired Scroll, Chapter Seal, Chapter Reveal, Midnight layout, and legacy Split View fallback.
+- Added Second Draft regression coverage for progress merging, source fingerprints, paired-scroll interpolation, persistence wiring, and schema migration.
+
 ## [2.8.5] - 2026-10-05
 
 ### Changed

@@ -45,6 +45,7 @@ import "./v243-find-polish.css";
 import "./v244-release-feedback.css";
 import "./v245-halo-audio-polish.css";
 import "./v246-writing-studio-halo-stability.css";
+import "./v300-second-draft.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);

@@ -57,14 +57,62 @@ export interface RevisionSummary {
   hash: string;
 }
 
+export type SecondDraftBlockStatus = "active" | "rewritten" | "cut" | "later" | "keep" | "sent";
+export type SecondDraftCarryStatus = "pending" | "used" | "dismissed";
+
+export interface SecondDraftPair {
+  targetSectionId: string;
+  sourceSectionId: string;
+  sourceTextLength: number;
+  sourceFingerprint: string;
+  createdAt: string;
+  updatedAt: string;
+  sealedAt?: string;
+  sealRevisionId?: string;
+}
+
+export interface SecondDraftBlock {
+  id: string;
+  targetSectionId: string;
+  sourceSectionId: string;
+  sourceStart: number;
+  sourceEnd: number;
+  sourceText: string;
+  status: SecondDraftBlockStatus;
+  targetStart?: number;
+  targetEnd?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SecondDraftCarryover {
+  id: string;
+  fromTargetSectionId: string;
+  sourceSectionId: string;
+  toTargetSectionId: string;
+  sourceStart: number;
+  sourceEnd: number;
+  sourceText: string;
+  status: SecondDraftCarryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SecondDraftState {
+  pairs: Record<string, SecondDraftPair>;
+  blocks: SecondDraftBlock[];
+  carryovers: SecondDraftCarryover[];
+}
+
 export interface WriteStudioState {
-  version: 1;
+  version: 2;
   targets: WritingTargets;
   dailyProgress: Record<string, number>;
   research: ResearchNote[];
   researchImages: ResearchImage[];
   comments: WritingComment[];
   revisions: RevisionSummary[];
+  secondDraft: SecondDraftState;
 }
 
 const EMPTY_TARGETS: WritingTargets = { book: null, daily: null, session: null, chapters: {} };
@@ -81,22 +129,24 @@ const mutationTails = new Map<string, Promise<void>>();
 
 function defaultState(): WriteStudioState {
   return {
-    version: 1,
+    version: 2,
     targets: { ...EMPTY_TARGETS, chapters: {} },
     dailyProgress: {},
     research: [],
     researchImages: [],
     comments: [],
     revisions: [],
+    secondDraft: { pairs: {}, blocks: [], carryovers: [] },
   };
 }
 
 function normaliseState(value: Partial<WriteStudioState> | null | undefined): WriteStudioState {
   const base = defaultState();
+  const incomingSecondDraft = value?.secondDraft as Partial<SecondDraftState> | undefined;
   return {
     ...base,
     ...(value ?? {}),
-    version: 1,
+    version: 2,
     targets: {
       ...base.targets,
       ...(value?.targets ?? {}),
@@ -109,6 +159,13 @@ function normaliseState(value: Partial<WriteStudioState> | null | undefined): Wr
     revisions: Array.isArray(value?.revisions)
       ? value!.revisions!.map((item) => ({ ...item, scope: item.scope ?? "section" }))
       : [],
+    secondDraft: {
+      pairs: incomingSecondDraft?.pairs && typeof incomingSecondDraft.pairs === "object"
+        ? { ...incomingSecondDraft.pairs }
+        : {},
+      blocks: Array.isArray(incomingSecondDraft?.blocks) ? incomingSecondDraft!.blocks! : [],
+      carryovers: Array.isArray(incomingSecondDraft?.carryovers) ? incomingSecondDraft!.carryovers! : [],
+    },
   };
 }
 
@@ -274,7 +331,273 @@ export async function migrateWriteStudioSectionId(projectId: string, previousSec
     state.revisions = state.revisions.map((item) =>
       item.scope === "section" && item.sectionId === previousSectionId ? { ...item, sectionId: nextSectionId } : item,
     );
+
+    const nextPairs: Record<string, SecondDraftPair> = {};
+    for (const pair of Object.values(state.secondDraft.pairs)) {
+      const migrated = {
+        ...pair,
+        targetSectionId: pair.targetSectionId === previousSectionId ? nextSectionId : pair.targetSectionId,
+        sourceSectionId: pair.sourceSectionId === previousSectionId ? nextSectionId : pair.sourceSectionId,
+      };
+      nextPairs[migrated.targetSectionId] = migrated;
+    }
+    state.secondDraft.pairs = nextPairs;
+    state.secondDraft.blocks = state.secondDraft.blocks.map((item) => ({
+      ...item,
+      targetSectionId: item.targetSectionId === previousSectionId ? nextSectionId : item.targetSectionId,
+      sourceSectionId: item.sourceSectionId === previousSectionId ? nextSectionId : item.sourceSectionId,
+    }));
+    state.secondDraft.carryovers = state.secondDraft.carryovers.map((item) => ({
+      ...item,
+      fromTargetSectionId: item.fromTargetSectionId === previousSectionId ? nextSectionId : item.fromTargetSectionId,
+      sourceSectionId: item.sourceSectionId === previousSectionId ? nextSectionId : item.sourceSectionId,
+      toTargetSectionId: item.toTargetSectionId === previousSectionId ? nextSectionId : item.toTargetSectionId,
+    }));
     return state;
+  });
+}
+
+
+function validateSecondDraftRange(start: number, end: number, sourceText: string): void {
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end - start > 100000) {
+    throw new Error("Invalid Second Draft source range.");
+  }
+  if (!sourceText.trim() || sourceText.length > 100000) throw new Error("Invalid Second Draft source text.");
+}
+
+async function requireSecondDraftSections(projectId: string, targetSectionId: string, sourceSectionId?: string): Promise<void> {
+  const { book } = await loadProject(projectId);
+  if (!book.sections.some((section) => section.id === targetSectionId)) throw new Error("Second Draft target section not found.");
+  if (sourceSectionId !== undefined) {
+    if (sourceSectionId === targetSectionId) throw new Error("Second Draft source and target must be different sections.");
+    if (!book.sections.some((section) => section.id === sourceSectionId)) throw new Error("Second Draft source section not found.");
+  }
+}
+
+function processedSecondDraftStatus(status: SecondDraftBlockStatus): boolean {
+  return status === "rewritten" || status === "cut" || status === "keep" || status === "sent";
+}
+
+function secondDraftCoverage(pair: SecondDraftPair, blocks: SecondDraftBlock[]): number {
+  if (pair.sourceTextLength <= 0) return 0;
+  const ranges = blocks
+    .filter((block) => block.targetSectionId === pair.targetSectionId && processedSecondDraftStatus(block.status))
+    .map((block) => [Math.max(0, block.sourceStart), Math.min(pair.sourceTextLength, block.sourceEnd)] as const)
+    .filter(([start, end]) => end > start)
+    .sort((a, b) => a[0] - b[0]);
+  let covered = 0;
+  let start = -1;
+  let end = -1;
+  for (const [nextStart, nextEnd] of ranges) {
+    if (start < 0) { start = nextStart; end = nextEnd; continue; }
+    if (nextStart <= end) end = Math.max(end, nextEnd);
+    else { covered += end - start; start = nextStart; end = nextEnd; }
+  }
+  if (start >= 0) covered += end - start;
+  return Math.max(0, Math.min(1, covered / pair.sourceTextLength));
+}
+
+export async function setSecondDraftPair(
+  projectId: string,
+  targetSectionId: string,
+  sourceSectionId: string,
+  sourceTextLength: number,
+  sourceFingerprint: string,
+): Promise<WriteStudioState> {
+  await requireSecondDraftSections(projectId, targetSectionId, sourceSectionId);
+  if (!Number.isInteger(sourceTextLength) || sourceTextLength < 0 || sourceTextLength > 5000000) {
+    throw new Error("Invalid Second Draft source length.");
+  }
+  if (!/^[a-f0-9]{8,64}$/i.test(sourceFingerprint)) throw new Error("Invalid Second Draft source fingerprint.");
+  return mutateState(projectId, (state) => {
+    const now = new Date().toISOString();
+    const existing = state.secondDraft.pairs[targetSectionId];
+    state.secondDraft.pairs[targetSectionId] = {
+      targetSectionId,
+      sourceSectionId,
+      sourceTextLength,
+      sourceFingerprint,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    if (existing && (existing.sourceSectionId !== sourceSectionId || existing.sourceFingerprint !== sourceFingerprint)) {
+      state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
+    }
+    return state;
+  });
+}
+
+export async function removeSecondDraftPair(projectId: string, targetSectionId: string): Promise<WriteStudioState> {
+  await requireSecondDraftSections(projectId, targetSectionId);
+  return mutateState(projectId, (state) => {
+    delete state.secondDraft.pairs[targetSectionId];
+    state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
+    return state;
+  });
+}
+
+export async function createSecondDraftBlock(
+  projectId: string,
+  targetSectionId: string,
+  sourceStart: number,
+  sourceEnd: number,
+  sourceText: string,
+  targetStart?: number,
+): Promise<WriteStudioState> {
+  validateSecondDraftRange(sourceStart, sourceEnd, sourceText);
+  await requireSecondDraftSections(projectId, targetSectionId);
+  return mutateState(projectId, (state) => {
+    const pair = state.secondDraft.pairs[targetSectionId];
+    if (!pair) throw new Error("Pair this chapter with a source before starting Second Draft.");
+    const now = new Date().toISOString();
+    for (const item of state.secondDraft.blocks) {
+      if (item.targetSectionId === targetSectionId && item.status === "active") item.status = "later";
+    }
+    state.secondDraft.blocks.push({
+      id: crypto.randomUUID(),
+      targetSectionId,
+      sourceSectionId: pair.sourceSectionId,
+      sourceStart,
+      sourceEnd,
+      sourceText: sourceText.slice(0, 100000),
+      status: "active",
+      targetStart: Number.isInteger(targetStart) && (targetStart as number) >= 0 ? targetStart : undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
+    pair.updatedAt = now;
+    return state;
+  });
+}
+
+export async function updateSecondDraftBlock(
+  projectId: string,
+  blockId: string,
+  patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number },
+): Promise<WriteStudioState> {
+  return mutateState(projectId, (state) => {
+    const block = state.secondDraft.blocks.find((item) => item.id === blockId);
+    if (!block) throw new Error("Second Draft source block not found.");
+    if (patch.status !== undefined) {
+      const allowed: SecondDraftBlockStatus[] = ["active", "rewritten", "cut", "later", "keep", "sent"];
+      if (!allowed.includes(patch.status)) throw new Error("Invalid Second Draft block status.");
+      block.status = patch.status;
+    }
+    if (patch.targetStart !== undefined) {
+      if (!Number.isInteger(patch.targetStart) || patch.targetStart < 0) throw new Error("Invalid Second Draft target start.");
+      block.targetStart = patch.targetStart;
+    }
+    if (patch.targetEnd !== undefined) {
+      if (!Number.isInteger(patch.targetEnd) || patch.targetEnd < 0) throw new Error("Invalid Second Draft target end.");
+      block.targetEnd = patch.targetEnd;
+    }
+    block.updatedAt = new Date().toISOString();
+    const pair = state.secondDraft.pairs[block.targetSectionId];
+    if (pair) pair.updatedAt = block.updatedAt;
+    return state;
+  });
+}
+
+export async function sendSecondDraftAhead(
+  projectId: string,
+  fromTargetSectionId: string,
+  toTargetSectionId: string,
+  sourceStart: number,
+  sourceEnd: number,
+  sourceText: string,
+): Promise<WriteStudioState> {
+  validateSecondDraftRange(sourceStart, sourceEnd, sourceText);
+  await requireSecondDraftSections(projectId, fromTargetSectionId);
+  await requireSecondDraftSections(projectId, toTargetSectionId);
+  if (fromTargetSectionId === toTargetSectionId) throw new Error("Choose a different destination chapter.");
+  return mutateState(projectId, (state) => {
+    const pair = state.secondDraft.pairs[fromTargetSectionId];
+    if (!pair) throw new Error("Pair this chapter with a source before sending material ahead.");
+    const now = new Date().toISOString();
+    state.secondDraft.blocks.push({
+      id: crypto.randomUUID(),
+      targetSectionId: fromTargetSectionId,
+      sourceSectionId: pair.sourceSectionId,
+      sourceStart,
+      sourceEnd,
+      sourceText: sourceText.slice(0, 100000),
+      status: "sent",
+      createdAt: now,
+      updatedAt: now,
+    });
+    state.secondDraft.carryovers.push({
+      id: crypto.randomUUID(),
+      fromTargetSectionId,
+      sourceSectionId: pair.sourceSectionId,
+      toTargetSectionId,
+      sourceStart,
+      sourceEnd,
+      sourceText: sourceText.slice(0, 100000),
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    });
+    pair.updatedAt = now;
+    return state;
+  });
+}
+
+export async function updateSecondDraftCarryover(
+  projectId: string,
+  carryoverId: string,
+  status: SecondDraftCarryStatus,
+): Promise<WriteStudioState> {
+  if (!["pending", "used", "dismissed"].includes(status)) throw new Error("Invalid Send Ahead status.");
+  return mutateState(projectId, (state) => {
+    const item = state.secondDraft.carryovers.find((entry) => entry.id === carryoverId);
+    if (!item) throw new Error("Send Ahead item not found.");
+    item.status = status;
+    item.updatedAt = new Date().toISOString();
+    return state;
+  });
+}
+
+export async function sealSecondDraftChapter(
+  projectId: string,
+  targetSectionId: string,
+  markdown: string,
+): Promise<{ state: WriteStudioState; reveal: {
+  sourceWords: number;
+  targetWords: number;
+  rewritten: number;
+  cut: number;
+  kept: number;
+  sentAhead: number;
+  processedPercent: number;
+} }> {
+  await requireSecondDraftSections(projectId, targetSectionId);
+  const { book } = await loadProject(projectId);
+  return mutateState(projectId, async (state) => {
+    const pair = state.secondDraft.pairs[targetSectionId];
+    if (!pair) throw new Error("Pair this chapter with a source before sealing Second Draft.");
+    const source = book.sections.find((section) => section.id === pair.sourceSectionId);
+    if (!source) throw new Error("Second Draft source section not found.");
+    const related = state.secondDraft.blocks.filter((item) => item.targetSectionId === targetSectionId);
+    if (related.some((item) => item.status === "active" || item.status === "later")) {
+      throw new Error("Finish or resolve the remaining active/later Second Draft blocks before sealing.");
+    }
+    const revision = await appendRevision(projectId, state, targetSectionId, markdown, "snapshot", "Second Draft seal");
+    pair.sealedAt = new Date().toISOString();
+    pair.sealRevisionId = revision.id;
+    pair.updatedAt = pair.sealedAt;
+    const processedPercent = Math.round(secondDraftCoverage(pair, related) * 100);
+    return {
+      state,
+      reveal: {
+        sourceWords: wordCount(source.markdown),
+        targetWords: wordCount(markdown),
+        rewritten: related.filter((item) => item.status === "rewritten").length,
+        cut: related.filter((item) => item.status === "cut").length,
+        kept: related.filter((item) => item.status === "keep").length,
+        sentAhead: related.filter((item) => item.status === "sent").length,
+        processedPercent,
+      },
+    };
   });
 }
 
