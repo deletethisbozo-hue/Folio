@@ -184,11 +184,10 @@ export default function WritingProgressHalo(props: Props) {
     state.moved = true;
     setDragging(true);
     event.preventDefault();
-    const halo = event.currentTarget.closest<HTMLElement>(".writing-progress-halo");
     setHaloPosition(clampHaloPosition({
       x: state.startX + dx,
       y: state.startY + dy,
-    }, haloSize, halo));
+    }, haloSize));
   }
 
   function stopDrag(event: ReactPointerEvent<HTMLButtonElement>) {
