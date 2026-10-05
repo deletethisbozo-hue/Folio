@@ -162,10 +162,14 @@ try {
   );
   if (!sentHighlight) throw new Error("Send Ahead did not mark its source as processed");
 
-  const beforeScroll = await page.$eval(".second-draft-source-paper", (el) => (el as HTMLElement).scrollTop);
-  await page.$eval(".editor-paper", (el) => { (el as HTMLElement).scrollTop = Math.max(1, (el as HTMLElement).scrollHeight * .45); el.dispatchEvent(new Event("scroll")); });
+  const beforeScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .45);
+    editor.dispatchEvent(new Event("scroll"));
+  });
   await settle(180);
-  const afterScroll = await page.$eval(".second-draft-source-paper", (el) => (el as HTMLElement).scrollTop);
+  const afterScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}`);
 
   await page.screenshot({ path: path.join(qa, "02-second-draft-burn-memory-send.png") });

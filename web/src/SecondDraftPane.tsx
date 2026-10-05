@@ -149,15 +149,13 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   useEffect(() => {
     if (!pair || sourceChanged) return;
-    const sourcePaper = sourcePaperRef.current;
     const sourceEditor = sourceEditorRef.current;
-    const targetPaper = document.querySelector<HTMLElement>(".editor-paper");
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
-    if (!sourcePaper || !sourceEditor || !targetPaper || !targetEditor) return;
+    if (!sourceEditor || !targetEditor) return;
 
     const buildAnchors = () => {
-      const targetMax = Math.max(0, targetPaper.scrollHeight - targetPaper.clientHeight);
-      const sourceMax = Math.max(0, sourcePaper.scrollHeight - sourcePaper.clientHeight);
+      const targetMax = Math.max(0, targetEditor.scrollHeight - targetEditor.clientHeight);
+      const sourceMax = Math.max(0, sourceEditor.scrollHeight - sourceEditor.clientHeight);
       const anchors: Array<{ target: number; source: number }> = [{ target: 0, source: 0 }];
       for (const block of relevantBlocks) {
         if ((block.status !== "rewritten" && block.status !== "keep") || block.targetStart === undefined) continue;
@@ -166,11 +164,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         if (!targetRange || !sourceRange) continue;
         const targetRect = targetRange.getBoundingClientRect();
         const sourceRect = sourceRange.getBoundingClientRect();
-        const targetPaperRect = targetPaper.getBoundingClientRect();
-        const sourcePaperRect = sourcePaper.getBoundingClientRect();
+        const targetRectHost = targetEditor.getBoundingClientRect();
+        const sourceRectHost = sourceEditor.getBoundingClientRect();
         anchors.push({
-          target: Math.max(0, targetRect.top - targetPaperRect.top + targetPaper.scrollTop),
-          source: Math.max(0, sourceRect.top - sourcePaperRect.top + sourcePaper.scrollTop),
+          target: Math.max(0, targetRect.top - targetRectHost.top + targetEditor.scrollTop),
+          source: Math.max(0, sourceRect.top - sourceRectHost.top + sourceEditor.scrollTop),
         });
       }
       anchors.push({ target: targetMax, source: sourceMax });
@@ -180,23 +178,23 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const syncFromTarget = () => {
       if (scrollSyncRef.current) return;
       scrollSyncRef.current = true;
-      const next = interpolatePairedScroll(targetPaper.scrollTop, buildAnchors());
-      sourcePaper.scrollTop = Math.max(0, Math.min(sourcePaper.scrollHeight - sourcePaper.clientHeight, next));
+      const next = interpolatePairedScroll(targetEditor.scrollTop, buildAnchors());
+      sourceEditor.scrollTop = Math.max(0, Math.min(sourceEditor.scrollHeight - sourceEditor.clientHeight, next));
       requestAnimationFrame(() => { scrollSyncRef.current = false; });
     };
     const syncFromSource = () => {
       if (scrollSyncRef.current) return;
       scrollSyncRef.current = true;
       const inverse = buildAnchors().map((item) => ({ target: item.source, source: item.target }));
-      const next = interpolatePairedScroll(sourcePaper.scrollTop, inverse);
-      targetPaper.scrollTop = Math.max(0, Math.min(targetPaper.scrollHeight - targetPaper.clientHeight, next));
+      const next = interpolatePairedScroll(sourceEditor.scrollTop, inverse);
+      targetEditor.scrollTop = Math.max(0, Math.min(targetEditor.scrollHeight - targetEditor.clientHeight, next));
       requestAnimationFrame(() => { scrollSyncRef.current = false; });
     };
-    targetPaper.addEventListener("scroll", syncFromTarget, { passive: true });
-    sourcePaper.addEventListener("scroll", syncFromSource, { passive: true });
+    targetEditor.addEventListener("scroll", syncFromTarget, { passive: true });
+    sourceEditor.addEventListener("scroll", syncFromSource, { passive: true });
     return () => {
-      targetPaper.removeEventListener("scroll", syncFromTarget);
-      sourcePaper.removeEventListener("scroll", syncFromSource);
+      targetEditor.removeEventListener("scroll", syncFromTarget);
+      sourceEditor.removeEventListener("scroll", syncFromSource);
     };
   }, [pair?.sourceSectionId, relevantBlocks, sourceChanged, sourceDoc?.id]);
 
