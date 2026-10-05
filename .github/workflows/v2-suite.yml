@@ -1,6 +1,6 @@
-name: Folio 2.x qualification
+name: Folio 3.x qualification
 
-# Full branch qualification gate for the active Folio 2.x development line.
+# Full branch qualification gate for the active Folio 3.x development line.
 on:
   workflow_dispatch:
   push:
@@ -34,7 +34,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: folio-v2-${{ github.ref }}
+  group: folio-v3-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
