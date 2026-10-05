@@ -162,15 +162,29 @@ try {
   );
   if (!sentHighlight) throw new Error("Send Ahead did not mark its source as processed");
 
+  const scrollGeometry = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor");
+    const source = document.querySelector<HTMLElement>(".second-draft-source");
+    if (!target || !source) throw new Error("Second Draft editors missing for paired-scroll QA");
+    target.style.setProperty("height", "180px", "important");
+    source.style.setProperty("height", "180px", "important");
+    return {
+      targetMax: target.scrollHeight - target.clientHeight,
+      sourceMax: source.scrollHeight - source.clientHeight,
+    };
+  });
+  if (scrollGeometry.targetMax <= 0 || scrollGeometry.sourceMax <= 0) {
+    throw new Error("Paired Scroll QA could not create scrollable editors: " + JSON.stringify(scrollGeometry));
+  }
   const beforeScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   await page.$eval(".manuscript-editor", (el) => {
     const editor = el as HTMLElement;
     editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .45);
     editor.dispatchEvent(new Event("scroll"));
   });
-  await settle(180);
+  await settle(220);
   const afterScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
-  if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}`);
+  if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}; ${JSON.stringify(scrollGeometry)}`);
 
   await page.screenshot({ path: path.join(qa, "02-second-draft-burn-memory-send.png") });
 
