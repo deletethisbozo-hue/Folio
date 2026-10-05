@@ -420,7 +420,7 @@ export async function setSecondDraftPair(
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
-    if (existing && existing.sourceSectionId !== sourceSectionId) {
+    if (existing && (existing.sourceSectionId !== sourceSectionId || existing.sourceFingerprint !== sourceFingerprint)) {
       state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
     }
     return state;

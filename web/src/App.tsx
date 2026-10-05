@@ -18,6 +18,7 @@ import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import { playTypewriterPreview, playTypewriterSound, preloadTypewriterSounds, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import WritingSplitPane from "./WritingSplitPane";
+import SecondDraftPane from "./SecondDraftPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
 import WritingProgressHalo from "./WritingProgressHalo";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
@@ -48,7 +49,7 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "focus" | "typewriter" | "sidebar" | "previous" | "next" | "tools" | "moon" | "sun";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "draft" | "focus" | "typewriter" | "sidebar" | "previous" | "next" | "tools" | "moon" | "sun";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
@@ -61,6 +62,7 @@ function UiIcon({ name }: { name: UiIconName }) {
     redo: <><path d="m15 7 5 5-5 5"/><path d="M19 12h-8a6 6 0 0 0-6 6"/></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></>,
     split: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M12 5v14"/></>,
+    draft: <><path d="M5 4.5h9.5a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2z"/><path d="M9 8h5M9 11.5h5M9 15h3"/><path d="m16 10 3-3m0 0v2.8M19 7h-2.8"/></>,
     focus: <><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/></>,
     typewriter: <><path d="M5 6h14M12 6v11M8 17h8"/><path d="M4 12h3M17 12h3"/></>,
     sidebar: <><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M8.5 5v14"/></>,
@@ -216,6 +218,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return stored === "light" || stored === "dark" ? stored : "auto";
   });
   const [splitView, setSplitView] = useState(false);
+  const [secondDraftView, setSecondDraftView] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
@@ -1298,6 +1301,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (next === "format" && splitView) {
       if (!(await flushSplitEditor())) return;
       setSplitView(false);
+      setSecondDraftView(false);
     }
     if (next === "format" && focusMode) setFocusMode(false);
     if (next === "format") { setWriteSidebarOpen(true); setWriteStudioOpen(false); }
@@ -1306,11 +1310,29 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   async function toggleSplitView() {
+    if (secondDraftView) {
+      setSecondDraftView(false);
+      setProgressSectionId(selectedId);
+      return;
+    }
     if (splitView) {
       if (await flushSplitEditor()) setSplitView(false);
       return;
     }
     setSplitView(true);
+  }
+
+  async function toggleSecondDraftView() {
+    if (secondDraftView) {
+      setSecondDraftView(false);
+      setSplitView(false);
+      setProgressSectionId(selectedId);
+      return;
+    }
+    if (splitView && !(await flushSplitEditor())) return;
+    setSecondDraftView(true);
+    setSplitView(true);
+    setProgressSectionId(selectedId);
   }
 
   function openWriteStudio(tab: WriteStudioTab = "session") {
@@ -2343,34 +2365,52 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
               onClick={closeSearch}
             >×</button>
           </div> : <button className="search-pill" title="Find (Ctrl+F)" aria-label="Find" disabled={searchCloseCooldown} onClick={openSearch}><UiIcon name="search"/></button>}
-          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className="editor-surface-toggle" aria-label={effectiveEditorSurface === "light" ? "Use dark editor background" : "Use light editor background"} title={effectiveEditorSurface === "light" ? "Dark editor background" : "Light editor background"} onMouseDown={(event) => event.preventDefault()} onClick={() => setEditorSurface(effectiveEditorSurface === "light" ? "dark" : "light")}><UiIcon name={effectiveEditorSurface === "light" ? "moon" : "sun"}/></button><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
+          {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className="editor-surface-toggle" aria-label={effectiveEditorSurface === "light" ? "Use dark editor background" : "Use light editor background"} title={effectiveEditorSurface === "light" ? "Dark editor background" : "Light editor background"} onMouseDown={(event) => event.preventDefault()} onClick={() => setEditorSurface(effectiveEditorSurface === "light" ? "dark" : "light")}><UiIcon name={effectiveEditorSurface === "light" ? "moon" : "sun"}/></button><button type="button" className={`editor-split-toggle ${splitView && !secondDraftView ? "active" : ""}`} aria-pressed={splitView && !secondDraftView} aria-label={splitView && !secondDraftView ? "Close split editor" : "Split editor"} title={splitView && !secondDraftView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-second-draft-toggle ${secondDraftView ? "active" : ""}`} aria-pressed={secondDraftView} aria-label={secondDraftView ? "Close Second Draft" : "Second Draft"} title={secondDraftView ? "Close Second Draft" : "Second Draft"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSecondDraftView()}><UiIcon name="draft"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
         <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-section-id={selectedId ?? ""} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { if (selectedId) setProgressSectionId(selectedId); editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (selectedId) setProgressSectionId(selectedId); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
 
       </section>
 
-      {splitView && <WritingSplitPane
-        key={project.projectId + ":" + splitContentRevision}
-        project={project}
-        primarySectionId={selectedId}
-        ornament={writingOrnament}
-        typewriterMode={typewriterMode}
-        typewriterSoundEnabled={typewriterSoundEnabled}
-        typewriterSoundStyle={typewriterSoundStyle}
-        typewriterSoundVolume={typewriterSoundVolume}
-        spellcheckEnabled={spellcheckEnabled}
-        writeZoom={writeZoom}
-        onClose={() => { setSplitView(false); setProgressSectionId(selectedId); }}
-        onError={(message) => setError(message)}
-        onWordDelta={(delta) => setSessionStats((current) => delta > 0
-          ? { ...current, gross: current.gross + delta }
-          : { ...current, deleted: current.deleted + Math.abs(delta) })}
-        onLiveWordCount={(sectionId, count) => setLiveSectionWordCounts((current) => current[sectionId] === count ? current : { ...current, [sectionId]: count })}
-        onActivateSection={(sectionId) => setProgressSectionId(sectionId)}
-        onWritingActivity={noteWritingActivity}
-        onContentChanged={() => setSplitEditRevision((value) => value + 1)}
-        onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
-      />}
+      {splitView && (secondDraftView
+        ? selectedId && selectedId !== COVER_ID && <SecondDraftPane
+            key={project.projectId + ":second-draft:" + selectedId}
+            project={project}
+            targetSectionId={selectedId}
+            ornament={writingOrnament}
+            writeZoom={writeZoom}
+            state={writeStudioState}
+            onState={setWriteStudioState}
+            onClose={() => { setSecondDraftView(false); setSplitView(false); setProgressSectionId(selectedId); }}
+            onError={(message) => setError(message)}
+            onSaveTarget={saveCurrent}
+            onGetTargetMarkdown={currentMarkdownForStudio}
+            onRevealTarget={() => {
+              setProgressSectionId(selectedId);
+              requestAnimationFrame(() => editorRef.current?.focus());
+            }}
+          />
+        : <WritingSplitPane
+            key={project.projectId + ":" + splitContentRevision}
+            project={project}
+            primarySectionId={selectedId}
+            ornament={writingOrnament}
+            typewriterMode={typewriterMode}
+            typewriterSoundEnabled={typewriterSoundEnabled}
+            typewriterSoundStyle={typewriterSoundStyle}
+            typewriterSoundVolume={typewriterSoundVolume}
+            spellcheckEnabled={spellcheckEnabled}
+            writeZoom={writeZoom}
+            onClose={() => { setSplitView(false); setProgressSectionId(selectedId); }}
+            onError={(message) => setError(message)}
+            onWordDelta={(delta) => setSessionStats((current) => delta > 0
+              ? { ...current, gross: current.gross + delta }
+              : { ...current, deleted: current.deleted + Math.abs(delta) })}
+            onLiveWordCount={(sectionId, count) => setLiveSectionWordCounts((current) => current[sectionId] === count ? current : { ...current, [sectionId]: count })}
+            onActivateSection={(sectionId) => setProgressSectionId(sectionId)}
+            onWritingActivity={noteWritingActivity}
+            onContentChanged={() => setSplitEditRevision((value) => value + 1)}
+            onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
+          />)}
 
       {workspaceMode === "write" && progressHaloEnabled && !coverSelected && document?.editable && <WritingProgressHalo
         totalWords={totalWords}
@@ -2419,7 +2459,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       />}
 
       {workspaceMode === "write" && focusMode && <div className="focus-layout-controls" role="toolbar" aria-label="Focus layout controls">
-        {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button>}
+        {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onMouseDown={(event) => event.preventDefault()} onClick={() => { if (secondDraftView) void toggleSecondDraftView(); else void toggleSplitView(); }}><UiIcon name="split"/></button>}
         <button type="button" className={`focus-typewriter ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button>
         <button type="button" className="focus-exit" aria-label="Exit focus mode" title="Exit focus mode (Esc)" onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode(false)}><UiIcon name="focus"/></button>
       </div>}
