@@ -79,8 +79,8 @@ check(
   audioSource.includes('"/audio/typewriter/soft-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/mechanical-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/space-keys.mp3"') &&
-  audioSource.includes('"/audio/typewriter/backspace-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/carriage-return.mp3"') &&
+  !audioSource.includes('SAMPLE_ASSETS.backspace') &&
   audioSource.includes("decodeAudioData") &&
   audioSource.includes("playSprite(") &&
   !audioSource.includes("IMPACT_GAIN"),
@@ -96,11 +96,12 @@ check(
 );
 
 check(
-  "Space and Backspace use their own real mechanism sample banks",
+  "Space stays dedicated while Backspace avoids the harsh 2.8.4 ratchet bank",
   audioSource.includes("bank.space") &&
-  audioSource.includes("bank.backspace") &&
-  audioSource.includes("SPECIAL_CLIP_SECONDS") &&
-  audioSource.includes('kind === "erase"'),
+  audioSource.includes("BACKSPACE_PROFILES") &&
+  audioSource.includes("bank[backspace.bank]") &&
+  audioSource.includes('kind === "erase"') &&
+  !audioSource.includes("bank.backspace"),
 );
 
 check(
@@ -126,9 +127,18 @@ check(
 );
 
 check(
-  "sound Preview plays a real multi-key sample rather than one tiny click",
+  "three presets remain audibly distinct while 100% output is substantially louder",
+  audioSource.includes('classic: { bank: "classic", gain: 1.02, rate: 1.00, highpass: 180, lowpass: 7600 }') &&
+  audioSource.includes('soft: { bank: "soft", gain: 0.98, rate: 0.90, highpass: 140, lowpass: 4100 }') &&
+  audioSource.includes('mechanical: { bank: "mechanical", gain: 1.00, rate: 1.08, highpass: 420, lowpass: 11000 }') &&
+  audioSource.includes("amplitude * 1.65") &&
+  audioSource.includes("Math.pow(normalizedVolume, 1.08)"),
+);
+
+check(
+  "sound Preview covers typing, Space, Backspace and Enter",
   audioSource.includes("playTypewriterPreview") &&
-  audioSource.includes('["F", "o", "l", "i", "o", " ", "Enter"]') &&
+  audioSource.includes('["F", "o", "l", "i", "o", " ", "Backspace", "Enter"]') &&
   appSource.includes("playTypewriterPreview(props.typewriterSoundStyle, props.typewriterSoundVolume)") &&
   appSource.includes("preloadTypewriterSounds()"),
 );

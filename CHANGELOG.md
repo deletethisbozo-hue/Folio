@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.5] - 2026-10-05
+
+### Changed
+- Raised Typewriter Sound output substantially at 100% while tightening the master compressor so the feature is clearly audible without letting isolated transients dominate.
+- Increased separation between Classic, Soft and Mechanical: Classic stays full and neutral, Soft is slower/darker, and Mechanical is faster/brighter.
+
+### Fixed
+- Replaced the harsh, over-loud dedicated Backspace ratchet playback with lower-gain, style-specific Backspace profiles derived from the clean single-onset key banks.
+- Preview now includes Backspace so letter, Space, Backspace and Enter balance can be compared directly before typing.
+
 ## [2.8.4] - 2026-10-05
 
 ### Fixed

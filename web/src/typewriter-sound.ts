@@ -15,7 +15,6 @@ type SampleBank = {
   soft: AudioBuffer;
   mechanical: AudioBuffer;
   space: AudioBuffer;
-  backspace: AudioBuffer;
   carriage: AudioBuffer;
 };
 
@@ -23,7 +22,16 @@ type StyleProfile = {
   bank: SampleStyle;
   gain: number;
   rate: number;
+  highpass: number | null;
   lowpass: number | null;
+};
+
+type BackspaceProfile = {
+  bank: SampleStyle;
+  gain: number;
+  rate: number;
+  highpass: number;
+  lowpass: number;
 };
 
 type SpaceProfile = {
@@ -38,7 +46,6 @@ const SAMPLE_ASSETS = {
   soft: "/audio/typewriter/soft-keys.mp3",
   mechanical: "/audio/typewriter/mechanical-keys.mp3",
   space: "/audio/typewriter/space-keys.mp3",
-  backspace: "/audio/typewriter/backspace-keys.mp3",
   carriage: "/audio/typewriter/carriage-return.mp3",
 } as const;
 
@@ -52,22 +59,32 @@ const SPECIAL_CLIP_SECONDS = 0.028;
 const SPECIAL_VARIANTS = 3;
 
 const STYLE_PROFILES: Record<TypewriterSoundStyle, StyleProfile> = {
-  // Classic keeps the full body of the supplied manual-typewriter recording.
-  classic: { bank: "classic", gain: 0.96, rate: 1.00, lowpass: 7600 },
-  // Soft uses the same real mechanism source, slowed and rolled off rather
-  // than replacing it with a synthetic thump.
-  soft: { bank: "soft", gain: 0.68, rate: 0.92, lowpass: 3600 },
-  // Mechanical uses the harder supplied machine recording with its own bank.
-  mechanical: { bank: "mechanical", gain: 0.92, rate: 1.035, lowpass: 9200 },
+  // Classic: full-bodied and neutral, with enough low-mid body to read as a
+  // manual typewriter without becoming boomy.
+  classic: { bank: "classic", gain: 1.02, rate: 1.00, highpass: 180, lowpass: 7600 },
+  // Soft: slower and darker on purpose, but loudness-matched closely enough
+  // that choosing Soft does not feel like turning the feature off.
+  soft: { bank: "soft", gain: 0.98, rate: 0.90, highpass: 140, lowpass: 4100 },
+  // Mechanical: faster, brighter and more percussive than Classic.
+  mechanical: { bank: "mechanical", gain: 1.00, rate: 1.08, highpass: 420, lowpass: 11000 },
+};
+
+const BACKSPACE_PROFILES: Record<TypewriterSoundStyle, BackspaceProfile> = {
+  // The old dedicated ratchet bank sounded unnaturally harsh and was louder
+  // than the actual typing. Backspace now derives from each style's clean
+  // single-onset key bank with a distinct, shorter/lower-gain profile.
+  classic: { bank: "classic", gain: 0.58, rate: 0.90, highpass: 260, lowpass: 5600 },
+  soft: { bank: "soft", gain: 0.54, rate: 0.84, highpass: 180, lowpass: 3400 },
+  mechanical: { bank: "mechanical", gain: 0.56, rate: 1.12, highpass: 620, lowpass: 9800 },
 };
 
 // 2.8.4 uses a new spacebar bank that is already high-passed during asset
 // preparation. Runtime filtering only shapes the three styles; it no longer
 // tries to rescue a bass-heavy source sample.
 const SPACE_PROFILES: Record<TypewriterSoundStyle, SpaceProfile> = {
-  classic: { gain: 0.46, rate: 1.04, highpass: 480, lowpass: 8200 },
-  soft: { gain: 0.42, rate: 1.02, highpass: 440, lowpass: 6800 },
-  mechanical: { gain: 0.45, rate: 1.06, highpass: 520, lowpass: 9600 },
+  classic: { gain: 0.54, rate: 1.04, highpass: 480, lowpass: 8200 },
+  soft: { gain: 0.52, rate: 1.02, highpass: 440, lowpass: 6800 },
+  mechanical: { gain: 0.53, rate: 1.06, highpass: 520, lowpass: 9600 },
 };
 
 let audioContext: AudioContext | null = null;
@@ -89,11 +106,11 @@ function getAudioContext(): AudioContext | null {
   masterGain.gain.value = 1;
 
   masterCompressor = audioContext.createDynamicsCompressor();
-  masterCompressor.threshold.value = -5;
-  masterCompressor.knee.value = 15;
-  masterCompressor.ratio.value = 2;
-  masterCompressor.attack.value = 0.002;
-  masterCompressor.release.value = 0.075;
+  masterCompressor.threshold.value = -8;
+  masterCompressor.knee.value = 12;
+  masterCompressor.ratio.value = 3;
+  masterCompressor.attack.value = 0.0015;
+  masterCompressor.release.value = 0.065;
 
   masterGain.connect(masterCompressor);
   masterCompressor.connect(audioContext.destination);
@@ -130,9 +147,8 @@ function ensureSampleBank(context: AudioContext): Promise<SampleBank | null> {
     loadAudioBuffer(context, SAMPLE_ASSETS.soft),
     loadAudioBuffer(context, SAMPLE_ASSETS.mechanical),
     loadAudioBuffer(context, SAMPLE_ASSETS.space),
-    loadAudioBuffer(context, SAMPLE_ASSETS.backspace),
     loadAudioBuffer(context, SAMPLE_ASSETS.carriage),
-  ]).then(([classic, soft, mechanical, space, backspace, carriage]) => ({ classic, soft, mechanical, space, backspace, carriage }))
+  ]).then(([classic, soft, mechanical, space, carriage]) => ({ classic, soft, mechanical, space, carriage }))
     .catch((error) => {
       console.warn("Folio Typewriter Sound samples unavailable; using safety fallback.", error);
       sampleBankPromise = null;
@@ -332,16 +348,18 @@ function playSampledKey(
       240,
     );
   } else if (kind === "erase") {
+    const backspace = BACKSPACE_PROFILES[style];
     playSprite(
       context,
-      bank.backspace,
+      bank[backspace.bank],
       now,
-      nextVariant(key, SPECIAL_VARIANTS),
-      profile.gain * 0.78,
-      profile.rate * variation * 0.98,
-      style === "soft" ? 4300 : 7600,
-      SPECIAL_SLOT_SECONDS,
-      SPECIAL_CLIP_SECONDS,
+      nextVariant(key, LETTER_VARIANTS),
+      backspace.gain,
+      backspace.rate * variation,
+      backspace.lowpass,
+      SPRITE_SLOT_SECONDS,
+      0.038,
+      backspace.highpass,
     );
   } else {
     playSprite(
@@ -352,6 +370,9 @@ function playSampledKey(
       profile.gain * keyGain(kind),
       profile.rate * variation,
       profile.lowpass,
+      SPRITE_SLOT_SECONDS,
+      SPRITE_CLIP_SECONDS,
+      profile.highpass,
     );
   }
 
@@ -365,8 +386,8 @@ function setVolume(context: AudioContext, volume: number): boolean {
   const normalizedVolume = Math.max(0, Math.min(100, volume)) / 100;
   if (normalizedVolume <= 0) return false;
   if (masterGain) {
-    const amplitude = Math.pow(normalizedVolume, 1.18);
-    masterGain.gain.setTargetAtTime(amplitude * 0.95, context.currentTime, 0.008);
+    const amplitude = Math.pow(normalizedVolume, 1.08);
+    masterGain.gain.setTargetAtTime(amplitude * 1.65, context.currentTime, 0.006);
   }
   return true;
 }
@@ -408,7 +429,7 @@ export async function playTypewriterPreview(
   if (!context || !setVolume(context, volume)) return;
 
   const bank = await ensureSampleBank(context);
-  const previewKeys = ["F", "o", "l", "i", "o", " ", "Enter"];
+  const previewKeys = ["F", "o", "l", "i", "o", " ", "Backspace", "Enter"];
   const start = context.currentTime + 0.018;
   previewKeys.forEach((key, index) => {
     const now = start + index * 0.086;
