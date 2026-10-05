@@ -10,3 +10,7 @@ These compact assets are processed excerpts prepared for Folio from reference so
 - The Enter bell is synthesized from measured dominant partials of the supplied `freesound_community-typewriter-bell-100087.mp3` reference.
 
 Only short processed UI samples are shipped; the original long reference recordings are not bundled.
+
+## 2.8.5 balance note
+
+The legacy `backspace-keys.mp3` asset remains in the repository for provenance but is no longer loaded at runtime. Backspace/Delete now use each preset's clean single-onset key bank with dedicated lower-gain rate/EQ profiles. This avoids the harsh ratchet character that made Backspace louder and stranger than ordinary typing in 2.8.4. At 100% the global output is intentionally much hotter, while Classic stays full/neutral, Soft slower/darker, and Mechanical faster/brighter.

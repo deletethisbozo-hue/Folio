@@ -313,6 +313,84 @@ try {
   });
   if (haloStatusCheck.gap < 7) throw new Error(`Folio Halo can overlap the status bar: ${JSON.stringify(haloStatusCheck)}`);
 
+  const haloBeforeToneSwitch = await page.evaluate(() => {
+    const halo = document.querySelector<HTMLElement>(".writing-progress-halo");
+    if (!halo) throw new Error("Folio Halo missing before tone switch");
+    const rect = halo.getBoundingClientRect();
+    return {
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      parentClass: halo.parentElement?.className ?? "",
+      storedSize: localStorage.getItem("folio-progress-halo-size"),
+      storedPosition: localStorage.getItem("folio-progress-halo-position"),
+    };
+  });
+  if (!String(haloBeforeToneSwitch.parentClass).includes("folio-shell")) {
+    throw new Error(`Folio Halo is not shell-rooted: ${JSON.stringify(haloBeforeToneSwitch)}`);
+  }
+
+  await page.click(".tone-toggle");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight");
+  await settle(140);
+  const haloAfterToneSwitch = await page.evaluate(() => {
+    const halo = document.querySelector<HTMLElement>(".writing-progress-halo");
+    if (!halo) throw new Error("Folio Halo missing after tone switch");
+    const rect = halo.getBoundingClientRect();
+    return {
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      storedSize: localStorage.getItem("folio-progress-halo-size"),
+      storedPosition: localStorage.getItem("folio-progress-halo-position"),
+    };
+  });
+  const haloGeometryDelta = Math.max(
+    Math.abs(haloBeforeToneSwitch.rect.x - haloAfterToneSwitch.rect.x),
+    Math.abs(haloBeforeToneSwitch.rect.y - haloAfterToneSwitch.rect.y),
+    Math.abs(haloBeforeToneSwitch.rect.width - haloAfterToneSwitch.rect.width),
+    Math.abs(haloBeforeToneSwitch.rect.height - haloAfterToneSwitch.rect.height),
+  );
+  if (haloGeometryDelta > 0.25
+      || haloBeforeToneSwitch.storedSize !== haloAfterToneSwitch.storedSize
+      || haloBeforeToneSwitch.storedPosition !== haloAfterToneSwitch.storedPosition) {
+    throw new Error(`Folio Halo geometry changed across Light/Midnight: ${JSON.stringify({ haloBeforeToneSwitch, haloAfterToneSwitch, haloGeometryDelta })}`);
+  }
+
+  await page.click(".editor-tools-toggle");
+  await page.waitForSelector(".write-studio-drawer");
+  await settle(100);
+  const studioLayerCheck = await page.evaluate(() => {
+    const drawer = document.querySelector<HTMLElement>(".write-studio-drawer");
+    const halo = document.querySelector<HTMLElement>(".writing-progress-halo");
+    const masthead = document.querySelector<HTMLElement>(".folio-commandbar");
+    const toolbar = document.querySelector<HTMLElement>(".format-toolbar");
+    if (!drawer || !halo || !masthead || !toolbar) return null;
+    const drawerRect = drawer.getBoundingClientRect();
+    const mastheadRect = masthead.getBoundingClientRect();
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const drawerZ = Number.parseInt(getComputedStyle(drawer).zIndex || "0", 10) || 0;
+    const haloZ = Number.parseInt(getComputedStyle(halo).zIndex || "0", 10) || 0;
+    const sampleX = Math.min(innerWidth - 8, drawerRect.left + 18);
+    const sampleY = Math.min(drawerRect.bottom - 8, Math.max(drawerRect.top + 18, toolbarRect.top + toolbarRect.height / 2));
+    const front = document.elementFromPoint(sampleX, sampleY);
+    return {
+      drawerZ,
+      haloZ,
+      drawerTop: drawerRect.top,
+      mastheadBottom: mastheadRect.bottom,
+      frontInsideDrawer: Boolean(front?.closest(".write-studio-drawer")),
+    };
+  });
+  if (!studioLayerCheck
+      || studioLayerCheck.drawerZ <= studioLayerCheck.haloZ
+      || Math.abs(studioLayerCheck.drawerTop - studioLayerCheck.mastheadBottom) > 1
+      || !studioLayerCheck.frontInsideDrawer) {
+    throw new Error(`Writing Studio stacking/geometry failed: ${JSON.stringify(studioLayerCheck)}`);
+  }
+  await page.click('.write-studio-header button[aria-label="Close writing tools"]');
+  await page.waitForFunction(() => !document.querySelector(".write-studio-drawer"));
+
+  await page.click(".tone-toggle");
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");
+  await settle(100);
+
   await page.click(".writing-progress-halo .progress-halo-orb");
   await page.waitForSelector(".progress-halo-popover");
   const progressSetup = await page.evaluate(() => {

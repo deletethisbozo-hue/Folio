@@ -71,10 +71,10 @@ check(
 );
 
 check(
-  "typewriter volume keeps a zero floor and sub-unity master gain",
+  "typewriter volume keeps a zero floor while allowing the louder 2.8.5 output ceiling",
   audioSource.includes("if (normalizedVolume <= 0) return false") &&
-  audioSource.includes("Math.pow(normalizedVolume, 1.18)") &&
-  audioSource.includes("amplitude * 0.95") &&
+  audioSource.includes("Math.pow(normalizedVolume, 1.08)") &&
+  audioSource.includes("amplitude * 1.65") &&
   !audioSource.includes("0.18 + normalizedVolume * 1.85"),
 );
 

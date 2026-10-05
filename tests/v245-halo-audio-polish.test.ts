@@ -50,12 +50,12 @@ check(
 );
 
 check(
-  "Halo drag clamp reserves space above the bottom status bar",
+  "Halo drag clamp uses viewport coordinates and reserves the bottom status bar",
   haloSource.includes('document.querySelector<HTMLElement>(".folio-statusbar")') &&
-  haloSource.includes("haloCoordinateOrigin") &&
-  haloSource.includes("bounds.top - element.offsetTop") &&
-  haloSource.includes("statusTop - size - margin - origin.y") &&
-  haloSource.includes("startY: halo.offsetTop"),
+  !haloSource.includes("haloCoordinateOrigin") &&
+  haloSource.includes("statusTop - size - margin") &&
+  haloSource.includes("startY: bounds.top") &&
+  haloSource.includes("startX: bounds.left"),
 );
 
 check(
@@ -74,13 +74,24 @@ check(
 );
 
 check(
+  "Writing Studio/Halo stability layer loads last",
+  mainSource.indexOf('import "./v246-writing-studio-halo-stability.css"') > mainSource.indexOf('import "./v245-halo-audio-polish.css"'),
+);
+
+check(
+  "Halo is rendered at shell level instead of inside editor-pane",
+  appSource.indexOf("<WritingProgressHalo") > appSource.indexOf("<WritingSplitPane") &&
+  appSource.indexOf("<WritingProgressHalo") < appSource.indexOf("<WriteStudioDrawer"),
+);
+
+check(
   "Typewriter Sound loads real local sample banks instead of synthesizing ordinary keys",
   audioSource.includes('"/audio/typewriter/classic-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/soft-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/mechanical-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/space-keys.mp3"') &&
-  audioSource.includes('"/audio/typewriter/backspace-keys.mp3"') &&
   audioSource.includes('"/audio/typewriter/carriage-return.mp3"') &&
+  !audioSource.includes('SAMPLE_ASSETS.backspace') &&
   audioSource.includes("decodeAudioData") &&
   audioSource.includes("playSprite(") &&
   !audioSource.includes("IMPACT_GAIN"),
@@ -96,11 +107,12 @@ check(
 );
 
 check(
-  "Space and Backspace use their own real mechanism sample banks",
+  "Space stays dedicated while Backspace avoids the harsh 2.8.4 ratchet bank",
   audioSource.includes("bank.space") &&
-  audioSource.includes("bank.backspace") &&
-  audioSource.includes("SPECIAL_CLIP_SECONDS") &&
-  audioSource.includes('kind === "erase"'),
+  audioSource.includes("BACKSPACE_PROFILES") &&
+  audioSource.includes("bank[backspace.bank]") &&
+  audioSource.includes('kind === "erase"') &&
+  !audioSource.includes("bank.backspace"),
 );
 
 check(
@@ -112,23 +124,33 @@ check(
   !audioSource.includes("nextVariant(key),"),
 );
 
+const spaceProfiles = audioSource.slice(
+  audioSource.indexOf("const SPACE_PROFILES"),
+  audioSource.indexOf("let audioContext"),
+);
 check(
-  "2.8.4 spacebar is short, bright and separately routed",
+  "spacebar remains short, bright and separately routed in 2.8.5",
   audioSource.includes("SPACE_SLOT_SECONDS = 0.08") &&
   audioSource.includes("SPACE_CLIP_SECONDS = 0.032") &&
-  audioSource.includes("highpass: 480") &&
-  audioSource.includes("highpass: 440") &&
-  audioSource.includes("highpass: 520") &&
-  audioSource.includes("filter.frequency.setValueAtTime(kind === \"space\" ? 2100 : 2400") &&
-  !audioSource.includes("highpass: 300") &&
-  !audioSource.includes("highpass: 260") &&
-  !audioSource.includes("highpass: 340"),
+  spaceProfiles.includes("highpass: 480") &&
+  spaceProfiles.includes("highpass: 440") &&
+  spaceProfiles.includes("highpass: 520") &&
+  audioSource.includes("filter.frequency.setValueAtTime(kind === \"space\" ? 2100 : 2400"),
 );
 
 check(
-  "sound Preview plays a real multi-key sample rather than one tiny click",
+  "three presets remain audibly distinct while 100% output is substantially louder",
+  audioSource.includes('classic: { bank: "classic", gain: 1.02, rate: 1.00, highpass: 180, lowpass: 7600 }') &&
+  audioSource.includes('soft: { bank: "soft", gain: 0.98, rate: 0.90, highpass: 140, lowpass: 4100 }') &&
+  audioSource.includes('mechanical: { bank: "mechanical", gain: 1.00, rate: 1.08, highpass: 420, lowpass: 11000 }') &&
+  audioSource.includes("amplitude * 1.65") &&
+  audioSource.includes("Math.pow(normalizedVolume, 1.08)"),
+);
+
+check(
+  "sound Preview covers typing, Space, Backspace and Enter",
   audioSource.includes("playTypewriterPreview") &&
-  audioSource.includes('["F", "o", "l", "i", "o", " ", "Enter"]') &&
+  audioSource.includes('["F", "o", "l", "i", "o", " ", "Backspace", "Enter"]') &&
   appSource.includes("playTypewriterPreview(props.typewriterSoundStyle, props.typewriterSoundVolume)") &&
   appSource.includes("preloadTypewriterSounds()"),
 );

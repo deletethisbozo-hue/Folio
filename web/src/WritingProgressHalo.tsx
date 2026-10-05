@@ -40,26 +40,16 @@ function readHaloPosition(): HaloPosition | null {
   }
 }
 
-function haloCoordinateOrigin(element: HTMLElement | null): HaloPosition {
-  if (!element) return { x: 0, y: 0 };
-  const bounds = element.getBoundingClientRect();
-  return {
-    x: bounds.left - element.offsetLeft,
-    y: bounds.top - element.offsetTop,
-  };
-}
-
-function clampHaloPosition(position: HaloPosition, size: number, element: HTMLElement | null = null): HaloPosition {
+function clampHaloPosition(position: HaloPosition, size: number): HaloPosition {
   const margin = 8;
-  const origin = haloCoordinateOrigin(element);
   const statusBar = document.querySelector<HTMLElement>(".folio-statusbar");
   const statusTop = statusBar && getComputedStyle(statusBar).display !== "none"
     ? statusBar.getBoundingClientRect().top
     : window.innerHeight;
-  const minX = margin - origin.x;
-  const minY = margin - origin.y;
-  const maxX = window.innerWidth - size - margin - origin.x;
-  const maxY = statusTop - size - margin - origin.y;
+  const minX = margin;
+  const minY = margin;
+  const maxX = window.innerWidth - size - margin;
+  const maxY = statusTop - size - margin;
   return {
     x: Math.max(minX, Math.min(Math.max(minX, maxX), position.x)),
     y: Math.max(minY, Math.min(Math.max(minY, maxY), position.y)),
@@ -128,7 +118,7 @@ export default function WritingProgressHalo(props: Props) {
   }, [haloPosition]);
 
   useEffect(() => {
-    const clampToViewport = () => setHaloPosition((current) => current ? clampHaloPosition(current, haloSize, haloRef.current) : current);
+    const clampToViewport = () => setHaloPosition((current) => current ? clampHaloPosition(current, haloSize) : current);
     clampToViewport();
     window.addEventListener("resize", clampToViewport);
     return () => window.removeEventListener("resize", clampToViewport);
@@ -173,12 +163,13 @@ export default function WritingProgressHalo(props: Props) {
     if (event.button !== 0) return;
     const halo = event.currentTarget.closest<HTMLElement>(".writing-progress-halo");
     if (!halo) return;
+    const bounds = halo.getBoundingClientRect();
     dragRef.current = {
       pointerId: event.pointerId,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      startX: halo.offsetLeft,
-      startY: halo.offsetTop,
+      startX: bounds.left,
+      startY: bounds.top,
       moved: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -193,11 +184,10 @@ export default function WritingProgressHalo(props: Props) {
     state.moved = true;
     setDragging(true);
     event.preventDefault();
-    const halo = event.currentTarget.closest<HTMLElement>(".writing-progress-halo");
     setHaloPosition(clampHaloPosition({
       x: state.startX + dx,
       y: state.startY + dy,
-    }, haloSize, halo));
+    }, haloSize));
   }
 
   function stopDrag(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -228,9 +218,9 @@ export default function WritingProgressHalo(props: Props) {
     const bounds = halo.getBoundingClientRect();
     const clientCenterX = bounds.left + bounds.width / 2;
     const clientCenterY = bounds.top + bounds.height / 2;
-    const localCenterX = halo.offsetLeft + bounds.width / 2;
-    const localCenterY = halo.offsetTop + bounds.height / 2;
-    setHaloPosition(clampHaloPosition({ x: halo.offsetLeft, y: halo.offsetTop }, haloSize, halo));
+    const localCenterX = bounds.left + bounds.width / 2;
+    const localCenterY = bounds.top + bounds.height / 2;
+    setHaloPosition(clampHaloPosition({ x: bounds.left, y: bounds.top }, haloSize));
     resizeRef.current = {
       clientCenterX,
       clientCenterY,
@@ -252,7 +242,7 @@ export default function WritingProgressHalo(props: Props) {
     setHaloPosition(clampHaloPosition({
       x: state.localCenterX - nextSize / 2,
       y: state.localCenterY - nextSize / 2,
-    }, nextSize, halo));
+    }, nextSize));
   }
 
   function stopResize(event: ReactPointerEvent<SVGCircleElement>) {
