@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.4] - 2026-10-05
+
+### Fixed
+- Rebuilt Classic/Soft and Mechanical letter banks from isolated single-onset typebar strikes and expanded ordinary character playback from three to six variants, eliminating the spacebar-like thump that could appear on random letters.
+- Rebuilt the Space bank from three short single-onset mechanism clicks, high-passed the asset itself, shortened playback, and brightened per-style filtering so Space remains distinct without the low, unnatural thud still audible in 2.8.3.
+
 ## [2.8.3] - 2026-10-05
 
 ### Fixed

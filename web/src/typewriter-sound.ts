@@ -42,10 +42,14 @@ const SAMPLE_ASSETS = {
   carriage: "/audio/typewriter/carriage-return.mp3",
 } as const;
 
-const SPRITE_SLOT_SECONDS = 0.18;
-const SPRITE_CLIP_SECONDS = 0.145;
+const SPRITE_SLOT_SECONDS = 0.09;
+const SPRITE_CLIP_SECONDS = 0.055;
+const LETTER_VARIANTS = 6;
+const SPACE_SLOT_SECONDS = 0.08;
+const SPACE_CLIP_SECONDS = 0.032;
 const SPECIAL_SLOT_SECONDS = 0.12;
 const SPECIAL_CLIP_SECONDS = 0.028;
+const SPECIAL_VARIANTS = 3;
 
 const STYLE_PROFILES: Record<TypewriterSoundStyle, StyleProfile> = {
   // Classic keeps the full body of the supplied manual-typewriter recording.
@@ -57,14 +61,13 @@ const STYLE_PROFILES: Record<TypewriterSoundStyle, StyleProfile> = {
   mechanical: { bank: "mechanical", gain: 0.92, rate: 1.035, lowpass: 9200 },
 };
 
-// The raw spacebar sample has more cabinet/body resonance than the letter
-// impacts. 2.8.2 slowed and low-passed it, exaggerating that resonance into
-// an unnatural bassy "thunk". Keep it distinct, but remove the boom and play
-// the mechanism slightly faster so it reads as a short spacebar action.
+// 2.8.4 uses a new spacebar bank that is already high-passed during asset
+// preparation. Runtime filtering only shapes the three styles; it no longer
+// tries to rescue a bass-heavy source sample.
 const SPACE_PROFILES: Record<TypewriterSoundStyle, SpaceProfile> = {
-  classic: { gain: 0.52, rate: 1.08, highpass: 300, lowpass: 7000 },
-  soft: { gain: 0.50, rate: 1.06, highpass: 260, lowpass: 5600 },
-  mechanical: { gain: 0.50, rate: 1.10, highpass: 340, lowpass: 8200 },
+  classic: { gain: 0.46, rate: 1.04, highpass: 480, lowpass: 8200 },
+  soft: { gain: 0.42, rate: 1.02, highpass: 440, lowpass: 6800 },
+  mechanical: { gain: 0.45, rate: 1.06, highpass: 520, lowpass: 9600 },
 };
 
 let audioContext: AudioContext | null = null;
@@ -163,9 +166,9 @@ function keyVariation(key: string): number {
   return 1 + stable + human;
 }
 
-function nextVariant(key: string): number {
+function nextVariant(key: string, count: number): number {
   variantCursor = (variantCursor + 1) % 97;
-  return (keyHash(key) + variantCursor) % 3;
+  return (keyHash(key) + variantCursor) % count;
 }
 
 function keyGain(kind: KeyKind): number {
@@ -280,7 +283,7 @@ function playFallbackClick(context: AudioContext, now: number, kind: KeyKind): v
   const gain = context.createGain();
   source.buffer = fallbackNoiseBuffer(context);
   filter.type = "bandpass";
-  filter.frequency.setValueAtTime(kind === "space" ? 1350 : 2400, now);
+  filter.frequency.setValueAtTime(kind === "space" ? 2100 : 2400, now);
   filter.Q.setValueAtTime(0.75, now);
   gain.gain.setValueAtTime(kind === "space" ? 0.10 : 0.18, now);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.028);
@@ -307,12 +310,12 @@ function playSampledKey(
       context,
       bank.space,
       now,
-      nextVariant(key),
+      nextVariant(key, SPECIAL_VARIANTS),
       profile.gain * space.gain,
       space.rate * variation,
       space.lowpass,
-      SPECIAL_SLOT_SECONDS,
-      SPECIAL_CLIP_SECONDS,
+      SPACE_SLOT_SECONDS,
+      SPACE_CLIP_SECONDS,
       space.highpass,
     );
   } else if (kind === "tab") {
@@ -320,7 +323,7 @@ function playSampledKey(
       context,
       bank.space,
       now,
-      nextVariant(key),
+      nextVariant(key, SPECIAL_VARIANTS),
       profile.gain * 0.50,
       1.03 * variation,
       style === "soft" ? 5200 : 6800,
@@ -333,7 +336,7 @@ function playSampledKey(
       context,
       bank.backspace,
       now,
-      nextVariant(key),
+      nextVariant(key, SPECIAL_VARIANTS),
       profile.gain * 0.78,
       profile.rate * variation * 0.98,
       style === "soft" ? 4300 : 7600,
@@ -345,7 +348,7 @@ function playSampledKey(
       context,
       bank[profile.bank],
       now,
-      nextVariant(key),
+      nextVariant(key, LETTER_VARIANTS),
       profile.gain * keyGain(kind),
       profile.rate * variation,
       profile.lowpass,
