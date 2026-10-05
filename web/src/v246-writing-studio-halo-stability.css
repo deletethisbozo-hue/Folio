@@ -1,0 +1,31 @@
+/* Folio 2.8.5 Writing Studio / Halo stacking and geometry contract.
+ * Writing Studio owns the right overlay layer. Halo is viewport-rooted and
+ * must not inherit editor-pane material geometry when the UI tone changes.
+ */
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .write-studio-drawer {
+  top: var(--folio-masthead-height, 46px) !important;
+  bottom: 20px !important;
+  z-index: 2800 !important;
+  isolation: isolate;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .writing-progress-halo {
+  position: fixed !important;
+  z-index: 1400 !important;
+}
+
+.folio-shell[data-ui-tone][data-workspace-mode="write"] .writing-progress-halo.open {
+  z-index: 1500 !important;
+}
+
+/* The drawer must beat editor/title/tool chrome, including the elevated word
+ * count picker. Dialogs still beat the drawer. */
+.folio-shell[data-ui-tone] .dialog-overlay,
+.folio-shell[data-ui-tone] .style-overlay {
+  z-index: 4000 !important;
+}
+
+.folio-shell[data-ui-tone] .global-error {
+  z-index: 5000 !important;
+}

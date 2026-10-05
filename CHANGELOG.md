@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Replaced the harsh, over-loud dedicated Backspace ratchet playback with lower-gain, style-specific Backspace profiles derived from the clean single-onset key banks.
 - Preview now includes Backspace so letter, Space, Backspace and Enter balance can be compared directly before typing.
+- Writing Studio now owns the overlay layer above editor chrome and Folio Halo, so the top toolbar and Halo can no longer draw over the right drawer.
+- Folio Halo is now rendered at shell level and uses viewport coordinates, keeping its exact position and size unchanged when switching between Light and Midnight.
 
 ## [2.8.4] - 2026-10-05
 

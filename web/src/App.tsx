@@ -2283,7 +2283,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const effectiveEditorSurface: "light" | "dark" = editorSurface === "auto" ? (uiTone === "midnight" ? "dark" : "light") : editorSurface;
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-save-state={saveState} data-editor-surface={effectiveEditorSurface} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom), "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties}>
+    <div className="folio-shell" data-ui-tone={uiTone} data-save-state={saveState} data-editor-surface={effectiveEditorSurface} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} data-write-studio={writeStudioOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom), "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}><img src={uiTone === "midnight" ? "/brand/flyph-midnight.svg" : "/brand/flyph.svg"} alt="" aria-hidden="true"/></button>
         <nav aria-label="Application commands">
@@ -2346,18 +2346,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           {workspaceMode === "write" && <><span className="editor-layout-rule" aria-hidden="true"/><button type="button" className="editor-surface-toggle" aria-label={effectiveEditorSurface === "light" ? "Use dark editor background" : "Use light editor background"} title={effectiveEditorSurface === "light" ? "Dark editor background" : "Light editor background"} onMouseDown={(event) => event.preventDefault()} onClick={() => setEditorSurface(effectiveEditorSurface === "light" ? "dark" : "light")}><UiIcon name={effectiveEditorSurface === "light" ? "moon" : "sun"}/></button><button type="button" className={`editor-split-toggle ${splitView ? "active" : ""}`} aria-pressed={splitView} aria-label={splitView ? "Close split editor" : "Split editor"} title={splitView ? "Close split editor" : "Split editor"} onMouseDown={(event) => event.preventDefault()} onClick={() => void toggleSplitView()}><UiIcon name="split"/></button><button type="button" className={`editor-typewriter-toggle ${typewriterMode ? "active" : ""}`} aria-pressed={typewriterMode} aria-label={typewriterMode ? "Disable typewriter mode" : "Enable typewriter mode"} title={typewriterMode ? "Disable typewriter mode" : "Typewriter mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setTypewriterMode((value) => !value)}><UiIcon name="typewriter"/></button><button type="button" className={`editor-focus-toggle ${focusMode ? "active" : ""}`} aria-pressed={focusMode} aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"} onMouseDown={(event) => event.preventDefault()} onClick={() => setFocusMode((value) => { if (!value) setWriteStudioOpen(false); return !value; })}><UiIcon name="focus"/></button><button type="button" className={`editor-tools-toggle ${writeStudioOpen ? "active" : ""}`} aria-pressed={writeStudioOpen} aria-label={writeStudioOpen ? "Close writing tools" : "Open writing tools"} title="Writing Studio" onMouseDown={(event) => event.preventDefault()} onClick={() => writeStudioOpen ? setWriteStudioOpen(false) : openWriteStudio("session")}><UiIcon name="tools"/></button></>}
         </div>
         <div className="editor-paper">{coverSelected ? <CoverEditor projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} busy={busy} onCover={(file) => void uploadCover(file)}/> : <>{pastePreparing && <div className="paste-progress" role="status">Preparing pasted manuscript…</div>}{selectedId ? (document ? <div ref={editorRef} autoFocus className={`manuscript-editor rich-editor ${workspaceMode === "write" && typewriterMode ? "typewriter-active" : ""}`} style={{ "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties} contentEditable={document.editable} suppressContentEditableWarning spellCheck={spellcheckEnabled} data-section-id={selectedId ?? ""} data-placeholder="Start writing…" onPaste={editorPaste} onInput={recordEditorDom} onClick={(event) => { if (selectedId) setProgressSectionId(selectedId); editorClick(event); window.requestAnimationFrame(() => rememberEditorSelection()); }} onMouseUp={() => rememberEditorSelection()} onKeyDown={editorKeyDown} onKeyUp={() => { rememberEditorSelection(); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} onFocus={() => { if (selectedId) setProgressSectionId(selectedId); if (typewriterMode) scheduleTypewriterCaret(editorRef.current); }} aria-label={"Edit " + document.title}/> : <div className="editor-loading">Loading section…</div>) : <div className="empty-project-editor"><strong>This book has no chapters.</strong><span>Add the first chapter to start writing.</span><button className="native-button primary" onClick={() => setShowContent(true)}>Add Chapter</button></div>}{document && !document.editable && <div className="readonly-note">This page is generated from Book Details. <button onClick={() => setShowBookDetails(true)}>Edit Book Details</button></div>}</>}</div>
-        {workspaceMode === "write" && progressHaloEnabled && !coverSelected && document?.editable && <WritingProgressHalo
-          totalWords={totalWords}
-          chapterWords={progressSectionWords}
-          todayWords={Math.max(0, (writeStudioState?.dailyProgress[todayKey()] ?? 0) + (sessionNet - reportedSessionNetRef.current))}
-          selectedSectionId={progressSectionId}
-          chapterAvailable={progressSection?.kind === "chapter"}
-          targets={writeStudioState?.targets ?? null}
-          onSaveTargets={async (targets) => {
-            const updated = await api.saveWritingTargets(project.projectId, targets);
-            setWriteStudioState(updated);
-          }}
-        />}
+
       </section>
 
       {splitView && <WritingSplitPane
@@ -2381,6 +2370,19 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         onWritingActivity={noteWritingActivity}
         onContentChanged={() => setSplitEditRevision((value) => value + 1)}
         onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
+      />}
+
+      {workspaceMode === "write" && progressHaloEnabled && !coverSelected && document?.editable && <WritingProgressHalo
+        totalWords={totalWords}
+        chapterWords={progressSectionWords}
+        todayWords={Math.max(0, (writeStudioState?.dailyProgress[todayKey()] ?? 0) + (sessionNet - reportedSessionNetRef.current))}
+        selectedSectionId={progressSectionId}
+        chapterAvailable={progressSection?.kind === "chapter"}
+        targets={writeStudioState?.targets ?? null}
+        onSaveTargets={async (targets) => {
+          const updated = await api.saveWritingTargets(project.projectId, targets);
+          setWriteStudioState(updated);
+        }}
       />}
 
       {workspaceMode === "write" && <WriteStudioDrawer

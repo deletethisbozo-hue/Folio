@@ -50,12 +50,12 @@ check(
 );
 
 check(
-  "Halo drag clamp reserves space above the bottom status bar",
+  "Halo drag clamp uses viewport coordinates and reserves the bottom status bar",
   haloSource.includes('document.querySelector<HTMLElement>(".folio-statusbar")') &&
-  haloSource.includes("haloCoordinateOrigin") &&
-  haloSource.includes("bounds.top - element.offsetTop") &&
-  haloSource.includes("statusTop - size - margin - origin.y") &&
-  haloSource.includes("startY: halo.offsetTop"),
+  !haloSource.includes("haloCoordinateOrigin") &&
+  haloSource.includes("statusTop - size - margin") &&
+  haloSource.includes("startY: bounds.top") &&
+  haloSource.includes("startX: bounds.left"),
 );
 
 check(
@@ -71,6 +71,17 @@ check(
 check(
   "new Halo polish loads after release-feedback fixes",
   mainSource.indexOf('import "./v245-halo-audio-polish.css"') > mainSource.indexOf('import "./v244-release-feedback.css"'),
+);
+
+check(
+  "Writing Studio/Halo stability layer loads last",
+  mainSource.indexOf('import "./v246-writing-studio-halo-stability.css"') > mainSource.indexOf('import "./v245-halo-audio-polish.css"'),
+);
+
+check(
+  "Halo is rendered at shell level instead of inside editor-pane",
+  appSource.indexOf("<WritingProgressHalo") > appSource.indexOf("<WritingSplitPane") &&
+  appSource.indexOf("<WritingProgressHalo") < appSource.indexOf("<WriteStudioDrawer"),
 );
 
 check(
