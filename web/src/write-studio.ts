@@ -49,14 +49,72 @@ export interface RevisionSummary {
   hash: string;
 }
 
+export type SecondDraftBlockStatus = "active" | "rewritten" | "cut" | "later" | "keep" | "sent";
+export type SecondDraftCarryStatus = "pending" | "used" | "dismissed";
+
+export interface SecondDraftPair {
+  targetSectionId: string;
+  sourceSectionId: string;
+  sourceTextLength: number;
+  sourceFingerprint: string;
+  createdAt: string;
+  updatedAt: string;
+  sealedAt?: string;
+  sealRevisionId?: string;
+}
+
+export interface SecondDraftBlock {
+  id: string;
+  targetSectionId: string;
+  sourceSectionId: string;
+  sourceStart: number;
+  sourceEnd: number;
+  sourceText: string;
+  status: SecondDraftBlockStatus;
+  targetStart?: number;
+  targetEnd?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SecondDraftCarryover {
+  id: string;
+  fromTargetSectionId: string;
+  sourceSectionId: string;
+  toTargetSectionId: string;
+  sourceStart: number;
+  sourceEnd: number;
+  sourceText: string;
+  status: SecondDraftCarryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SecondDraftState {
+  pairs: Record<string, SecondDraftPair>;
+  blocks: SecondDraftBlock[];
+  carryovers: SecondDraftCarryover[];
+}
+
+export interface SecondDraftSealReveal {
+  sourceWords: number;
+  targetWords: number;
+  rewritten: number;
+  cut: number;
+  kept: number;
+  sentAhead: number;
+  processedPercent: number;
+}
+
 export interface WriteStudioState {
-  version: 1;
+  version: 2;
   targets: WritingTargets;
   dailyProgress: Record<string, number>;
   research: ResearchNote[];
   researchImages: ResearchImage[];
   comments: WritingComment[];
   revisions: RevisionSummary[];
+  secondDraft: SecondDraftState;
 }
 
 export interface RevisionPayload {

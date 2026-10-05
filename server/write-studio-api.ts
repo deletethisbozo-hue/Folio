@@ -16,7 +16,14 @@ import {
   readWritingWordCounts,
   readWriteStudio,
   restoreBookSnapshot,
+  sealSecondDraftChapter,
+  sendSecondDraftAhead,
+  setSecondDraftPair,
   setWritingTargets,
+  createSecondDraftBlock,
+  removeSecondDraftPair,
+  updateSecondDraftBlock,
+  updateSecondDraftCarryover,
   updateResearchNote,
   updateWritingComment,
 } from "./write-studio.ts";
@@ -74,6 +81,87 @@ export function registerWriteStudioApi(app: Express): void {
         session: normalize(req.body?.session),
         chapters: cleanChapters,
       }));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.put("/api/projects/:id/write-studio/second-draft/pairs/:targetSectionId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await setSecondDraftPair(
+        req.params.id,
+        req.params.targetSectionId,
+        String(req.body?.sourceSectionId ?? ""),
+        Number(req.body?.sourceTextLength ?? 0),
+        String(req.body?.sourceFingerprint ?? ""),
+      ));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.delete("/api/projects/:id/write-studio/second-draft/pairs/:targetSectionId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await removeSecondDraftPair(req.params.id, req.params.targetSectionId));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/second-draft/blocks", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await createSecondDraftBlock(
+        req.params.id,
+        String(req.body?.targetSectionId ?? ""),
+        Number(req.body?.sourceStart),
+        Number(req.body?.sourceEnd),
+        String(req.body?.sourceText ?? ""),
+        req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
+      ));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.patch("/api/projects/:id/write-studio/second-draft/blocks/:blockId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await updateSecondDraftBlock(req.params.id, req.params.blockId, {
+        status: typeof req.body?.status === "string" ? req.body.status : undefined,
+        targetStart: req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
+        targetEnd: req.body?.targetEnd === undefined ? undefined : Number(req.body.targetEnd),
+      }));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/second-draft/send-ahead", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await sendSecondDraftAhead(
+        req.params.id,
+        String(req.body?.fromTargetSectionId ?? ""),
+        String(req.body?.toTargetSectionId ?? ""),
+        Number(req.body?.sourceStart),
+        Number(req.body?.sourceEnd),
+        String(req.body?.sourceText ?? ""),
+      ));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.patch("/api/projects/:id/write-studio/second-draft/carryovers/:carryoverId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await updateSecondDraftCarryover(
+        req.params.id,
+        req.params.carryoverId,
+        String(req.body?.status ?? "pending") as "pending" | "used" | "dismissed",
+      ));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/second-draft/seal", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await sealSecondDraftChapter(
+        req.params.id,
+        String(req.body?.targetSectionId ?? ""),
+        String(req.body?.markdown ?? ""),
+      ));
     } catch (error) { sendError(res, error); }
   });
 
