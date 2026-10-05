@@ -104,15 +104,25 @@ check(
 );
 
 check(
-  "Spacebar avoids the low, bass-heavy 2.8.2 tuning",
-  audioSource.includes("SPACE_PROFILES") &&
-  audioSource.includes("highpass: 300") &&
-  audioSource.includes("highpass: 260") &&
-  audioSource.includes("highpass: 340") &&
-  audioSource.includes("rate: 1.08") &&
-  audioSource.includes("rate: 1.06") &&
-  audioSource.includes("rate: 1.10") &&
-  !audioSource.includes("profile.rate * variation * 0.96"),
+  "2.8.4 letter banks use six isolated variants and never route character keys through the space bank",
+  audioSource.includes("LETTER_VARIANTS = 6") &&
+  audioSource.includes("nextVariant(key, LETTER_VARIANTS)") &&
+  audioSource.includes("bank[profile.bank]") &&
+  audioSource.includes('if (kind === "space")') &&
+  !audioSource.includes("nextVariant(key),"),
+);
+
+check(
+  "2.8.4 spacebar is short, bright and separately routed",
+  audioSource.includes("SPACE_SLOT_SECONDS = 0.08") &&
+  audioSource.includes("SPACE_CLIP_SECONDS = 0.032") &&
+  audioSource.includes("highpass: 480") &&
+  audioSource.includes("highpass: 440") &&
+  audioSource.includes("highpass: 520") &&
+  audioSource.includes("filter.frequency.setValueAtTime(kind === \"space\" ? 2100 : 2400") &&
+  !audioSource.includes("highpass: 300") &&
+  !audioSource.includes("highpass: 260") &&
+  !audioSource.includes("highpass: 340"),
 );
 
 check(
