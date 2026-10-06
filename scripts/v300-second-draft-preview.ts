@@ -71,7 +71,7 @@ try {
   await page.click(".second-draft-pair");
   await page.waitForFunction(() => document.querySelector(".second-draft-progress")?.textContent?.includes("0%"));
   await settle();
-  await page.screenshot({ path: path.join(qa, "01-second-draft-paired.png") });
+  await page.screenshot({ path: path.join(qa, "01-second-draft-pairing.png") });
 
   async function selectSourceText(skip = 0) {
     return page.evaluate((skipIndex) => {
@@ -101,12 +101,16 @@ try {
   const firstSelection = await selectSourceText(0);
   if (!firstSelection.trim()) throw new Error("Source selection failed");
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Rewrite this")));
+  await settle();
+  await page.screenshot({ path: path.join(qa, "02-rewrite-this.png") });
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
       .find((item) => item.textContent?.includes("Rewrite this"));
     button?.click();
   });
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")));
+  await settle();
+  await page.screenshot({ path: path.join(qa, "03-rewrite-rail-active.png") });
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -132,14 +136,20 @@ try {
     activeHighlight: Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-active")),
   }));
   if (!burn.rewrittenHighlight || burn.activeHighlight) throw new Error("Source Burn did not move active source to rewritten state: " + JSON.stringify(burn));
+  await settle();
+  await page.screenshot({ path: path.join(qa, "04-source-burn.png") });
 
   await page.click(".second-draft-head-actions button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
   const blurred = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   if (blurred === "none") throw new Error("Memory Rewrite did not hide source");
+  await settle();
+  await page.screenshot({ path: path.join(qa, "05-memory-rewrite-hidden.png") });
   await page.keyboard.down("Alt");
   await page.waitForSelector(".second-draft-pane.memory-peek");
   const peekFilter = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
+  await settle();
+  await page.screenshot({ path: path.join(qa, "06-memory-rewrite-peek.png") });
   await page.keyboard.up("Alt");
   if (peekFilter !== "none") throw new Error("Hold-Alt Memory peek did not reveal source: " + peekFilter);
   await page.click(".second-draft-head-actions button[title*='Hide source']");
@@ -155,12 +165,16 @@ try {
     return option.value;
   });
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
+  await settle();
+  await page.screenshot({ path: path.join(qa, "07-send-ahead.png") });
   await page.click(".rail-send-ahead button");
   await settle(160);
   const sentHighlight = await page.evaluate(() =>
     Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
   );
   if (!sentHighlight) throw new Error("Send Ahead did not mark its source as processed");
+  await settle();
+  await page.screenshot({ path: path.join(qa, "08-send-ahead-processed.png") });
 
   const scrollGeometry = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -186,10 +200,12 @@ try {
   const afterScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}; ${JSON.stringify(scrollGeometry)}`);
 
-  await page.screenshot({ path: path.join(qa, "02-second-draft-burn-memory-send.png") });
+  await page.screenshot({ path: path.join(qa, "09-paired-scroll.png") });
 
   const sealDisabled = await page.$eval(".rail-seal", (button) => (button as HTMLButtonElement).disabled);
   if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
+  await settle();
+  await page.screenshot({ path: path.join(qa, "10-chapter-seal-ready.png") });
   await page.click(".rail-seal");
   await page.waitForSelector(".second-draft-reveal");
   const reveal = await page.evaluate(() => ({
@@ -200,7 +216,7 @@ try {
   if (reveal.title !== "Draft 2" || reveal.words.some((value) => !value) || reveal.stats[0] < 1 || reveal.stats[3] < 1) {
     throw new Error("Chapter Reveal stats failed: " + JSON.stringify(reveal));
   }
-  await page.screenshot({ path: path.join(qa, "03-chapter-reveal.png") });
+  await page.screenshot({ path: path.join(qa, "11-chapter-reveal.png") });
   await page.click(".second-draft-reveal-close");
 
   // Midnight parity while Second Draft remains open.
@@ -217,7 +233,7 @@ try {
   if (geometry.rail.left < geometry.pane.left - 1 || geometry.rail.right > geometry.source.right + 1) {
     throw new Error("Second Draft rail clips outside its pane in Midnight: " + JSON.stringify(geometry));
   }
-  await page.screenshot({ path: path.join(qa, "04-second-draft-midnight.png") });
+  await page.screenshot({ path: path.join(qa, "12-second-draft-midnight.png") });
 
   // Closing Second Draft must leave legacy Split intact and editable.
   await page.click(".second-draft-head-actions button[aria-label='Close Second Draft']");
@@ -226,7 +242,7 @@ try {
   await page.waitForSelector(".writing-split-editor[contenteditable='true']");
   const legacyEditable = await page.$eval(".writing-split-editor", (el) => el.getAttribute("contenteditable"));
   if (legacyEditable !== "true") throw new Error("Legacy Split stopped being editable after Second Draft");
-  await page.screenshot({ path: path.join(qa, "05-legacy-split-still-intact.png") });
+  await page.screenshot({ path: path.join(qa, "13-legacy-split-still-intact.png") });
 
   console.log("Folio 3.0 Second Draft browser QA passed.");
 } finally {

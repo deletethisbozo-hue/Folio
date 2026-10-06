@@ -129,7 +129,7 @@ jobs:
           }
 
       - name: Upload UI screenshots
-        if: always() && (github.ref == 'refs/heads/experiment/ulysses-liquid-glass' || github.ref == 'refs/heads/fix/midnight-2.5')
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Folio-UI-Preview
@@ -253,10 +253,11 @@ jobs:
             build/qa-v107/*
             build/qa-print-matrix/*
             build/qa-v210-writing-studio/*
+            build/qa-v300-second-draft/*.png
           if-no-files-found: error
 
       - name: Publish immutable GitHub Release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
