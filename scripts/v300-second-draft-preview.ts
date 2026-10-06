@@ -73,6 +73,30 @@ try {
   await settle();
   await page.screenshot({ path: path.join(qa, "01-second-draft-paired.png") });
 
+  // Switching the dropdown must not apply the existing pair's ranges/actions to another source.
+  const pairedSourceId = await page.$eval(".second-draft-header select", (select) => (select as HTMLSelectElement).value);
+  const alternateSourceId = await page.$eval(".second-draft-header select", (select) => {
+    const control = select as HTMLSelectElement;
+    const alternate = [...control.options].find((option) => option.value && option.value !== control.value);
+    if (!alternate) return "";
+    control.value = alternate.value;
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+    return alternate.value;
+  });
+  if (!alternateSourceId) throw new Error("Second Draft QA needs a second source chapter");
+  await page.waitForFunction(() =>
+    Boolean(document.querySelector(".second-draft-pair"))
+    && !document.querySelector(".second-draft-actionbar")
+    && !document.querySelector(".second-draft-sync-controls"),
+  );
+  await page.$eval(".second-draft-header select", (select, pairedId) => {
+    const control = select as HTMLSelectElement;
+    control.value = String(pairedId);
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+  }, pairedSourceId);
+  await page.waitForSelector(".second-draft-actionbar");
+  await page.waitForSelector(".second-draft-sync-controls");
+
   async function selectSourceText(skip = 0) {
     return page.evaluate((skipIndex) => {
       const editor = document.querySelector<HTMLElement>(".second-draft-source");
