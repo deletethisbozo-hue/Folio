@@ -94,8 +94,29 @@ export interface PairedScrollAnchor {
   source: number;
 }
 
+export function normalizePairedScrollAnchors(anchors: PairedScrollAnchor[]): PairedScrollAnchor[] {
+  const sorted = anchors
+    .filter((item) => Number.isFinite(item.target) && Number.isFinite(item.source))
+    .map((item) => ({ target: Math.max(0, item.target), source: Math.max(0, item.source) }))
+    .sort((a, b) => a.target - b.target || a.source - b.source);
+
+  const normalized: PairedScrollAnchor[] = [];
+  for (const item of sorted) {
+    const previous = normalized.at(-1);
+    if (previous && Math.abs(item.target - previous.target) < 0.5) {
+      previous.source = Math.max(previous.source, item.source);
+      continue;
+    }
+    normalized.push({
+      target: item.target,
+      source: previous ? Math.max(previous.source, item.source) : item.source,
+    });
+  }
+  return normalized;
+}
+
 export function interpolatePairedScroll(value: number, anchors: PairedScrollAnchor[]): number {
-  const sorted = [...anchors].sort((a, b) => a.target - b.target);
+  const sorted = normalizePairedScrollAnchors(anchors);
   if (!sorted.length) return value;
   if (value <= sorted[0].target) return sorted[0].source;
   for (let index = 1; index < sorted.length; index++) {
