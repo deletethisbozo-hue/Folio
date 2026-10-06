@@ -767,6 +767,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
           <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
           <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
+          <button disabled={busy} onClick={() => void undoDecision(activeBlock)}>Cancel rewrite</button>
         </> : selection && selectedExistingBlock?.status === "later" ? <>
           <button disabled={busy} className="primary" onClick={() => void resumeLater(selectedExistingBlock)}>Resume</button>
           <button disabled={busy} onClick={() => void resolveLater(selectedExistingBlock, "cut")}>Cut</button>
