@@ -378,6 +378,10 @@ function processedSecondDraftStatus(status: SecondDraftBlockStatus): boolean {
   return status === "rewritten" || status === "cut" || status === "keep" || status === "sent";
 }
 
+function secondDraftRangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
+  return startA < endB && endA > startB;
+}
+
 function secondDraftCoverage(pair: SecondDraftPair, blocks: SecondDraftBlock[]): number {
   if (pair.sourceTextLength <= 0) return 0;
   const ranges = blocks
@@ -452,6 +456,11 @@ export async function createSecondDraftBlock(
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[targetSectionId];
     if (!pair) throw new Error("Pair this chapter with a source before starting Second Draft.");
+    const overlap = state.secondDraft.blocks.find((item) =>
+      item.targetSectionId === targetSectionId
+      && secondDraftRangesOverlap(sourceStart, sourceEnd, item.sourceStart, item.sourceEnd),
+    );
+    if (overlap) throw new Error("This source selection overlaps an existing Second Draft decision. Resume or resolve that decision instead.");
     const now = new Date().toISOString();
     if (status === "active") {
       for (const item of state.secondDraft.blocks) {
@@ -521,6 +530,11 @@ export async function sendSecondDraftAhead(
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[fromTargetSectionId];
     if (!pair) throw new Error("Pair this chapter with a source before sending material ahead.");
+    const overlap = state.secondDraft.blocks.find((item) =>
+      item.targetSectionId === fromTargetSectionId
+      && secondDraftRangesOverlap(sourceStart, sourceEnd, item.sourceStart, item.sourceEnd),
+    );
+    if (overlap) throw new Error("This source selection overlaps an existing Second Draft decision. Resume or resolve that decision instead.");
     const now = new Date().toISOString();
     state.secondDraft.blocks.push({
       id: crypto.randomUUID(),
