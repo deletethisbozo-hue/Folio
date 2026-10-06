@@ -173,9 +173,17 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   useEffect(() => {
     const saved = readSecondDraftViewState(viewKey);
-    setMemoryMode(saved?.memoryMode ?? false);
-    setSyncScroll(saved?.syncScroll ?? true);
-    setManualAnchors(saved?.manualAnchors ?? []);
+    const nextMemory = saved?.memoryMode ?? false;
+    const nextSync = saved?.syncScroll ?? true;
+    const nextAnchors = saved?.manualAnchors ?? [];
+    // Mark restoration before any scroll-sync effect gets a chance to react.
+    restoringScrollRef.current = Boolean(saved);
+    memoryModeStateRef.current = nextMemory;
+    syncScrollStateRef.current = nextSync;
+    manualAnchorsStateRef.current = nextAnchors;
+    setMemoryMode(nextMemory);
+    setSyncScroll(nextSync);
+    setManualAnchors(nextAnchors);
   }, [viewKey]);
 
   useEffect(() => {
@@ -208,12 +216,20 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const sourceEditor = sourceEditorRef.current;
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     const saved = readSecondDraftViewState(viewKey);
-    if (!sourceEditor || !targetEditor || !saved) return;
+    if (!sourceEditor || !targetEditor) return;
+    if (!saved) {
+      restoringScrollRef.current = false;
+      return;
+    }
     restoringScrollRef.current = true;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       targetEditor.scrollTop = scrollTopForRatio(targetEditor, saved.targetRatio);
       sourceEditor.scrollTop = scrollTopForRatio(sourceEditor, saved.sourceRatio);
-      requestAnimationFrame(() => { restoringScrollRef.current = false; });
+      requestAnimationFrame(() => {
+        programmaticScrollRef.current.target = null;
+        programmaticScrollRef.current.source = null;
+        restoringScrollRef.current = false;
+      });
     }));
   }, [sourceDoc?.id, sourceDoc?.markdown, viewKey]);
 
@@ -363,8 +379,6 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
     targetEditor.addEventListener("scroll", syncFromTarget, { passive: true });
     sourceEditor.addEventListener("scroll", syncFromSource, { passive: true });
-
-    if (syncScroll && !restoringScrollRef.current) requestAnimationFrame(syncFromTarget);
 
     return () => {
       persistViewState();
