@@ -93,19 +93,6 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Full formatter and UI suite on Windows
-        shell: pwsh
-        run: |
-          $maxAttempts = 3
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Host "Full test suite attempt $attempt/$maxAttempts"
-            npm test
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            if ($attempt -eq $maxAttempts) { throw "Full formatter/UI suite failed after $maxAttempts attempts." }
-            Write-Warning "Transient browser-test failure; retrying the complete suite."
-            Start-Sleep -Seconds 5
-          }
-
       - name: Build web and server
         run: npm run build
 
@@ -138,6 +125,19 @@ jobs:
             build/qa-v300-second-draft/*.png
             build/qa-v107/*.png
           if-no-files-found: error
+
+      - name: Full formatter and UI suite on Windows
+        shell: pwsh
+        run: |
+          $maxAttempts = 3
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "Full test suite attempt $attempt/$maxAttempts"
+            npm test
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($attempt -eq $maxAttempts) { throw "Full formatter/UI suite failed after $maxAttempts attempts." }
+            Write-Warning "Transient browser-test failure; retrying the complete suite."
+            Start-Sleep -Seconds 5
+          }
 
       - name: Full Print PDF trim matrix with physical gap gate
         run: node --import tsx scripts/print-matrix-qa.ts
