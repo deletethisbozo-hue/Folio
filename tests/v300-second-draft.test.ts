@@ -67,6 +67,9 @@ check("Second Draft only opens for real chapter-to-chapter work",
   && app.includes('selectedSection?.kind === "chapter" && <SecondDraftPane')
   && server.includes('target.kind !== "chapter"')
   && server.includes('source.kind !== "chapter"'));
+check("background progress sync cannot replace newer Second Draft state",
+  app.includes("dailyProgress: updated.dailyProgress")
+  && app.includes("setWriteStudioState((current) => current"));
 check("Source is explicitly read only", pane.includes("contentEditable={false}") && pane.includes("Source draft · read only"));
 check("Second Draft action bar exposes the source-decision workflow",
   ["Rewrite this", "Cut", "Later", "Keep", "Seal"].every((label) => pane.includes(label))
