@@ -452,6 +452,8 @@ export async function setSecondDraftPair(
     };
     if (existing && (existing.sourceSectionId !== sourceSectionId || existing.sourceFingerprint !== sourceFingerprint)) {
       state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
+      state.secondDraft.issues = state.secondDraft.issues.filter((item) => item.targetSectionId !== targetSectionId);
+      delete state.secondDraft.reviews[targetSectionId];
     }
     return state;
   });
@@ -462,6 +464,8 @@ export async function removeSecondDraftPair(projectId: string, targetSectionId: 
   return mutateState(projectId, (state) => {
     delete state.secondDraft.pairs[targetSectionId];
     state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
+    state.secondDraft.issues = state.secondDraft.issues.filter((item) => item.targetSectionId !== targetSectionId);
+    delete state.secondDraft.reviews[targetSectionId];
     return state;
   });
 }
