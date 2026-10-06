@@ -493,8 +493,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     finally { setBusy(false); }
   }
 
+  const canSendAhead = Boolean(selection && pair && sourceMatchesPair && sendTargetId && !sourceChanged && !busy);
+
   async function sendAhead() {
-    if (!selection || !pair || !sourceMatchesPair || !sendTargetId || sourceChanged) return;
+    if (!canSendAhead || !selection || !pair) return;
     setBusy(true);
     try {
       props.onState(await api.sendSecondDraftAhead(props.project.projectId, {
@@ -635,7 +637,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
               <option value="">Send ahead…</option>
               {sendOptions.map((section) => <option key={section.id} value={section.id}>{section.title}</option>)}
             </select>
-            <button disabled={busy || !sendTargetId} title="Send selected source to the chosen chapter" onClick={() => void sendAhead()}>Send</button>
+            <button type="button" disabled={!canSendAhead} data-send-ready={canSendAhead ? "true" : "false"} title="Send selected source to the chosen chapter" onClick={() => void sendAhead()}>Send</button>
           </div>
         </> : laterBlocks.length > 0 ? <>
           <button disabled={busy} className="primary" onClick={() => void resumeLater(laterBlocks[0])}>Resume next</button>
