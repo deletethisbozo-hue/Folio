@@ -1134,6 +1134,21 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         onClick={() => void sealChapter()}>Seal</button>
     </div>}
 
+    {briefOpen && sourceMatchesPair && <aside className="second-draft-drawer second-draft-brief-drawer" aria-label="Second Draft chapter brief">
+      <div className="second-draft-drawer-head">
+        <strong>Draft brief</strong>
+        <span>Keep the rewrite pointed at one goal</span>
+        <button type="button" onClick={() => setBriefOpen(false)}>×</button>
+      </div>
+      <textarea value={briefDraft} maxLength={4000}
+        placeholder="Example: Cut exposition, make the confrontation tenser, keep Mara less certain."
+        onChange={(event) => setBriefDraft(event.target.value)} />
+      <div className="second-draft-brief-actions">
+        <small>{briefDraft.length}/4000</small>
+        <button type="button" disabled={busy || briefDraft === draftBrief} onClick={() => void saveDraftBrief()}>Save brief</button>
+      </div>
+    </aside>}
+
     {reviewPanelOpen && sourceMatchesPair && <aside className="second-draft-drawer second-draft-review-drawer" aria-label="Second Draft review passes">
       <div className="second-draft-drawer-head">
         <strong>Chapter passes</strong>
