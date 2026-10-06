@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  changedTextRange,
   interpolatePairedScroll,
   normalizePairedScrollAnchors,
   secondDraftProgress,
@@ -37,6 +38,10 @@ check("Source Burn progress merges overlapping completed ranges", Math.abs(secon
 check("Later blocks remain unresolved and do not inflate progress", secondDraftProgress(pair, blocks) < 0.4);
 check("source fingerprint is stable and content-sensitive",
   sourceFingerprint("same text") === sourceFingerprint("same text") && sourceFingerprint("same text") !== sourceFingerprint("same text!"));
+check("target rewrite range follows the actual changed text rather than UI focus",
+  JSON.stringify(changedTextRange("alpha beta gamma", "alpha bright beta gamma")) === JSON.stringify({ start: 6, end: 13 })
+  && JSON.stringify(changedTextRange("one two three", "one three")) === JSON.stringify({ start: 4, end: 4 })
+  && changedTextRange("unchanged", "unchanged") === null);
 check("paired scroll interpolates between real anchors", interpolatePairedScroll(50, [{ target: 0, source: 0 }, { target: 100, source: 240 }]) === 120);
 check("paired scroll clamps before the first and after the last anchor",
   interpolatePairedScroll(-20, [{ target: 0, source: 10 }, { target: 100, source: 200 }]) === 10
