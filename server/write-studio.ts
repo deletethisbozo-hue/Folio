@@ -456,6 +456,9 @@ export async function createSecondDraftBlock(
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[targetSectionId];
     if (!pair) throw new Error("Pair this chapter with a source before starting Second Draft.");
+    if (sourceEnd > pair.sourceTextLength || sourceText.length !== sourceEnd - sourceStart) {
+      throw new Error("Second Draft source range no longer matches the paired source.");
+    }
     const overlap = state.secondDraft.blocks.find((item) =>
       item.targetSectionId === targetSectionId
       && secondDraftRangesOverlap(sourceStart, sourceEnd, item.sourceStart, item.sourceEnd),
@@ -538,6 +541,9 @@ export async function sendSecondDraftAhead(
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[fromTargetSectionId];
     if (!pair) throw new Error("Pair this chapter with a source before sending material ahead.");
+    if (sourceEnd > pair.sourceTextLength || sourceText.length !== sourceEnd - sourceStart) {
+      throw new Error("Second Draft source range no longer matches the paired source.");
+    }
     const overlap = state.secondDraft.blocks.find((item) =>
       item.targetSectionId === fromTargetSectionId
       && secondDraftRangesOverlap(sourceStart, sourceEnd, item.sourceStart, item.sourceEnd),
