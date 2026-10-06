@@ -17,6 +17,7 @@ import type {
   SecondDraftIssue,
   SecondDraftIssueCategory,
   SecondDraftReviewPassKey,
+  SecondDraftRewriteIntent,
   SecondDraftSealReveal,
   WriteStudioState,
 } from "./write-studio";
@@ -115,6 +116,19 @@ const REVIEW_PASSES: Array<{ key: SecondDraftReviewPassKey; label: string }> = [
   { key: "facts", label: "Facts" },
 ];
 
+const REWRITE_INTENTS: Array<{ value: SecondDraftRewriteIntent; label: string }> = [
+  { value: "general", label: "General" },
+  { value: "tighten", label: "Tighten" },
+  { value: "expand", label: "Expand" },
+  { value: "clarify", label: "Clarify" },
+  { value: "voice", label: "Voice" },
+  { value: "pacing", label: "Pacing" },
+  { value: "dialogue", label: "Dialogue" },
+  { value: "emotion", label: "Emotion" },
+  { value: "continuity", label: "Continuity" },
+  { value: "description", label: "Description" },
+];
+
 function latestActive(blocks: SecondDraftBlock[], targetSectionId: string): SecondDraftBlock | null {
   return [...blocks]
     .filter((block) => block.targetSectionId === targetSectionId && block.status === "active")
@@ -167,6 +181,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [issueCategory, setIssueCategory] = useState<SecondDraftIssueCategory>("clarity");
   const [issueNote, setIssueNote] = useState("");
   const [comparison, setComparison] = useState<{ block: SecondDraftBlock; sourceText: string; targetText: string } | null>(null);
+  const [rewriteIntent, setRewriteIntent] = useState<SecondDraftRewriteIntent>("general");
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [briefDraft, setBriefDraft] = useState("");
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [sceneCount, setSceneCount] = useState(1);
   const sourceMatchesPair = Boolean(pair && pair.sourceSectionId === sourceDoc?.id);
   const laterBlocks = useMemo(
     () => relevantBlocks.filter((block) => block.status === "later").sort((a, b) => a.sourceStart - b.sourceStart),
@@ -187,6 +206,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const unresolvedIssues = useMemo(() => relevantIssues.filter((issue) => !issue.resolved), [relevantIssues]);
   const reviewPasses = props.state?.secondDraft.reviews?.[props.targetSectionId] ?? {};
   const reviewPassCount = REVIEW_PASSES.filter((item) => Boolean(reviewPasses[item.key])).length;
+  const draftBrief = props.state?.secondDraft.briefs?.[props.targetSectionId] ?? "";
   const rewrittenBlocks = useMemo(
     () => relevantBlocks
       .filter((block) => block.status === "rewritten" && block.targetStart !== undefined && block.targetEnd !== undefined)
@@ -211,6 +231,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     () => `folio.second-draft.view.v3:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
     [props.project.projectId, props.targetSectionId, sourceId],
   );
+
+  useEffect(() => {
+    if (!briefOpen) setBriefDraft(draftBrief);
+  }, [draftBrief, props.targetSectionId, briefOpen]);
 
   function persistViewState(overrides: Partial<SecondDraftViewState> = {}) {
     const sourceEditor = sourceEditorRef.current;
