@@ -23,6 +23,7 @@ import {
   createSecondDraftBlock,
   type SecondDraftBlockStatus,
   removeSecondDraftPair,
+  removeSecondDraftBlock,
   updateSecondDraftBlock,
   updateSecondDraftCarryover,
   updateResearchNote,
@@ -128,6 +129,13 @@ export function registerWriteStudioApi(app: Express): void {
         targetStart: req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
         targetEnd: req.body?.targetEnd === undefined ? undefined : Number(req.body.targetEnd),
       }));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.delete("/api/projects/:id/write-studio/second-draft/blocks/:blockId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await removeSecondDraftBlock(req.params.id, req.params.blockId));
     } catch (error) { sendError(res, error); }
   });
 
