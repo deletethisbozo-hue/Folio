@@ -21,6 +21,7 @@
 }
 
 .second-draft-pane {
+  font-family: var(--folio-ui-font);
   position: relative;
   overflow: visible !important;
   --sd-accent: var(--studio-accent, #5b5ce2);
@@ -119,7 +120,7 @@
   border-radius: 7px;
   background: transparent;
   color: inherit;
-  font: 600 10px/1 inherit;
+  font: 600 10.5px/1 var(--folio-ui-font);
   cursor: pointer;
 }
 .second-draft-sync-controls button:hover:not(:disabled) {
@@ -162,8 +163,9 @@
 }
 .second-draft-action-copy strong {
   color: var(--sd-accent);
-  font-size: 9px;
-  letter-spacing: .055em;
+  font-size: 10.5px;
+  line-height: 1.15;
+  letter-spacing: .045em;
   text-transform: uppercase;
 }
 .second-draft-action-copy span {
@@ -171,8 +173,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 10px;
-  line-height: 1.25;
+  font-size: 11px;
+  line-height: 1.3;
   opacity: .72;
 }
 .second-draft-action-buttons {
