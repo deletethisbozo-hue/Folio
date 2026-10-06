@@ -122,6 +122,7 @@ check("Later decisions have a resumable queue instead of becoming permanent bloc
 check("Second Draft decisions can be undone after rewrite",
   pane.includes("Undo rewrite")
   && pane.includes("Undo last")
+  && pane.includes("Cancel rewrite")
   && pane.includes("undoDecision")
   && server.includes("removeSecondDraftBlock"));
 check("Second Draft can jump directly to unreviewed source",
