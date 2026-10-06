@@ -142,7 +142,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   );
   const sourceEditorRef = useRef<HTMLDivElement>(null);
   const sourcePaperRef = useRef<HTMLDivElement>(null);
-  const scrollSyncRef = useRef(false);
+  const programmaticScrollRef = useRef<{ target: number | null; source: number | null }>({ target: null, source: null });
   const restoringScrollRef = useRef(false);
   const targetCaretRef = useRef<number | null>(null);
   const viewKey = useMemo(
@@ -319,28 +319,46 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     };
 
     const remember = () => persistViewState();
+    const consumeProgrammatic = (side: "target" | "source", actual: number): boolean => {
+      const expected = programmaticScrollRef.current[side];
+      if (expected === null) return false;
+      programmaticScrollRef.current[side] = null;
+      return Math.abs(actual - expected) <= 1;
+    };
     const syncFromTarget = () => {
-      if (scrollSyncRef.current || restoringScrollRef.current) return;
+      if (restoringScrollRef.current) return;
+      if (consumeProgrammatic("target", targetEditor.scrollTop)) { remember(); return; }
       if (!syncScroll) { remember(); return; }
-      scrollSyncRef.current = true;
-      const next = interpolatePairedScroll(targetEditor.scrollTop, buildAnchors());
-      sourceEditor.scrollTop = Math.max(0, Math.min(sourceEditor.scrollHeight - sourceEditor.clientHeight, next));
-      requestAnimationFrame(() => {
-        scrollSyncRef.current = false;
-        remember();
-      });
+      const next = Math.max(
+        0,
+        Math.min(
+          sourceEditor.scrollHeight - sourceEditor.clientHeight,
+          interpolatePairedScroll(targetEditor.scrollTop, buildAnchors()),
+        ),
+      );
+      if (Math.abs(sourceEditor.scrollTop - next) > 0.5) {
+        programmaticScrollRef.current.source = next;
+        sourceEditor.scrollTop = next;
+      }
+      remember();
     };
     const syncFromSource = () => {
-      if (scrollSyncRef.current || restoringScrollRef.current) return;
+      if (restoringScrollRef.current) return;
+      if (consumeProgrammatic("source", sourceEditor.scrollTop)) { remember(); return; }
       if (!syncScroll) { remember(); return; }
-      scrollSyncRef.current = true;
       const inverse = buildAnchors().map((item) => ({ target: item.source, source: item.target }));
-      const next = interpolatePairedScroll(sourceEditor.scrollTop, inverse);
-      targetEditor.scrollTop = Math.max(0, Math.min(targetEditor.scrollHeight - targetEditor.clientHeight, next));
-      requestAnimationFrame(() => {
-        scrollSyncRef.current = false;
-        remember();
-      });
+      const next = Math.max(
+        0,
+        Math.min(
+          targetEditor.scrollHeight - targetEditor.clientHeight,
+          interpolatePairedScroll(sourceEditor.scrollTop, inverse),
+        ),
+      );
+      if (Math.abs(targetEditor.scrollTop - next) > 0.5) {
+        programmaticScrollRef.current.target = next;
+        targetEditor.scrollTop = next;
+      }
+      remember();
     };
 
     targetEditor.addEventListener("scroll", syncFromTarget, { passive: true });
@@ -350,6 +368,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
     return () => {
       persistViewState();
+      programmaticScrollRef.current.target = null;
+      programmaticScrollRef.current.source = null;
       targetEditor.removeEventListener("scroll", syncFromTarget);
       sourceEditor.removeEventListener("scroll", syncFromSource);
     };
