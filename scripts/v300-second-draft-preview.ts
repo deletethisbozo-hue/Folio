@@ -238,14 +238,41 @@ try {
   });
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
   await page.waitForFunction(() => !(document.querySelector(".second-draft-send-ahead button") as HTMLButtonElement | null)?.disabled);
+  const sendResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/write-studio/second-draft/send-ahead")
+    && response.request().method() === "POST",
+  );
   await page.click(".second-draft-send-ahead button");
-  await page.waitForFunction(() =>
-    Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
-  );
-  const sentHighlight = await page.evaluate(() =>
-    Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
-  );
-  if (!sentHighlight) throw new Error("Send Ahead did not mark its source as processed");
+  const sendResponse = await sendResponsePromise;
+  const sendPayload = await sendResponse.json().catch(async () => ({ raw: await sendResponse.text().catch(() => "") }));
+  if (!sendResponse.ok()) {
+    throw new Error("Send Ahead request failed: " + JSON.stringify({ status: sendResponse.status(), payload: sendPayload }));
+  }
+  const sentBlocks = Array.isArray((sendPayload as any)?.secondDraft?.blocks)
+    ? (sendPayload as any).secondDraft.blocks.filter((block: any) => block?.status === "sent")
+    : [];
+  if (!sentBlocks.length) {
+    throw new Error("Send Ahead response contained no sent block: " + JSON.stringify(sendPayload));
+  }
+  try {
+    await page.waitForFunction(() =>
+      Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
+      { timeout: 3000 },
+    );
+  } catch {
+    const uiDebug = await page.evaluate(() => {
+      const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+      return {
+        sentHighlight: Boolean(registry?.has("folio-source-sent")),
+        rewrittenHighlight: Boolean(registry?.has("folio-source-rewritten")),
+        progress: document.querySelector(".second-draft-progress")?.textContent ?? "",
+        action: document.querySelector(".second-draft-action-copy strong")?.textContent ?? "",
+        error: document.querySelector(".error-banner,.error-text,.folio-error")?.textContent ?? "",
+        sourceTextLength: document.querySelector(".second-draft-source")?.textContent?.length ?? -1,
+      };
+    });
+    throw new Error("Send Ahead persisted but Source Burn did not refresh: " + JSON.stringify({ sentBlocks, uiDebug }));
+  }
 
   // Later must be a real queue, not a permanent unresolved tombstone.
   const laterSelection = await selectSourceText(2);
