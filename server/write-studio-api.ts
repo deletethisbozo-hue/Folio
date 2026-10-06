@@ -25,8 +25,10 @@ import {
   type SecondDraftBlockStatus,
   type SecondDraftIssueCategory,
   type SecondDraftReviewPassKey,
+  type SecondDraftRewriteIntent,
   removeSecondDraftPair,
   removeSecondDraftBlock,
+  setSecondDraftBrief,
   setSecondDraftReviewPasses,
   updateSecondDraftBlock,
   updateSecondDraftIssue,
@@ -122,6 +124,7 @@ export function registerWriteStudioApi(app: Express): void {
         String(req.body?.sourceText ?? ""),
         req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
         typeof req.body?.status === "string" ? req.body.status as Exclude<SecondDraftBlockStatus, "sent"> : undefined,
+        typeof req.body?.intent === "string" ? req.body.intent as SecondDraftRewriteIntent : undefined,
       ));
     } catch (error) { sendError(res, error); }
   });
@@ -133,6 +136,7 @@ export function registerWriteStudioApi(app: Express): void {
         status: typeof req.body?.status === "string" ? req.body.status : undefined,
         targetStart: req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
         targetEnd: req.body?.targetEnd === undefined ? undefined : Number(req.body.targetEnd),
+        intent: typeof req.body?.intent === "string" ? req.body.intent as SecondDraftRewriteIntent : undefined,
       }));
     } catch (error) { sendError(res, error); }
   });
@@ -167,6 +171,17 @@ export function registerWriteStudioApi(app: Express): void {
         category: typeof req.body?.category === "string" ? req.body.category as SecondDraftIssueCategory : undefined,
         note: req.body?.note === undefined ? undefined : String(req.body.note),
       }));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.put("/api/projects/:id/write-studio/second-draft/briefs/:targetSectionId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await setSecondDraftBrief(
+        req.params.id,
+        req.params.targetSectionId,
+        String(req.body?.brief ?? ""),
+      ));
     } catch (error) { sendError(res, error); }
   });
 
