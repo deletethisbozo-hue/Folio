@@ -97,6 +97,18 @@ try {
   await page.waitForSelector(".second-draft-actionbar");
   await page.waitForSelector(".second-draft-sync-controls");
 
+  const editorAlignment = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor");
+    const source = document.querySelector<HTMLElement>(".second-draft-source");
+    if (!target || !source) throw new Error("Second Draft editors missing for alignment QA");
+    const t = target.getBoundingClientRect();
+    const src = source.getBoundingClientRect();
+    return { targetTop: t.top, sourceTop: src.top, delta: Math.abs(t.top - src.top) };
+  });
+  if (editorAlignment.delta > 2) {
+    throw new Error("Second Draft editor surfaces are vertically misaligned: " + JSON.stringify(editorAlignment));
+  }
+
   async function selectSourceText(skip = 0) {
     return page.evaluate((skipIndex) => {
       const editor = document.querySelector<HTMLElement>(".second-draft-source");
