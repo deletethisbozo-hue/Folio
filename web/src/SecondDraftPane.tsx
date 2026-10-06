@@ -51,6 +51,43 @@ function textWordCount(text: string): number {
   return text.trim().match(/\S+/g)?.length ?? 0;
 }
 
+type WordDiffPiece = { kind: "same" | "added" | "removed"; text: string };
+
+function wordDiff(before: string, after: string): WordDiffPiece[] {
+  const a = before.trim().split(/\s+/).filter(Boolean);
+  const b = after.trim().split(/\s+/).filter(Boolean);
+  if (!a.length && !b.length) return [];
+  if (a.length * b.length > 60000) {
+    return [
+      ...(a.length ? [{ kind: "removed" as const, text: a.join(" ") }] : []),
+      ...(b.length ? [{ kind: "added" as const, text: b.join(" ") }] : []),
+    ];
+  }
+  const dp = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const pieces: WordDiffPiece[] = [];
+  const push = (kind: WordDiffPiece["kind"], word: string) => {
+    const last = pieces[pieces.length - 1];
+    if (last?.kind === kind) last.text += " " + word;
+    else pieces.push({ kind, text: word });
+  };
+  let i = 0, j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      push("same", a[i]); i++; j++;
+    } else if (j < b.length && (i >= a.length || dp[i][j + 1] >= dp[i + 1][j])) {
+      push("added", b[j]); j++;
+    } else if (i < a.length) {
+      push("removed", a[i]); i++;
+    }
+  }
+  return pieces;
+}
+
 function readSecondDraftViewState(key: string): SecondDraftViewState | null {
   try {
     const raw = window.localStorage.getItem(key);
@@ -1154,9 +1191,18 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <span>{textWordCount(comparison.sourceText)} → {textWordCount(comparison.targetText)} words · {textWordCount(comparison.targetText) - textWordCount(comparison.sourceText) >= 0 ? "+" : ""}{textWordCount(comparison.targetText) - textWordCount(comparison.sourceText)}</span>
           <button type="button" onClick={() => setComparison(null)}>×</button>
         </div>
+        <div className="second-draft-compare-meta">
+          <span>Intent: {REWRITE_INTENTS.find((item) => item.value === (comparison.block.intent ?? "general"))?.label ?? "General"}</span>
+          <span>{comparison.sourceText && comparison.targetText ? Math.round((textWordCount(comparison.targetText) / Math.max(1, textWordCount(comparison.sourceText)) - 1) * 100) : 0}% word delta</span>
+        </div>
         <div className="second-draft-compare-grid">
           <article><span>Source</span><p>{comparison.sourceText}</p></article>
           <article><span>Rewrite</span><p>{comparison.targetText || "No target text captured for this rewrite."}</p></article>
+        </div>
+        <div className="second-draft-word-diff" aria-label="Word-level rewrite diff">
+          <strong>Word diff</strong>
+          <p>{wordDiff(comparison.sourceText, comparison.targetText).map((piece, index) =>
+            <span key={index} className={piece.kind}>{piece.text} </span>)}</p>
         </div>
       </section>
     </div>}
