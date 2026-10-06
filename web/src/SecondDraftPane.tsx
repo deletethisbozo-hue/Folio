@@ -19,8 +19,9 @@ import type {
 } from "./write-studio";
 import type { ProjectSummary, SectionDocument } from "./types";
 
-type SourceSelection = { start: number; end: number; text: string };
-type ManualScrollAnchor = { targetRatio: number; sourceRatio: number };
+type TextSelection = { start: number; end: number; text: string };
+type SourceSelection = TextSelection;
+type ManualScrollAnchor = { targetOffset: number; sourceOffset: number };
 type SecondDraftViewState = {
   targetRatio: number;
   sourceRatio: number;
@@ -47,17 +48,21 @@ function readSecondDraftViewState(key: string): SecondDraftViewState | null {
     const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<SecondDraftViewState>;
+    const manualAnchors = Array.isArray(value.manualAnchors)
+      ? value.manualAnchors
+          .map((item) => ({
+            targetOffset: Math.max(0, Math.round(Number(item?.targetOffset))),
+            sourceOffset: Math.max(0, Math.round(Number(item?.sourceOffset))),
+          }))
+          .filter((item) => Number.isFinite(item.targetOffset) && Number.isFinite(item.sourceOffset))
+          .slice(-8)
+      : [];
     return {
       targetRatio: clampRatio(Number(value.targetRatio ?? 0)),
       sourceRatio: clampRatio(Number(value.sourceRatio ?? 0)),
       memoryMode: Boolean(value.memoryMode),
-      syncScroll: value.syncScroll !== false,
-      manualAnchors: Array.isArray(value.manualAnchors)
-        ? value.manualAnchors
-            .map((item) => ({ targetRatio: clampRatio(Number(item?.targetRatio)), sourceRatio: clampRatio(Number(item?.sourceRatio)) }))
-            .filter((item) => Number.isFinite(item.targetRatio) && Number.isFinite(item.sourceRatio))
-            .slice(-8)
-        : [],
+      syncScroll: Boolean(value.syncScroll && manualAnchors.length),
+      manualAnchors,
     };
   } catch {
     return null;
@@ -115,9 +120,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [sourceId, setSourceId] = useState<string>(() => pair?.sourceSectionId ?? candidateSections[0]?.id ?? "");
   const [sourceDoc, setSourceDoc] = useState<SectionDocument | null>(null);
   const [selection, setSelection] = useState<SourceSelection | null>(null);
+  const [targetSelection, setTargetSelection] = useState<TextSelection | null>(null);
   const [memoryMode, setMemoryMode] = useState(false);
   const [memoryPeek, setMemoryPeek] = useState(false);
-  const [syncScroll, setSyncScroll] = useState(true);
+  const [syncScroll, setSyncScroll] = useState(false);
   const [manualAnchors, setManualAnchors] = useState<ManualScrollAnchor[]>([]);
   const memoryModeStateRef = useRef(memoryMode);
   const syncScrollStateRef = useRef(syncScroll);
@@ -146,7 +152,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const restoringScrollRef = useRef(false);
   const targetCaretRef = useRef<number | null>(null);
   const viewKey = useMemo(
-    () => `folio.second-draft.view.v2:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
+    () => `folio.second-draft.view.v3:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
     [props.project.projectId, props.targetSectionId, sourceId],
   );
 
