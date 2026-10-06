@@ -163,10 +163,10 @@ await test("Write Studio project data persists beside the manuscript", async () 
 
     const metadata = JSON.parse(await fs.readFile(path.join(root, ".folio-data", "write-studio.json"), "utf8")) as {
       version?: number;
-      secondDraft?: { pairs?: Record<string, unknown>; blocks?: unknown[]; carryovers?: unknown[] };
+      secondDraft?: { pairs?: Record<string, unknown>; blocks?: unknown[]; carryovers?: unknown[]; issues?: unknown[]; reviews?: Record<string, unknown>; briefs?: Record<string, string> };
     };
     assert.equal(metadata.version, 2);
-    assert.deepEqual(metadata.secondDraft, { pairs: {}, blocks: [], carryovers: [] });
+    assert.deepEqual(metadata.secondDraft, { pairs: {}, blocks: [], carryovers: [], issues: [], reviews: {}, briefs: {} });
   } finally {
     if (projectId) await closeProject(projectId);
     await fs.rm(root, { recursive: true, force: true });
