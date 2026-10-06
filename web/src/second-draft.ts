@@ -26,6 +26,27 @@ export function secondDraftProgress(pair: SecondDraftPair | null | undefined, bl
   return Math.max(0, Math.min(1, covered / pair.sourceTextLength));
 }
 
+export function secondDraftUnprocessedRanges(
+  pair: SecondDraftPair | null | undefined,
+  blocks: SecondDraftBlock[],
+): Array<[number, number]> {
+  if (!pair || pair.sourceTextLength <= 0) return [];
+  const covered = mergedSecondDraftRanges(blocks, pair.targetSectionId)
+    .map(([start, end]) => [
+      Math.max(0, Math.min(pair.sourceTextLength, start)),
+      Math.max(0, Math.min(pair.sourceTextLength, end)),
+    ] as [number, number])
+    .filter(([start, end]) => end > start);
+  const gaps: Array<[number, number]> = [];
+  let cursor = 0;
+  for (const [start, end] of covered) {
+    if (start > cursor) gaps.push([cursor, start]);
+    cursor = Math.max(cursor, end);
+  }
+  if (cursor < pair.sourceTextLength) gaps.push([cursor, pair.sourceTextLength]);
+  return gaps;
+}
+
 export function sourceFingerprint(text: string): string {
   let hashA = 0x811c9dc5;
   let hashB = 0x9e3779b9;

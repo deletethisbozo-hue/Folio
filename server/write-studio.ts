@@ -600,11 +600,15 @@ export async function sealSecondDraftChapter(
     if (related.some((item) => item.status === "active" || item.status === "later")) {
       throw new Error("Finish or resolve the remaining active/later Second Draft blocks before sealing.");
     }
+    const coverage = secondDraftCoverage(pair, related);
+    if (coverage < .999999) {
+      throw new Error(`Process the full Second Draft source before sealing. ${Math.round(coverage * 100)}% is complete.`);
+    }
     const revision = await appendRevision(projectId, state, targetSectionId, markdown, "snapshot", "Second Draft seal");
     pair.sealedAt = new Date().toISOString();
     pair.sealRevisionId = revision.id;
     pair.updatedAt = pair.sealedAt;
-    const processedPercent = Math.round(secondDraftCoverage(pair, related) * 100);
+    const processedPercent = Math.round(coverage * 100);
     return {
       state,
       reveal: {

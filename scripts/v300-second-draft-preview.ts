@@ -381,9 +381,27 @@ try {
   });
   await settle(180);
 
-  const sealDisabled = await page.$eval(".actionbar-seal", (button) => (button as HTMLButtonElement).disabled);
-  if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
-  await settle();
+  const prematureSeal = await page.evaluate(() => ({
+    disabled: (document.querySelector(".actionbar-seal") as HTMLButtonElement | null)?.disabled,
+    title: document.querySelector(".actionbar-seal")?.getAttribute("title"),
+    progress: document.querySelector(".second-draft-progress")?.textContent?.trim(),
+    keepRemaining: Boolean(document.querySelector(".actionbar-keep-remaining")),
+  }));
+  if (prematureSeal.disabled !== true || !prematureSeal.keepRemaining || !prematureSeal.title?.includes("remaining")) {
+    throw new Error("Chapter Seal must stay blocked until the entire source is processed: " + JSON.stringify(prematureSeal));
+  }
+  await page.screenshot({ path: path.join(qa, "10a-chapter-seal-blocked.png") });
+
+  await page.click(".actionbar-keep-remaining");
+  await page.waitForFunction(() =>
+    document.querySelector(".second-draft-progress")?.textContent?.includes("100% processed")
+    && (document.querySelector(".actionbar-seal") as HTMLButtonElement | null)?.disabled === false
+    && !document.querySelector(".actionbar-keep-remaining"),
+  );
+  await settle(160);
+  const fullCoverage = await page.$eval(".second-draft-progress", (el) => el.textContent?.trim() ?? "");
+  if (fullCoverage !== "100% processed") throw new Error("Second Draft never reached full coverage: " + fullCoverage);
+
   await page.screenshot({ path: path.join(qa, "10-chapter-seal-ready.png") });
   await assertActionbarFits("Chapter Seal");
   await page.click(".actionbar-seal");
@@ -392,8 +410,10 @@ try {
     title: document.querySelector(".second-draft-reveal h2")?.textContent?.trim(),
     stats: [...document.querySelectorAll(".second-draft-reveal-grid strong")].map((item) => Number(item.textContent ?? 0)),
     words: [...document.querySelectorAll(".second-draft-reveal-words strong")].map((item) => Number((item.textContent ?? "0").replace(/[^\d]/g, ""))),
+    processed: document.querySelector(".second-draft-reveal-progress b")?.textContent?.trim(),
   }));
-  if (reveal.title !== "Draft 2" || reveal.words.some((value) => !value) || reveal.stats[0] < 1 || reveal.stats[3] < 1) {
+  if (reveal.title !== "Draft 2" || reveal.words.some((value) => !value) || reveal.stats[0] < 1 || reveal.stats[2] < 1 || reveal.stats[3] < 1
+    || reveal.processed !== "100% source processed") {
     throw new Error("Chapter Reveal stats failed: " + JSON.stringify(reveal));
   }
   await page.screenshot({ path: path.join(qa, "11-chapter-reveal.png") });

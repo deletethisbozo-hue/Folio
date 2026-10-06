@@ -6,6 +6,7 @@ import {
   interpolatePairedScroll,
   rangeForTextOffsets,
   secondDraftProgress,
+  secondDraftUnprocessedRanges,
   selectedTextOffsets,
   sourceFingerprint,
 } from "./second-draft";
@@ -148,7 +149,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     editor.dataset.sectionId = sourceDoc.id;
     editor.dataset.markdown = sourceDoc.markdown;
     setSelection(null);
-    const text = editor.innerText;
+    const text = editor.textContent ?? "";
     setSourceChanged(Boolean(pair && pair.sourceSectionId === sourceDoc.id && pair.sourceFingerprint !== sourceFingerprint(text)));
   }, [sourceDoc?.id, sourceDoc?.markdown, props.ornament, props.project.projectId, pair?.sourceFingerprint, pair?.sourceSectionId]);
 
@@ -287,7 +288,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     if (!editor || !sourceDoc) return;
     setBusy(true);
     try {
-      const text = editor.innerText;
+      const text = editor.textContent ?? "";
       props.onState(await api.setSecondDraftPair(
         props.project.projectId, props.targetSectionId, sourceDoc.id, text.length, sourceFingerprint(text),
       ));
@@ -394,6 +395,51 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     finally { setBusy(false); }
   }
 
+  async function keepRemaining() {
+    if (!pair || sourceChanged || unresolved > 0 || progress >= .999999) return;
+    const editor = sourceEditorRef.current;
+    if (!editor) return;
+    const text = editor.textContent ?? "";
+    const gaps = secondDraftUnprocessedRanges(pair, relevantBlocks);
+    if (!gaps.length) return;
+    setBusy(true);
+    try {
+      let state: WriteStudioState | null = null;
+      for (const gap of gaps) {
+        let [start, end] = gap;
+        let sourceText = text.slice(start, end);
+        // Coverage includes all source characters. If the only uncovered part is
+        // whitespace between processed passages, borrow one adjacent character so
+        // the keep block remains valid while still covering that whitespace.
+        if (!sourceText.trim()) {
+          start = Math.max(0, start - 1);
+          end = Math.min(text.length, end + 1);
+          sourceText = text.slice(start, end);
+        }
+        if (!sourceText.trim() || end <= start) continue;
+        state = await api.createSecondDraftBlock(props.project.projectId, {
+          targetSectionId: props.targetSectionId,
+          sourceStart: start,
+          sourceEnd: end,
+          sourceText,
+        });
+        const created = [...state.secondDraft.blocks]
+          .filter((block) => block.targetSectionId === props.targetSectionId && block.status === "active")
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+        if (!created) throw new Error("Could not create a keep block for the remaining source.");
+        state = await api.updateSecondDraftBlock(props.project.projectId, created.id, { status: "keep" });
+      }
+      if (!state || secondDraftProgress(state.secondDraft.pairs[props.targetSectionId], state.secondDraft.blocks) < .999999) {
+        throw new Error("Some source text is still unprocessed.");
+      }
+      props.onState(state);
+      setSelection(null);
+      setSendConfirmation(null);
+      window.getSelection()?.removeAllRanges();
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
   async function sealChapter() {
     if (!pair || sourceChanged) return;
     setBusy(true);
@@ -409,6 +455,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   const progress = secondDraftProgress(pair, blocks);
   const unresolved = relevantBlocks.filter((block) => block.status === "active" || block.status === "later").length;
+  const sealBlocked = unresolved > 0 || progress < .999999;
   const sourceMatchesPair = Boolean(pair && pair.sourceSectionId === sourceDoc?.id);
   const sendOptions = props.project.sections.filter(
     (section) => section.kind === "chapter" && section.id !== props.targetSectionId && section.id !== pair?.sourceSectionId,
@@ -498,9 +545,17 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         </>}
         {!sendConfirmation && laterBlocks.length === 0 &&
           <span className="actionbar-empty">Select text in the source draft to rewrite, keep, cut, or send ahead.</span>}
+        {unresolved === 0 && progress < .999999 &&
+          <button type="button" className="actionbar-keep-remaining" disabled={busy}
+            title="Mark every untouched source passage as reviewed and kept"
+            onClick={() => void keepRemaining()}>Keep remaining</button>}
       </>}
-      <button type="button" className="actionbar-seal" disabled={busy || unresolved > 0}
-        title={unresolved ? `Resolve ${unresolved} active/later source block(s) before sealing` : "Seal this chapter"}
+      <button type="button" className="actionbar-seal" disabled={busy || sealBlocked}
+        title={unresolved
+          ? `Resolve ${unresolved} active/later source block(s) before sealing`
+          : progress < .999999
+            ? `Process the remaining ${Math.max(0, 100 - Math.round(progress * 100))}% of the source before sealing`
+            : "Seal this chapter"}
         onClick={() => void sealChapter()}>Seal chapter</button>
     </div>}
 
