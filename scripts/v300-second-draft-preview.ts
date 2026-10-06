@@ -147,8 +147,12 @@ try {
   await page.screenshot({ path: path.join(qa, "05-memory-rewrite-hidden.png") });
   await page.keyboard.down("Alt");
   await page.waitForSelector(".second-draft-pane.memory-peek");
-  const peekFilter = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
+  await page.waitForFunction(() => {
+    const source = document.querySelector(".second-draft-source");
+    return source instanceof HTMLElement && getComputedStyle(source).filter === "none";
+  });
   await settle();
+  const peekFilter = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   await page.screenshot({ path: path.join(qa, "06-memory-rewrite-peek.png") });
   await page.keyboard.up("Alt");
   if (peekFilter !== "none") throw new Error("Hold-Alt Memory peek did not reveal source: " + peekFilter);
