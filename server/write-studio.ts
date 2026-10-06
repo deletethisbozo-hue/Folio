@@ -617,6 +617,9 @@ export async function sealSecondDraftChapter(
     if (related.some((item) => item.status === "active" || item.status === "later")) {
       throw new Error("Finish or resolve the remaining active/later Second Draft blocks before sealing.");
     }
+    if (!related.some((item) => processedSecondDraftStatus(item.status))) {
+      throw new Error("Process at least one source passage before sealing Second Draft.");
+    }
     const revision = await appendRevision(projectId, state, targetSectionId, markdown, "snapshot", "Second Draft seal");
     pair.sealedAt = new Date().toISOString();
     pair.sealRevisionId = revision.id;
