@@ -241,8 +241,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
     const pointForOffset = (editor: HTMLElement, offset: number): number | null => {
       const length = editor.innerText.length;
-      const safe = Math.max(0, Math.min(length, offset));
-      const range = rangeForTextOffsets(editor, safe, Math.min(length, safe + 1));
+      if (length <= 0) return 0;
+      const start = Math.max(0, Math.min(length - 1, offset));
+      const range = rangeForTextOffsets(editor, start, start + 1);
       if (!range) return null;
       const rect = range.getBoundingClientRect();
       const host = editor.getBoundingClientRect();
@@ -357,21 +358,18 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     finally { setBusy(false); }
   }
 
-  async function createAndSet(status: SecondDraftBlockStatus) {
+  async function createAndSet(status: Exclude<SecondDraftBlockStatus, "sent">) {
     if (!selection || !pair || sourceChanged) return;
     setBusy(true);
     try {
-      let state = await api.createSecondDraftBlock(props.project.projectId, {
+      const state = await api.createSecondDraftBlock(props.project.projectId, {
         targetSectionId: props.targetSectionId,
         sourceStart: selection.start,
         sourceEnd: selection.end,
         sourceText: selection.text,
         targetStart: status === "active" ? currentTargetCaret() : undefined,
+        status,
       });
-      const created = [...state.secondDraft.blocks]
-        .filter((block) => block.targetSectionId === props.targetSectionId && block.status === "active")
-        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
-      if (status !== "active" && created) state = await api.updateSecondDraftBlock(props.project.projectId, created.id, { status });
       props.onState(state);
       setSelection(null);
       window.getSelection()?.removeAllRanges();
@@ -467,7 +465,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       <strong>{carryovers.length} carried here</strong>
       <div>{carryovers.map((item) => <article key={item.id}>
         <p>{item.sourceText}</p>
-        <button disabled={busy} onClick={() => void updateCarryover(item, "used")}>Used</button>
+        <button disabled={busy} onClick={() => void updateCarryover(item, "used")}>Mark used</button>
         <button disabled={busy} onClick={() => void updateCarryover(item, "dismissed")}>Dismiss</button>
       </article>)}</div>
     </div>}
