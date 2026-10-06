@@ -381,6 +381,23 @@ export async function migrateWriteStudioSectionId(projectId: string, previousSec
       sourceSectionId: item.sourceSectionId === previousSectionId ? nextSectionId : item.sourceSectionId,
       toTargetSectionId: item.toTargetSectionId === previousSectionId ? nextSectionId : item.toTargetSectionId,
     }));
+    state.secondDraft.issues = state.secondDraft.issues.map((item) => ({
+      ...item,
+      targetSectionId: item.targetSectionId === previousSectionId ? nextSectionId : item.targetSectionId,
+      sourceSectionId: item.sourceSectionId === previousSectionId ? nextSectionId : item.sourceSectionId,
+    }));
+    if (Object.prototype.hasOwnProperty.call(state.secondDraft.reviews, previousSectionId)) {
+      if (!Object.prototype.hasOwnProperty.call(state.secondDraft.reviews, nextSectionId)) {
+        state.secondDraft.reviews[nextSectionId] = state.secondDraft.reviews[previousSectionId];
+      }
+      delete state.secondDraft.reviews[previousSectionId];
+    }
+    if (Object.prototype.hasOwnProperty.call(state.secondDraft.briefs, previousSectionId)) {
+      if (!Object.prototype.hasOwnProperty.call(state.secondDraft.briefs, nextSectionId)) {
+        state.secondDraft.briefs[nextSectionId] = state.secondDraft.briefs[previousSectionId];
+      }
+      delete state.secondDraft.briefs[previousSectionId];
+    }
     return state;
   });
 }
