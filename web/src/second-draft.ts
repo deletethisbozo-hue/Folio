@@ -26,19 +26,16 @@ export function secondDraftProgress(pair: SecondDraftPair | null | undefined, bl
   return Math.max(0, Math.min(1, covered / pair.sourceTextLength));
 }
 
-export function changedTextRange(before: string, after: string): { start: number; end: number } | null {
+export function changedTextRange(before: string, after: string, anchor = 0): { start: number; end: number } | null {
   if (before === after) return null;
-  let start = 0;
-  const maxPrefix = Math.min(before.length, after.length);
-  while (start < maxPrefix && before[start] === after[start]) start++;
-
+  const start = Math.max(0, Math.min(Math.round(anchor), before.length, after.length));
   let beforeEnd = before.length;
   let afterEnd = after.length;
   while (beforeEnd > start && afterEnd > start && before[beforeEnd - 1] === after[afterEnd - 1]) {
     beforeEnd--;
     afterEnd--;
   }
-  return { start, end: afterEnd };
+  return { start, end: Math.max(start, afterEnd) };
 }
 
 export function sourceFingerprint(text: string): string {
