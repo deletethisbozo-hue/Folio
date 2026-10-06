@@ -237,12 +237,30 @@ try {
     return option.value;
   });
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
-  await page.waitForFunction(() => !(document.querySelector(".second-draft-send-ahead button") as HTMLButtonElement | null)?.disabled);
+  await page.waitForFunction(() => {
+    const button = document.querySelector<HTMLButtonElement>(".second-draft-send-ahead button");
+    return Boolean(button && !button.disabled && button.dataset.sendReady === "true");
+  });
+  const sendHitTest = await page.$eval(".second-draft-send-ahead button", (button) => {
+    const rect = button.getBoundingClientRect();
+    const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return {
+      visible: rect.width > 0 && rect.height > 0,
+      topTag: top?.tagName ?? "",
+      topClass: (top as HTMLElement | null)?.className ?? "",
+      clickable: top === button || button.contains(top),
+      ready: (button as HTMLButtonElement).dataset.sendReady,
+      disabled: (button as HTMLButtonElement).disabled,
+    };
+  });
+  if (!sendHitTest.visible || !sendHitTest.clickable || sendHitTest.ready !== "true" || sendHitTest.disabled) {
+    throw new Error("Send Ahead control is not genuinely clickable: " + JSON.stringify(sendHitTest));
+  }
   const sendResponsePromise = page.waitForResponse((response) =>
     response.url().includes("/write-studio/second-draft/send-ahead")
     && response.request().method() === "POST",
   );
-  await page.click(".second-draft-send-ahead button");
+  await page.$eval(".second-draft-send-ahead button", (button) => (button as HTMLButtonElement).click());
   const sendResponse = await sendResponsePromise;
   const sendPayload = await sendResponse.json().catch(async () => ({ raw: await sendResponse.text().catch(() => "") }));
   if (!sendResponse.ok()) {
