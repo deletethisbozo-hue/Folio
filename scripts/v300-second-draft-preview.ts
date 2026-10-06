@@ -271,7 +271,67 @@ try {
     Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten")),
   );
 
-  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  // Compare Rewrite must show the actual source and current target slice.
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.trim() === "Compare rewrite"));
+  await page.evaluate(() => {
+    const compare = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Compare rewrite");
+    compare?.click();
+  });
+  await page.waitForSelector(".second-draft-compare");
+  const compareState = await page.$eval(".second-draft-compare", (dialog) => ({
+    text: dialog.textContent ?? "",
+    columns: dialog.querySelectorAll(".second-draft-compare-grid article").length,
+  }));
+  if (compareState.columns !== 2 || !compareState.text.includes("Source") || !compareState.text.includes("Rewrite")) {
+    throw new Error("Compare Rewrite is not rendering both drafts: " + JSON.stringify(compareState));
+  }
+  await page.click(".second-draft-compare .second-draft-drawer-head button");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-compare"));
+
+  // Issues must persist category + note.
+  await selectSourceText(3);
+  await page.click(".second-draft-flag-issue");
+  await page.waitForSelector(".second-draft-issues-drawer");
+  await page.select(".second-draft-issue-form select", "pacing");
+  await page.type(".second-draft-issue-form input", "Tighten this beat before the reveal.");
+  await page.click(".second-draft-issue-form button");
+  await page.waitForFunction(() =>
+    (document.querySelector(".second-draft-head-actions")?.textContent ?? "").includes("Issues 1"),
+  );
+  const issueState = await page.$eval(".second-draft-issues-drawer", (drawer) => drawer.textContent ?? "");
+  if (!issueState.includes("Pacing") || !issueState.includes("Tighten this beat before the reveal.")) {
+    throw new Error("Second Draft issue did not persist category/note: " + issueState);
+  }
+  await page.click(".second-draft-issues-drawer .second-draft-drawer-head button");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-issues-drawer"));
+
+  // Chapter review passes persist independently from source decisions.
+  await page.evaluate(() => {
+    const passes = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Passes"));
+    if (!passes) throw new Error("Second Draft Passes control missing");
+    passes.click();
+  });
+  await page.waitForSelector(".second-draft-review-drawer");
+  await page.evaluate(() => {
+    const pacing = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-pass-grid button")]
+      .find((button) => button.textContent?.includes("Pacing"));
+    const continuity = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-pass-grid button")]
+      .find((button) => button.textContent?.includes("Continuity"));
+    if (!pacing || !continuity) throw new Error("Review pass controls missing");
+    pacing.click();
+    continuity.click();
+  });
+  await page.waitForFunction(() =>
+    (document.querySelector(".second-draft-review-drawer")?.textContent ?? "").includes("2/7 complete"),
+  );
+  await page.click(".second-draft-review-drawer .second-draft-drawer-head button");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-review-drawer"));
+
+  await page.click(".second-draft-head-actions button[title*='Hide source']
   await page.waitForSelector(".second-draft-pane.memory-mode");
   const blurred = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   if (blurred === "none") throw new Error("Memory Rewrite did not hide source");
@@ -519,6 +579,11 @@ try {
       },
     };
   });
+  const persistedReviewUi = await page.$eval(".second-draft-head-actions", (head) => head.textContent ?? "");
+  if (!persistedReviewUi.includes("Issues 1") || !persistedReviewUi.includes("Passes 2/7")) {
+    throw new Error("Second Draft issues/review passes did not survive remount: " + persistedReviewUi);
+  }
+
   if (Math.abs(restoredAfterRemount.target - savedBeforeRemount.target) > .10
       || Math.abs(restoredAfterRemount.source - savedBeforeRemount.source) > .10
       || !/Synced.*1 link/.test(restoredAfterRemount.status)) {
