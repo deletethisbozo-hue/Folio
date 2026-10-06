@@ -702,7 +702,18 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button disabled={busy} className="primary" onClick={() => void resumeLater(laterBlocks[0])}>Resume next</button>
           <button disabled={busy} onClick={() => void resolveLater(laterBlocks[0], "cut")}>Cut</button>
           <button disabled={busy} onClick={() => void resolveLater(laterBlocks[0], "keep")}>Keep</button>
-        </> : null}
+        </> : <>
+          <button disabled className="primary" title="Select source text first">Rewrite this</button>
+          <button disabled title="Select source text first">Cut</button>
+          <button disabled title="Select source text first">Later</button>
+          <button disabled title="Select source text first">Keep</button>
+          <div className="second-draft-send-ahead">
+            <select disabled aria-label="Send source ahead to chapter">
+              <option>Send ahead…</option>
+            </select>
+            <button type="button" disabled title="Select source text first">Send</button>
+          </div>
+        </>}
       </div>
 
       <button type="button" className="second-draft-seal" disabled={busy || unresolved > 0 || processed === 0}
