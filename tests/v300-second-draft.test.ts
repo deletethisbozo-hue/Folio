@@ -128,6 +128,26 @@ check("Second Draft decisions can be undone after rewrite",
 check("Second Draft can jump directly to unreviewed source",
   pane.includes("Next unreviewed")
   && pane.includes("jumpToNextUnreviewed"));
+check("Second Draft can compare rewrites in context",
+  pane.includes("Compare rewrite")
+  && pane.includes("openComparison")
+  && pane.includes("targetText")
+  && css.includes(".second-draft-compare-grid"));
+check("Second Draft persists categorized review issues",
+  pane.includes("Flag issue")
+  && pane.includes("Next issue")
+  && pane.includes("createIssue")
+  && server.includes("createSecondDraftIssue")
+  && serverApi.includes("/second-draft/issues"));
+check("Second Draft tracks chapter review passes",
+  pane.includes("Chapter passes")
+  && pane.includes("Passes {reviewPassCount}")
+  && pane.includes("REVIEW_PASSES")
+  && server.includes("setSecondDraftReviewPasses")
+  && serverApi.includes("/second-draft/reviews/"));
+check("Second Draft can navigate changed passages",
+  pane.includes("Next changed")
+  && pane.includes("jumpToNextChanged"));
 check("new source decisions cannot overlap old decisions",
   server.includes("secondDraftRangesOverlap")
   && server.includes("overlaps an existing Second Draft decision"));
