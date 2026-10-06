@@ -317,14 +317,16 @@ try {
     columns: dialog.querySelectorAll(".second-draft-compare-grid article").length,
   }));
   if (compareState.columns !== 2 || !compareState.text.includes("Source") || !compareState.text.includes("Rewrite")
-      || !compareState.text.includes("Intent: Tighten") || !compareState.text.includes("Word diff")) {
-    throw new Error("Compare Rewrite is missing source/rewrite/intent/diff: " + JSON.stringify(compareState));
+      || !compareState.text.includes("Intent: Tighten") || !compareState.text.includes("Word diff")
+      || compareState.text.includes("No target text captured for this rewrite.")
+      || !compareState.text.includes("The address had led her to the wall")) {
+    throw new Error("Compare Rewrite is missing real source/rewrite/intent/diff content: " + JSON.stringify(compareState));
   }
   const diffPieces = await page.$eval(".second-draft-word-diff", (diff) => ({
     added: diff.querySelectorAll(".added").length,
     removed: diff.querySelectorAll(".removed").length,
   }));
-  if (!diffPieces.added && !diffPieces.removed) throw new Error("Word diff rendered no changes: " + JSON.stringify(diffPieces));
+  if (!diffPieces.added || !diffPieces.removed) throw new Error("Word diff must show both added and removed words: " + JSON.stringify(diffPieces));
   await page.screenshot({ path: path.join(qa, "04-compare-light.png") });
   await page.click(".second-draft-compare .second-draft-drawer-head button");
   await page.waitForFunction(() => !document.querySelector(".second-draft-compare"));
