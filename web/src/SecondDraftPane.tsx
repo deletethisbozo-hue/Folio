@@ -19,6 +19,49 @@ import type {
 import type { ProjectSummary, SectionDocument } from "./types";
 
 type SourceSelection = { start: number; end: number; text: string };
+type ManualScrollAnchor = { targetRatio: number; sourceRatio: number };
+type SecondDraftViewState = {
+  targetRatio: number;
+  sourceRatio: number;
+  memoryMode: boolean;
+  syncScroll: boolean;
+  manualAnchors: ManualScrollAnchor[];
+};
+
+function clampRatio(value: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+}
+
+function elementScrollRatio(element: HTMLElement): number {
+  const max = Math.max(0, element.scrollHeight - element.clientHeight);
+  return max > 0 ? clampRatio(element.scrollTop / max) : 0;
+}
+
+function scrollTopForRatio(element: HTMLElement, ratio: number): number {
+  return clampRatio(ratio) * Math.max(0, element.scrollHeight - element.clientHeight);
+}
+
+function readSecondDraftViewState(key: string): SecondDraftViewState | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<SecondDraftViewState>;
+    return {
+      targetRatio: clampRatio(Number(value.targetRatio ?? 0)),
+      sourceRatio: clampRatio(Number(value.sourceRatio ?? 0)),
+      memoryMode: Boolean(value.memoryMode),
+      syncScroll: value.syncScroll !== false,
+      manualAnchors: Array.isArray(value.manualAnchors)
+        ? value.manualAnchors
+            .map((item) => ({ targetRatio: clampRatio(Number(item?.targetRatio)), sourceRatio: clampRatio(Number(item?.sourceRatio)) }))
+            .filter((item) => Number.isFinite(item.targetRatio) && Number.isFinite(item.sourceRatio))
+            .slice(-8)
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
 
 type SecondDraftPaneProps = {
   project: ProjectSummary;
@@ -73,6 +116,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [selection, setSelection] = useState<SourceSelection | null>(null);
   const [memoryMode, setMemoryMode] = useState(false);
   const [memoryPeek, setMemoryPeek] = useState(false);
+  const [syncScroll, setSyncScroll] = useState(true);
+  const [manualAnchors, setManualAnchors] = useState<ManualScrollAnchor[]>([]);
   const [sendTargetId, setSendTargetId] = useState("");
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
@@ -80,12 +125,39 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const sourceEditorRef = useRef<HTMLDivElement>(null);
   const sourcePaperRef = useRef<HTMLDivElement>(null);
   const scrollSyncRef = useRef(false);
+  const restoringScrollRef = useRef(false);
+  const viewKey = useMemo(
+    () => `folio.second-draft.view.v2:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
+    [props.project.projectId, props.targetSectionId, sourceId],
+  );
+
+  function persistViewState(overrides: Partial<SecondDraftViewState> = {}) {
+    const sourceEditor = sourceEditorRef.current;
+    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const previous = readSecondDraftViewState(viewKey);
+    const next: SecondDraftViewState = {
+      targetRatio: targetEditor ? elementScrollRatio(targetEditor) : previous?.targetRatio ?? 0,
+      sourceRatio: sourceEditor ? elementScrollRatio(sourceEditor) : previous?.sourceRatio ?? 0,
+      memoryMode,
+      syncScroll,
+      manualAnchors,
+      ...overrides,
+    };
+    try { window.localStorage.setItem(viewKey, JSON.stringify(next)); } catch { /* best-effort UI memory */ }
+  }
 
   useEffect(() => {
     setSourceId(pair?.sourceSectionId ?? candidateSections[0]?.id ?? "");
     setSelection(null);
     setSealReveal(null);
   }, [props.targetSectionId, pair?.sourceSectionId, props.project.projectId]);
+
+  useEffect(() => {
+    const saved = readSecondDraftViewState(viewKey);
+    setMemoryMode(saved?.memoryMode ?? false);
+    setSyncScroll(saved?.syncScroll ?? true);
+    setManualAnchors(saved?.manualAnchors ?? []);
+  }, [viewKey]);
 
   useEffect(() => {
     if (!sourceId) { setSourceDoc(null); return; }
@@ -111,6 +183,20 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const text = editor.innerText;
     setSourceChanged(Boolean(pair && pair.sourceSectionId === sourceDoc.id && pair.sourceFingerprint !== sourceFingerprint(text)));
   }, [sourceDoc?.id, sourceDoc?.markdown, props.ornament, props.project.projectId, pair?.sourceFingerprint, pair?.sourceSectionId]);
+
+  useEffect(() => {
+    if (!sourceDoc) return;
+    const sourceEditor = sourceEditorRef.current;
+    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const saved = readSecondDraftViewState(viewKey);
+    if (!sourceEditor || !targetEditor || !saved) return;
+    restoringScrollRef.current = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      targetEditor.scrollTop = scrollTopForRatio(targetEditor, saved.targetRatio);
+      sourceEditor.scrollTop = scrollTopForRatio(sourceEditor, saved.sourceRatio);
+      requestAnimationFrame(() => { restoringScrollRef.current = false; });
+    }));
+  }, [sourceDoc?.id, sourceDoc?.markdown, viewKey]);
 
   useEffect(() => {
     const registry = (CSS as unknown as {
@@ -153,50 +239,96 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!sourceEditor || !targetEditor) return;
 
+    const pointForOffset = (editor: HTMLElement, offset: number): number | null => {
+      const length = editor.innerText.length;
+      const safe = Math.max(0, Math.min(length, offset));
+      const range = rangeForTextOffsets(editor, safe, Math.min(length, safe + 1));
+      if (!range) return null;
+      const rect = range.getBoundingClientRect();
+      const host = editor.getBoundingClientRect();
+      return Math.max(0, rect.top - host.top + editor.scrollTop);
+    };
+
     const buildAnchors = () => {
       const targetMax = Math.max(0, targetEditor.scrollHeight - targetEditor.clientHeight);
       const sourceMax = Math.max(0, sourceEditor.scrollHeight - sourceEditor.clientHeight);
       const anchors: Array<{ target: number; source: number }> = [{ target: 0, source: 0 }];
-      for (const block of relevantBlocks) {
-        if ((block.status !== "rewritten" && block.status !== "keep") || block.targetStart === undefined) continue;
-        const targetRange = rangeForTextOffsets(targetEditor, block.targetStart, Math.min(targetEditor.innerText.length, block.targetStart + 1));
-        const sourceRange = rangeForTextOffsets(sourceEditor, block.sourceStart, Math.min(sourceEditor.innerText.length, block.sourceStart + 1));
-        if (!targetRange || !sourceRange) continue;
-        const targetRect = targetRange.getBoundingClientRect();
-        const sourceRect = sourceRange.getBoundingClientRect();
-        const targetRectHost = targetEditor.getBoundingClientRect();
-        const sourceRectHost = sourceEditor.getBoundingClientRect();
-        anchors.push({
-          target: Math.max(0, targetRect.top - targetRectHost.top + targetEditor.scrollTop),
-          source: Math.max(0, sourceRect.top - sourceRectHost.top + sourceEditor.scrollTop),
-        });
+
+      for (const anchor of manualAnchors) {
+        anchors.push({ target: anchor.targetRatio * targetMax, source: anchor.sourceRatio * sourceMax });
       }
+
+      for (const block of relevantBlocks) {
+        if (!["active", "rewritten", "keep"].includes(block.status) || block.targetStart === undefined) continue;
+        const targetStart = pointForOffset(targetEditor, block.targetStart);
+        const sourceStart = pointForOffset(sourceEditor, block.sourceStart);
+        if (targetStart !== null && sourceStart !== null) anchors.push({ target: targetStart, source: sourceStart });
+
+        if ((block.status === "rewritten" || block.status === "keep") && block.targetEnd !== undefined) {
+          const targetEnd = pointForOffset(targetEditor, block.targetEnd);
+          const sourceEnd = pointForOffset(sourceEditor, block.sourceEnd);
+          if (targetEnd !== null && sourceEnd !== null) anchors.push({ target: targetEnd, source: sourceEnd });
+        }
+      }
+
       anchors.push({ target: targetMax, source: sourceMax });
       return anchors;
     };
 
+    const remember = () => persistViewState();
     const syncFromTarget = () => {
-      if (scrollSyncRef.current) return;
+      if (scrollSyncRef.current || restoringScrollRef.current) return;
+      if (!syncScroll) { remember(); return; }
       scrollSyncRef.current = true;
       const next = interpolatePairedScroll(targetEditor.scrollTop, buildAnchors());
       sourceEditor.scrollTop = Math.max(0, Math.min(sourceEditor.scrollHeight - sourceEditor.clientHeight, next));
-      requestAnimationFrame(() => { scrollSyncRef.current = false; });
+      requestAnimationFrame(() => {
+        scrollSyncRef.current = false;
+        remember();
+      });
     };
     const syncFromSource = () => {
-      if (scrollSyncRef.current) return;
+      if (scrollSyncRef.current || restoringScrollRef.current) return;
+      if (!syncScroll) { remember(); return; }
       scrollSyncRef.current = true;
       const inverse = buildAnchors().map((item) => ({ target: item.source, source: item.target }));
       const next = interpolatePairedScroll(sourceEditor.scrollTop, inverse);
       targetEditor.scrollTop = Math.max(0, Math.min(targetEditor.scrollHeight - targetEditor.clientHeight, next));
-      requestAnimationFrame(() => { scrollSyncRef.current = false; });
+      requestAnimationFrame(() => {
+        scrollSyncRef.current = false;
+        remember();
+      });
     };
+
     targetEditor.addEventListener("scroll", syncFromTarget, { passive: true });
     sourceEditor.addEventListener("scroll", syncFromSource, { passive: true });
+
+    if (syncScroll && !restoringScrollRef.current) requestAnimationFrame(syncFromTarget);
+
     return () => {
+      persistViewState();
       targetEditor.removeEventListener("scroll", syncFromTarget);
       sourceEditor.removeEventListener("scroll", syncFromSource);
     };
-  }, [pair?.sourceSectionId, relevantBlocks, sourceChanged, sourceDoc?.id]);
+  }, [pair?.sourceSectionId, relevantBlocks, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey]);
+
+  function linkCurrentScrollPosition() {
+    const sourceEditor = sourceEditorRef.current;
+    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!sourceEditor || !targetEditor) return;
+    const anchor = { targetRatio: elementScrollRatio(targetEditor), sourceRatio: elementScrollRatio(sourceEditor) };
+    const next = [...manualAnchors.filter((item) => Math.abs(item.targetRatio - anchor.targetRatio) > 0.012), anchor]
+      .sort((a, b) => a.targetRatio - b.targetRatio)
+      .slice(-8);
+    setManualAnchors(next);
+    setSyncScroll(true);
+    persistViewState({ manualAnchors: next, syncScroll: true });
+  }
+
+  function clearManualScrollAnchors() {
+    setManualAnchors([]);
+    persistViewState({ manualAnchors: [] });
+  }
 
   function captureSelection() {
     const editor = sourceEditorRef.current;
@@ -322,7 +454,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       </div>
       <div className="second-draft-head-actions">
         {pair && <span className="second-draft-progress">{Math.round(progress * 100)}% source</span>}
-        <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => !value)}>Memory</button>
+        <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => {
+          const next = !value;
+          persistViewState({ memoryMode: next });
+          return next;
+        })}>Memory</button>
         <button type="button" title="Close Second Draft" aria-label="Close Second Draft" onClick={props.onClose}>×</button>
       </div>
     </header>
@@ -341,9 +477,65 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     </div>}
 
     <div className="writing-split-toolbar second-draft-source-toolbar" aria-label="Second Draft source controls">
-      <span>Source draft · read only</span>
-      {memoryMode && <span className="memory-hint">Hold Alt to peek</span>}
+      <div className="second-draft-source-meta">
+        <span>Source draft · read only</span>
+        {memoryMode && <span className="memory-hint">Hold Alt to peek</span>}
+      </div>
+      {pair && !sourceChanged && <div className="second-draft-sync-controls" role="group" aria-label="Paired scroll controls">
+        <span className="second-draft-sync-status">{syncScroll ? `Synced${manualAnchors.length ? ` · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}` : ""}` : "Free scroll"}</span>
+        <button type="button" className={syncScroll ? "active" : ""} aria-pressed={syncScroll}
+          title={syncScroll ? "Turn off paired scrolling to position both drafts independently" : "Turn paired scrolling back on"}
+          onClick={() => setSyncScroll((value) => {
+            const next = !value;
+            persistViewState({ syncScroll: next });
+            return next;
+          })}>Sync</button>
+        <button type="button" disabled={syncScroll} title="With Sync off, position both drafts where they correspond, then link those positions"
+          onClick={linkCurrentScrollPosition}>Link here</button>
+        {manualAnchors.length > 0 && <button type="button" title="Remove manual scroll links and use automatic anchors only"
+          onClick={clearManualScrollAnchors}>Reset links</button>}
+      </div>}
     </div>
+
+    {pair && !sourceChanged && <div className="second-draft-actionbar" aria-label="Second Draft actions">
+      <div className="second-draft-action-copy">
+        {activeBlock ? <>
+          <strong>Rewriting</strong>
+          <span>{activeBlock.sourceText.length > 120 ? activeBlock.sourceText.slice(0, 117) + "…" : activeBlock.sourceText}</span>
+        </> : selection ? <>
+          <strong>Selected source</strong>
+          <span>{selection.text.length > 120 ? selection.text.slice(0, 117) + "…" : selection.text}</span>
+        </> : <>
+          <strong>Source Burn</strong>
+          <span>Select source text, then decide what happens to it.</span>
+        </>}
+      </div>
+
+      <div className="second-draft-action-buttons">
+        {activeBlock ? <>
+          <button disabled={busy} className="primary" onClick={() => void finishActive("rewritten")}>Done</button>
+          <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
+          <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
+          <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
+        </> : selection ? <>
+          <button disabled={busy} className="primary" onClick={() => void createAndSet("active")}>Rewrite this</button>
+          <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
+          <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>
+          <button disabled={busy} onClick={() => void createAndSet("keep")}>Keep</button>
+          <div className="second-draft-send-ahead">
+            <select value={sendTargetId} onChange={(event) => setSendTargetId(event.target.value)} aria-label="Send source ahead to chapter">
+              <option value="">Send ahead…</option>
+              {sendOptions.map((section) => <option key={section.id} value={section.id}>{section.title}</option>)}
+            </select>
+            <button disabled={busy || !sendTargetId} title="Send selected source to the chosen chapter" onClick={() => void sendAhead()}>Send</button>
+          </div>
+        </> : null}
+      </div>
+
+      <button type="button" className="second-draft-seal" disabled={busy || unresolved > 0}
+        title={unresolved ? `Resolve ${unresolved} active/later source block(s) before sealing` : `Seal chapter · ${Math.round(progress * 100)}% source reviewed`}
+        onClick={() => void sealChapter()}>Seal</button>
+    </div>}
 
     <div ref={sourcePaperRef} className="writing-split-paper second-draft-source-paper">
       {sourceDoc
@@ -353,33 +545,6 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
             aria-label={`Source draft: ${sourceDoc.title}`} />
         : <div className="writing-split-loading">{sourceId ? "Loading source…" : "Choose a source chapter."}</div>}
     </div>
-
-    {pair && !sourceChanged && <aside className="second-draft-rail" aria-label="Second Draft rail">
-      {activeBlock ? <>
-        <span className="rail-label">Rewriting</span>
-        <button disabled={busy} className="rail-done" onClick={() => void finishActive("rewritten")}>✓ Done</button>
-        <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
-        <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
-        <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
-      </> : selection ? <>
-        <span className="rail-label">{selection.text.length > 80 ? selection.text.slice(0, 77) + "…" : selection.text}</span>
-        <button disabled={busy} className="rail-rewrite" onClick={() => void createAndSet("active")}>Rewrite this</button>
-        <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
-        <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>
-        <button disabled={busy} onClick={() => void createAndSet("keep")}>Keep</button>
-        <div className="rail-send-ahead">
-          <select value={sendTargetId} onChange={(event) => setSendTargetId(event.target.value)} aria-label="Send source ahead to chapter">
-            <option value="">Send ahead…</option>
-            {sendOptions.map((section) => <option key={section.id} value={section.id}>{section.title}</option>)}
-          </select>
-          <button disabled={busy || !sendTargetId} onClick={() => void sendAhead()}>→</button>
-        </div>
-      </> : <span className="rail-empty">Select source text</span>}
-      <div className="rail-spacer" />
-      <button type="button" className="rail-seal" disabled={busy || unresolved > 0}
-        title={unresolved ? `Resolve ${unresolved} active/later source block(s) before sealing` : "Seal this chapter"}
-        onClick={() => void sealChapter()}>Seal chapter</button>
-    </aside>}
 
     {sealReveal && <div className="second-draft-reveal-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target) setSealReveal(null);
