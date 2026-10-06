@@ -298,9 +298,30 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     editor.dataset.sectionId = sourceDoc.id;
     editor.dataset.markdown = sourceDoc.markdown;
     setSelection(null);
+    setSceneIndex(0);
+    setSceneCount(Math.max(1, editor.querySelectorAll(".editor-scene-break").length + 1));
     const text = editor.textContent ?? "";
     setSourceChanged(Boolean(pair && pair.sourceSectionId === sourceDoc.id && pair.sourceFingerprint !== sourceFingerprint(text)));
   }, [sourceDoc?.id, sourceDoc?.markdown, props.ornament, props.project.projectId, pair?.sourceFingerprint, pair?.sourceSectionId]);
+
+  useEffect(() => {
+    const editor = sourceEditorRef.current;
+    if (!editor || !sourceDoc) return;
+    const updateSceneFromScroll = () => {
+      const host = editor.getBoundingClientRect();
+      const breaks = [...editor.querySelectorAll<HTMLElement>(".editor-scene-break")];
+      let next = 0;
+      for (const divider of breaks) {
+        const rect = divider.getBoundingClientRect();
+        if (rect.top <= host.top + Math.min(90, editor.clientHeight * .2)) next++;
+        else break;
+      }
+      setSceneIndex(Math.max(0, Math.min(breaks.length, next)));
+    };
+    updateSceneFromScroll();
+    editor.addEventListener("scroll", updateSceneFromScroll, { passive: true });
+    return () => editor.removeEventListener("scroll", updateSceneFromScroll);
+  }, [sourceDoc?.id, sourceDoc?.markdown]);
 
   useEffect(() => {
     if (!sourceDoc) return;
