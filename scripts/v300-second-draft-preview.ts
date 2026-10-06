@@ -327,7 +327,10 @@ try {
     if (!fixture) {
       fixture = document.createElement("style");
       fixture.id = "second-draft-scroll-fixture";
-      fixture.textContent = ".manuscript-editor,.second-draft-source{height:180px!important;}";
+      fixture.textContent = [
+        '.folio-shell[data-workspace-mode="write"][data-split-view="true"] .editor-pane .manuscript-editor',
+        '.folio-shell[data-workspace-mode="write"][data-split-view="true"] .second-draft-pane .second-draft-source',
+      ].join(",") + "{height:180px!important;}";
       document.head.appendChild(fixture);
     }
     return {
