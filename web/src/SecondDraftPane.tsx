@@ -4,6 +4,7 @@ import { markdownToEditorHtml } from "./rich-text";
 import {
   caretTextOffset,
   interpolatePairedScroll,
+  placeCaretAtTextOffset,
   rangeForTextOffsets,
   secondDraftProgress,
   selectedTextOffsets,
@@ -137,6 +138,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const sourcePaperRef = useRef<HTMLDivElement>(null);
   const scrollSyncRef = useRef(false);
   const restoringScrollRef = useRef(false);
+  const targetCaretRef = useRef<number | null>(null);
   const viewKey = useMemo(
     () => `folio.second-draft.view.v2:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
     [props.project.projectId, props.targetSectionId, sourceId],
@@ -232,6 +234,26 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     for (const [name, ranges] of grouped) registry.set(name, new HighlightCtor(...ranges));
     return () => { for (const name of BURN_HIGHLIGHTS) registry.delete(name); };
   }, [relevantBlocks, sourceDoc?.id, sourceDoc?.markdown, sourceMatchesPair, sourceChanged]);
+
+  useEffect(() => {
+    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!targetEditor) return;
+    const rememberTargetCaret = () => {
+      const offset = caretTextOffset(targetEditor);
+      if (offset !== null) targetCaretRef.current = offset;
+    };
+    rememberTargetCaret();
+    targetEditor.addEventListener("mouseup", rememberTargetCaret);
+    targetEditor.addEventListener("keyup", rememberTargetCaret);
+    targetEditor.addEventListener("input", rememberTargetCaret);
+    targetEditor.addEventListener("focus", rememberTargetCaret);
+    return () => {
+      targetEditor.removeEventListener("mouseup", rememberTargetCaret);
+      targetEditor.removeEventListener("keyup", rememberTargetCaret);
+      targetEditor.removeEventListener("input", rememberTargetCaret);
+      targetEditor.removeEventListener("focus", rememberTargetCaret);
+    };
+  }, [props.targetSectionId]);
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => { if (event.key === "Alt" && memoryMode) setMemoryPeek(true); };
@@ -353,8 +375,20 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   function currentTargetCaret(): number | undefined {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!editor) return undefined;
-    const offset = caretTextOffset(editor);
-    return offset === null ? (editor.textContent?.length ?? 0) : offset;
+    const live = caretTextOffset(editor);
+    if (live !== null) {
+      targetCaretRef.current = live;
+      return live;
+    }
+    return targetCaretRef.current ?? (editor.textContent?.length ?? 0);
+  }
+
+  function restoreTargetCaret(offset: number | undefined) {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!editor || offset === undefined) return;
+    targetCaretRef.current = offset;
+    editor.focus();
+    placeCaretAtTextOffset(editor, offset);
   }
 
   async function pairSource() {
@@ -383,12 +417,13 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     if (!selection || !pair || !sourceMatchesPair || sourceChanged) return;
     setBusy(true);
     try {
+      const targetStart = status === "active" ? currentTargetCaret() : undefined;
       const state = await api.createSecondDraftBlock(props.project.projectId, {
         targetSectionId: props.targetSectionId,
         sourceStart: selection.start,
         sourceEnd: selection.end,
         sourceText: selection.text,
-        targetStart: status === "active" ? currentTargetCaret() : undefined,
+        targetStart,
         status,
       });
       props.onState(state);
@@ -396,7 +431,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       window.getSelection()?.removeAllRanges();
       if (status === "active") {
         props.onRevealTarget();
-        requestAnimationFrame(() => document.querySelector<HTMLElement>(".manuscript-editor")?.focus());
+        requestAnimationFrame(() => restoreTargetCaret(targetStart));
       }
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
@@ -418,9 +453,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     if (block.status !== "later") return;
     setBusy(true);
     try {
+      const targetStart = currentTargetCaret();
       props.onState(await api.updateSecondDraftBlock(props.project.projectId, block.id, {
         status: "active",
-        targetStart: currentTargetCaret(),
+        targetStart,
       }));
       setSelection(null);
       window.getSelection()?.removeAllRanges();
@@ -434,7 +470,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           source.scrollTop = Math.max(0, source.scrollTop + rect.top - host.top - source.clientHeight * .28);
           source.dispatchEvent(new Event("scroll"));
         }
-        document.querySelector<HTMLElement>(".manuscript-editor")?.focus();
+        restoreTargetCaret(targetStart);
       });
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
