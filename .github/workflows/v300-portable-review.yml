@@ -23,12 +23,20 @@ jobs:
           github-token: ${{ github.token }}
           run-id: 37400460563
 
-      - name: Verify portable candidate
+      - name: Verify and stage portable candidate
         run: |
-          test -s candidate/Folio-3.0.0-portable.exe
-          test -s candidate/sha256.txt
-          grep "Folio-3.0.0-portable.exe" candidate/sha256.txt
-          cat candidate/sha256.txt
+          portable="$(find candidate -type f -name 'Folio-3.0.0-portable.exe' -print -quit)"
+          hashes="$(find candidate -type f -name 'sha256.txt' -print -quit)"
+          test -n "$portable"
+          test -n "$hashes"
+          test -s "$portable"
+          test -s "$hashes"
+          grep "Folio-3.0.0-portable.exe" "$hashes"
+          mkdir -p portable-review
+          cp "$portable" portable-review/Folio-3.0.0-portable.exe
+          cp "$hashes" portable-review/sha256.txt
+          ls -lh portable-review
+          cat portable-review/sha256.txt
 
       - name: Upload portable review artifact
         uses: actions/upload-artifact@v4
@@ -37,5 +45,5 @@ jobs:
           retention-days: 14
           compression-level: 0
           path: |
-            candidate/Folio-3.0.0-portable.exe
-            candidate/sha256.txt
+            portable-review/Folio-3.0.0-portable.exe
+            portable-review/sha256.txt
