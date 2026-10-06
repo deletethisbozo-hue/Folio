@@ -404,7 +404,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     sourceEditor.addEventListener("scroll", syncFromSource, { passive: true });
 
     return () => {
-      if (!restoringScrollRef.current) persistViewState();
+      // Scroll/state changes are persisted when they happen. Do not sample the
+      // editors during unmount: the parent may already have switched out of
+      // split layout, which can clamp scrollTop and overwrite the real position.
       programmaticScrollRef.current.target = null;
       programmaticScrollRef.current.source = null;
       targetEditor.removeEventListener("scroll", syncFromTarget);
