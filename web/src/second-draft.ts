@@ -53,6 +53,48 @@ export function caretTextOffset(root: HTMLElement): number | null {
   return textOffsetWithin(root, selection.focusNode, selection.focusOffset);
 }
 
+export function placeCaretAtTextOffset(root: HTMLElement, offset: number): boolean {
+  const total = root.textContent?.length ?? 0;
+  const safe = Math.max(0, Math.min(total, Math.round(offset)));
+  const selection = window.getSelection();
+  if (!selection) return false;
+
+  if (total === 0) {
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  }
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let seen = 0;
+  let last: Text | null = null;
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    last = node;
+    const next = seen + node.data.length;
+    if (safe <= next) {
+      const range = document.createRange();
+      range.setStart(node, Math.max(0, Math.min(node.data.length, safe - seen)));
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+    seen = next;
+  }
+
+  if (!last) return false;
+  const range = document.createRange();
+  range.setStart(last, last.data.length);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  return true;
+}
+
 export function selectedTextOffsets(root: HTMLElement): { start: number; end: number; text: string } | null {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
