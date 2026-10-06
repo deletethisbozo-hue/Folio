@@ -140,6 +140,12 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     () => relevantBlocks.filter((block) => block.status === "later").sort((a, b) => a.sourceStart - b.sourceStart),
     [relevantBlocks],
   );
+  const latestUndoableBlock = useMemo(
+    () => [...relevantBlocks]
+      .filter((block) => block.status !== "sent")
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0] ?? null,
+    [relevantBlocks],
+  );
   const selectedExistingBlock = useMemo(
     () => selection
       ? relevantBlocks.find((block) => block.sourceStart < selection.end && block.sourceEnd > selection.start) ?? null
@@ -151,6 +157,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const programmaticScrollRef = useRef<{ target: number | null; source: number | null }>({ target: null, source: null });
   const restoringScrollRef = useRef(false);
   const targetCaretRef = useRef<number | null>(null);
+  const unreviewedCursorRef = useRef(0);
   const viewKey = useMemo(
     () => `folio.second-draft.view.v3:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
     [props.project.projectId, props.targetSectionId, sourceId],
@@ -555,6 +562,68 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     finally { setBusy(false); }
   }
 
+  async function undoDecision(block: SecondDraftBlock) {
+    if (block.status === "sent") return;
+    setBusy(true);
+    try {
+      props.onState(await api.removeSecondDraftBlock(props.project.projectId, block.id));
+      setSelection(null);
+      setTargetSelection(null);
+      window.getSelection()?.removeAllRanges();
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
+  function jumpToNextUnreviewed() {
+    const editor = sourceEditorRef.current;
+    if (!editor || !pair) return;
+    const text = editor.textContent ?? "";
+    if (!text.length) return;
+
+    const occupied = relevantBlocks
+      .map((block) => [Math.max(0, block.sourceStart), Math.min(text.length, block.sourceEnd)] as const)
+      .filter(([start, end]) => end > start)
+      .sort((a, b) => a[0] - b[0]);
+
+    const nextGap = (from: number): { start: number; end: number } | null => {
+      let cursor = Math.max(0, Math.min(text.length, from));
+      for (const [start, end] of occupied) {
+        if (end <= cursor) continue;
+        if (start > cursor) return { start: cursor, end: start };
+        cursor = Math.max(cursor, end);
+      }
+      return cursor < text.length ? { start: cursor, end: text.length } : null;
+    };
+
+    let gap = nextGap(unreviewedCursorRef.current);
+    if (!gap) gap = nextGap(0);
+    if (!gap) {
+      props.onError("Every source passage already has a Second Draft decision.");
+      return;
+    }
+
+    let start = gap.start;
+    while (start < gap.end && /\s/.test(text[start] ?? "")) start++;
+    if (start >= gap.end) {
+      unreviewedCursorRef.current = gap.end + 1;
+      jumpToNextUnreviewed();
+      return;
+    }
+    let end = Math.min(gap.end, start + 72);
+    while (end > start + 1 && /\s/.test(text[end - 1] ?? "")) end--;
+    const range = rangeForTextOffsets(editor, start, end);
+    if (!range) return;
+    const selectionApi = window.getSelection();
+    selectionApi?.removeAllRanges();
+    selectionApi?.addRange(range);
+    const normalized = range.cloneContents().textContent ?? range.toString();
+    setSelection({ start, end, text: normalized });
+    const host = editor.getBoundingClientRect();
+    const rect = range.getBoundingClientRect();
+    editor.scrollTop = Math.max(0, editor.scrollTop + rect.top - host.top - editor.clientHeight * .3);
+    unreviewedCursorRef.current = Math.min(text.length, end + 1);
+  }
+
   const canSendAhead = Boolean(selection && pair && sourceMatchesPair && sendTargetId && !sourceChanged && !busy);
 
   async function sendAhead() {
@@ -643,20 +712,33 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         <span>Source draft · read only</span>
         {memoryMode && <span className="memory-hint">Hold Alt to peek</span>}
       </div>
-      {sourceMatchesPair && !sourceChanged && <div className="second-draft-sync-controls" role="group" aria-label="Paired scroll controls">
-        <span className="second-draft-sync-status">{syncScroll ? `Synced${manualAnchors.length ? ` · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}` : ""}` : "Free scroll"}</span>
-        <button type="button" className={syncScroll ? "active" : ""} aria-pressed={syncScroll}
-          title={syncScroll ? "Turn off paired scrolling to position both drafts independently" : "Turn paired scrolling back on"}
-          onClick={() => setSyncScroll((value) => {
-            const next = !value;
-            persistViewState({ syncScroll: next });
-            return next;
-          })}>Sync</button>
-        <button type="button" disabled={syncScroll} title="With Sync off, position both drafts where they correspond, then link those positions"
-          onClick={linkCurrentScrollPosition}>Link here</button>
-        {manualAnchors.length > 0 && <button type="button" title="Remove manual scroll links and use automatic anchors only"
-          onClick={clearManualScrollAnchors}>Reset links</button>}
-      </div>}
+      {sourceMatchesPair && !sourceChanged && <>
+        <div className="second-draft-review-controls" role="group" aria-label="Second Draft review navigation">
+          <button type="button" onClick={jumpToNextUnreviewed}>Next unreviewed</button>
+          <button type="button" disabled={!latestUndoableBlock || busy}
+            title={latestUndoableBlock ? "Undo the most recent Second Draft decision" : "No decision to undo"}
+            onClick={() => latestUndoableBlock && void undoDecision(latestUndoableBlock)}>Undo last</button>
+        </div>
+        <div className="second-draft-sync-controls" role="group" aria-label="Paired scroll controls">
+          <span className="second-draft-sync-status">{manualAnchors.length === 0
+            ? "Select matching lines"
+            : syncScroll
+              ? `Synced · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}`
+              : `Paused · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}`}</span>
+          <button type="button" disabled={manualAnchors.length === 0} className={syncScroll ? "active" : ""} aria-pressed={syncScroll}
+            title={manualAnchors.length === 0 ? "Link one source line to one target line first" : syncScroll ? "Pause paired scrolling" : "Resume paired scrolling"}
+            onClick={() => setSyncScroll((value) => {
+              const next = manualAnchors.length > 0 && !value;
+              persistViewState({ syncScroll: next });
+              return next;
+            })}>Sync</button>
+          <button type="button" disabled={!selection || !targetSelection}
+            title="Select matching text on the source and target, then link those exact lines"
+            onClick={linkSelectedLines}>Link lines</button>
+          {manualAnchors.length > 0 && <button type="button" title="Remove all explicit text links"
+            onClick={clearManualScrollAnchors}>Reset links</button>}
+        </div>
+      </>}
     </div>
 
     {sourceMatchesPair && !sourceChanged && <div className="second-draft-actionbar" aria-label="Second Draft actions">
@@ -689,7 +771,13 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button disabled={busy} className="primary" onClick={() => void resumeLater(selectedExistingBlock)}>Resume</button>
           <button disabled={busy} onClick={() => void resolveLater(selectedExistingBlock, "cut")}>Cut</button>
           <button disabled={busy} onClick={() => void resolveLater(selectedExistingBlock, "keep")}>Keep</button>
-        </> : selection && selectedExistingBlock ? null : selection ? <>
+          <button disabled={busy} onClick={() => void undoDecision(selectedExistingBlock)}>Undo later</button>
+        </> : selection && selectedExistingBlock ? <>
+          {selectedExistingBlock.status !== "sent" &&
+            <button disabled={busy} onClick={() => void undoDecision(selectedExistingBlock)}>
+              {selectedExistingBlock.status === "rewritten" ? "Undo rewrite" : "Undo decision"}
+            </button>}
+        </> : selection ? <>
           <button disabled={busy} className="primary" onClick={() => void createAndSet("active")}>Rewrite this</button>
           <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
           <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>
