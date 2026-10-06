@@ -3,6 +3,7 @@ import { api } from "./api";
 import { markdownToEditorHtml } from "./rich-text";
 import {
   caretTextOffset,
+  changedTextRange,
   interpolatePairedScroll,
   placeCaretAtTextOffset,
   rangeForTextOffsets,
@@ -261,6 +262,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const programmaticScrollRef = useRef<{ target: number | null; source: number | null }>({ target: null, source: null });
   const restoringScrollRef = useRef(false);
   const targetCaretRef = useRef<number | null>(null);
+  const rewriteTargetSnapshotRef = useRef<{ text: string; anchor: number } | null>(null);
   const unreviewedCursorRef = useRef(0);
   const issueCursorRef = useRef(0);
   const changedCursorRef = useRef(0);
@@ -624,6 +626,13 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     setBusy(true);
     try {
       const targetStart = status === "active" ? currentTargetCaret() : undefined;
+      if (status === "active") {
+        const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+        rewriteTargetSnapshotRef.current = {
+          text: targetEditor?.textContent ?? "",
+          anchor: targetStart ?? 0,
+        };
+      }
       const state = await api.createSecondDraftBlock(props.project.projectId, {
         targetSectionId: props.targetSectionId,
         sourceStart: selection.start,
@@ -684,10 +693,29 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     if (!activeBlock) return;
     setBusy(true);
     try {
+      let targetStart = activeBlock.targetStart;
+      let targetEnd: number | undefined;
+      if (status === "rewritten") {
+        const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+        const snapshot = rewriteTargetSnapshotRef.current;
+        const changed = snapshot && targetEditor
+          ? changedTextRange(snapshot.text, targetEditor.textContent ?? "")
+          : null;
+        if (changed) {
+          targetStart = changed.start;
+          targetEnd = changed.end;
+        } else {
+          targetEnd = currentTargetCaret();
+        }
+      } else if (status === "keep") {
+        targetEnd = currentTargetCaret();
+      }
       props.onState(await api.updateSecondDraftBlock(props.project.projectId, activeBlock.id, {
         status,
-        targetEnd: status === "rewritten" || status === "keep" ? currentTargetCaret() : undefined,
+        targetStart,
+        targetEnd,
       }));
+      rewriteTargetSnapshotRef.current = null;
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   }
@@ -697,6 +725,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     setBusy(true);
     try {
       const targetStart = currentTargetCaret();
+      const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+      rewriteTargetSnapshotRef.current = {
+        text: targetEditor?.textContent ?? "",
+        anchor: targetStart ?? 0,
+      };
       props.onState(await api.updateSecondDraftBlock(props.project.projectId, block.id, {
         status: "active",
         targetStart,
@@ -734,6 +767,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     if (block.status === "sent") return;
     setBusy(true);
     try {
+      if (block.status === "active") rewriteTargetSnapshotRef.current = null;
       props.onState(await api.removeSecondDraftBlock(props.project.projectId, block.id));
       setSelection(null);
       setTargetSelection(null);
