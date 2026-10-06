@@ -41,10 +41,40 @@ export function sourceFingerprint(text: string): string {
 
 export function textOffsetWithin(root: Node, node: Node, offset: number): number | null {
   if (!(root instanceof Node) || !root.contains(node)) return null;
-  const range = document.createRange();
-  range.selectNodeContents(root);
-  try { range.setEnd(node, offset); } catch { return null; }
-  return range.toString().length;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let seen = 0;
+
+  while (walker.nextNode()) {
+    const current = walker.currentNode as Text;
+    if (current === node) {
+      return seen + Math.max(0, Math.min(current.data.length, offset));
+    }
+    if (current.contains?.(node)) {
+      return seen;
+    }
+    seen += current.data.length;
+  }
+
+  // Selections can occasionally target an element boundary rather than a text
+  // node. Resolve that boundary by summing the text-node lengths before it,
+  // using the same coordinate system as rangeForTextOffsets/textContent.
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const element = node as Element;
+    const children = Array.from(element.childNodes);
+    const safeOffset = Math.max(0, Math.min(children.length, offset));
+    let total = 0;
+    const rootWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (rootWalker.nextNode()) {
+      const text = rootWalker.currentNode as Text;
+      const child = children[safeOffset] ?? null;
+      if (child && (text === child || child.contains?.(text))) break;
+      if (!child && element.contains(text)) total += text.data.length;
+      else if (!element.contains(text)) total += text.data.length;
+    }
+    return total;
+  }
+
+  return null;
 }
 
 export function caretTextOffset(root: HTMLElement): number | null {
@@ -105,7 +135,15 @@ export function selectedTextOffsets(root: HTMLElement): { start: number; end: nu
   if (start === null || end === null || end <= start) return null;
   const text = range.toString();
   if (!text.trim()) return null;
-  return { start, end, text };
+  // sourceStart/sourceEnd intentionally count text-node characters only. Keep
+  // sourceText in that same coordinate system even for selections crossing
+  // block elements, where Range.toString() may synthesize line separators.
+  const normalizedText = (() => {
+    const fragment = range.cloneContents();
+    return fragment.textContent ?? text;
+  })();
+  if (!normalizedText.trim()) return null;
+  return { start, end, text: normalizedText };
 }
 
 export function rangeForTextOffsets(root: HTMLElement, start: number, end: number): Range | null {
