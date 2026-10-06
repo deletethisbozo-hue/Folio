@@ -401,9 +401,17 @@ try {
   const savedBeforeRemount = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
     const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const storage = Object.fromEntries(
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("folio.second-draft.view.v2:"))
+        .map((key) => [key, localStorage.getItem(key)]),
+    );
     return {
       target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
       source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+      targetMax: Math.max(0, target.scrollHeight - target.clientHeight),
+      sourceMax: Math.max(0, source.scrollHeight - source.clientHeight),
+      storage,
     };
   });
   await page.click(".second-draft-head-actions button[aria-label='Close Second Draft']");
@@ -415,10 +423,18 @@ try {
   const restoredAfterRemount = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
     const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const storage = Object.fromEntries(
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("folio.second-draft.view.v2:"))
+        .map((key) => [key, localStorage.getItem(key)]),
+    );
     return {
       target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
       source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+      targetMax: Math.max(0, target.scrollHeight - target.clientHeight),
+      sourceMax: Math.max(0, source.scrollHeight - source.clientHeight),
       status: document.querySelector(".second-draft-sync-status")?.textContent ?? "",
+      storage,
     };
   });
   if (Math.abs(restoredAfterRemount.target - savedBeforeRemount.target) > .10
