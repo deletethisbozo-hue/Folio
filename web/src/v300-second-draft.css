@@ -482,15 +482,22 @@
 }
 
 .second-draft-map {
-  position: relative;
-  z-index: 8;
+  position: absolute;
+  z-index: 17;
+  left: 12px;
+  right: 12px;
+  bottom: 72px;
   height: 18px;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
-  padding: 2px 12px 3px;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 7%, transparent);
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 9%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mockup-paper, var(--studio-paper, #fff)) 92%, transparent);
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+  backdrop-filter: blur(12px);
   font: 600 8px/1 var(--folio-ui-font);
   color: color-mix(in srgb, currentColor 60%, transparent);
 }
