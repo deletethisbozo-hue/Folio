@@ -134,6 +134,31 @@ try {
     }, skip);
   }
 
+  async function selectTargetText(skip = 0) {
+    return page.evaluate((skipIndex) => {
+      const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+      if (!editor) throw new Error("Second Draft target missing");
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        if (node.data.trim().length >= 24) nodes.push(node);
+      }
+      const node = nodes[Math.min(skipIndex, nodes.length - 1)];
+      if (!node) throw new Error("No selectable target prose found");
+      const start = Math.max(0, node.data.search(/\S/));
+      const end = Math.min(node.length, start + 36);
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, end);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      editor.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return selection.toString();
+    }, skip);
+  }
+
   const expectedRewriteStart = await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!editor) throw new Error("Target editor missing before Rewrite This");
@@ -214,6 +239,37 @@ try {
     activeHighlight: Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-active")),
   }));
   if (!burn.rewrittenHighlight || burn.activeHighlight) throw new Error("Source Burn did not move active source to rewritten state: " + JSON.stringify(burn));
+
+  // A rewritten source decision must be reversible without deleting target prose.
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.trim() === "Undo rewrite"));
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((item) => item.textContent?.trim() === "Undo rewrite");
+    button?.click();
+  });
+  await page.waitForFunction(() =>
+    !(CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten"),
+  );
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.includes("Rewrite this") && !(button as HTMLButtonElement).disabled));
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((item) => item.textContent?.includes("Rewrite this"));
+    button?.click();
+  });
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.includes("Done")));
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((item) => item.textContent?.includes("Done"));
+    button?.click();
+  });
+  await page.waitForFunction(() =>
+    Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten")),
+  );
 
   await page.click(".second-draft-head-actions button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
@@ -341,67 +397,61 @@ try {
   if (scrollGeometry.targetMax <= 0 || scrollGeometry.sourceMax <= 0) {
     throw new Error("Paired Scroll QA could not create scrollable editors: " + JSON.stringify(scrollGeometry));
   }
-  const beforeScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  // Paired Scroll is intentionally inert until the writer explicitly links matching text on both sides.
+  const beforeUnlinkedScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   await page.$eval(".manuscript-editor", (el) => {
     const editor = el as HTMLElement;
-    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .45);
+    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .42);
+    editor.dispatchEvent(new Event("scroll"));
+  });
+  await settle(180);
+  const afterUnlinkedScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  if (Math.abs(afterUnlinkedScroll - beforeUnlinkedScroll) > 2) {
+    throw new Error(`Paired Scroll moved before any text link existed: ${beforeUnlinkedScroll} -> ${afterUnlinkedScroll}`);
+  }
+
+  const linkedSourceText = await selectSourceText(3);
+  const linkedTargetText = await selectTargetText(1);
+  if (!linkedSourceText.trim() || !linkedTargetText.trim()) throw new Error("Could not select matching text for Paired Scroll");
+  await page.waitForFunction(() => {
+    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Link lines");
+    return Boolean(link && !link.disabled);
+  });
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Link lines");
+    link?.click();
+  });
+  await page.waitForFunction(() => /Synced.*1 link/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
+
+  const beforeLinkedMove = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    const max = Math.max(1, editor.scrollHeight - editor.clientHeight);
+    editor.scrollTop = Math.min(max, editor.scrollTop + max * .18);
     editor.dispatchEvent(new Event("scroll"));
   });
   await settle(220);
-  const afterScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
-  if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}; ${JSON.stringify(scrollGeometry)}`);
+  const afterLinkedMove = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  if (Math.abs(afterLinkedMove - beforeLinkedMove) < 2) {
+    throw new Error(`Paired Scroll did not react after explicit line link: ${beforeLinkedMove} -> ${afterLinkedMove}`);
+  }
 
-  // Free-scroll must let the writer align the two drafts by eye without the other pane fighting back.
+  // Pause/resume only exists after at least one explicit line link.
   await page.evaluate(() => {
     const sync = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
       .find((button) => button.textContent?.trim() === "Sync");
-    if (!sync) throw new Error("Second Draft Sync control missing");
+    if (!sync || sync.disabled) throw new Error("Second Draft Sync control missing after line link");
     sync.click();
   });
-  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Free scroll"));
-  const freePosition = await page.evaluate(() => {
-    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
-    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
-    const targetMax = Math.max(1, target.scrollHeight - target.clientHeight);
-    const sourceMax = Math.max(1, source.scrollHeight - source.clientHeight);
-    target.scrollTop = targetMax * .72;
-    source.scrollTop = sourceMax * .28;
-    target.dispatchEvent(new Event("scroll"));
-    source.dispatchEvent(new Event("scroll"));
-    return { targetMax, sourceMax };
-  });
-  await settle(220);
-  const freeRatios = await page.evaluate(() => {
-    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
-    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
-    return {
-      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
-      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
-    };
-  });
-  if (Math.abs(freeRatios.target - .72) > .08 || Math.abs(freeRatios.source - .28) > .08) {
-    throw new Error("Free Scroll still forces alignment: " + JSON.stringify({ freePosition, freeRatios }));
-  }
-
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Paused"));
   await page.evaluate(() => {
-    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
-      .find((button) => button.textContent?.trim() === "Link here");
-    if (!link || link.disabled) throw new Error("Link here must be enabled in Free Scroll");
-    link.click();
+    const sync = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Sync");
+    sync?.click();
   });
-  await page.waitForFunction(() => /Synced.*1 link/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
-  await settle(180);
-  const linkedRatios = await page.evaluate(() => {
-    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
-    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
-    return {
-      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
-      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
-    };
-  });
-  if (Math.abs(linkedRatios.target - freeRatios.target) > .10 || Math.abs(linkedRatios.source - freeRatios.source) > .10) {
-    throw new Error("Manual paired-scroll anchor did not preserve the linked positions: " + JSON.stringify({ freeRatios, linkedRatios }));
-  }
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Synced"));
 
   // Mode remount must restore both scroll positions and Second Draft UI state.
   await page.click(".second-draft-head-actions button[title*='Hide source']");
@@ -411,7 +461,7 @@ try {
     const source = document.querySelector<HTMLElement>(".second-draft-source")!;
     const storage = Object.fromEntries(
       Object.keys(localStorage)
-        .filter((key) => key.startsWith("folio.second-draft.view.v2:"))
+        .filter((key) => key.startsWith("folio.second-draft.view.v3:"))
         .map((key) => [key, localStorage.getItem(key)]),
     );
     return {
@@ -433,7 +483,7 @@ try {
     const source = document.querySelector<HTMLElement>(".second-draft-source")!;
     const storage = Object.fromEntries(
       Object.keys(localStorage)
-        .filter((key) => key.startsWith("folio.second-draft.view.v2:"))
+        .filter((key) => key.startsWith("folio.second-draft.view.v3:"))
         .map((key) => [key, localStorage.getItem(key)]),
     );
     const paper = document.querySelector<HTMLElement>(".second-draft-source-paper");
