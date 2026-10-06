@@ -46,6 +46,10 @@ function scrollTopForRatio(element: HTMLElement, ratio: number): number {
   return clampRatio(ratio) * Math.max(0, element.scrollHeight - element.clientHeight);
 }
 
+function textWordCount(text: string): number {
+  return text.trim().match(/\S+/g)?.length ?? 0;
+}
+
 function readSecondDraftViewState(key: string): SecondDraftViewState | null {
   try {
     const raw = window.localStorage.getItem(key);
@@ -962,6 +966,70 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
             ? "Process at least one source passage before sealing"
             : `Seal chapter · ${Math.round(progress * 100)}% source reviewed`}
         onClick={() => void sealChapter()}>Seal</button>
+    </div>}
+
+    {reviewPanelOpen && sourceMatchesPair && <aside className="second-draft-drawer second-draft-review-drawer" aria-label="Second Draft review passes">
+      <div className="second-draft-drawer-head">
+        <strong>Chapter passes</strong>
+        <span>{reviewPassCount}/{REVIEW_PASSES.length} complete</span>
+        <button type="button" onClick={() => setReviewPanelOpen(false)}>×</button>
+      </div>
+      <div className="second-draft-pass-grid">
+        {REVIEW_PASSES.map((item) => <button key={item.key} type="button"
+          className={reviewPasses[item.key] ? "complete" : ""}
+          disabled={busy}
+          onClick={() => void toggleReviewPass(item.key)}>
+          <span>{reviewPasses[item.key] ? "✓" : "○"}</span>{item.label}
+        </button>)}
+      </div>
+    </aside>}
+
+    {issuePanelOpen && sourceMatchesPair && <aside className="second-draft-drawer second-draft-issues-drawer" aria-label="Second Draft issues">
+      <div className="second-draft-drawer-head">
+        <strong>Issues</strong>
+        <span>{unresolvedIssues.length} open</span>
+        <button type="button" onClick={() => setIssuePanelOpen(false)}>×</button>
+      </div>
+      {selection && <div className="second-draft-issue-compose">
+        <div className="second-draft-issue-selection">{selection.text.length > 110 ? selection.text.slice(0, 107) + "…" : selection.text}</div>
+        <div className="second-draft-issue-form">
+          <select value={issueCategory} onChange={(event) => setIssueCategory(event.target.value as SecondDraftIssueCategory)}>
+            {ISSUE_CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+          <input value={issueNote} onChange={(event) => setIssueNote(event.target.value)}
+            placeholder="What needs another pass?" maxLength={4000} />
+          <button type="button" disabled={busy} onClick={() => void createIssue()}>Add issue</button>
+        </div>
+      </div>}
+      <div className="second-draft-issue-list">
+        {unresolvedIssues.length === 0
+          ? <p>No open issues in this chapter.</p>
+          : unresolvedIssues.map((issue) => <article key={issue.id}>
+              <button type="button" className="second-draft-issue-jump"
+                onClick={() => selectAndRevealSourceRange(issue.sourceStart, issue.sourceEnd)}>
+                <span>{ISSUE_CATEGORIES.find((item) => item.value === issue.category)?.label ?? issue.category}</span>
+                <strong>{issue.sourceText.length > 92 ? issue.sourceText.slice(0, 89) + "…" : issue.sourceText}</strong>
+                {issue.note && <small>{issue.note}</small>}
+              </button>
+              <button type="button" disabled={busy} onClick={() => void resolveIssue(issue)}>Resolve</button>
+            </article>)}
+      </div>
+    </aside>}
+
+    {comparison && <div className="second-draft-compare-backdrop" role="presentation" onMouseDown={(event) => {
+      if (event.currentTarget === event.target) setComparison(null);
+    }}>
+      <section className="second-draft-compare" role="dialog" aria-modal="true" aria-label="Compare rewrite">
+        <div className="second-draft-drawer-head">
+          <strong>Compare rewrite</strong>
+          <span>{textWordCount(comparison.sourceText)} → {textWordCount(comparison.targetText)} words · {textWordCount(comparison.targetText) - textWordCount(comparison.sourceText) >= 0 ? "+" : ""}{textWordCount(comparison.targetText) - textWordCount(comparison.sourceText)}</span>
+          <button type="button" onClick={() => setComparison(null)}>×</button>
+        </div>
+        <div className="second-draft-compare-grid">
+          <article><span>Source</span><p>{comparison.sourceText}</p></article>
+          <article><span>Rewrite</span><p>{comparison.targetText || "No target text captured for this rewrite."}</p></article>
+        </div>
+      </section>
     </div>}
 
     <div ref={sourcePaperRef} className="writing-split-paper second-draft-source-paper">
