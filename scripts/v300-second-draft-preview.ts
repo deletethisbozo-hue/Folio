@@ -152,6 +152,8 @@ try {
   );
   const cancelledProgress = await page.$eval(".second-draft-progress", (el) => el.textContent?.trim() ?? "");
   if (!cancelledProgress.startsWith("0%")) throw new Error("Cancel left processed progress behind: " + cancelledProgress);
+
+  // Later must be a real resumable queue, not a dead-end status.
   await selectSourceText(0);
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Rewrite this")),
@@ -161,6 +163,25 @@ try {
       .find((item) => item.textContent?.includes("Rewrite this"));
     button?.click();
   });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")),
+  );
+  await page.evaluate(() => {
+    const later = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
+      .find((button) => button.textContent?.trim() === "Later");
+    later?.click();
+  });
+  await page.waitForSelector(".actionbar-resume-later");
+  const laterState = await page.evaluate(() => ({
+    status: document.querySelector(".actionbar-later-status")?.textContent?.trim(),
+    resume: document.querySelector(".actionbar-resume-later")?.textContent?.trim(),
+    sealDisabled: (document.querySelector(".actionbar-seal") as HTMLButtonElement | null)?.disabled,
+  }));
+  if (!laterState.status?.includes("1 saved for later") || laterState.resume !== "Resume next" || laterState.sealDisabled !== true) {
+    throw new Error("Later queue is not actionable: " + JSON.stringify(laterState));
+  }
+  await page.screenshot({ path: path.join(qa, "03a-later-queue.png") });
+  await page.click(".actionbar-resume-later");
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")),
   );
@@ -231,12 +252,12 @@ try {
   await page.waitForSelector(".actionbar-send-ahead select");
   const destination = await page.$eval(".actionbar-send-ahead select", (select) => {
     const option = [...(select as HTMLSelectElement).options].find((item) => item.value);
-    if (!option) return "";
+    if (!option) return { id: "", title: "" };
     (select as HTMLSelectElement).value = option.value;
     select.dispatchEvent(new Event("change", { bubbles: true }));
-    return option.value;
+    return { id: option.value, title: option.textContent?.trim() ?? "" };
   });
-  if (!destination) throw new Error("Sample book has no Send Ahead destination");
+  if (!destination.id || !destination.title) throw new Error("Sample book has no Send Ahead destination");
   await settle();
   await page.screenshot({ path: path.join(qa, "07-send-ahead.png") });
   await assertActionbarFits("Send Ahead");
@@ -247,7 +268,41 @@ try {
   );
   if (!sentHighlight) throw new Error("Send Ahead did not mark its source as processed");
   await settle();
+  const sendConfirmation = await page.$eval(".actionbar-confirmation", (el) => el.textContent?.trim() ?? "");
+  if (!sendConfirmation.includes(destination.title)) {
+    throw new Error("Send Ahead did not confirm its destination: " + sendConfirmation);
+  }
   await page.screenshot({ path: path.join(qa, "08-send-ahead-processed.png") });
+
+  // Verify the material actually arrives in the destination chapter UI.
+  const originalTargetTitle = await page.$eval(".section-title-button", (el) => el.textContent?.trim() ?? "");
+  await page.evaluate((title) => {
+    const row = [...document.querySelectorAll<HTMLButtonElement>(".contents-row.chapter-row")]
+      .find((button) => button.querySelector(".chapter-label")?.textContent?.trim() === title);
+    if (!row) throw new Error("Send Ahead destination row missing: " + title);
+    row.click();
+  }, destination.title);
+  await page.waitForFunction((title) =>
+    document.querySelector(".section-title-button")?.textContent?.trim() === title
+    && Boolean(document.querySelector(".second-draft-arrivals")),
+  {}, destination.title);
+  const arrival = await page.$eval(".second-draft-arrivals", (el) => el.textContent ?? "");
+  if (!arrival.includes("1 carried here") || !arrival.includes("Mark used")) {
+    throw new Error("Send Ahead material did not arrive as an actionable carryover: " + arrival);
+  }
+  await page.screenshot({ path: path.join(qa, "08a-send-ahead-arrival.png") });
+
+  await page.evaluate((title) => {
+    const row = [...document.querySelectorAll<HTMLButtonElement>(".contents-row.chapter-row")]
+      .find((button) => button.querySelector(".chapter-label")?.textContent?.trim() === title);
+    if (!row) throw new Error("Original target row missing: " + title);
+    row.click();
+  }, originalTargetTitle);
+  await page.waitForFunction((title) =>
+    document.querySelector(".section-title-button")?.textContent?.trim() === title
+    && Boolean(document.querySelector(".second-draft-progress")),
+  {}, originalTargetTitle);
+  await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
 
   const scrollGeometry = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -320,6 +375,11 @@ try {
   if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}; ${JSON.stringify(scrollGeometry)}`);
 
   await page.screenshot({ path: path.join(qa, "09-paired-scroll.png") });
+  await page.evaluate(() => {
+    document.querySelector<HTMLElement>(".manuscript-editor")?.style.removeProperty("height");
+    document.querySelector<HTMLElement>(".second-draft-source")?.style.removeProperty("height");
+  });
+  await settle(180);
 
   const sealDisabled = await page.$eval(".actionbar-seal", (button) => (button as HTMLButtonElement).disabled);
   if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
@@ -361,6 +421,17 @@ try {
   }
   if (geometry.editor.left - geometry.source.left > 48) {
     throw new Error("Second Draft source text is still horizontally crushed by action UI: " + JSON.stringify(geometry));
+  }
+  const midnightActionbar = await page.evaluate(() => {
+    const bar = document.querySelector<HTMLElement>(".second-draft-actionbar")!;
+    const button = bar.querySelector<HTMLElement>("button");
+    const bs = getComputedStyle(bar);
+    const cs = button ? getComputedStyle(button) : null;
+    return { barBackground: bs.backgroundColor, buttonBackground: cs?.backgroundColor, buttonColor: cs?.color };
+  });
+  if (/rgba?\(255, 255, 255, (?:0\.[3-9]|1)\)/.test(midnightActionbar.barBackground)
+    || midnightActionbar.buttonColor === "rgb(37, 40, 58)") {
+    throw new Error("Second Draft action bar is visually Light inside Midnight: " + JSON.stringify(midnightActionbar));
   }
   await page.screenshot({ path: path.join(qa, "12-second-draft-midnight.png") });
 

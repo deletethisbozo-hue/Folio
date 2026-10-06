@@ -481,6 +481,14 @@ export async function updateSecondDraftBlock(
     if (patch.status !== undefined) {
       const allowed: SecondDraftBlockStatus[] = ["active", "rewritten", "cut", "later", "keep", "sent"];
       if (!allowed.includes(patch.status)) throw new Error("Invalid Second Draft block status.");
+      if (patch.status === "active") {
+        for (const item of state.secondDraft.blocks) {
+          if (item.id !== block.id && item.targetSectionId === block.targetSectionId && item.status === "active") {
+            item.status = "later";
+            item.updatedAt = new Date().toISOString();
+          }
+        }
+      }
       block.status = patch.status;
     }
     if (patch.targetStart !== undefined) {

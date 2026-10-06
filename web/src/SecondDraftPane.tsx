@@ -58,6 +58,12 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     [blocks, props.targetSectionId],
   );
   const activeBlock = useMemo(() => latestActive(blocks, props.targetSectionId), [blocks, props.targetSectionId]);
+  const laterBlocks = useMemo(
+    () => relevantBlocks
+      .filter((block) => block.status === "later")
+      .sort((a, b) => a.sourceStart - b.sourceStart || Date.parse(a.createdAt) - Date.parse(b.createdAt)),
+    [relevantBlocks],
+  );
   const carryovers = useMemo(
     () => (props.state?.secondDraft.carryovers ?? []).filter(
       (item) => item.toTargetSectionId === props.targetSectionId && item.status === "pending",
@@ -78,6 +84,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [pairedScrollEnabled, setPairedScrollEnabled] = useState(true);
   const [manualScrollAnchor, setManualScrollAnchor] = useState<ManualScrollAnchor | null>(null);
   const [sendTargetId, setSendTargetId] = useState("");
+  const [sendConfirmation, setSendConfirmation] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
   const [sourceChanged, setSourceChanged] = useState(false);
@@ -95,6 +102,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     setSourceId(pair?.sourceSectionId ?? candidateSections[0]?.id ?? "");
     setSelection(null);
     setSealReveal(null);
+    setSendConfirmation(null);
   }, [props.targetSectionId, pair?.sourceSectionId, props.project.projectId]);
 
   useEffect(() => {
@@ -261,7 +269,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   function captureSelection() {
     const editor = sourceEditorRef.current;
-    if (editor) setSelection(selectedTextOffsets(editor));
+    if (!editor) return;
+    const next = selectedTextOffsets(editor);
+    setSelection(next);
+    if (next) setSendConfirmation(null);
   }
 
   function currentTargetCaret(): number | undefined {
@@ -324,6 +335,30 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     finally { setBusy(false); }
   }
 
+  async function resumeLater(block: SecondDraftBlock) {
+    if (activeBlock || block.status !== "later") return;
+    setBusy(true);
+    try {
+      props.onState(await api.updateSecondDraftBlock(props.project.projectId, block.id, { status: "active" }));
+      setSelection(null);
+      setSendConfirmation(null);
+      props.onRevealTarget();
+      requestAnimationFrame(() => {
+        const sourceEditor = sourceEditorRef.current;
+        if (sourceEditor) {
+          const range = rangeForTextOffsets(sourceEditor, block.sourceStart, block.sourceEnd);
+          if (range) {
+            const host = sourceEditor.getBoundingClientRect();
+            const rect = range.getBoundingClientRect();
+            sourceEditor.scrollTop += rect.top - host.top - sourceEditor.clientHeight * .32;
+          }
+        }
+        document.querySelector<HTMLElement>(".manuscript-editor")?.focus();
+      });
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
   async function cancelActive() {
     if (!activeBlock) return;
     setBusy(true);
@@ -335,6 +370,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   async function sendAhead() {
     if (!selection || !pair || !sendTargetId || sourceChanged) return;
+    const destinationTitle = props.project.sections.find((section) => section.id === sendTargetId)?.title ?? "later chapter";
     setBusy(true);
     try {
       props.onState(await api.sendSecondDraftAhead(props.project.projectId, {
@@ -345,6 +381,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         sourceText: selection.text,
       }));
       setSelection(null);
+      setSendConfirmation(`Sent to ${destinationTitle}`);
       window.getSelection()?.removeAllRanges();
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
@@ -391,7 +428,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           </button>}
       </div>
       <div className="second-draft-head-actions">
-        {pair && <span className="second-draft-progress">{Math.round(progress * 100)}% source</span>}
+        {pair && <span className="second-draft-progress">{Math.round(progress * 100)}% processed</span>}
         <button type="button" className={sourceBurnEnabled ? "active" : ""} aria-pressed={sourceBurnEnabled}
           title="Source Burn: mark source passages as you process them"
           onClick={() => setSourceBurnEnabled((value) => !value)}>Burn</button>
@@ -409,7 +446,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       <strong>{carryovers.length} carried here</strong>
       <div>{carryovers.map((item) => <article key={item.id}>
         <p>{item.sourceText}</p>
-        <button disabled={busy} onClick={() => void updateCarryover(item, "used")}>Used</button>
+        <button disabled={busy} onClick={() => void updateCarryover(item, "used")}>Mark used</button>
         <button disabled={busy} onClick={() => void updateCarryover(item, "dismissed")}>Dismiss</button>
       </article>)}</div>
     </div>}
@@ -453,7 +490,15 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           </select>
           <button disabled={busy || !sendTargetId} onClick={() => void sendAhead()}>Send →</button>
         </div>
-      </> : <span className="actionbar-empty">Select text in the source draft to rewrite, keep, cut, or send ahead.</span>}
+      </> : <>
+        {sendConfirmation && <span className="actionbar-confirmation">✓ {sendConfirmation}</span>}
+        {laterBlocks.length > 0 && <>
+          <span className="actionbar-later-status">{laterBlocks.length} saved for later</span>
+          <button disabled={busy} className="actionbar-resume-later" onClick={() => void resumeLater(laterBlocks[0])}>Resume next</button>
+        </>}
+        {!sendConfirmation && laterBlocks.length === 0 &&
+          <span className="actionbar-empty">Select text in the source draft to rewrite, keep, cut, or send ahead.</span>}
+      </>}
       <button type="button" className="actionbar-seal" disabled={busy || unresolved > 0}
         title={unresolved ? `Resolve ${unresolved} active/later source block(s) before sealing` : "Seal this chapter"}
         onClick={() => void sealChapter()}>Seal chapter</button>

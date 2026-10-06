@@ -278,6 +278,23 @@
   padding-left: 3px;
   font-weight: 540;
 }
+.actionbar-confirmation {
+  color: var(--sd-green);
+  font-size: 9.5px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+.actionbar-later-status {
+  color: var(--sd-amber);
+  font-size: 9.5px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+.second-draft-actionbar .actionbar-resume-later {
+  border-color: color-mix(in srgb, var(--sd-amber) 28%, transparent);
+  background: color-mix(in srgb, var(--sd-amber) 8%, var(--paper, #fff));
+  color: color-mix(in srgb, var(--sd-amber) 88%, currentColor);
+}
 .actionbar-send-ahead {
   display: flex;
   align-items: center;
@@ -295,6 +312,56 @@
   border-color: color-mix(in srgb, var(--sd-green) 25%, transparent);
   background: color-mix(in srgb, var(--sd-green) 8%, var(--paper, #fff));
   color: var(--sd-green);
+}
+
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar {
+  border-color: rgba(190,195,224,.10);
+  background: rgba(255,255,255,.025);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar button,
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar select,
+.folio-shell[data-ui-tone="midnight"] .second-draft-source-tools button {
+  border-color: rgba(190,195,224,.11);
+  background: rgba(255,255,255,.045);
+  color: #d9dce8;
+}
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar button:hover,
+.folio-shell[data-ui-tone="midnight"] .second-draft-source-tools button:hover {
+  border-color: rgba(137,139,255,.30);
+  background: rgba(137,139,255,.10);
+  color: #f1f2ff;
+}
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar .actionbar-rewrite,
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar .actionbar-done {
+  border-color: rgba(137,139,255,.48);
+  background: rgba(112,116,235,.72);
+  color: #ffffff;
+}
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar .actionbar-cancel {
+  border-color: rgba(221,116,116,.20);
+  background: rgba(199,84,84,.08);
+  color: #e6aaaa;
+}
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar .actionbar-seal {
+  border-color: rgba(104,194,148,.20);
+  background: rgba(72,166,117,.08);
+  color: #a8dec1;
+}
+.folio-shell[data-ui-tone="midnight"] .second-draft-actionbar .actionbar-resume-later {
+  border-color: rgba(216,166,72,.22);
+  background: rgba(199,138,34,.08);
+  color: #e3c17e;
+}
+.folio-shell[data-ui-tone="midnight"] .actionbar-label,
+.folio-shell[data-ui-tone="midnight"] .actionbar-empty {
+  color: #aeb4c6;
+}
+.folio-shell[data-ui-tone="midnight"] .actionbar-confirmation { color: #a8dec1; }
+.folio-shell[data-ui-tone="midnight"] .actionbar-later-status { color: #e3c17e; }
+.folio-shell[data-ui-tone="midnight"] .second-draft-source-tools .second-draft-reset-align {
+  background: transparent;
+  color: #9fa5b8;
 }
 
 /* Source Burn: the old draft literally fades as it is processed. */
