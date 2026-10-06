@@ -21,10 +21,15 @@ import {
   setSecondDraftPair,
   setWritingTargets,
   createSecondDraftBlock,
+  createSecondDraftIssue,
   type SecondDraftBlockStatus,
+  type SecondDraftIssueCategory,
+  type SecondDraftReviewPassKey,
   removeSecondDraftPair,
   removeSecondDraftBlock,
+  setSecondDraftReviewPasses,
   updateSecondDraftBlock,
+  updateSecondDraftIssue,
   updateSecondDraftCarryover,
   updateResearchNote,
   updateWritingComment,
@@ -136,6 +141,44 @@ export function registerWriteStudioApi(app: Express): void {
     try {
       requireProject(req.params.id);
       res.json(await removeSecondDraftBlock(req.params.id, req.params.blockId));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/second-draft/issues", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await createSecondDraftIssue(
+        req.params.id,
+        String(req.body?.targetSectionId ?? ""),
+        Number(req.body?.sourceStart),
+        Number(req.body?.sourceEnd),
+        String(req.body?.sourceText ?? ""),
+        String(req.body?.category ?? "other") as SecondDraftIssueCategory,
+        String(req.body?.note ?? ""),
+      ));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.patch("/api/projects/:id/write-studio/second-draft/issues/:issueId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await updateSecondDraftIssue(req.params.id, req.params.issueId, {
+        resolved: req.body?.resolved === undefined ? undefined : Boolean(req.body.resolved),
+        category: typeof req.body?.category === "string" ? req.body.category as SecondDraftIssueCategory : undefined,
+        note: req.body?.note === undefined ? undefined : String(req.body.note),
+      }));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.put("/api/projects/:id/write-studio/second-draft/reviews/:targetSectionId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      const raw = req.body?.passes && typeof req.body.passes === "object" ? req.body.passes : {};
+      res.json(await setSecondDraftReviewPasses(
+        req.params.id,
+        req.params.targetSectionId,
+        raw as Partial<Record<SecondDraftReviewPassKey, boolean>>,
+      ));
     } catch (error) { sendError(res, error); }
   });
 
