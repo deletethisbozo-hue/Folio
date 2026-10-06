@@ -498,6 +498,17 @@ export async function updateSecondDraftBlock(
   });
 }
 
+export async function deleteSecondDraftBlock(projectId: string, blockId: string): Promise<WriteStudioState> {
+  return mutateState(projectId, (state) => {
+    const index = state.secondDraft.blocks.findIndex((item) => item.id === blockId);
+    if (index < 0) throw new Error("Second Draft source block not found.");
+    const [removed] = state.secondDraft.blocks.splice(index, 1);
+    const pair = state.secondDraft.pairs[removed.targetSectionId];
+    if (pair) pair.updatedAt = new Date().toISOString();
+    return state;
+  });
+}
+
 export async function sendSecondDraftAhead(
   projectId: string,
   fromTargetSectionId: string,

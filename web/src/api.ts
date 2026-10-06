@@ -94,6 +94,10 @@ export const api = {
       body: JSON.stringify(patch),
     }).then((r) => json<WriteStudioState>(r)),
 
+  deleteSecondDraftBlock: (projectId: string, blockId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks/${encodeURIComponent(blockId)}`, { method: "DELETE" })
+      .then((r) => json<WriteStudioState>(r)),
+
   sendSecondDraftAhead: (projectId: string, payload: { fromTargetSectionId: string; toTargetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string }) =>
     fetch(`/api/projects/${projectId}/write-studio/second-draft/send-ahead`, {
       method: "POST",

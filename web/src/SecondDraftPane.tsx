@@ -73,6 +73,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [selection, setSelection] = useState<SourceSelection | null>(null);
   const [memoryMode, setMemoryMode] = useState(false);
   const [memoryPeek, setMemoryPeek] = useState(false);
+  const [sourceBurnEnabled, setSourceBurnEnabled] = useState(true);
+  const [pairedScrollEnabled, setPairedScrollEnabled] = useState(true);
   const [sendTargetId, setSendTargetId] = useState("");
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
@@ -117,8 +119,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       highlights?: { set: (name: string, value: unknown) => unknown; delete: (name: string) => unknown };
     }).highlights;
     const HighlightCtor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
-    if (!registry || !HighlightCtor || !sourceEditorRef.current) return;
+    if (!registry) return;
     for (const name of BURN_HIGHLIGHTS) registry.delete(name);
+    if (!sourceBurnEnabled || !HighlightCtor || !sourceEditorRef.current) {
+      return () => { for (const name of BURN_HIGHLIGHTS) registry.delete(name); };
+    }
     const editor = sourceEditorRef.current;
     const grouped = new Map<string, Range[]>();
     for (const block of relevantBlocks) {
@@ -131,7 +136,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     }
     for (const [name, ranges] of grouped) registry.set(name, new HighlightCtor(...ranges));
     return () => { for (const name of BURN_HIGHLIGHTS) registry.delete(name); };
-  }, [relevantBlocks, sourceDoc?.id, sourceDoc?.markdown]);
+  }, [relevantBlocks, sourceDoc?.id, sourceDoc?.markdown, sourceBurnEnabled]);
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => { if (event.key === "Alt" && memoryMode) setMemoryPeek(true); };
@@ -148,7 +153,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }, [memoryMode]);
 
   useEffect(() => {
-    if (!pair || sourceChanged) return;
+    if (!pair || sourceChanged || !pairedScrollEnabled) return;
     const sourceEditor = sourceEditorRef.current;
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!sourceEditor || !targetEditor) return;
@@ -196,7 +201,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       targetEditor.removeEventListener("scroll", syncFromTarget);
       sourceEditor.removeEventListener("scroll", syncFromSource);
     };
-  }, [pair?.sourceSectionId, relevantBlocks, sourceChanged, sourceDoc?.id]);
+  }, [pair?.sourceSectionId, relevantBlocks, sourceChanged, sourceDoc?.id, pairedScrollEnabled]);
 
   function captureSelection() {
     const editor = sourceEditorRef.current;
@@ -263,6 +268,15 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     finally { setBusy(false); }
   }
 
+  async function cancelActive() {
+    if (!activeBlock) return;
+    setBusy(true);
+    try {
+      props.onState(await api.deleteSecondDraftBlock(props.project.projectId, activeBlock.id));
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
   async function sendAhead() {
     if (!selection || !pair || !sendTargetId || sourceChanged) return;
     setBusy(true);
@@ -322,7 +336,15 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       </div>
       <div className="second-draft-head-actions">
         {pair && <span className="second-draft-progress">{Math.round(progress * 100)}% source</span>}
-        <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => !value)}>Memory</button>
+        <button type="button" className={sourceBurnEnabled ? "active" : ""} aria-pressed={sourceBurnEnabled}
+          title="Source Burn: fade source passages as they are processed"
+          onClick={() => setSourceBurnEnabled((value) => !value)}>Burn</button>
+        <button type="button" className={pairedScrollEnabled ? "active" : ""} aria-pressed={pairedScrollEnabled}
+          title="Paired Scroll: keep source and rewrite aligned"
+          onClick={() => setPairedScrollEnabled((value) => !value)}>Scroll</button>
+        <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode}
+          title="Memory Rewrite: hide source while writing; hold Alt to peek"
+          onClick={() => setMemoryMode((value) => !value)}>Memory</button>
         <button type="button" title="Close Second Draft" aria-label="Close Second Draft" onClick={props.onClose}>×</button>
       </div>
     </header>
@@ -362,6 +384,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
           <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
           <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
+          <button disabled={busy} className="rail-cancel" onClick={() => void cancelActive()}>Cancel</button>
         </> : selection ? <>
           <span className="rail-label" title={selection.text}>Selected passage</span>
           <button disabled={busy} className="rail-rewrite" onClick={() => void createAndSet("active")}>Rewrite this</button>

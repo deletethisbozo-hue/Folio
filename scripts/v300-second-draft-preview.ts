@@ -71,6 +71,14 @@ try {
   await page.click(".second-draft-pair");
   await page.waitForFunction(() => document.querySelector(".second-draft-progress")?.textContent?.includes("0%"));
   await settle();
+  const controlDefaults = await page.evaluate(() => ({
+    burn: document.querySelector<HTMLButtonElement>(".second-draft-head-actions button[title^='Source Burn']")?.getAttribute("aria-pressed"),
+    scroll: document.querySelector<HTMLButtonElement>(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed"),
+    memory: document.querySelector<HTMLButtonElement>(".second-draft-head-actions button[title^='Memory Rewrite']")?.getAttribute("aria-pressed"),
+  }));
+  if (controlDefaults.burn !== "true" || controlDefaults.scroll !== "true" || controlDefaults.memory !== "false") {
+    throw new Error("Second Draft control defaults failed: " + JSON.stringify(controlDefaults));
+  }
   await page.screenshot({ path: path.join(qa, "01-second-draft-pairing.png") });
 
   async function assertRailFits(label: string) {
@@ -130,6 +138,32 @@ try {
   await settle();
   await page.screenshot({ path: path.join(qa, "03-rewrite-rail-active.png") });
   await assertRailFits("active Rewrite Rail");
+  const hasCancel = await page.evaluate(() =>
+    [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.trim() === "Cancel"),
+  );
+  if (!hasCancel) throw new Error("Active Rewrite has no Cancel action");
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+      .find((item) => item.textContent?.trim() === "Cancel");
+    button?.click();
+  });
+  await page.waitForFunction(() =>
+    ![...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")),
+  );
+  const cancelledProgress = await page.$eval(".second-draft-progress", (el) => el.textContent?.trim() ?? "");
+  if (!cancelledProgress.startsWith("0%")) throw new Error("Cancel left processed progress behind: " + cancelledProgress);
+  await selectSourceText(0);
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Rewrite this")),
+  );
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+      .find((item) => item.textContent?.includes("Rewrite this"));
+    button?.click();
+  });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")),
+  );
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -157,8 +191,23 @@ try {
   if (!burn.rewrittenHighlight || burn.activeHighlight) throw new Error("Source Burn did not move active source to rewritten state: " + JSON.stringify(burn));
   await settle();
   await page.screenshot({ path: path.join(qa, "04-source-burn.png") });
+  await page.click(".second-draft-head-actions button[title^='Source Burn']");
+  await page.waitForFunction(() =>
+    document.querySelector(".second-draft-head-actions button[title^='Source Burn']")?.getAttribute("aria-pressed") === "false",
+  );
+  await settle(80);
+  const burnOff = await page.evaluate(() =>
+    Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten")),
+  );
+  if (burnOff) throw new Error("Source Burn toggle off left processed highlights visible");
+  await page.screenshot({ path: path.join(qa, "04a-source-burn-off.png") });
+  await page.click(".second-draft-head-actions button[title^='Source Burn']");
+  await page.waitForFunction(() =>
+    document.querySelector(".second-draft-head-actions button[title^='Source Burn']")?.getAttribute("aria-pressed") === "true"
+    && Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten")),
+  );
 
-  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.click(".second-draft-head-actions button[title^='Memory Rewrite']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
   const blurred = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   if (blurred === "none") throw new Error("Memory Rewrite did not hide source");
@@ -175,7 +224,7 @@ try {
   await page.screenshot({ path: path.join(qa, "06-memory-rewrite-peek.png") });
   await page.keyboard.up("Alt");
   if (peekFilter !== "none") throw new Error("Hold-Alt Memory peek did not reveal source: " + peekFilter);
-  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.click(".second-draft-head-actions button[title^='Memory Rewrite']");
 
   const secondSelection = await selectSourceText(1);
   if (!secondSelection.trim()) throw new Error("Second source selection failed");
@@ -214,6 +263,30 @@ try {
   if (scrollGeometry.targetMax <= 0 || scrollGeometry.sourceMax <= 0) {
     throw new Error("Paired Scroll QA could not create scrollable editors: " + JSON.stringify(scrollGeometry));
   }
+  await page.click(".second-draft-head-actions button[title^='Paired Scroll']");
+  await page.waitForFunction(() =>
+    document.querySelector(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed") === "false",
+  );
+  await settle(80);
+  await page.$eval(".second-draft-source", (el) => { (el as HTMLElement).scrollTop = 0; });
+  const scrollOffBefore = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .25);
+    editor.dispatchEvent(new Event("scroll"));
+  });
+  await settle(220);
+  const scrollOffAfter = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  if (Math.abs(scrollOffAfter - scrollOffBefore) > 1) {
+    throw new Error(`Paired Scroll off still moved source: ${scrollOffBefore} -> ${scrollOffAfter}`);
+  }
+  await page.screenshot({ path: path.join(qa, "09a-paired-scroll-off.png") });
+  await page.click(".second-draft-head-actions button[title^='Paired Scroll']");
+  await page.waitForFunction(() =>
+    document.querySelector(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed") === "true",
+  );
+  await settle(80);
+
   const beforeScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   await page.$eval(".manuscript-editor", (el) => {
     const editor = el as HTMLElement;
