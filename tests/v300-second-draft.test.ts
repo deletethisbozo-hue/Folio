@@ -89,6 +89,10 @@ check("paired scroll can be disabled, manually aligned and re-linked",
   ["Free scroll", "Link here", "Reset links"].every((label) => pane.includes(label))
   && pane.includes("manualAnchors")
   && pane.includes("syncScroll"));
+check("Source Burn and paired scroll only operate on the actually paired source",
+  pane.includes("!sourceMatchesPair || sourceChanged")
+  && pane.includes("sourceMatchesPair && !sourceChanged")
+  && pane.includes("Re-pairing this chapter will clear its existing Second Draft source decisions"));
 check("non-rewrite source decisions are created atomically",
   pane.includes("status,")
   && !pane.includes("const created = [...state.secondDraft.blocks]")
