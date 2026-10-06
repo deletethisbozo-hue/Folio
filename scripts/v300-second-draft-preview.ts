@@ -100,13 +100,13 @@ try {
 
   const firstSelection = await selectSourceText(0);
   if (!firstSelection.trim()) throw new Error("Source selection failed");
-  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Rewrite this")));
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Rewrite this")));
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
       .find((item) => item.textContent?.includes("Rewrite this"));
     button?.click();
   });
-  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")));
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Done")));
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -119,7 +119,7 @@ try {
   });
   await settle(100);
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
       .find((item) => item.textContent?.includes("Done"));
     button?.click();
   });
@@ -146,8 +146,8 @@ try {
 
   const secondSelection = await selectSourceText(1);
   if (!secondSelection.trim()) throw new Error("Second source selection failed");
-  await page.waitForSelector(".rail-send-ahead select");
-  const destination = await page.$eval(".rail-send-ahead select", (select) => {
+  await page.waitForSelector(".second-draft-send-ahead select");
+  const destination = await page.$eval(".second-draft-send-ahead select", (select) => {
     const option = [...(select as HTMLSelectElement).options].find((item) => item.value);
     if (!option) return "";
     (select as HTMLSelectElement).value = option.value;
@@ -155,7 +155,7 @@ try {
     return option.value;
   });
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
-  await page.click(".rail-send-ahead button");
+  await page.click(".second-draft-send-ahead button");
   await settle(160);
   const sentHighlight = await page.evaluate(() =>
     Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
@@ -186,11 +186,96 @@ try {
   const afterScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}; ${JSON.stringify(scrollGeometry)}`);
 
-  await page.screenshot({ path: path.join(qa, "02-second-draft-burn-memory-send.png") });
+  // Free-scroll must let the writer align the two drafts by eye without the other pane fighting back.
+  await page.evaluate(() => {
+    const sync = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Sync");
+    if (!sync) throw new Error("Second Draft Sync control missing");
+    sync.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Free scroll"));
+  const freePosition = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const targetMax = Math.max(1, target.scrollHeight - target.clientHeight);
+    const sourceMax = Math.max(1, source.scrollHeight - source.clientHeight);
+    target.scrollTop = targetMax * .72;
+    source.scrollTop = sourceMax * .28;
+    target.dispatchEvent(new Event("scroll"));
+    source.dispatchEvent(new Event("scroll"));
+    return { targetMax, sourceMax };
+  });
+  await settle(220);
+  const freeRatios = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (Math.abs(freeRatios.target - .72) > .08 || Math.abs(freeRatios.source - .28) > .08) {
+    throw new Error("Free Scroll still forces alignment: " + JSON.stringify({ freePosition, freeRatios }));
+  }
 
-  const sealDisabled = await page.$eval(".rail-seal", (button) => (button as HTMLButtonElement).disabled);
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Link here");
+    if (!link || link.disabled) throw new Error("Link here must be enabled in Free Scroll");
+    link.click();
+  });
+  await page.waitForFunction(() => /Synced.*1 link/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
+  await settle(180);
+  const linkedRatios = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (Math.abs(linkedRatios.target - freeRatios.target) > .10 || Math.abs(linkedRatios.source - freeRatios.source) > .10) {
+    throw new Error("Manual paired-scroll anchor did not preserve the linked positions: " + JSON.stringify({ freeRatios, linkedRatios }));
+  }
+
+  // Mode remount must restore both scroll positions and Second Draft UI state.
+  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.waitForSelector(".second-draft-pane.memory-mode");
+  const savedBeforeRemount = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  await page.click(".second-draft-head-actions button[aria-label='Close Second Draft']");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-pane"));
+  await page.click(".editor-second-draft-toggle");
+  await page.waitForSelector(".second-draft-pane.memory-mode");
+  await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
+  await settle(420);
+  const restoredAfterRemount = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+      status: document.querySelector(".second-draft-sync-status")?.textContent ?? "",
+    };
+  });
+  if (Math.abs(restoredAfterRemount.target - savedBeforeRemount.target) > .10
+      || Math.abs(restoredAfterRemount.source - savedBeforeRemount.source) > .10
+      || !/Synced.*1 link/.test(restoredAfterRemount.status)) {
+    throw new Error("Second Draft view state was not restored after mode remount: " + JSON.stringify({ savedBeforeRemount, restoredAfterRemount }));
+  }
+  await page.click(".second-draft-head-actions button[title*='Hide source']");
+
+  await page.screenshot({ path: path.join(qa, "02-second-draft-burn-memory-send-scroll.png") });
+
+  const sealDisabled = await page.$eval(".second-draft-seal", (button) => (button as HTMLButtonElement).disabled);
   if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
-  await page.click(".rail-seal");
+  await page.click(".second-draft-seal");
   await page.waitForSelector(".second-draft-reveal");
   const reveal = await page.evaluate(() => ({
     title: document.querySelector(".second-draft-reveal h2")?.textContent?.trim(),
@@ -209,13 +294,21 @@ try {
   await settle(180);
   const geometry = await page.evaluate(() => {
     const pane = document.querySelector<HTMLElement>(".second-draft-pane")!;
-    const rail = document.querySelector<HTMLElement>(".second-draft-rail")!;
+    const actions = document.querySelector<HTMLElement>(".second-draft-actionbar")!;
     const source = document.querySelector<HTMLElement>(".second-draft-source-paper")!;
-    const p = pane.getBoundingClientRect(), r = rail.getBoundingClientRect(), s = source.getBoundingClientRect();
-    return { pane: { left:p.left,right:p.right,top:p.top,bottom:p.bottom }, rail:{left:r.left,right:r.right}, source:{left:s.left,right:s.right} };
+    const p = pane.getBoundingClientRect(), a = actions.getBoundingClientRect(), src = source.getBoundingClientRect();
+    return {
+      pane: { left:p.left,right:p.right,top:p.top,bottom:p.bottom },
+      actions:{left:a.left,right:a.right,top:a.top,bottom:a.bottom},
+      source:{left:src.left,right:src.right,top:src.top,bottom:src.bottom},
+      oldRail: Boolean(document.querySelector(".second-draft-rail")),
+    };
   });
-  if (geometry.rail.left < geometry.pane.left - 1 || geometry.rail.right > geometry.source.right + 1) {
-    throw new Error("Second Draft rail clips outside its pane in Midnight: " + JSON.stringify(geometry));
+  if (geometry.oldRail
+      || geometry.actions.left < geometry.pane.left - 1
+      || geometry.actions.right > geometry.pane.right + 1
+      || geometry.actions.bottom > geometry.source.bottom) {
+    throw new Error("Second Draft integrated controls clip or old rail survived in Midnight: " + JSON.stringify(geometry));
   }
   await page.screenshot({ path: path.join(qa, "04-second-draft-midnight.png") });
 
