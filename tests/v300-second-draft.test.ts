@@ -100,6 +100,10 @@ check("paired scroll can be disabled, manually aligned and re-linked",
   ["Free scroll", "Link here", "Reset links"].every((label) => pane.includes(label))
   && pane.includes("manualAnchors")
   && pane.includes("syncScroll"));
+check("bidirectional paired scroll consumes programmatic events instead of bouncing",
+  pane.includes("programmaticScrollRef")
+  && pane.includes("consumeProgrammatic")
+  && !pane.includes("scrollSyncRef"));
 check("Source Burn and paired scroll only operate on the actually paired source",
   pane.includes("!sourceMatchesPair || sourceChanged")
   && pane.includes("sourceMatchesPair && !sourceChanged")
