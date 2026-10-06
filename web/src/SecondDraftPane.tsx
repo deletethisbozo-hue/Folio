@@ -699,7 +699,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
         const snapshot = rewriteTargetSnapshotRef.current;
         const changed = snapshot && targetEditor
-          ? changedTextRange(snapshot.text, targetEditor.textContent ?? "")
+          ? changedTextRange(snapshot.text, targetEditor.textContent ?? "", snapshot.anchor)
           : null;
         if (changed) {
           targetStart = changed.start;
