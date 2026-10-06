@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   interpolatePairedScroll,
+  normalizePairedScrollAnchors,
   secondDraftProgress,
   sourceFingerprint,
 } from "../web/src/second-draft.ts";
@@ -41,6 +42,18 @@ check("paired scroll clamps before the first and after the last anchor",
   interpolatePairedScroll(-20, [{ target: 0, source: 10 }, { target: 100, source: 200 }]) === 10
   && interpolatePairedScroll(999, [{ target: 0, source: 10 }, { target: 100, source: 200 }]) === 200);
 
+const normalizedAnchors = normalizePairedScrollAnchors([
+  { target: 0, source: 0 },
+  { target: 50, source: 180 },
+  { target: 50.2, source: 170 },
+  { target: 100, source: 90 },
+  { target: Number.NaN, source: 10 },
+]);
+check("paired scroll anchors are finite, deduplicated and monotonic",
+  normalizedAnchors.length === 3
+  && normalizedAnchors.every((item, index) => index === 0 || item.target > normalizedAnchors[index - 1].target)
+  && normalizedAnchors.every((item, index) => index === 0 || item.source >= normalizedAnchors[index - 1].source));
+
 const app = readFileSync(path.join(ROOT, "web/src/App.tsx"), "utf8");
 const pane = readFileSync(path.join(ROOT, "web/src/SecondDraftPane.tsx"), "utf8");
 const css = readFileSync(path.join(ROOT, "web/src/v300-second-draft.css"), "utf8");
@@ -50,8 +63,12 @@ const serverApi = readFileSync(path.join(ROOT, "server/write-studio-api.ts"), "u
 check("Second Draft is separate from legacy Split View",
   app.includes("secondDraftView") && app.includes("<SecondDraftPane") && app.includes("<WritingSplitPane"));
 check("Source is explicitly read only", pane.includes("contentEditable={false}") && pane.includes("Source draft · read only"));
-check("Rewrite Rail exposes the requested workflow",
-  ["Rewrite this", "Cut", "Later", "Keep", "Seal chapter"].every((label) => pane.includes(label)));
+check("Second Draft action bar exposes the source-decision workflow",
+  ["Rewrite this", "Cut", "Later", "Keep", "Seal"].every((label) => pane.includes(label))
+  && pane.includes("second-draft-actionbar")
+  && css.includes(".second-draft-actionbar")
+  && !pane.includes("second-draft-rail")
+  && !css.includes(".second-draft-rail"));
 check("Memory Rewrite supports hold-Alt peek", pane.includes('event.key === "Alt"') && css.includes(".memory-peek"));
 check("Source Burn has status-specific highlight layers",
   ["folio-source-rewritten", "folio-source-cut", "folio-source-keep", "folio-source-sent", "folio-source-later", "folio-source-active"]
@@ -62,6 +79,20 @@ check("Chapter Seal creates a snapshot and Chapter Reveal payload",
   server.includes('"Second Draft seal"') && server.includes("sealSecondDraftChapter") && pane.includes("Chapter sealed"));
 check("same-source fingerprint changes invalidate old Source Burn ranges",
   server.includes("existing.sourceFingerprint !== sourceFingerprint"));
+
+check("Second Draft remembers view state across remounts",
+  pane.includes("folio.second-draft.view.v2")
+  && pane.includes("targetRatio")
+  && pane.includes("sourceRatio")
+  && pane.includes("readSecondDraftViewState"));
+check("paired scroll can be disabled, manually aligned and re-linked",
+  ["Free scroll", "Link here", "Reset links"].every((label) => pane.includes(label))
+  && pane.includes("manualAnchors")
+  && pane.includes("syncScroll"));
+check("non-rewrite source decisions are created atomically",
+  pane.includes("status,")
+  && !pane.includes("const created = [...state.secondDraft.blocks]")
+  && server.includes('status: Exclude<SecondDraftBlockStatus, "sent"> = "active"'));
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);
