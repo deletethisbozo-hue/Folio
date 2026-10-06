@@ -547,7 +547,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         const updated = await api.addWritingProgress(projectId, todayKey(), delta);
         if (project?.projectId === projectId) {
           reportedSessionNetRef.current += delta;
-          setWriteStudioState(updated);
+          // Progress sync runs in the background and may resolve after an
+          // unrelated Writing Studio mutation (for example Send Ahead).
+          // Never replace the whole state with its older response snapshot.
+          setWriteStudioState((current) => current
+            ? { ...current, dailyProgress: updated.dailyProgress }
+            : updated);
         }
       } catch (e) {
         if (project?.projectId === projectId) setError(e instanceof Error ? e.message : String(e));
