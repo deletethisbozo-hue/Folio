@@ -331,7 +331,7 @@ try {
   await page.click(".second-draft-review-drawer .second-draft-drawer-head button");
   await page.waitForFunction(() => !document.querySelector(".second-draft-review-drawer"));
 
-  await page.click(".second-draft-head-actions button[title*='Hide source']
+  await page.click(".second-draft-head-actions button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
   const blurred = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   if (blurred === "none") throw new Error("Memory Rewrite did not hide source");
