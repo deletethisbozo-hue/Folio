@@ -80,7 +80,7 @@ export const api = {
     fetch(`/api/projects/${projectId}/write-studio/second-draft/pairs/${encodeURIComponent(targetSectionId)}`, { method: "DELETE" })
       .then((r) => json<WriteStudioState>(r)),
 
-  createSecondDraftBlock: (projectId: string, payload: { targetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string; targetStart?: number }) =>
+  createSecondDraftBlock: (projectId: string, payload: { targetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string; targetStart?: number; status?: Exclude<SecondDraftBlockStatus, "sent"> }) =>
     fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
