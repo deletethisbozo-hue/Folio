@@ -649,6 +649,8 @@ try {
     split.click();
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"][data-split-view="true"] .writing-split-pane');
+  await page.waitForSelector(".writing-split-editor");
+  await page.waitForFunction(() => (document.querySelector(".writing-split-editor")?.textContent?.trim().length ?? 0) > 80);
   const splitAlignment = await page.evaluate(() => {
     const pairs = [
       ["top strip", ".editor-topbar", ".writing-split-top-strip"],
