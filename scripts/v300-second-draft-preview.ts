@@ -186,6 +186,33 @@ try {
   );
   if (!sentHighlight) throw new Error("Send Ahead did not mark its source as processed");
 
+  // Later must be a real queue, not a permanent unresolved tombstone.
+  const laterSelection = await selectSourceText(2);
+  if (!laterSelection.trim()) throw new Error("Later source selection failed");
+  await page.evaluate(() => {
+    const later = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Later");
+    if (!later) throw new Error("Later action missing");
+    later.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-action-copy strong")?.textContent?.includes("Later queue"));
+  const sealWhileLater = await page.$eval(".second-draft-seal", (button) => (button as HTMLButtonElement).disabled);
+  if (!sealWhileLater) throw new Error("Seal must stay disabled while Later queue is unresolved");
+  await page.evaluate(() => {
+    const resume = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Resume next");
+    if (!resume) throw new Error("Resume next missing for Later queue");
+    resume.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-action-copy strong")?.textContent?.trim() === "Rewriting");
+  await page.evaluate(() => {
+    const keep = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Keep");
+    if (!keep) throw new Error("Keep action missing after resuming Later block");
+    keep.click();
+  });
+  await page.waitForFunction(() => !(document.querySelector(".second-draft-seal") as HTMLButtonElement | null)?.disabled);
+
   const scrollGeometry = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor");
     const source = document.querySelector<HTMLElement>(".second-draft-source");
