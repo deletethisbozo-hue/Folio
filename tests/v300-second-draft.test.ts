@@ -62,6 +62,11 @@ const serverApi = readFileSync(path.join(ROOT, "server/write-studio-api.ts"), "u
 
 check("Second Draft is separate from legacy Split View",
   app.includes("secondDraftView") && app.includes("<SecondDraftPane") && app.includes("<WritingSplitPane"));
+check("Second Draft only opens for real chapter-to-chapter work",
+  app.includes('selectedSection?.kind !== "chapter" || chapters.length < 2')
+  && app.includes('selectedSection?.kind === "chapter" && <SecondDraftPane')
+  && server.includes('target.kind !== "chapter"')
+  && server.includes('source.kind !== "chapter"'));
 check("Source is explicitly read only", pane.includes("contentEditable={false}") && pane.includes("Source draft · read only"));
 check("Second Draft action bar exposes the source-decision workflow",
   ["Rewrite this", "Cut", "Later", "Keep", "Seal"].every((label) => pane.includes(label))
@@ -77,6 +82,9 @@ check("Send Ahead is persisted, not a local-only chip",
   server.includes("sendSecondDraftAhead") && serverApi.includes("/second-draft/send-ahead") && pane.includes("Send ahead…"));
 check("Chapter Seal creates a snapshot and Chapter Reveal payload",
   server.includes('"Second Draft seal"') && server.includes("sealSecondDraftChapter") && pane.includes("Chapter sealed"));
+check("Chapter Seal cannot certify a zero-work Second Draft",
+  server.includes("Process at least one source passage before sealing Second Draft.")
+  && pane.includes("processed === 0"));
 check("same-source fingerprint changes invalidate old Source Burn ranges",
   server.includes("existing.sourceFingerprint !== sourceFingerprint"));
 
