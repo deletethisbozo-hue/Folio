@@ -61,6 +61,7 @@ export type SecondDraftBlockStatus = "active" | "rewritten" | "cut" | "later" | 
 export type SecondDraftCarryStatus = "pending" | "used" | "dismissed";
 export type SecondDraftIssueCategory = "pacing" | "continuity" | "dialogue" | "character" | "clarity" | "research" | "other";
 export type SecondDraftReviewPassKey = "structure" | "continuity" | "pacing" | "character" | "dialogue" | "prose" | "facts";
+export type SecondDraftRewriteIntent = "general" | "tighten" | "expand" | "clarify" | "voice" | "pacing" | "dialogue" | "emotion" | "continuity" | "description";
 
 export interface SecondDraftPair {
   targetSectionId: string;
@@ -83,6 +84,7 @@ export interface SecondDraftBlock {
   status: SecondDraftBlockStatus;
   targetStart?: number;
   targetEnd?: number;
+  intent?: SecondDraftRewriteIntent;
   createdAt: string;
   updatedAt: string;
 }
@@ -120,6 +122,7 @@ export interface SecondDraftState {
   carryovers: SecondDraftCarryover[];
   issues: SecondDraftIssue[];
   reviews: Record<string, Partial<Record<SecondDraftReviewPassKey, boolean>>>;
+  briefs: Record<string, string>;
 }
 
 export interface WriteStudioState {
@@ -154,7 +157,7 @@ function defaultState(): WriteStudioState {
     researchImages: [],
     comments: [],
     revisions: [],
-    secondDraft: { pairs: {}, blocks: [], carryovers: [], issues: [], reviews: {} },
+    secondDraft: { pairs: {}, blocks: [], carryovers: [], issues: [], reviews: {}, briefs: {} },
   };
 }
 
@@ -186,6 +189,9 @@ function normaliseState(value: Partial<WriteStudioState> | null | undefined): Wr
       issues: Array.isArray(incomingSecondDraft?.issues) ? incomingSecondDraft!.issues! : [],
       reviews: incomingSecondDraft?.reviews && typeof incomingSecondDraft.reviews === "object"
         ? { ...incomingSecondDraft.reviews }
+        : {},
+      briefs: incomingSecondDraft?.briefs && typeof incomingSecondDraft.briefs === "object"
+        ? Object.fromEntries(Object.entries(incomingSecondDraft.briefs).map(([key, value]) => [key, String(value ?? "").slice(0, 4000)]))
         : {},
     },
   };
@@ -454,6 +460,7 @@ export async function setSecondDraftPair(
       state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
       state.secondDraft.issues = state.secondDraft.issues.filter((item) => item.targetSectionId !== targetSectionId);
       delete state.secondDraft.reviews[targetSectionId];
+      delete state.secondDraft.briefs[targetSectionId];
     }
     return state;
   });
@@ -466,6 +473,7 @@ export async function removeSecondDraftPair(projectId: string, targetSectionId: 
     state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
     state.secondDraft.issues = state.secondDraft.issues.filter((item) => item.targetSectionId !== targetSectionId);
     delete state.secondDraft.reviews[targetSectionId];
+    delete state.secondDraft.briefs[targetSectionId];
     return state;
   });
 }
@@ -478,10 +486,13 @@ export async function createSecondDraftBlock(
   sourceText: string,
   targetStart?: number,
   status: Exclude<SecondDraftBlockStatus, "sent"> = "active",
+  intent: SecondDraftRewriteIntent = "general",
 ): Promise<WriteStudioState> {
   validateSecondDraftRange(sourceStart, sourceEnd, sourceText);
   const allowed: Array<Exclude<SecondDraftBlockStatus, "sent">> = ["active", "rewritten", "cut", "later", "keep"];
   if (!allowed.includes(status)) throw new Error("Invalid initial Second Draft block status.");
+  const allowedIntents: SecondDraftRewriteIntent[] = ["general", "tighten", "expand", "clarify", "voice", "pacing", "dialogue", "emotion", "continuity", "description"];
+  if (!allowedIntents.includes(intent)) throw new Error("Invalid Second Draft rewrite intent.");
   await requireSecondDraftSections(projectId, targetSectionId);
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[targetSectionId];
@@ -512,6 +523,7 @@ export async function createSecondDraftBlock(
       sourceText: sourceText.slice(0, 100000),
       status,
       targetStart: Number.isInteger(targetStart) && (targetStart as number) >= 0 ? targetStart : undefined,
+      intent: status === "active" || status === "rewritten" ? intent : undefined,
       createdAt: now,
       updatedAt: now,
     });
@@ -541,7 +553,7 @@ export async function removeSecondDraftBlock(
 export async function updateSecondDraftBlock(
   projectId: string,
   blockId: string,
-  patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number },
+  patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number; intent?: SecondDraftRewriteIntent },
 ): Promise<WriteStudioState> {
   return mutateState(projectId, (state) => {
     const block = state.secondDraft.blocks.find((item) => item.id === blockId);
@@ -566,6 +578,11 @@ export async function updateSecondDraftBlock(
     if (patch.targetEnd !== undefined) {
       if (!Number.isInteger(patch.targetEnd) || patch.targetEnd < 0) throw new Error("Invalid Second Draft target end.");
       block.targetEnd = patch.targetEnd;
+    }
+    if (patch.intent !== undefined) {
+      const allowedIntents: SecondDraftRewriteIntent[] = ["general", "tighten", "expand", "clarify", "voice", "pacing", "dialogue", "emotion", "continuity", "description"];
+      if (!allowedIntents.includes(patch.intent)) throw new Error("Invalid Second Draft rewrite intent.");
+      block.intent = patch.intent;
     }
     block.updatedAt = new Date().toISOString();
     const pair = state.secondDraft.pairs[block.targetSectionId];
@@ -680,6 +697,18 @@ export async function updateSecondDraftIssue(
     if (patch.note !== undefined) issue.note = patch.note.slice(0, 4000);
     if (patch.resolved !== undefined) issue.resolved = Boolean(patch.resolved);
     issue.updatedAt = new Date().toISOString();
+    return state;
+  });
+}
+
+export async function setSecondDraftBrief(
+  projectId: string,
+  targetSectionId: string,
+  brief: string,
+): Promise<WriteStudioState> {
+  await requireSecondDraftSections(projectId, targetSectionId);
+  return mutateState(projectId, (state) => {
+    state.secondDraft.briefs[targetSectionId] = brief.slice(0, 4000);
     return state;
   });
 }
