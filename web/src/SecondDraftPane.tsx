@@ -154,9 +154,14 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const sourceEditor = sourceEditorRef.current;
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     const previous = readSecondDraftViewState(viewKey);
+    const restoring = restoringScrollRef.current;
     const next: SecondDraftViewState = {
-      targetRatio: targetEditor ? elementScrollRatio(targetEditor) : previous?.targetRatio ?? 0,
-      sourceRatio: sourceEditor ? elementScrollRatio(sourceEditor) : previous?.sourceRatio ?? 0,
+      targetRatio: restoring
+        ? previous?.targetRatio ?? (targetEditor ? elementScrollRatio(targetEditor) : 0)
+        : targetEditor ? elementScrollRatio(targetEditor) : previous?.targetRatio ?? 0,
+      sourceRatio: restoring
+        ? previous?.sourceRatio ?? (sourceEditor ? elementScrollRatio(sourceEditor) : 0)
+        : sourceEditor ? elementScrollRatio(sourceEditor) : previous?.sourceRatio ?? 0,
       memoryMode: memoryModeStateRef.current,
       syncScroll: syncScrollStateRef.current,
       manualAnchors: manualAnchorsStateRef.current,
@@ -399,7 +404,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     sourceEditor.addEventListener("scroll", syncFromSource, { passive: true });
 
     return () => {
-      persistViewState();
+      if (!restoringScrollRef.current) persistViewState();
       programmaticScrollRef.current.target = null;
       programmaticScrollRef.current.source = null;
       targetEditor.removeEventListener("scroll", syncFromTarget);
