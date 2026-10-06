@@ -14,6 +14,9 @@ import type {
   SecondDraftBlock,
   SecondDraftBlockStatus,
   SecondDraftCarryover,
+  SecondDraftIssue,
+  SecondDraftIssueCategory,
+  SecondDraftReviewPassKey,
   SecondDraftSealReveal,
   WriteStudioState,
 } from "./write-studio";
@@ -88,6 +91,26 @@ const BURN_HIGHLIGHTS = [
   "folio-source-sent", "folio-source-later", "folio-source-active",
 ] as const;
 
+const ISSUE_CATEGORIES: Array<{ value: SecondDraftIssueCategory; label: string }> = [
+  { value: "pacing", label: "Pacing" },
+  { value: "continuity", label: "Continuity" },
+  { value: "dialogue", label: "Dialogue" },
+  { value: "character", label: "Character" },
+  { value: "clarity", label: "Clarity" },
+  { value: "research", label: "Research" },
+  { value: "other", label: "Other" },
+];
+
+const REVIEW_PASSES: Array<{ key: SecondDraftReviewPassKey; label: string }> = [
+  { key: "structure", label: "Structure" },
+  { key: "continuity", label: "Continuity" },
+  { key: "pacing", label: "Pacing" },
+  { key: "character", label: "Character" },
+  { key: "dialogue", label: "Dialogue" },
+  { key: "prose", label: "Prose" },
+  { key: "facts", label: "Facts" },
+];
+
 function latestActive(blocks: SecondDraftBlock[], targetSectionId: string): SecondDraftBlock | null {
   return [...blocks]
     .filter((block) => block.targetSectionId === targetSectionId && block.status === "active")
@@ -135,6 +158,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
   const [sourceChanged, setSourceChanged] = useState(false);
+  const [issuePanelOpen, setIssuePanelOpen] = useState(false);
+  const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
+  const [issueCategory, setIssueCategory] = useState<SecondDraftIssueCategory>("clarity");
+  const [issueNote, setIssueNote] = useState("");
+  const [comparison, setComparison] = useState<{ block: SecondDraftBlock; sourceText: string; targetText: string } | null>(null);
   const sourceMatchesPair = Boolean(pair && pair.sourceSectionId === sourceDoc?.id);
   const laterBlocks = useMemo(
     () => relevantBlocks.filter((block) => block.status === "later").sort((a, b) => a.sourceStart - b.sourceStart),
@@ -144,6 +172,21 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     () => [...relevantBlocks]
       .filter((block) => block.status !== "sent")
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0] ?? null,
+    [relevantBlocks],
+  );
+  const relevantIssues = useMemo(
+    () => (props.state?.secondDraft.issues ?? [])
+      .filter((issue) => issue.targetSectionId === props.targetSectionId)
+      .sort((a, b) => a.sourceStart - b.sourceStart),
+    [props.state?.secondDraft.issues, props.targetSectionId],
+  );
+  const unresolvedIssues = useMemo(() => relevantIssues.filter((issue) => !issue.resolved), [relevantIssues]);
+  const reviewPasses = props.state?.secondDraft.reviews?.[props.targetSectionId] ?? {};
+  const reviewPassCount = REVIEW_PASSES.filter((item) => Boolean(reviewPasses[item.key])).length;
+  const rewrittenBlocks = useMemo(
+    () => relevantBlocks
+      .filter((block) => block.status === "rewritten" && block.targetStart !== undefined && block.targetEnd !== undefined)
+      .sort((a, b) => a.sourceStart - b.sourceStart),
     [relevantBlocks],
   );
   const selectedExistingBlock = useMemo(
@@ -158,6 +201,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const restoringScrollRef = useRef(false);
   const targetCaretRef = useRef<number | null>(null);
   const unreviewedCursorRef = useRef(0);
+  const issueCursorRef = useRef(0);
+  const changedCursorRef = useRef(0);
   const viewKey = useMemo(
     () => `folio.second-draft.view.v3:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
     [props.project.projectId, props.targetSectionId, sourceId],
@@ -622,6 +667,89 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const rect = range.getBoundingClientRect();
     editor.scrollTop = Math.max(0, editor.scrollTop + rect.top - host.top - editor.clientHeight * .3);
     unreviewedCursorRef.current = Math.min(text.length, end + 1);
+  }
+
+  function selectAndRevealSourceRange(start: number, end: number) {
+    const editor = sourceEditorRef.current;
+    if (!editor) return;
+    const range = rangeForTextOffsets(editor, start, end);
+    if (!range) return;
+    const selectionApi = window.getSelection();
+    selectionApi?.removeAllRanges();
+    selectionApi?.addRange(range);
+    const normalized = range.cloneContents().textContent ?? range.toString();
+    setSelection({ start, end, text: normalized });
+    const host = editor.getBoundingClientRect();
+    const rect = range.getBoundingClientRect();
+    editor.scrollTop = Math.max(0, editor.scrollTop + rect.top - host.top - editor.clientHeight * .3);
+  }
+
+  async function createIssue() {
+    if (!selection || !pair || !sourceMatchesPair || sourceChanged) return;
+    setBusy(true);
+    try {
+      props.onState(await api.createSecondDraftIssue(props.project.projectId, {
+        targetSectionId: props.targetSectionId,
+        sourceStart: selection.start,
+        sourceEnd: selection.end,
+        sourceText: selection.text,
+        category: issueCategory,
+        note: issueNote.trim(),
+      }));
+      setIssueNote("");
+      setIssuePanelOpen(true);
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function resolveIssue(issue: SecondDraftIssue) {
+    setBusy(true);
+    try { props.onState(await api.updateSecondDraftIssue(props.project.projectId, issue.id, { resolved: true })); }
+    catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
+  function jumpToNextIssue() {
+    if (!unresolvedIssues.length) return;
+    const next = unresolvedIssues.find((issue) => issue.sourceStart >= issueCursorRef.current) ?? unresolvedIssues[0];
+    issueCursorRef.current = next.sourceEnd + 1;
+    selectAndRevealSourceRange(next.sourceStart, next.sourceEnd);
+    setIssuePanelOpen(true);
+  }
+
+  function openComparison(block: SecondDraftBlock) {
+    if (block.status !== "rewritten" || block.targetStart === undefined || block.targetEnd === undefined) return;
+    const target = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!target) return;
+    const range = rangeForTextOffsets(target, block.targetStart, block.targetEnd);
+    const targetText = range?.cloneContents().textContent ?? range?.toString() ?? "";
+    setComparison({ block, sourceText: block.sourceText, targetText });
+  }
+
+  function jumpToNextChanged() {
+    if (!rewrittenBlocks.length) return;
+    const index = changedCursorRef.current % rewrittenBlocks.length;
+    const block = rewrittenBlocks[index];
+    changedCursorRef.current = index + 1;
+    selectAndRevealSourceRange(block.sourceStart, block.sourceEnd);
+    const target = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (target && block.targetStart !== undefined) {
+      const range = rangeForTextOffsets(target, block.targetStart, Math.max(block.targetStart + 1, block.targetEnd ?? block.targetStart + 1));
+      if (range) {
+        const host = target.getBoundingClientRect();
+        const rect = range.getBoundingClientRect();
+        target.scrollTop = Math.max(0, target.scrollTop + rect.top - host.top - target.clientHeight * .3);
+      }
+    }
+    openComparison(block);
+  }
+
+  async function toggleReviewPass(key: SecondDraftReviewPassKey) {
+    const next = { ...reviewPasses, [key]: !reviewPasses[key] };
+    setBusy(true);
+    try { props.onState(await api.setSecondDraftReviewPasses(props.project.projectId, props.targetSectionId, next)); }
+    catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
   }
 
   const canSendAhead = Boolean(selection && pair && sourceMatchesPair && sendTargetId && !sourceChanged && !busy);
