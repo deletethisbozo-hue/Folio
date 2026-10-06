@@ -134,6 +134,30 @@ try {
     }, skip);
   }
 
+  const expectedRewriteStart = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!editor) throw new Error("Target editor missing before Rewrite This");
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let node: Text | null = null;
+    while (walker.nextNode()) {
+      const candidate = walker.currentNode as Text;
+      if (candidate.data.trim().length >= 16) { node = candidate; break; }
+    }
+    if (!node) throw new Error("No target prose available for caret QA");
+    const localOffset = Math.min(node.length, Math.max(4, node.data.search(/\S/) + 12));
+    const range = document.createRange();
+    range.setStart(node, localOffset);
+    range.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    const prefix = document.createRange();
+    prefix.selectNodeContents(editor);
+    prefix.setEnd(node, localOffset);
+    return prefix.toString().length;
+  });
+
   const firstSelection = await selectSourceText(0);
   if (!firstSelection.trim()) throw new Error("Source selection failed");
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Rewrite this")));
@@ -143,15 +167,37 @@ try {
     button?.click();
   });
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Done")));
+  await settle(120);
+
+  const restoredRewriteStart = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const selection = window.getSelection();
+    if (!editor || !selection?.focusNode || !editor.contains(selection.focusNode)) return -1;
+    const prefix = document.createRange();
+    prefix.selectNodeContents(editor);
+    prefix.setEnd(selection.focusNode, selection.focusOffset);
+    return prefix.toString().length;
+  });
+  if (Math.abs(restoredRewriteStart - expectedRewriteStart) > 1) {
+    throw new Error(`Rewrite This lost the target caret anchor: expected ${expectedRewriteStart}, restored ${restoredRewriteStart}`);
+  }
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
-    if (!editor) throw new Error("Target editor missing");
-    editor.focus();
-    const p = document.createElement("p");
-    p.textContent = "Second Draft QA rewrite anchor.";
-    editor.appendChild(p);
-    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "Second Draft QA rewrite anchor." }));
+    const selection = window.getSelection();
+    if (!editor || !selection?.rangeCount || !selection.focusNode || !editor.contains(selection.focusNode)) {
+      throw new Error("Target caret missing before rewrite insertion");
+    }
+    const text = " Second Draft QA rewrite anchor.";
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
   });
   await settle(100);
   await page.evaluate(() => {
