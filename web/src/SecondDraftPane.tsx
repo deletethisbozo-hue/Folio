@@ -181,7 +181,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     editor.dataset.sectionId = sourceDoc.id;
     editor.dataset.markdown = sourceDoc.markdown;
     setSelection(null);
-    const text = editor.innerText;
+    const text = editor.textContent ?? "";
     setSourceChanged(Boolean(pair && pair.sourceSectionId === sourceDoc.id && pair.sourceFingerprint !== sourceFingerprint(text)));
   }, [sourceDoc?.id, sourceDoc?.markdown, props.ornament, props.project.projectId, pair?.sourceFingerprint, pair?.sourceSectionId]);
 
@@ -244,7 +244,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     if (!sourceEditor || !targetEditor) return;
 
     const pointForOffset = (editor: HTMLElement, offset: number): number | null => {
-      const length = editor.innerText.length;
+      const length = editor.textContent?.length ?? 0;
       if (length <= 0) return 0;
       const start = Math.max(0, Math.min(length - 1, offset));
       const range = rangeForTextOffsets(editor, start, start + 1);
@@ -344,7 +344,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!editor) return undefined;
     const offset = caretTextOffset(editor);
-    return offset === null ? editor.innerText.length : offset;
+    return offset === null ? (editor.textContent?.length ?? 0) : offset;
   }
 
   async function pairSource() {
@@ -356,7 +356,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     }
     setBusy(true);
     try {
-      const text = editor.innerText;
+      const text = editor.textContent ?? "";
       props.onState(await api.setSecondDraftPair(
         props.project.projectId, props.targetSectionId, sourceDoc.id, text.length, sourceFingerprint(text),
       ));
