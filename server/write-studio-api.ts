@@ -21,6 +21,7 @@ import {
   setSecondDraftPair,
   setWritingTargets,
   createSecondDraftBlock,
+  type SecondDraftBlockStatus,
   removeSecondDraftPair,
   updateSecondDraftBlock,
   updateSecondDraftCarryover,
@@ -114,6 +115,7 @@ export function registerWriteStudioApi(app: Express): void {
         Number(req.body?.sourceEnd),
         String(req.body?.sourceText ?? ""),
         req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
+        typeof req.body?.status === "string" ? req.body.status as Exclude<SecondDraftBlockStatus, "sent"> : undefined,
       ));
     } catch (error) { sendError(res, error); }
   });
