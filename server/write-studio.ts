@@ -494,6 +494,24 @@ export async function createSecondDraftBlock(
   });
 }
 
+export async function removeSecondDraftBlock(
+  projectId: string,
+  blockId: string,
+): Promise<WriteStudioState> {
+  return mutateState(projectId, (state) => {
+    const index = state.secondDraft.blocks.findIndex((item) => item.id === blockId);
+    if (index < 0) throw new Error("Second Draft source block not found.");
+    const block = state.secondDraft.blocks[index];
+    if (block.status === "sent") {
+      throw new Error("Sent Ahead decisions cannot be undone here because they already created a carryover.");
+    }
+    state.secondDraft.blocks.splice(index, 1);
+    const pair = state.secondDraft.pairs[block.targetSectionId];
+    if (pair) pair.updatedAt = new Date().toISOString();
+    return state;
+  });
+}
+
 export async function updateSecondDraftBlock(
   projectId: string,
   blockId: string,
