@@ -813,6 +813,14 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       </div>
       <div className="second-draft-head-actions">
         {sourceMatchesPair && <span className="second-draft-progress">{Math.round(progress * 100)}% source</span>}
+        {sourceMatchesPair && <button type="button" className={reviewPanelOpen ? "active" : ""} onClick={() => {
+          setReviewPanelOpen((value) => !value);
+          setIssuePanelOpen(false);
+        }}>Passes {reviewPassCount}/{REVIEW_PASSES.length}</button>}
+        {sourceMatchesPair && <button type="button" className={issuePanelOpen ? "active" : ""} onClick={() => {
+          setIssuePanelOpen((value) => !value);
+          setReviewPanelOpen(false);
+        }}>Issues {unresolvedIssues.length}</button>}
         <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => {
           const next = !value;
           persistViewState({ memoryMode: next });
@@ -843,6 +851,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       {sourceMatchesPair && !sourceChanged && <>
         <div className="second-draft-review-controls" role="group" aria-label="Second Draft review navigation">
           <button type="button" onClick={jumpToNextUnreviewed}>Next unreviewed</button>
+          <button type="button" disabled={!rewrittenBlocks.length} onClick={jumpToNextChanged}>Next changed</button>
+          <button type="button" disabled={!unresolvedIssues.length} onClick={jumpToNextIssue}>Next issue</button>
           <button type="button" disabled={!latestUndoableBlock || busy}
             title={latestUndoableBlock ? "Undo the most recent Second Draft decision" : "No decision to undo"}
             onClick={() => latestUndoableBlock && void undoDecision(latestUndoableBlock)}>Undo last</button>
@@ -902,6 +912,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button disabled={busy} onClick={() => void resolveLater(selectedExistingBlock, "keep")}>Keep</button>
           <button disabled={busy} onClick={() => void undoDecision(selectedExistingBlock)}>Undo later</button>
         </> : selection && selectedExistingBlock ? <>
+          {selectedExistingBlock.status === "rewritten" &&
+            <button disabled={busy} className="primary" onClick={() => openComparison(selectedExistingBlock)}>Compare rewrite</button>}
           {selectedExistingBlock.status !== "sent" &&
             <button disabled={busy} onClick={() => void undoDecision(selectedExistingBlock)}>
               {selectedExistingBlock.status === "rewritten" ? "Undo rewrite" : "Undo decision"}
@@ -935,6 +947,13 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           </div>
         </>}
       </div>
+
+      <button type="button" className="second-draft-flag-issue" disabled={!selection || busy}
+        title={selection ? "Flag this source passage for a later review pass" : "Select source text first"}
+        onClick={() => {
+          setIssuePanelOpen(true);
+          setReviewPanelOpen(false);
+        }}>Flag issue</button>
 
       <button type="button" className="second-draft-seal" disabled={busy || unresolved > 0 || processed === 0}
         title={unresolved
