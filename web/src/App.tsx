@@ -2424,7 +2424,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
             onRegisterFlush={(flush) => { splitFlushRef.current = flush; }}
           />)}
 
-      {workspaceMode === "write" && progressHaloEnabled && !coverSelected && document?.editable && <WritingProgressHalo
+      {workspaceMode === "write" && progressHaloEnabled && !secondDraftView && !coverSelected && document?.editable && <WritingProgressHalo
         totalWords={totalWords}
         chapterWords={progressSectionWords}
         todayWords={Math.max(0, (writeStudioState?.dailyProgress[todayKey()] ?? 0) + (sessionNet - reportedSessionNetRef.current))}
