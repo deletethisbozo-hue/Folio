@@ -92,14 +92,16 @@ check("same-source fingerprint changes invalidate old Source Burn ranges",
   server.includes("existing.sourceFingerprint !== sourceFingerprint"));
 
 check("Second Draft remembers view state across remounts",
-  pane.includes("folio.second-draft.view.v2")
+  pane.includes("folio.second-draft.view.v3")
   && pane.includes("targetRatio")
   && pane.includes("sourceRatio")
   && pane.includes("readSecondDraftViewState"));
-check("paired scroll can be disabled, manually aligned and re-linked",
-  ["Free scroll", "Link here", "Reset links"].every((label) => pane.includes(label))
-  && pane.includes("manualAnchors")
-  && pane.includes("syncScroll"));
+check("paired scroll requires explicit source/target text links",
+  ["Select matching lines", "Link lines", "Reset links"].every((label) => pane.includes(label))
+  && pane.includes("targetOffset")
+  && pane.includes("sourceOffset")
+  && pane.includes("targetSelection")
+  && pane.includes("manualAnchors"));
 check("bidirectional paired scroll consumes programmatic events instead of bouncing",
   pane.includes("programmaticScrollRef")
   && pane.includes("consumeProgrammatic")
@@ -117,6 +119,14 @@ check("Later decisions have a resumable queue instead of becoming permanent bloc
   && pane.includes("Resume next")
   && pane.includes("resumeLater")
   && server.includes('patch.status === "active"'));
+check("Second Draft decisions can be undone after rewrite",
+  pane.includes("Undo rewrite")
+  && pane.includes("Undo last")
+  && pane.includes("undoDecision")
+  && server.includes("removeSecondDraftBlock"));
+check("Second Draft can jump directly to unreviewed source",
+  pane.includes("Next unreviewed")
+  && pane.includes("jumpToNextUnreviewed"));
 check("new source decisions cannot overlap old decisions",
   server.includes("secondDraftRangesOverlap")
   && server.includes("overlaps an existing Second Draft decision"));
