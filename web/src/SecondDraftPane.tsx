@@ -490,6 +490,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   const progress = secondDraftProgress(pair, blocks);
   const unresolved = relevantBlocks.filter((block) => block.status === "active" || block.status === "later").length;
+  const processed = relevantBlocks.filter((block) => ["rewritten", "cut", "keep", "sent"].includes(block.status)).length;
   const sendOptions = props.project.sections.filter(
     (section) => section.kind === "chapter" && section.id !== props.targetSectionId && section.id !== pair?.sourceSectionId,
   );
@@ -601,8 +602,12 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         </> : null}
       </div>
 
-      <button type="button" className="second-draft-seal" disabled={busy || unresolved > 0}
-        title={unresolved ? `Resolve ${unresolved} active/later source block(s) before sealing` : `Seal chapter · ${Math.round(progress * 100)}% source reviewed`}
+      <button type="button" className="second-draft-seal" disabled={busy || unresolved > 0 || processed === 0}
+        title={unresolved
+          ? `Resolve ${unresolved} active/later source block(s) before sealing`
+          : processed === 0
+            ? "Process at least one source passage before sealing"
+            : `Seal chapter · ${Math.round(progress * 100)}% source reviewed`}
         onClick={() => void sealChapter()}>Seal</button>
     </div>}
 
