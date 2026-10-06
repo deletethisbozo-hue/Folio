@@ -119,6 +119,12 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [memoryPeek, setMemoryPeek] = useState(false);
   const [syncScroll, setSyncScroll] = useState(true);
   const [manualAnchors, setManualAnchors] = useState<ManualScrollAnchor[]>([]);
+  const memoryModeStateRef = useRef(memoryMode);
+  const syncScrollStateRef = useRef(syncScroll);
+  const manualAnchorsStateRef = useRef(manualAnchors);
+  memoryModeStateRef.current = memoryMode;
+  syncScrollStateRef.current = syncScroll;
+  manualAnchorsStateRef.current = manualAnchors;
   const [sendTargetId, setSendTargetId] = useState("");
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
@@ -151,9 +157,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const next: SecondDraftViewState = {
       targetRatio: targetEditor ? elementScrollRatio(targetEditor) : previous?.targetRatio ?? 0,
       sourceRatio: sourceEditor ? elementScrollRatio(sourceEditor) : previous?.sourceRatio ?? 0,
-      memoryMode,
-      syncScroll,
-      manualAnchors,
+      memoryMode: memoryModeStateRef.current,
+      syncScroll: syncScrollStateRef.current,
+      manualAnchors: manualAnchorsStateRef.current,
       ...overrides,
     };
     try { window.localStorage.setItem(viewKey, JSON.stringify(next)); } catch { /* best-effort UI memory */ }
