@@ -53,6 +53,7 @@ export type SecondDraftBlockStatus = "active" | "rewritten" | "cut" | "later" | 
 export type SecondDraftCarryStatus = "pending" | "used" | "dismissed";
 export type SecondDraftIssueCategory = "pacing" | "continuity" | "dialogue" | "character" | "clarity" | "research" | "other";
 export type SecondDraftReviewPassKey = "structure" | "continuity" | "pacing" | "character" | "dialogue" | "prose" | "facts";
+export type SecondDraftRewriteIntent = "general" | "tighten" | "expand" | "clarify" | "voice" | "pacing" | "dialogue" | "emotion" | "continuity" | "description";
 
 export interface SecondDraftPair {
   targetSectionId: string;
@@ -75,6 +76,7 @@ export interface SecondDraftBlock {
   status: SecondDraftBlockStatus;
   targetStart?: number;
   targetEnd?: number;
+  intent?: SecondDraftRewriteIntent;
   createdAt: string;
   updatedAt: string;
 }
@@ -112,6 +114,7 @@ export interface SecondDraftState {
   carryovers: SecondDraftCarryover[];
   issues: SecondDraftIssue[];
   reviews: Record<string, Partial<Record<SecondDraftReviewPassKey, boolean>>>;
+  briefs: Record<string, string>;
 }
 
 export interface SecondDraftSealReveal {
