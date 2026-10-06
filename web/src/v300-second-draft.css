@@ -148,7 +148,12 @@
   border-color: color-mix(in srgb, var(--sd-accent) 42%, transparent);
   background: color-mix(in srgb, var(--sd-accent) 6%, transparent);
 }
+.second-draft-scene-controls button:disabled,
 .second-draft-review-controls button:disabled,
+.second-draft-sync-controls button:disabled {
+  opacity: .38;
+  cursor: default;
+}
 .second-draft-sync-status {
   margin-right: 2px;
   color: color-mix(in srgb, currentColor 66%, transparent);
@@ -161,12 +166,7 @@
   background: color-mix(in srgb, var(--sd-accent) 12%, transparent);
   color: var(--sd-accent);
 }
-.second-draft-sync-controls button:disabled {
-  opacity: .38;
-  cursor: default;
-}
-
-.second-draft-actionbar {
+ .second-draft-actionbar {
   position: absolute;
   z-index: 18;
   left: 12px;
