@@ -594,6 +594,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         sourceText: selection.text,
         targetStart,
         status,
+        intent: status === "active" ? rewriteIntent : undefined,
       });
       props.onState(state);
       setSelection(null);
@@ -604,6 +605,42 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       }
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
+  }
+
+  async function updateActiveIntent(intent: SecondDraftRewriteIntent) {
+    if (!activeBlock) { setRewriteIntent(intent); return; }
+    setRewriteIntent(intent);
+    setBusy(true);
+    try {
+      props.onState(await api.updateSecondDraftBlock(props.project.projectId, activeBlock.id, { intent }));
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function saveDraftBrief() {
+    setBusy(true);
+    try {
+      props.onState(await api.setSecondDraftBrief(props.project.projectId, props.targetSectionId, briefDraft.trim()));
+      setBriefOpen(false);
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
+  function jumpToScene(nextIndex: number) {
+    const editor = sourceEditorRef.current;
+    if (!editor) return;
+    const breaks = [...editor.querySelectorAll<HTMLElement>(".editor-scene-break")];
+    const safe = Math.max(0, Math.min(breaks.length, nextIndex));
+    setSceneIndex(safe);
+    if (safe === 0) {
+      editor.scrollTop = 0;
+    } else {
+      const divider = breaks[safe - 1];
+      const host = editor.getBoundingClientRect();
+      const rect = divider.getBoundingClientRect();
+      editor.scrollTop = Math.max(0, editor.scrollTop + rect.top - host.top - 18);
+    }
+    editor.dispatchEvent(new Event("scroll"));
   }
 
   async function finishActive(status: Exclude<SecondDraftBlockStatus, "active" | "sent">) {
