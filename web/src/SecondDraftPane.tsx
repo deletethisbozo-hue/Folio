@@ -122,6 +122,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
   const [sourceChanged, setSourceChanged] = useState(false);
+  const sourceMatchesPair = Boolean(pair && pair.sourceSectionId === sourceDoc?.id);
   const sourceEditorRef = useRef<HTMLDivElement>(null);
   const sourcePaperRef = useRef<HTMLDivElement>(null);
   const scrollSyncRef = useRef(false);
@@ -205,6 +206,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const HighlightCtor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
     if (!registry || !HighlightCtor || !sourceEditorRef.current) return;
     for (const name of BURN_HIGHLIGHTS) registry.delete(name);
+    if (!sourceMatchesPair || sourceChanged) {
+      return () => { for (const name of BURN_HIGHLIGHTS) registry.delete(name); };
+    }
     const editor = sourceEditorRef.current;
     const grouped = new Map<string, Range[]>();
     for (const block of relevantBlocks) {
@@ -217,7 +221,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     }
     for (const [name, ranges] of grouped) registry.set(name, new HighlightCtor(...ranges));
     return () => { for (const name of BURN_HIGHLIGHTS) registry.delete(name); };
-  }, [relevantBlocks, sourceDoc?.id, sourceDoc?.markdown]);
+  }, [relevantBlocks, sourceDoc?.id, sourceDoc?.markdown, sourceMatchesPair, sourceChanged]);
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => { if (event.key === "Alt" && memoryMode) setMemoryPeek(true); };
@@ -234,7 +238,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }, [memoryMode]);
 
   useEffect(() => {
-    if (!pair || sourceChanged) return;
+    if (!pair || !sourceMatchesPair || sourceChanged) return;
     const sourceEditor = sourceEditorRef.current;
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!sourceEditor || !targetEditor) return;
@@ -311,7 +315,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       targetEditor.removeEventListener("scroll", syncFromTarget);
       sourceEditor.removeEventListener("scroll", syncFromSource);
     };
-  }, [pair?.sourceSectionId, relevantBlocks, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey]);
+  }, [pair?.sourceSectionId, relevantBlocks, sourceMatchesPair, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey]);
 
   function linkCurrentScrollPosition() {
     const sourceEditor = sourceEditorRef.current;
@@ -346,6 +350,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   async function pairSource() {
     const editor = sourceEditorRef.current;
     if (!editor || !sourceDoc) return;
+    if (pair && relevantBlocks.length > 0 && (pair.sourceSectionId !== sourceDoc.id || sourceChanged)) {
+      const confirmed = window.confirm("Re-pairing this chapter will clear its existing Second Draft source decisions. Continue?");
+      if (!confirmed) return;
+    }
     setBusy(true);
     try {
       const text = editor.innerText;
@@ -359,7 +367,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }
 
   async function createAndSet(status: Exclude<SecondDraftBlockStatus, "sent">) {
-    if (!selection || !pair || sourceChanged) return;
+    if (!selection || !pair || !sourceMatchesPair || sourceChanged) return;
     setBusy(true);
     try {
       const state = await api.createSecondDraftBlock(props.project.projectId, {
@@ -394,7 +402,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }
 
   async function sendAhead() {
-    if (!selection || !pair || !sendTargetId || sourceChanged) return;
+    if (!selection || !pair || !sourceMatchesPair || !sendTargetId || sourceChanged) return;
     setBusy(true);
     try {
       props.onState(await api.sendSecondDraftAhead(props.project.projectId, {
@@ -432,7 +440,6 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   const progress = secondDraftProgress(pair, blocks);
   const unresolved = relevantBlocks.filter((block) => block.status === "active" || block.status === "later").length;
-  const sourceMatchesPair = Boolean(pair && pair.sourceSectionId === sourceDoc?.id);
   const sendOptions = props.project.sections.filter(
     (section) => section.kind === "chapter" && section.id !== props.targetSectionId && section.id !== pair?.sourceSectionId,
   );
@@ -442,7 +449,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     <header className="writing-split-header second-draft-header">
       <div className="writing-split-title">
         <strong>Second Draft</strong>
-        <select aria-label="Source draft chapter" value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={busy}>
+        <select aria-label="Source draft chapter" value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={busy || Boolean(activeBlock)}>
           {candidateSections.map((section) => <option key={section.id} value={section.id}>{section.title}</option>)}
         </select>
         {(!pair || pair.sourceSectionId !== sourceId || sourceChanged) &&
@@ -451,7 +458,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           </button>}
       </div>
       <div className="second-draft-head-actions">
-        {pair && <span className="second-draft-progress">{Math.round(progress * 100)}% source</span>}
+        {sourceMatchesPair && <span className="second-draft-progress">{Math.round(progress * 100)}% source</span>}
         <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => {
           const next = !value;
           persistViewState({ memoryMode: next });
@@ -479,7 +486,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         <span>Source draft · read only</span>
         {memoryMode && <span className="memory-hint">Hold Alt to peek</span>}
       </div>
-      {pair && !sourceChanged && <div className="second-draft-sync-controls" role="group" aria-label="Paired scroll controls">
+      {sourceMatchesPair && !sourceChanged && <div className="second-draft-sync-controls" role="group" aria-label="Paired scroll controls">
         <span className="second-draft-sync-status">{syncScroll ? `Synced${manualAnchors.length ? ` · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}` : ""}` : "Free scroll"}</span>
         <button type="button" className={syncScroll ? "active" : ""} aria-pressed={syncScroll}
           title={syncScroll ? "Turn off paired scrolling to position both drafts independently" : "Turn paired scrolling back on"}
@@ -495,7 +502,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       </div>}
     </div>
 
-    {pair && !sourceChanged && <div className="second-draft-actionbar" aria-label="Second Draft actions">
+    {sourceMatchesPair && !sourceChanged && <div className="second-draft-actionbar" aria-label="Second Draft actions">
       <div className="second-draft-action-copy">
         {activeBlock ? <>
           <strong>Rewriting</strong>
