@@ -1,0 +1,44 @@
+name: Extract Folio 3.0 portable
+
+on:
+  push:
+    branches: [handoff/folio-3.0-portable]
+    paths:
+      - .github/workflows/portable-handoff.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  handoff:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Download approved Windows build from run 314
+        uses: actions/download-artifact@v4
+        with:
+          name: Folio-3.0.0-Windows
+          path: approved
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: deletethisbozo-hue/Folio
+          run-id: 37408670862
+
+      - name: Verify approved portable hash
+        shell: pwsh
+        run: |
+          $portable = "approved\Folio-3.0.0-portable.exe"
+          if (!(Test-Path $portable)) { throw "Approved portable executable is missing." }
+          $actual = (Get-FileHash $portable -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = "af836105f47fb8767df82e313df84b4dea27bf82c2c93274c17f1e1eab0472a0"
+          if ($actual -ne $expected) { throw "Portable hash mismatch: $actual" }
+          Copy-Item $portable "Folio-3.0.0-portable.exe"
+
+      - name: Upload portable only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-3.0.0-Portable
+          path: Folio-3.0.0-portable.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
