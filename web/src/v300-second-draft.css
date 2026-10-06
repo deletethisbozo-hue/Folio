@@ -48,6 +48,9 @@
 .second-draft-header .writing-split-title select {
   min-width: 100px;
   max-width: 210px;
+  height: 26px;
+  padding: 0 24px 0 8px;
+  font: 600 9.5px/1 var(--folio-ui-font);
 }
 .second-draft-pair,
 .second-draft-head-actions button {
