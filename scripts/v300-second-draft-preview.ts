@@ -323,8 +323,13 @@ try {
     const target = document.querySelector<HTMLElement>(".manuscript-editor");
     const source = document.querySelector<HTMLElement>(".second-draft-source");
     if (!target || !source) throw new Error("Second Draft editors missing for paired-scroll QA");
-    target.style.setProperty("height", "180px", "important");
-    source.style.setProperty("height", "180px", "important");
+    let fixture = document.querySelector<HTMLStyleElement>("#second-draft-scroll-fixture");
+    if (!fixture) {
+      fixture = document.createElement("style");
+      fixture.id = "second-draft-scroll-fixture";
+      fixture.textContent = ".manuscript-editor,.second-draft-source{height:180px!important;}";
+      document.head.appendChild(fixture);
+    }
     return {
       targetMax: target.scrollHeight - target.clientHeight,
       sourceMax: source.scrollHeight - source.clientHeight,
@@ -468,6 +473,8 @@ try {
     throw new Error("Second Draft view state was not restored after mode remount: " + JSON.stringify({ savedBeforeRemount, restoredAfterRemount }));
   }
   await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.evaluate(() => document.querySelector("#second-draft-scroll-fixture")?.remove());
+  await settle(220);
 
   await page.screenshot({ path: path.join(qa, "02-second-draft-burn-memory-send-scroll.png") });
 
