@@ -185,6 +185,8 @@ try {
 
   const firstSelection = await selectSourceText(0);
   if (!firstSelection.trim()) throw new Error("Source selection failed");
+  await page.waitForSelector(".second-draft-intent-select:not([disabled])");
+  await page.select(".second-draft-intent-select:not([disabled])", "tighten");
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Rewrite this")));
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
@@ -239,6 +241,14 @@ try {
     activeHighlight: Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-active")),
   }));
   if (!burn.rewrittenHighlight || burn.activeHighlight) throw new Error("Source Burn did not move active source to rewritten state: " + JSON.stringify(burn));
+  const mapState = await page.evaluate(() => ({
+    track: Boolean(document.querySelector(".second-draft-map-track")),
+    segments: document.querySelectorAll(".second-draft-map-segment").length,
+    scene: document.querySelector(".second-draft-scene-controls")?.textContent?.trim() ?? "",
+  }));
+  if (!mapState.track || mapState.segments < 1 || !mapState.scene.includes("Scene")) {
+    throw new Error("Revision map or scene navigation missing: " + JSON.stringify(mapState));
+  }
 
   // A rewritten source decision must be reversible without deleting target prose.
   await selectSourceText(0);
@@ -285,9 +295,15 @@ try {
     text: dialog.textContent ?? "",
     columns: dialog.querySelectorAll(".second-draft-compare-grid article").length,
   }));
-  if (compareState.columns !== 2 || !compareState.text.includes("Source") || !compareState.text.includes("Rewrite")) {
-    throw new Error("Compare Rewrite is not rendering both drafts: " + JSON.stringify(compareState));
+  if (compareState.columns !== 2 || !compareState.text.includes("Source") || !compareState.text.includes("Rewrite")
+      || !compareState.text.includes("Intent: Tighten") || !compareState.text.includes("Word diff")) {
+    throw new Error("Compare Rewrite is missing source/rewrite/intent/diff: " + JSON.stringify(compareState));
   }
+  const diffPieces = await page.$eval(".second-draft-word-diff", (diff) => ({
+    added: diff.querySelectorAll(".added").length,
+    removed: diff.querySelectorAll(".removed").length,
+  }));
+  if (!diffPieces.added && !diffPieces.removed) throw new Error("Word diff rendered no changes: " + JSON.stringify(diffPieces));
   await page.click(".second-draft-compare .second-draft-drawer-head button");
   await page.waitForFunction(() => !document.querySelector(".second-draft-compare"));
 
@@ -330,6 +346,21 @@ try {
   );
   await page.click(".second-draft-review-drawer .second-draft-drawer-head button");
   await page.waitForFunction(() => !document.querySelector(".second-draft-review-drawer"));
+
+  // Chapter draft brief is persisted with the Second Draft project state.
+  await page.evaluate(() => {
+    const brief = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Brief"));
+    if (!brief) throw new Error("Second Draft Brief control missing");
+    brief.click();
+  });
+  await page.waitForSelector(".second-draft-brief-drawer");
+  await page.type(".second-draft-brief-drawer textarea", "Tighten the middle and make the reveal land harder.");
+  await page.click(".second-draft-brief-actions button");
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .some((button) => button.textContent?.includes("Brief •")),
+  );
 
   await page.click(".second-draft-head-actions button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
@@ -580,8 +611,8 @@ try {
     };
   });
   const persistedReviewUi = await page.$eval(".second-draft-head-actions", (head) => head.textContent ?? "");
-  if (!persistedReviewUi.includes("Issues 1") || !persistedReviewUi.includes("Passes 2/7")) {
-    throw new Error("Second Draft issues/review passes did not survive remount: " + persistedReviewUi);
+  if (!persistedReviewUi.includes("Issues 1") || !persistedReviewUi.includes("Passes 2/7") || !persistedReviewUi.includes("Brief •")) {
+    throw new Error("Second Draft issues/review passes/brief did not survive remount: " + persistedReviewUi);
   }
 
   if (Math.abs(restoredAfterRemount.target - savedBeforeRemount.target) > .10
