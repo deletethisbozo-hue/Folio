@@ -907,6 +907,12 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           setIssuePanelOpen((value) => !value);
           setReviewPanelOpen(false);
         }}>Issues {unresolvedIssues.length}</button>}
+        {sourceMatchesPair && <button type="button" className={briefOpen ? "active" : ""} title={draftBrief || "Set the goal for this chapter rewrite"} onClick={() => {
+          setBriefDraft(draftBrief);
+          setBriefOpen((value) => !value);
+          setIssuePanelOpen(false);
+          setReviewPanelOpen(false);
+        }}>Brief{draftBrief ? " •" : ""}</button>}
         <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => {
           const next = !value;
           persistViewState({ memoryMode: next });
@@ -935,6 +941,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         {memoryMode && <span className="memory-hint">Hold Alt to peek</span>}
       </div>
       {sourceMatchesPair && !sourceChanged && <>
+        <div className="second-draft-scene-controls" role="group" aria-label="Source scene navigation">
+          <button type="button" disabled={sceneIndex <= 0} onClick={() => jumpToScene(sceneIndex - 1)} title="Previous source scene">‹</button>
+          <span>Scene {sceneIndex + 1}/{sceneCount}</span>
+          <button type="button" disabled={sceneIndex >= sceneCount - 1} onClick={() => jumpToScene(sceneIndex + 1)} title="Next source scene">›</button>
+        </div>
         <div className="second-draft-review-controls" role="group" aria-label="Second Draft review navigation">
           <button type="button" onClick={jumpToNextUnreviewed}>Next unreviewed</button>
           <button type="button" disabled={!rewrittenBlocks.length} onClick={jumpToNextChanged}>Next changed</button>
@@ -965,6 +976,31 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       </>}
     </div>
 
+    {sourceMatchesPair && !sourceChanged && pair && <div className="second-draft-map" aria-label="Second Draft revision map">
+      <div className="second-draft-map-track">
+        {relevantBlocks.map((block) => {
+          const left = Math.max(0, Math.min(100, (block.sourceStart / Math.max(1, pair.sourceTextLength)) * 100));
+          const width = Math.max(.65, Math.min(100 - left, ((block.sourceEnd - block.sourceStart) / Math.max(1, pair.sourceTextLength)) * 100));
+          return <button key={block.id} type="button"
+            className={"second-draft-map-segment " + block.status}
+            style={{ left: left + "%", width: width + "%" }}
+            title={`${block.status}${block.intent && block.intent !== "general" ? " · " + block.intent : ""}: ${block.sourceText.slice(0, 90)}`}
+            onClick={() => selectAndRevealSourceRange(block.sourceStart, block.sourceEnd)} />;
+        })}
+        {unresolvedIssues.map((issue) => {
+          const left = Math.max(0, Math.min(100, (issue.sourceStart / Math.max(1, pair.sourceTextLength)) * 100));
+          return <button key={issue.id} type="button" className="second-draft-map-issue"
+            style={{ left: left + "%" }}
+            title={`${issue.category}: ${issue.note || issue.sourceText.slice(0, 90)}`}
+            onClick={() => {
+              selectAndRevealSourceRange(issue.sourceStart, issue.sourceEnd);
+              setIssuePanelOpen(true);
+            }} />;
+        })}
+      </div>
+      <span>{processed} decisions · {unresolvedIssues.length} issues</span>
+    </div>}
+
     {sourceMatchesPair && !sourceChanged && <div className="second-draft-actionbar" aria-label="Second Draft actions">
       <div className="second-draft-action-copy">
         {activeBlock ? <>
@@ -987,6 +1023,12 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
       <div className="second-draft-action-buttons">
         {activeBlock ? <>
+          <select className="second-draft-intent-select" aria-label="Rewrite intent"
+            value={activeBlock.intent ?? rewriteIntent}
+            disabled={busy}
+            onChange={(event) => void updateActiveIntent(event.target.value as SecondDraftRewriteIntent)}>
+            {REWRITE_INTENTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
           <button disabled={busy} className="primary" onClick={() => void finishActive("rewritten")}>Done</button>
           <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
           <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
@@ -1005,6 +1047,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
               {selectedExistingBlock.status === "rewritten" ? "Undo rewrite" : "Undo decision"}
             </button>}
         </> : selection ? <>
+          <select className="second-draft-intent-select" aria-label="Rewrite intent" value={rewriteIntent}
+            onChange={(event) => setRewriteIntent(event.target.value as SecondDraftRewriteIntent)}>
+            {REWRITE_INTENTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
           <button disabled={busy} className="primary" onClick={() => void createAndSet("active")}>Rewrite this</button>
           <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
           <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>
@@ -1021,6 +1067,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button disabled={busy} onClick={() => void resolveLater(laterBlocks[0], "cut")}>Cut</button>
           <button disabled={busy} onClick={() => void resolveLater(laterBlocks[0], "keep")}>Keep</button>
         </> : <>
+          <select className="second-draft-intent-select" disabled aria-label="Rewrite intent"><option>General</option></select>
           <button disabled className="primary" title="Select source text first">Rewrite this</button>
           <button disabled title="Select source text first">Cut</button>
           <button disabled title="Select source text first">Later</button>
