@@ -362,7 +362,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
         <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
       </> : selection ? <>
-        <span className="rail-label">{selection.text.length > 80 ? selection.text.slice(0, 77) + "…" : selection.text}</span>
+        <span className="rail-label" title={selection.text}>Selected passage</span>
         <button disabled={busy} className="rail-rewrite" onClick={() => void createAndSet("active")}>Rewrite this</button>
         <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
         <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>

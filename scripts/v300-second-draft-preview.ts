@@ -73,6 +73,23 @@ try {
   await settle();
   await page.screenshot({ path: path.join(qa, "01-second-draft-pairing.png") });
 
+  async function assertRailFits(label: string) {
+    const problems = await page.evaluate(() => {
+      const rail = document.querySelector<HTMLElement>(".second-draft-rail");
+      if (!rail) return ["rail missing"];
+      const rr = rail.getBoundingClientRect();
+      return [...rail.querySelectorAll<HTMLElement>("button, select")].flatMap((control) => {
+        const r = control.getBoundingClientRect();
+        const outside = r.left < rr.left - 1 || r.right > rr.right + 1 || r.top < rr.top - 1 || r.bottom > rr.bottom + 1;
+        const overflow = control.scrollWidth > control.clientWidth + 1 || control.scrollHeight > control.clientHeight + 1;
+        return outside || overflow
+          ? [`${control.tagName.toLowerCase()} "${control.textContent?.trim() ?? ""}" outside=${outside} overflow=${overflow} box=${Math.round(r.width)}x${Math.round(r.height)} scroll=${control.scrollWidth}x${control.scrollHeight}`]
+          : [];
+      });
+    });
+    if (problems.length) throw new Error(`Second Draft rail overflow (${label}): ${problems.join(" | ")}`);
+  }
+
   async function selectSourceText(skip = 0) {
     return page.evaluate((skipIndex) => {
       const editor = document.querySelector<HTMLElement>(".second-draft-source");
@@ -102,6 +119,7 @@ try {
   if (!firstSelection.trim()) throw new Error("Source selection failed");
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Rewrite this")));
   await settle();
+  await assertRailFits("Rewrite This");
   await page.screenshot({ path: path.join(qa, "02-rewrite-this.png") });
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
@@ -110,6 +128,7 @@ try {
   });
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")));
   await settle();
+  await assertRailFits("active Rewrite Rail");
   await page.screenshot({ path: path.join(qa, "03-rewrite-rail-active.png") });
 
   await page.evaluate(() => {
@@ -170,6 +189,7 @@ try {
   });
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
   await settle();
+  await assertRailFits("Send Ahead");
   await page.screenshot({ path: path.join(qa, "07-send-ahead.png") });
   await page.click(".rail-send-ahead button");
   await settle(160);
@@ -209,6 +229,7 @@ try {
   const sealDisabled = await page.$eval(".rail-seal", (button) => (button as HTMLButtonElement).disabled);
   if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
   await settle();
+  await assertRailFits("Chapter Seal");
   await page.screenshot({ path: path.join(qa, "10-chapter-seal-ready.png") });
   await page.click(".rail-seal");
   await page.waitForSelector(".second-draft-reveal");
