@@ -123,6 +123,16 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
   const [sourceChanged, setSourceChanged] = useState(false);
   const sourceMatchesPair = Boolean(pair && pair.sourceSectionId === sourceDoc?.id);
+  const laterBlocks = useMemo(
+    () => relevantBlocks.filter((block) => block.status === "later").sort((a, b) => a.sourceStart - b.sourceStart),
+    [relevantBlocks],
+  );
+  const selectedExistingBlock = useMemo(
+    () => selection
+      ? relevantBlocks.find((block) => block.sourceStart < selection.end && block.sourceEnd > selection.start) ?? null
+      : null,
+    [selection, relevantBlocks],
+  );
   const sourceEditorRef = useRef<HTMLDivElement>(null);
   const sourcePaperRef = useRef<HTMLDivElement>(null);
   const scrollSyncRef = useRef(false);
@@ -401,6 +411,43 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     finally { setBusy(false); }
   }
 
+  async function resumeLater(block: SecondDraftBlock) {
+    if (block.status !== "later") return;
+    setBusy(true);
+    try {
+      props.onState(await api.updateSecondDraftBlock(props.project.projectId, block.id, {
+        status: "active",
+        targetStart: currentTargetCaret(),
+      }));
+      setSelection(null);
+      window.getSelection()?.removeAllRanges();
+      props.onRevealTarget();
+      requestAnimationFrame(() => {
+        const source = sourceEditorRef.current;
+        const range = source ? rangeForTextOffsets(source, block.sourceStart, block.sourceEnd) : null;
+        if (source && range) {
+          const host = source.getBoundingClientRect();
+          const rect = range.getBoundingClientRect();
+          source.scrollTop = Math.max(0, source.scrollTop + rect.top - host.top - source.clientHeight * .28);
+          source.dispatchEvent(new Event("scroll"));
+        }
+        document.querySelector<HTMLElement>(".manuscript-editor")?.focus();
+      });
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function resolveLater(block: SecondDraftBlock, status: "cut" | "keep") {
+    if (block.status !== "later") return;
+    setBusy(true);
+    try {
+      props.onState(await api.updateSecondDraftBlock(props.project.projectId, block.id, { status }));
+      setSelection(null);
+      window.getSelection()?.removeAllRanges();
+    } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  }
+
   async function sendAhead() {
     if (!selection || !pair || !sourceMatchesPair || !sendTargetId || sourceChanged) return;
     setBusy(true);
@@ -507,9 +554,15 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         {activeBlock ? <>
           <strong>Rewriting</strong>
           <span>{activeBlock.sourceText.length > 120 ? activeBlock.sourceText.slice(0, 117) + "…" : activeBlock.sourceText}</span>
+        </> : selection && selectedExistingBlock ? <>
+          <strong>{selectedExistingBlock.status === "later" ? "Parked for later" : "Already processed"}</strong>
+          <span>{selectedExistingBlock.sourceText.length > 120 ? selectedExistingBlock.sourceText.slice(0, 117) + "…" : selectedExistingBlock.sourceText}</span>
         </> : selection ? <>
           <strong>Selected source</strong>
           <span>{selection.text.length > 120 ? selection.text.slice(0, 117) + "…" : selection.text}</span>
+        </> : laterBlocks.length > 0 ? <>
+          <strong>Later queue · {laterBlocks.length}</strong>
+          <span>{laterBlocks[0].sourceText.length > 120 ? laterBlocks[0].sourceText.slice(0, 117) + "…" : laterBlocks[0].sourceText}</span>
         </> : <>
           <strong>Source Burn</strong>
           <span>Select source text, then decide what happens to it.</span>
@@ -522,7 +575,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
           <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
           <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
-        </> : selection ? <>
+        </> : selection && selectedExistingBlock?.status === "later" ? <>
+          <button disabled={busy} className="primary" onClick={() => void resumeLater(selectedExistingBlock)}>Resume</button>
+          <button disabled={busy} onClick={() => void resolveLater(selectedExistingBlock, "cut")}>Cut</button>
+          <button disabled={busy} onClick={() => void resolveLater(selectedExistingBlock, "keep")}>Keep</button>
+        </> : selection && selectedExistingBlock ? null : selection ? <>
           <button disabled={busy} className="primary" onClick={() => void createAndSet("active")}>Rewrite this</button>
           <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
           <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>
@@ -534,6 +591,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
             </select>
             <button disabled={busy || !sendTargetId} title="Send selected source to the chosen chapter" onClick={() => void sendAhead()}>Send</button>
           </div>
+        </> : laterBlocks.length > 0 ? <>
+          <button disabled={busy} className="primary" onClick={() => void resumeLater(laterBlocks[0])}>Resume next</button>
+          <button disabled={busy} onClick={() => void resolveLater(laterBlocks[0], "cut")}>Cut</button>
+          <button disabled={busy} onClick={() => void resolveLater(laterBlocks[0], "keep")}>Keep</button>
         </> : null}
       </div>
 
