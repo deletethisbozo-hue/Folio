@@ -185,7 +185,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   useEffect(() => {
     const saved = readSecondDraftViewState(viewKey);
     const nextMemory = saved?.memoryMode ?? false;
-    const nextSync = saved?.syncScroll ?? true;
+    const nextSync = saved?.syncScroll ?? false;
     const nextAnchors = saved?.manualAnchors ?? [];
     // Mark restoration before any scroll-sync effect gets a chance to react.
     restoringScrollRef.current = Boolean(saved);
@@ -289,20 +289,22 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   useEffect(() => {
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!targetEditor) return;
-    const rememberTargetCaret = () => {
+    const rememberTargetSelection = () => {
+      const selected = selectedTextOffsets(targetEditor);
+      setTargetSelection(selected);
       const offset = caretTextOffset(targetEditor);
       if (offset !== null) targetCaretRef.current = offset;
     };
-    rememberTargetCaret();
-    targetEditor.addEventListener("mouseup", rememberTargetCaret);
-    targetEditor.addEventListener("keyup", rememberTargetCaret);
-    targetEditor.addEventListener("input", rememberTargetCaret);
-    targetEditor.addEventListener("focus", rememberTargetCaret);
+    rememberTargetSelection();
+    targetEditor.addEventListener("mouseup", rememberTargetSelection);
+    targetEditor.addEventListener("keyup", rememberTargetSelection);
+    targetEditor.addEventListener("input", rememberTargetSelection);
+    targetEditor.addEventListener("focus", rememberTargetSelection);
     return () => {
-      targetEditor.removeEventListener("mouseup", rememberTargetCaret);
-      targetEditor.removeEventListener("keyup", rememberTargetCaret);
-      targetEditor.removeEventListener("input", rememberTargetCaret);
-      targetEditor.removeEventListener("focus", rememberTargetCaret);
+      targetEditor.removeEventListener("mouseup", rememberTargetSelection);
+      targetEditor.removeEventListener("keyup", rememberTargetSelection);
+      targetEditor.removeEventListener("input", rememberTargetSelection);
+      targetEditor.removeEventListener("focus", rememberTargetSelection);
     };
   }, [props.targetSectionId]);
 
@@ -343,20 +345,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       const anchors: Array<{ target: number; source: number }> = [{ target: 0, source: 0 }];
 
       for (const anchor of manualAnchors) {
-        anchors.push({ target: anchor.targetRatio * targetMax, source: anchor.sourceRatio * sourceMax });
-      }
-
-      for (const block of relevantBlocks) {
-        if (!["active", "rewritten", "keep"].includes(block.status) || block.targetStart === undefined) continue;
-        const targetStart = pointForOffset(targetEditor, block.targetStart);
-        const sourceStart = pointForOffset(sourceEditor, block.sourceStart);
-        if (targetStart !== null && sourceStart !== null) anchors.push({ target: targetStart, source: sourceStart });
-
-        if ((block.status === "rewritten" || block.status === "keep") && block.targetEnd !== undefined) {
-          const targetEnd = pointForOffset(targetEditor, block.targetEnd);
-          const sourceEnd = pointForOffset(sourceEditor, block.sourceEnd);
-          if (targetEnd !== null && sourceEnd !== null) anchors.push({ target: targetEnd, source: sourceEnd });
-        }
+        const targetPoint = pointForOffset(targetEditor, anchor.targetOffset);
+        const sourcePoint = pointForOffset(sourceEditor, anchor.sourceOffset);
+        if (targetPoint !== null && sourcePoint !== null) anchors.push({ target: targetPoint, source: sourcePoint });
       }
 
       anchors.push({ target: targetMax, source: sourceMax });
@@ -373,7 +364,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const syncFromTarget = () => {
       if (restoringScrollRef.current) return;
       if (consumeProgrammatic("target", targetEditor.scrollTop)) { remember(); return; }
-      if (!syncScroll) { remember(); return; }
+      if (!syncScroll || manualAnchors.length === 0) { remember(); return; }
       const next = Math.max(
         0,
         Math.min(
@@ -390,7 +381,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const syncFromSource = () => {
       if (restoringScrollRef.current) return;
       if (consumeProgrammatic("source", sourceEditor.scrollTop)) { remember(); return; }
-      if (!syncScroll) { remember(); return; }
+      if (!syncScroll || manualAnchors.length === 0) { remember(); return; }
       const inverse = buildAnchors().map((item) => ({ target: item.source, source: item.target }));
       const next = Math.max(
         0,
@@ -420,22 +411,27 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     };
   }, [pair?.sourceSectionId, relevantBlocks, sourceMatchesPair, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey]);
 
-  function linkCurrentScrollPosition() {
-    const sourceEditor = sourceEditorRef.current;
-    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
-    if (!sourceEditor || !targetEditor) return;
-    const anchor = { targetRatio: elementScrollRatio(targetEditor), sourceRatio: elementScrollRatio(sourceEditor) };
-    const next = [...manualAnchors.filter((item) => Math.abs(item.targetRatio - anchor.targetRatio) > 0.012), anchor]
-      .sort((a, b) => a.targetRatio - b.targetRatio)
+  function linkSelectedLines() {
+    if (!selection || !targetSelection) return;
+    const anchor = {
+      targetOffset: Math.round((targetSelection.start + targetSelection.end) / 2),
+      sourceOffset: Math.round((selection.start + selection.end) / 2),
+    };
+    const next = [...manualAnchors.filter((item) => Math.abs(item.targetOffset - anchor.targetOffset) > 8), anchor]
+      .sort((a, b) => a.targetOffset - b.targetOffset)
       .slice(-8);
     setManualAnchors(next);
     setSyncScroll(true);
+    setTargetSelection(null);
+    setSelection(null);
+    window.getSelection()?.removeAllRanges();
     persistViewState({ manualAnchors: next, syncScroll: true });
   }
 
   function clearManualScrollAnchors() {
     setManualAnchors([]);
-    persistViewState({ manualAnchors: [] });
+    setSyncScroll(false);
+    persistViewState({ manualAnchors: [], syncScroll: false });
   }
 
   function captureSelection() {
@@ -478,8 +474,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       setSourceChanged(false);
       setSelection(null);
       setManualAnchors([]);
-      setSyncScroll(true);
-      persistViewState({ manualAnchors: [], syncScroll: true });
+      setSyncScroll(false);
+      setTargetSelection(null);
+      persistViewState({ manualAnchors: [], syncScroll: false });
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   }
