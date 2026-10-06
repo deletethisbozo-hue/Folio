@@ -495,9 +495,43 @@ try {
     && window.localStorage.getItem("folio-editor-surface") === "light");
   await settle(220);
   await page.screenshot({ path: path.join(qa, "03e-write-midnight-light-paper.png") });
+
+  // Explicit paper choice must survive UI tone changes. Light paper in Midnight
+  // stays light after switching the application chrome back to Light.
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() =>
+    document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory"
+    && document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "light"
+    && window.localStorage.getItem("folio-editor-surface") === "light",
+  );
+  const lightPaperAfterToneSwitch = await page.$eval(".manuscript-editor", (el) => {
+    const style = getComputedStyle(el);
+    return { background: style.backgroundColor, color: style.color };
+  });
+  if (!/rgb\(247, 248, 252\)/.test(lightPaperAfterToneSwitch.background)
+    || !/rgb\(37, 40, 58\)/.test(lightPaperAfterToneSwitch.color)) {
+    throw new Error("Light editor paper changed when UI tone changed: " + JSON.stringify(lightPaperAfterToneSwitch));
+  }
+  await settle(160);
+  await page.screenshot({ path: path.join(qa, "03ea-light-paper-persists-in-light-ui.png") });
+
   await page.click('.editor-surface-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark"
     && window.localStorage.getItem("folio-editor-surface") === "dark");
+  await page.click('.tone-toggle');
+  await page.waitForFunction(() =>
+    document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "midnight"
+    && document.querySelector(".folio-shell")?.getAttribute("data-editor-surface") === "dark"
+    && window.localStorage.getItem("folio-editor-surface") === "dark",
+  );
+  const darkPaperAfterToneSwitch = await page.$eval(".manuscript-editor", (el) => {
+    const style = getComputedStyle(el);
+    return { background: style.backgroundColor, color: style.color };
+  });
+  if (!/rgba?\(37, 41, 54/.test(darkPaperAfterToneSwitch.background)
+    || !/rgb\(238, 240, 250\)/.test(darkPaperAfterToneSwitch.color)) {
+    throw new Error("Dark editor paper changed when UI tone changed: " + JSON.stringify(darkPaperAfterToneSwitch));
+  }
 
   await page.click('.tone-toggle');
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-ui-tone") === "ivory");

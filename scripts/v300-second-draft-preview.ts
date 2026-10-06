@@ -81,21 +81,21 @@ try {
   }
   await page.screenshot({ path: path.join(qa, "01-second-draft-pairing.png") });
 
-  async function assertRailFits(label: string) {
+  async function assertActionbarFits(label: string) {
     const problems = await page.evaluate(() => {
-      const rail = document.querySelector<HTMLElement>(".second-draft-rail");
-      if (!rail) return ["rail missing"];
-      const rr = rail.getBoundingClientRect();
-      return [...rail.querySelectorAll<HTMLElement>("button, select")].flatMap((control) => {
+      const bar = document.querySelector<HTMLElement>(".second-draft-actionbar");
+      if (!bar) return ["action bar missing"];
+      const rr = bar.getBoundingClientRect();
+      return [...bar.querySelectorAll<HTMLElement>("button, select")].flatMap((control) => {
         const r = control.getBoundingClientRect();
-        const outside = r.left < rr.left - 1 || r.right > rr.right + 1 || r.top < rr.top - 1 || r.bottom > rr.bottom + 1;
+        const outside = r.top < rr.top - 1 || r.bottom > rr.bottom + 1;
         const overflow = control.scrollWidth > control.clientWidth + 1 || control.scrollHeight > control.clientHeight + 1;
         return outside || overflow
           ? [`${control.tagName.toLowerCase()} "${control.textContent?.trim() ?? ""}" outside=${outside} overflow=${overflow} box=${Math.round(r.width)}x${Math.round(r.height)} scroll=${control.scrollWidth}x${control.scrollHeight}`]
           : [];
       });
     });
-    if (problems.length) throw new Error(`Second Draft rail overflow (${label}): ${problems.join(" | ")}`);
+    if (problems.length) throw new Error(`Second Draft action bar overflow (${label}): ${problems.join(" | ")}`);
   }
 
   async function selectSourceText(skip = 0) {
@@ -125,44 +125,44 @@ try {
 
   const firstSelection = await selectSourceText(0);
   if (!firstSelection.trim()) throw new Error("Source selection failed");
-  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Rewrite this")));
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Rewrite this")));
   await settle();
   await page.screenshot({ path: path.join(qa, "02-rewrite-this.png") });
-  await assertRailFits("Rewrite This");
+  await assertActionbarFits("Rewrite This");
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
       .find((item) => item.textContent?.includes("Rewrite this"));
     button?.click();
   });
-  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")));
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")));
   await settle();
   await page.screenshot({ path: path.join(qa, "03-rewrite-rail-active.png") });
-  await assertRailFits("active Rewrite Rail");
+  await assertActionbarFits("active Rewrite actions");
   const hasCancel = await page.evaluate(() =>
-    [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.trim() === "Cancel"),
+    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.trim() === "Cancel"),
   );
   if (!hasCancel) throw new Error("Active Rewrite has no Cancel action");
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
       .find((item) => item.textContent?.trim() === "Cancel");
     button?.click();
   });
   await page.waitForFunction(() =>
-    ![...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")),
+    ![...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")),
   );
   const cancelledProgress = await page.$eval(".second-draft-progress", (el) => el.textContent?.trim() ?? "");
   if (!cancelledProgress.startsWith("0%")) throw new Error("Cancel left processed progress behind: " + cancelledProgress);
   await selectSourceText(0);
   await page.waitForFunction(() =>
-    [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Rewrite this")),
+    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Rewrite this")),
   );
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
       .find((item) => item.textContent?.includes("Rewrite this"));
     button?.click();
   });
   await page.waitForFunction(() =>
-    [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")),
+    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")),
   );
 
   await page.evaluate(() => {
@@ -176,7 +176,7 @@ try {
   });
   await settle(100);
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
       .find((item) => item.textContent?.includes("Done"));
     button?.click();
   });
@@ -228,8 +228,8 @@ try {
 
   const secondSelection = await selectSourceText(1);
   if (!secondSelection.trim()) throw new Error("Second source selection failed");
-  await page.waitForSelector(".rail-send-ahead select");
-  const destination = await page.$eval(".rail-send-ahead select", (select) => {
+  await page.waitForSelector(".actionbar-send-ahead select");
+  const destination = await page.$eval(".actionbar-send-ahead select", (select) => {
     const option = [...(select as HTMLSelectElement).options].find((item) => item.value);
     if (!option) return "";
     (select as HTMLSelectElement).value = option.value;
@@ -239,8 +239,8 @@ try {
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
   await settle();
   await page.screenshot({ path: path.join(qa, "07-send-ahead.png") });
-  await assertRailFits("Send Ahead");
-  await page.click(".rail-send-ahead button");
+  await assertActionbarFits("Send Ahead");
+  await page.click(".actionbar-send-ahead button");
   await settle(160);
   const sentHighlight = await page.evaluate(() =>
     Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
@@ -281,11 +281,33 @@ try {
     throw new Error(`Paired Scroll off still moved source: ${scrollOffBefore} -> ${scrollOffAfter}`);
   }
   await page.screenshot({ path: path.join(qa, "09a-paired-scroll-off.png") });
-  await page.click(".second-draft-head-actions button[title^='Paired Scroll']");
+
+  const manualAnchor = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const targetMax = target.scrollHeight - target.clientHeight;
+    const sourceMax = source.scrollHeight - source.clientHeight;
+    target.scrollTop = targetMax * .27;
+    source.scrollTop = sourceMax * .68;
+    return { target: target.scrollTop, source: source.scrollTop, targetMax, sourceMax };
+  });
+  await page.click(".second-draft-align");
   await page.waitForFunction(() =>
-    document.querySelector(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed") === "true",
+    document.querySelector(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed") === "true"
+    && Boolean(document.querySelector(".second-draft-reset-align")),
   );
-  await settle(80);
+  await page.$eval(".second-draft-source", (el) => { (el as HTMLElement).scrollTop = 0; });
+  await page.$eval(".manuscript-editor", (el, top) => {
+    const editor = el as HTMLElement;
+    editor.scrollTop = Number(top);
+    editor.dispatchEvent(new Event("scroll"));
+  }, manualAnchor.target);
+  await settle(220);
+  const manualAlignedSource = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  if (Math.abs(manualAlignedSource - manualAnchor.source) > 14) {
+    throw new Error(`Manual Paired Scroll anchor failed: expected ~${manualAnchor.source}, got ${manualAlignedSource}`);
+  }
+  await page.screenshot({ path: path.join(qa, "09b-paired-scroll-manual-alignment.png") });
 
   const beforeScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   await page.$eval(".manuscript-editor", (el) => {
@@ -299,12 +321,12 @@ try {
 
   await page.screenshot({ path: path.join(qa, "09-paired-scroll.png") });
 
-  const sealDisabled = await page.$eval(".rail-seal", (button) => (button as HTMLButtonElement).disabled);
+  const sealDisabled = await page.$eval(".actionbar-seal", (button) => (button as HTMLButtonElement).disabled);
   if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
   await settle();
   await page.screenshot({ path: path.join(qa, "10-chapter-seal-ready.png") });
-  await assertRailFits("Chapter Seal");
-  await page.click(".rail-seal");
+  await assertActionbarFits("Chapter Seal");
+  await page.click(".actionbar-seal");
   await page.waitForSelector(".second-draft-reveal");
   const reveal = await page.evaluate(() => ({
     title: document.querySelector(".second-draft-reveal h2")?.textContent?.trim(),
@@ -323,13 +345,22 @@ try {
   await settle(180);
   const geometry = await page.evaluate(() => {
     const pane = document.querySelector<HTMLElement>(".second-draft-pane")!;
-    const rail = document.querySelector<HTMLElement>(".second-draft-rail")!;
+    const bar = document.querySelector<HTMLElement>(".second-draft-actionbar")!;
     const source = document.querySelector<HTMLElement>(".second-draft-source-paper")!;
-    const p = pane.getBoundingClientRect(), r = rail.getBoundingClientRect(), s = source.getBoundingClientRect();
-    return { pane: { left:p.left,right:p.right,top:p.top,bottom:p.bottom }, rail:{left:r.left,right:r.right}, source:{left:s.left,right:s.right} };
+    const sourceEditor = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const p = pane.getBoundingClientRect(), b = bar.getBoundingClientRect(), s = source.getBoundingClientRect(), e = sourceEditor.getBoundingClientRect();
+    return {
+      pane: { left:p.left,right:p.right,top:p.top,bottom:p.bottom },
+      bar:{left:b.left,right:b.right,top:b.top,bottom:b.bottom},
+      source:{left:s.left,right:s.right},
+      editor:{left:e.left,right:e.right},
+    };
   });
-  if (geometry.rail.left < geometry.pane.left - 1 || geometry.rail.right > geometry.source.right + 1) {
-    throw new Error("Second Draft rail clips outside its pane in Midnight: " + JSON.stringify(geometry));
+  if (geometry.bar.left < geometry.pane.left - 1 || geometry.bar.right > geometry.pane.right + 1) {
+    throw new Error("Second Draft action bar clips outside its pane in Midnight: " + JSON.stringify(geometry));
+  }
+  if (geometry.editor.left - geometry.source.left > 48) {
+    throw new Error("Second Draft source text is still horizontally crushed by action UI: " + JSON.stringify(geometry));
   }
   await page.screenshot({ path: path.join(qa, "12-second-draft-midnight.png") });
 
