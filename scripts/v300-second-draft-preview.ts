@@ -119,8 +119,8 @@ try {
   if (!firstSelection.trim()) throw new Error("Source selection failed");
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Rewrite this")));
   await settle();
-  await assertRailFits("Rewrite This");
   await page.screenshot({ path: path.join(qa, "02-rewrite-this.png") });
+  await assertRailFits("Rewrite This");
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-rail button")]
       .find((item) => item.textContent?.includes("Rewrite this"));
@@ -128,8 +128,8 @@ try {
   });
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-rail button")].some((button) => button.textContent?.includes("Done")));
   await settle();
-  await assertRailFits("active Rewrite Rail");
   await page.screenshot({ path: path.join(qa, "03-rewrite-rail-active.png") });
+  await assertRailFits("active Rewrite Rail");
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -189,8 +189,8 @@ try {
   });
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
   await settle();
-  await assertRailFits("Send Ahead");
   await page.screenshot({ path: path.join(qa, "07-send-ahead.png") });
+  await assertRailFits("Send Ahead");
   await page.click(".rail-send-ahead button");
   await settle(160);
   const sentHighlight = await page.evaluate(() =>
@@ -229,8 +229,8 @@ try {
   const sealDisabled = await page.$eval(".rail-seal", (button) => (button as HTMLButtonElement).disabled);
   if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
   await settle();
-  await assertRailFits("Chapter Seal");
   await page.screenshot({ path: path.join(qa, "10-chapter-seal-ready.png") });
+  await assertRailFits("Chapter Seal");
   await page.click(".rail-seal");
   await page.waitForSelector(".second-draft-reveal");
   const reveal = await page.evaluate(() => ({

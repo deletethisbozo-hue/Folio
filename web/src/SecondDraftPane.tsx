@@ -355,27 +355,28 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     </div>
 
     {pair && !sourceChanged && <aside className="second-draft-rail" aria-label="Second Draft rail">
-      {activeBlock ? <>
-        <span className="rail-label">Rewriting</span>
-        <button disabled={busy} className="rail-done" onClick={() => void finishActive("rewritten")}>✓ Done</button>
-        <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
-        <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
-        <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
-      </> : selection ? <>
-        <span className="rail-label" title={selection.text}>Selected passage</span>
-        <button disabled={busy} className="rail-rewrite" onClick={() => void createAndSet("active")}>Rewrite this</button>
-        <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
-        <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>
-        <button disabled={busy} onClick={() => void createAndSet("keep")}>Keep</button>
-        <div className="rail-send-ahead">
-          <select value={sendTargetId} onChange={(event) => setSendTargetId(event.target.value)} aria-label="Send source ahead to chapter">
-            <option value="">Send ahead…</option>
-            {sendOptions.map((section) => <option key={section.id} value={section.id}>{section.title}</option>)}
-          </select>
-          <button disabled={busy || !sendTargetId} onClick={() => void sendAhead()}>→</button>
-        </div>
-      </> : <span className="rail-empty">Select source text</span>}
-      <div className="rail-spacer" />
+      <div className="rail-actions">
+        {activeBlock ? <>
+          <span className="rail-label">Rewriting</span>
+          <button disabled={busy} className="rail-done" onClick={() => void finishActive("rewritten")}>✓ Done</button>
+          <button disabled={busy} onClick={() => void finishActive("cut")}>Cut</button>
+          <button disabled={busy} onClick={() => void finishActive("later")}>Later</button>
+          <button disabled={busy} onClick={() => void finishActive("keep")}>Keep</button>
+        </> : selection ? <>
+          <span className="rail-label" title={selection.text}>Selected passage</span>
+          <button disabled={busy} className="rail-rewrite" onClick={() => void createAndSet("active")}>Rewrite this</button>
+          <button disabled={busy} onClick={() => void createAndSet("cut")}>Cut</button>
+          <button disabled={busy} onClick={() => void createAndSet("later")}>Later</button>
+          <button disabled={busy} onClick={() => void createAndSet("keep")}>Keep</button>
+          <div className="rail-send-ahead">
+            <select value={sendTargetId} onChange={(event) => setSendTargetId(event.target.value)} aria-label="Send source ahead to chapter">
+              <option value="">Send ahead…</option>
+              {sendOptions.map((section) => <option key={section.id} value={section.id}>{section.title}</option>)}
+            </select>
+            <button disabled={busy || !sendTargetId} onClick={() => void sendAhead()}>→</button>
+          </div>
+        </> : <span className="rail-empty">Select source text</span>}
+      </div>
       <button type="button" className="rail-seal" disabled={busy || unresolved > 0}
         title={unresolved ? `Resolve ${unresolved} active/later source block(s) before sealing` : "Seal this chapter"}
         onClick={() => void sealChapter()}>Seal chapter</button>
