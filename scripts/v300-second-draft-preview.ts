@@ -237,8 +237,11 @@ try {
     return option.value;
   });
   if (!destination) throw new Error("Sample book has no Send Ahead destination");
+  await page.waitForFunction(() => !(document.querySelector(".second-draft-send-ahead button") as HTMLButtonElement | null)?.disabled);
   await page.click(".second-draft-send-ahead button");
-  await settle(160);
+  await page.waitForFunction(() =>
+    Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
+  );
   const sentHighlight = await page.evaluate(() =>
     Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
   );
