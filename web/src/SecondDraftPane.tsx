@@ -372,6 +372,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       ));
       setSourceChanged(false);
       setSelection(null);
+      setManualAnchors([]);
+      setSyncScroll(true);
+      persistViewState({ manualAnchors: [], syncScroll: true });
     } catch (error) { props.onError(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   }
