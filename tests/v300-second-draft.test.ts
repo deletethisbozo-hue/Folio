@@ -148,6 +148,30 @@ check("Second Draft tracks chapter review passes",
 check("Second Draft can navigate changed passages",
   pane.includes("Next changed")
   && pane.includes("jumpToNextChanged"));
+check("Second Draft stores an explicit rewrite intent",
+  pane.includes("REWRITE_INTENTS")
+  && pane.includes("Rewrite intent")
+  && pane.includes("updateActiveIntent")
+  && server.includes("SecondDraftRewriteIntent")
+  && serverApi.includes("req.body?.intent"));
+check("Second Draft has a persistent chapter rewrite brief",
+  pane.includes("Draft brief")
+  && pane.includes("saveDraftBrief")
+  && server.includes("setSecondDraftBrief")
+  && serverApi.includes("/second-draft/briefs/"));
+check("Second Draft exposes a clickable revision map",
+  pane.includes("Second Draft revision map")
+  && pane.includes("second-draft-map-segment")
+  && pane.includes("second-draft-map-issue")
+  && css.includes(".second-draft-map-track"));
+check("Second Draft has source scene navigation",
+  pane.includes("Source scene navigation")
+  && pane.includes("jumpToScene")
+  && pane.includes('querySelectorAll(".editor-scene-break")'));
+check("Compare Rewrite includes a word-level diff",
+  pane.includes("wordDiff(")
+  && pane.includes("Word diff")
+  && css.includes(".second-draft-word-diff"));
 check("new source decisions cannot overlap old decisions",
   server.includes("secondDraftRangesOverlap")
   && server.includes("overlaps an existing Second Draft decision"));
