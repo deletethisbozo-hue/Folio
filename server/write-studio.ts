@@ -367,10 +367,14 @@ function validateSecondDraftRange(start: number, end: number, sourceText: string
 
 async function requireSecondDraftSections(projectId: string, targetSectionId: string, sourceSectionId?: string): Promise<void> {
   const { book } = await loadProject(projectId);
-  if (!book.sections.some((section) => section.id === targetSectionId)) throw new Error("Second Draft target section not found.");
+  const target = book.sections.find((section) => section.id === targetSectionId);
+  if (!target) throw new Error("Second Draft target section not found.");
+  if (target.kind !== "chapter") throw new Error("Second Draft is only available for chapter sections.");
   if (sourceSectionId !== undefined) {
     if (sourceSectionId === targetSectionId) throw new Error("Second Draft source and target must be different sections.");
-    if (!book.sections.some((section) => section.id === sourceSectionId)) throw new Error("Second Draft source section not found.");
+    const source = book.sections.find((section) => section.id === sourceSectionId);
+    if (!source) throw new Error("Second Draft source section not found.");
+    if (source.kind !== "chapter") throw new Error("Second Draft source must be a chapter section.");
   }
 }
 
