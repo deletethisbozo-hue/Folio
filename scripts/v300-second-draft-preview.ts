@@ -276,6 +276,24 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")]
     .some((button) => button.textContent?.includes("Done")));
   await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const selection = window.getSelection();
+    if (!editor || !selection?.rangeCount || !selection.focusNode || !editor.contains(selection.focusNode)) {
+      throw new Error("Target caret missing before demo rewrite insertion");
+    }
+    const text = " The address had led her to the wall, where the city seemed to run out of names.";
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  });
+  await settle(80);
+  await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
       .find((item) => item.textContent?.includes("Done"));
     button?.click();
@@ -383,6 +401,7 @@ try {
   if (blurred === "none") throw new Error("Memory Rewrite did not hide source");
   await page.keyboard.down("Alt");
   await page.waitForSelector(".second-draft-pane.memory-peek");
+  await settle(180);
   const peekFilter = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   await page.keyboard.up("Alt");
   if (peekFilter !== "none") throw new Error("Hold-Alt Memory peek did not reveal source: " + peekFilter);
