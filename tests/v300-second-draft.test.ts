@@ -97,6 +97,17 @@ check("non-rewrite source decisions are created atomically",
   pane.includes("status,")
   && !pane.includes("const created = [...state.secondDraft.blocks]")
   && server.includes('status: Exclude<SecondDraftBlockStatus, "sent"> = "active"'));
+check("Later decisions have a resumable queue instead of becoming permanent blockers",
+  pane.includes("Later queue")
+  && pane.includes("Resume next")
+  && pane.includes("resumeLater")
+  && server.includes('patch.status === "active"'));
+check("new source decisions cannot overlap old decisions",
+  server.includes("secondDraftRangesOverlap")
+  && server.includes("overlaps an existing Second Draft decision"));
+check("Second Draft uses the same text-node coordinate system for pairing and anchors",
+  pane.includes('editor.textContent ?? ""')
+  && !pane.includes("editor.innerText.length"));
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);
