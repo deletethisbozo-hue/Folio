@@ -1,0 +1,41 @@
+name: Split Folio 3.0 portable review
+
+on:
+  push:
+    branches: ["review/v300-portable"]
+    paths:
+      - ".github/workflows/v300-portable-review.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  split:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Download verified Folio 3.0 Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Folio-3.0.0-Windows
+          path: candidate
+          github-token: ${{ github.token }}
+          run-id: 37400460563
+
+      - name: Verify portable candidate
+        run: |
+          test -s candidate/Folio-3.0.0-portable.exe
+          test -s candidate/sha256.txt
+          grep "Folio-3.0.0-portable.exe" candidate/sha256.txt
+          cat candidate/sha256.txt
+
+      - name: Upload portable review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-3.0.0-Portable-Review
+          retention-days: 14
+          compression-level: 0
+          path: |
+            candidate/Folio-3.0.0-portable.exe
+            candidate/sha256.txt
