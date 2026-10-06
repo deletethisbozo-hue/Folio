@@ -221,16 +221,34 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       restoringScrollRef.current = false;
       return;
     }
+
     restoringScrollRef.current = true;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    let cancelled = false;
+    let frame = 0;
+    const restoreWhenReady = () => {
+      if (cancelled) return;
+      const targetMax = Math.max(0, targetEditor.scrollHeight - targetEditor.clientHeight);
+      const sourceMax = Math.max(0, sourceEditor.scrollHeight - sourceEditor.clientHeight);
+      const targetReady = saved.targetRatio <= 0.001 || targetMax > 1;
+      const sourceReady = saved.sourceRatio <= 0.001 || sourceMax > 1;
+
+      if ((!targetReady || !sourceReady) && frame < 20) {
+        frame++;
+        requestAnimationFrame(restoreWhenReady);
+        return;
+      }
+
       targetEditor.scrollTop = scrollTopForRatio(targetEditor, saved.targetRatio);
       sourceEditor.scrollTop = scrollTopForRatio(sourceEditor, saved.sourceRatio);
       requestAnimationFrame(() => {
+        if (cancelled) return;
         programmaticScrollRef.current.target = null;
         programmaticScrollRef.current.source = null;
         restoringScrollRef.current = false;
       });
-    }));
+    };
+    requestAnimationFrame(restoreWhenReady);
+    return () => { cancelled = true; };
   }, [sourceDoc?.id, sourceDoc?.markdown, viewKey]);
 
   useEffect(() => {
