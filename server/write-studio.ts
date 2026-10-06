@@ -443,15 +443,23 @@ export async function createSecondDraftBlock(
   sourceEnd: number,
   sourceText: string,
   targetStart?: number,
+  status: Exclude<SecondDraftBlockStatus, "sent"> = "active",
 ): Promise<WriteStudioState> {
   validateSecondDraftRange(sourceStart, sourceEnd, sourceText);
+  const allowed: Array<Exclude<SecondDraftBlockStatus, "sent">> = ["active", "rewritten", "cut", "later", "keep"];
+  if (!allowed.includes(status)) throw new Error("Invalid initial Second Draft block status.");
   await requireSecondDraftSections(projectId, targetSectionId);
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[targetSectionId];
     if (!pair) throw new Error("Pair this chapter with a source before starting Second Draft.");
     const now = new Date().toISOString();
-    for (const item of state.secondDraft.blocks) {
-      if (item.targetSectionId === targetSectionId && item.status === "active") item.status = "later";
+    if (status === "active") {
+      for (const item of state.secondDraft.blocks) {
+        if (item.targetSectionId === targetSectionId && item.status === "active") {
+          item.status = "later";
+          item.updatedAt = now;
+        }
+      }
     }
     state.secondDraft.blocks.push({
       id: crypto.randomUUID(),
@@ -460,7 +468,7 @@ export async function createSecondDraftBlock(
       sourceStart,
       sourceEnd,
       sourceText: sourceText.slice(0, 100000),
-      status: "active",
+      status,
       targetStart: Number.isInteger(targetStart) && (targetStart as number) >= 0 ? targetStart : undefined,
       createdAt: now,
       updatedAt: now,
