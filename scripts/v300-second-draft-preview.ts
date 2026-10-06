@@ -428,6 +428,12 @@ try {
         .filter((key) => key.startsWith("folio.second-draft.view.v2:"))
         .map((key) => [key, localStorage.getItem(key)]),
     );
+    const paper = document.querySelector<HTMLElement>(".second-draft-source-paper");
+    const pane = document.querySelector<HTMLElement>(".second-draft-pane");
+    const shell = document.querySelector<HTMLElement>(".folio-shell");
+    const sourceStyle = getComputedStyle(source);
+    const paperStyle = paper ? getComputedStyle(paper) : null;
+    const paneStyle = pane ? getComputedStyle(pane) : null;
     return {
       target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
       source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
@@ -435,11 +441,30 @@ try {
       sourceMax: Math.max(0, source.scrollHeight - source.clientHeight),
       status: document.querySelector(".second-draft-sync-status")?.textContent ?? "",
       storage,
+      geometry: {
+        sourceClientHeight: source.clientHeight,
+        sourceScrollHeight: source.scrollHeight,
+        sourceRectHeight: source.getBoundingClientRect().height,
+        sourceHeight: sourceStyle.height,
+        sourceOverflowY: sourceStyle.overflowY,
+        paperClientHeight: paper?.clientHeight ?? -1,
+        paperScrollHeight: paper?.scrollHeight ?? -1,
+        paperRectHeight: paper?.getBoundingClientRect().height ?? -1,
+        paperHeight: paperStyle?.height ?? "",
+        paperFlex: paperStyle?.flex ?? "",
+        paneClientHeight: pane?.clientHeight ?? -1,
+        paneScrollHeight: pane?.scrollHeight ?? -1,
+        paneRectHeight: pane?.getBoundingClientRect().height ?? -1,
+        paneHeight: paneStyle?.height ?? "",
+        shellSplit: shell?.dataset.splitView ?? "",
+        textLength: source.textContent?.length ?? -1,
+      },
     };
   });
   if (Math.abs(restoredAfterRemount.target - savedBeforeRemount.target) > .10
       || Math.abs(restoredAfterRemount.source - savedBeforeRemount.source) > .10
       || !/Synced.*1 link/.test(restoredAfterRemount.status)) {
+    await page.screenshot({ path: path.join(qa, "debug-remount-geometry.png") });
     throw new Error("Second Draft view state was not restored after mode remount: " + JSON.stringify({ savedBeforeRemount, restoredAfterRemount }));
   }
   await page.click(".second-draft-head-actions button[title*='Hide source']");
