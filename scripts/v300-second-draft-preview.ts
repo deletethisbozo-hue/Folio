@@ -71,7 +71,7 @@ try {
   await page.click(".second-draft-pair");
   await page.waitForFunction(() => document.querySelector(".second-draft-progress")?.textContent?.includes("0%"));
   await settle();
-  await page.screenshot({ path: path.join(qa, "01-second-draft-paired.png") });
+  await page.screenshot({ path: path.join(qa, "01-main-light.png") });
 
   // Switching the dropdown must not apply the existing pair's ranges/actions to another source.
   const pairedSourceId = await page.$eval(".second-draft-header select", (select) => (select as HTMLSelectElement).value);
@@ -187,6 +187,8 @@ try {
   if (!firstSelection.trim()) throw new Error("Source selection failed");
   await page.waitForSelector(".second-draft-intent-select:not([disabled])");
   await page.select(".second-draft-intent-select:not([disabled])", "tighten");
+  await settle(100);
+  await page.screenshot({ path: path.join(qa, "02-selection-light.png") });
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Rewrite this")));
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
@@ -195,6 +197,7 @@ try {
   });
   await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Done")));
   await settle(120);
+  await page.screenshot({ path: path.join(qa, "03-active-rewrite-light.png") });
 
   const restoredRewriteStart = await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -304,6 +307,7 @@ try {
     removed: diff.querySelectorAll(".removed").length,
   }));
   if (!diffPieces.added && !diffPieces.removed) throw new Error("Word diff rendered no changes: " + JSON.stringify(diffPieces));
+  await page.screenshot({ path: path.join(qa, "04-compare-light.png") });
   await page.click(".second-draft-compare .second-draft-drawer-head button");
   await page.waitForFunction(() => !document.querySelector(".second-draft-compare"));
 
@@ -321,6 +325,7 @@ try {
   if (!issueState.includes("Pacing") || !issueState.includes("Tighten this beat before the reveal.")) {
     throw new Error("Second Draft issue did not persist category/note: " + issueState);
   }
+  await page.screenshot({ path: path.join(qa, "05-issues-light.png") });
   await page.click(".second-draft-issues-drawer .second-draft-drawer-head button");
   await page.waitForFunction(() => !document.querySelector(".second-draft-issues-drawer"));
 
@@ -335,15 +340,22 @@ try {
   await page.evaluate(() => {
     const pacing = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-pass-grid button")]
       .find((button) => button.textContent?.includes("Pacing"));
+    if (!pacing) throw new Error("Pacing review pass control missing");
+    pacing.click();
+  });
+  await page.waitForFunction(() =>
+    (document.querySelector(".second-draft-review-drawer")?.textContent ?? "").includes("1/7 complete"),
+  );
+  await page.evaluate(() => {
     const continuity = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-pass-grid button")]
       .find((button) => button.textContent?.includes("Continuity"));
-    if (!pacing || !continuity) throw new Error("Review pass controls missing");
-    pacing.click();
+    if (!continuity) throw new Error("Continuity review pass control missing");
     continuity.click();
   });
   await page.waitForFunction(() =>
     (document.querySelector(".second-draft-review-drawer")?.textContent ?? "").includes("2/7 complete"),
   );
+  await page.screenshot({ path: path.join(qa, "06-passes-light.png") });
   await page.click(".second-draft-review-drawer .second-draft-drawer-head button");
   await page.waitForFunction(() => !document.querySelector(".second-draft-review-drawer"));
 
@@ -356,6 +368,7 @@ try {
   });
   await page.waitForSelector(".second-draft-brief-drawer");
   await page.type(".second-draft-brief-drawer textarea", "Tighten the middle and make the reveal land harder.");
+  await page.screenshot({ path: path.join(qa, "07-brief-light.png") });
   await page.click(".second-draft-brief-actions button");
   await page.waitForFunction(() =>
     [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
@@ -364,6 +377,8 @@ try {
 
   await page.click(".second-draft-head-actions button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
+  await settle(120);
+  await page.screenshot({ path: path.join(qa, "09-memory-light.png") });
   const blurred = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   if (blurred === "none") throw new Error("Memory Rewrite did not hide source");
   await page.keyboard.down("Alt");
@@ -515,6 +530,8 @@ try {
     link?.click();
   });
   await page.waitForFunction(() => /Synced.*1 link/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
+  await settle(120);
+  await page.screenshot({ path: path.join(qa, "08-linked-sync-map-light.png") });
 
   const beforeLinkedMove = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   await page.$eval(".manuscript-editor", (el) => {
@@ -625,7 +642,7 @@ try {
   await page.evaluate(() => document.querySelector("#second-draft-scroll-fixture")?.remove());
   await settle(220);
 
-  await page.screenshot({ path: path.join(qa, "02-second-draft-burn-memory-send-scroll.png") });
+  await page.screenshot({ path: path.join(qa, "10-workspace-light.png") });
 
   const sealDisabled = await page.$eval(".second-draft-seal", (button) => (button as HTMLButtonElement).disabled);
   if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
@@ -639,7 +656,7 @@ try {
   if (reveal.title !== "Draft 2" || reveal.words.some((value) => !value) || reveal.stats[0] < 1 || reveal.stats[3] < 1) {
     throw new Error("Chapter Reveal stats failed: " + JSON.stringify(reveal));
   }
-  await page.screenshot({ path: path.join(qa, "03-chapter-reveal.png") });
+  await page.screenshot({ path: path.join(qa, "11-chapter-reveal-light.png") });
   await page.click(".second-draft-reveal-close");
 
   // Midnight parity while Second Draft remains open.
@@ -664,7 +681,30 @@ try {
       || geometry.actions.bottom > geometry.source.bottom) {
     throw new Error("Second Draft integrated controls clip or old rail survived in Midnight: " + JSON.stringify(geometry));
   }
-  await page.screenshot({ path: path.join(qa, "04-second-draft-midnight.png") });
+  await page.screenshot({ path: path.join(qa, "12-main-midnight.png") });
+
+  await page.evaluate(() => {
+    const issues = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Issues"));
+    issues?.click();
+  });
+  await page.waitForSelector(".second-draft-issues-drawer");
+  await settle(100);
+  await page.screenshot({ path: path.join(qa, "13-issues-midnight.png") });
+  await page.click(".second-draft-issues-drawer .second-draft-drawer-head button");
+
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.trim() === "Compare rewrite"));
+  await page.evaluate(() => {
+    const compare = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Compare rewrite");
+    compare?.click();
+  });
+  await page.waitForSelector(".second-draft-compare");
+  await settle(100);
+  await page.screenshot({ path: path.join(qa, "14-compare-midnight.png") });
+  await page.click(".second-draft-compare .second-draft-drawer-head button");
 
   // Closing Second Draft must leave legacy Split intact and editable.
   await page.click(".second-draft-head-actions button[aria-label='Close Second Draft']");
@@ -673,7 +713,7 @@ try {
   await page.waitForSelector(".writing-split-editor[contenteditable='true']");
   const legacyEditable = await page.$eval(".writing-split-editor", (el) => el.getAttribute("contenteditable"));
   if (legacyEditable !== "true") throw new Error("Legacy Split stopped being editable after Second Draft");
-  await page.screenshot({ path: path.join(qa, "05-legacy-split-still-intact.png") });
+  await page.screenshot({ path: path.join(qa, "15-legacy-split-still-intact.png") });
 
   console.log("Folio 3.0 Second Draft browser QA passed.");
 } finally {
