@@ -58,34 +58,27 @@ function wordDiff(before: string, after: string): WordDiffPiece[] {
   const a = before.trim().split(/\s+/).filter(Boolean);
   const b = after.trim().split(/\s+/).filter(Boolean);
   if (!a.length && !b.length) return [];
-  if (a.length * b.length > 60000) {
-    return [
-      ...(a.length ? [{ kind: "removed" as const, text: a.join(" ") }] : []),
-      ...(b.length ? [{ kind: "added" as const, text: b.join(" ") }] : []),
-    ];
-  }
-  const dp = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1));
-  for (let i = a.length - 1; i >= 0; i--) {
-    for (let j = b.length - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
+
+  let prefix = 0;
+  while (prefix < a.length && prefix < b.length && a[prefix] === b[prefix]) prefix++;
+
+  let suffix = 0;
+  while (
+    suffix < a.length - prefix
+    && suffix < b.length - prefix
+    && a[a.length - 1 - suffix] === b[b.length - 1 - suffix]
+  ) suffix++;
+
   const pieces: WordDiffPiece[] = [];
-  const push = (kind: WordDiffPiece["kind"], word: string) => {
-    const last = pieces[pieces.length - 1];
-    if (last?.kind === kind) last.text += " " + word;
-    else pieces.push({ kind, text: word });
-  };
-  let i = 0, j = 0;
-  while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && a[i] === b[j]) {
-      push("same", a[i]); i++; j++;
-    } else if (j < b.length && (i >= a.length || dp[i][j + 1] >= dp[i + 1][j])) {
-      push("added", b[j]); j++;
-    } else if (i < a.length) {
-      push("removed", a[i]); i++;
-    }
-  }
+  const samePrefix = a.slice(0, prefix).join(" ");
+  const removed = a.slice(prefix, a.length - suffix).join(" ");
+  const added = b.slice(prefix, b.length - suffix).join(" ");
+  const sameSuffix = suffix ? a.slice(a.length - suffix).join(" ") : "";
+
+  if (samePrefix) pieces.push({ kind: "same", text: samePrefix });
+  if (removed) pieces.push({ kind: "removed", text: removed });
+  if (added) pieces.push({ kind: "added", text: added });
+  if (sameSuffix) pieces.push({ kind: "same", text: sameSuffix });
   return pieces;
 }
 
