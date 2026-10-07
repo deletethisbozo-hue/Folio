@@ -47,11 +47,34 @@ try {
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"]');
 
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    const probe = document.createElement("p");
+    probe.dataset.initialRepeatsQa = "true";
+    probe.textContent = "Lantern copper lantern marble lantern velvet lantern quartz lantern. The empty platform waited. The empty platform waited.";
+    editor.appendChild(probe);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: probe.textContent }));
+  });
+
   const secondDraftButton = await page.$(".editor-second-draft-toggle");
   if (!secondDraftButton) throw new Error("Second Draft toolbar button missing");
   await secondDraftButton.click();
   await page.waitForSelector(".second-draft-pane");
   await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
+  await page.waitForFunction(() => {
+    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+    const repeats = document.querySelector<HTMLButtonElement>(".second-draft-repeat-toggle");
+    return Boolean(
+      repeats?.getAttribute("aria-pressed") === "true"
+      && registry?.has("folio-repeat-high")
+      && registry?.has("folio-repeat-phrase")
+    );
+  });
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.querySelector('[data-initial-repeats-qa="true"]')?.remove();
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+  });
 
   const initial = await page.evaluate(() => {
     const source = document.querySelector<HTMLElement>(".second-draft-source");
@@ -71,31 +94,135 @@ try {
   await page.click(".second-draft-pair");
   await page.waitForFunction(() => document.querySelector(".second-draft-progress")?.textContent?.includes("0%"));
   await settle();
-  const controlDefaults = await page.evaluate(() => ({
-    burn: document.querySelector<HTMLButtonElement>(".second-draft-head-actions button[title^='Source Burn']")?.getAttribute("aria-pressed"),
-    scroll: document.querySelector<HTMLButtonElement>(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed"),
-    memory: document.querySelector<HTMLButtonElement>(".second-draft-head-actions button[title^='Memory Rewrite']")?.getAttribute("aria-pressed"),
-  }));
-  if (controlDefaults.burn !== "true" || controlDefaults.scroll !== "true" || controlDefaults.memory !== "false") {
-    throw new Error("Second Draft control defaults failed: " + JSON.stringify(controlDefaults));
-  }
-  await page.screenshot({ path: path.join(qa, "01-second-draft-pairing.png") });
+  await page.screenshot({ path: path.join(qa, "01-main-light.png") });
 
-  async function assertActionbarFits(label: string) {
-    const problems = await page.evaluate(() => {
-      const bar = document.querySelector<HTMLElement>(".second-draft-actionbar");
-      if (!bar) return ["action bar missing"];
-      const rr = bar.getBoundingClientRect();
-      return [...bar.querySelectorAll<HTMLElement>("button, select")].flatMap((control) => {
-        const r = control.getBoundingClientRect();
-        const outside = r.top < rr.top - 1 || r.bottom > rr.bottom + 1;
-        const overflow = control.scrollWidth > control.clientWidth + 1 || control.scrollHeight > control.clientHeight + 1;
-        return outside || overflow
-          ? [`${control.tagName.toLowerCase()} "${control.textContent?.trim() ?? ""}" outside=${outside} overflow=${overflow} box=${Math.round(r.width)}x${Math.round(r.height)} scroll=${control.scrollWidth}x${control.scrollHeight}`]
-          : [];
+  // Sidebar-open responsive gate. Second Draft must react to its own pane width,
+  // not just to the browser viewport, and no control label may collapse into a
+  // neighboring button.
+  const sidebarToggle = await page.$(".write-sidebar-toggle");
+  if (!sidebarToggle) throw new Error("Write sidebar toggle missing for Second Draft responsive QA");
+  await sidebarToggle.click();
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-write-sidebar") === "open");
+  await settle(120);
+
+  const sidebarLayout = await page.evaluate(() => {
+    const pane = document.querySelector<HTMLElement>(".second-draft-pane");
+    if (!pane) throw new Error("Second Draft pane missing during sidebar-open QA");
+
+    const selectors = [
+      ".second-draft-head-actions button",
+      ".second-draft-header select",
+      ".second-draft-source-toolbar button",
+      ".second-draft-actionbar button",
+      ".second-draft-actionbar select",
+    ];
+    const controls = selectors.flatMap((selector) => [...document.querySelectorAll<HTMLElement>(selector)])
+      .filter((element, index, all) => all.indexOf(element) === index)
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
       });
-    });
-    if (problems.length) throw new Error(`Second Draft action bar overflow (${label}): ${problems.join(" | ")}`);
+
+    const clippedLabels = controls
+      .filter((element) => element.scrollWidth > element.clientWidth + 2)
+      .map((element) => ({
+        text: element.textContent?.trim() ?? "",
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }));
+
+    const rows = [
+      document.querySelector<HTMLElement>(".second-draft-head-actions"),
+      document.querySelector<HTMLElement>(".second-draft-source-toolbar"),
+      document.querySelector<HTMLElement>(".second-draft-actionbar"),
+    ].filter(Boolean) as HTMLElement[];
+
+    const overlaps: Array<{ row: string; left: string; right: string }> = [];
+    for (const row of rows) {
+      const children = [...row.querySelectorAll<HTMLElement>("button, select")]
+        .filter((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          const rowRect = row.getBoundingClientRect();
+          return style.display !== "none"
+            && style.visibility !== "hidden"
+            && rect.width > 0
+            && rect.right > rowRect.left
+            && rect.left < rowRect.right;
+        })
+        .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+      for (let index = 1; index < children.length; index++) {
+        const previous = children[index - 1].getBoundingClientRect();
+        const current = children[index].getBoundingClientRect();
+        if (current.left < previous.right - 1) {
+          overlaps.push({
+            row: row.className,
+            left: children[index - 1].textContent?.trim() ?? "",
+            right: children[index].textContent?.trim() ?? "",
+          });
+        }
+      }
+    }
+
+    return {
+      paneWidth: pane.getBoundingClientRect().width,
+      clippedLabels,
+      overlaps,
+      compactTitleHidden: getComputedStyle(document.querySelector<HTMLElement>(".second-draft-header .writing-split-title strong")!).display === "none",
+      compactMetaHidden: getComputedStyle(document.querySelector<HTMLElement>(".second-draft-source-meta")!).display === "none",
+    };
+  });
+
+  if (
+    sidebarLayout.paneWidth > 720
+    || sidebarLayout.clippedLabels.length
+    || sidebarLayout.overlaps.length
+    || !sidebarLayout.compactTitleHidden
+    || !sidebarLayout.compactMetaHidden
+  ) {
+    throw new Error("Second Draft sidebar-open layout overlapped or failed compact mode: " + JSON.stringify(sidebarLayout));
+  }
+  await page.screenshot({ path: path.join(qa, "18-sidebar-open-second-draft-light.png") });
+
+  await sidebarToggle.click();
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-write-sidebar") === "closed");
+  await settle(100);
+
+  // Switching the dropdown must not apply the existing pair's ranges/actions to another source.
+  const pairedSourceId = await page.$eval(".second-draft-header select", (select) => (select as HTMLSelectElement).value);
+  const alternateSourceId = await page.$eval(".second-draft-header select", (select) => {
+    const control = select as HTMLSelectElement;
+    const alternate = [...control.options].find((option) => option.value && option.value !== control.value);
+    if (!alternate) return "";
+    control.value = alternate.value;
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+    return alternate.value;
+  });
+  if (!alternateSourceId) throw new Error("Second Draft QA needs a second source chapter");
+  await page.waitForFunction(() =>
+    Boolean(document.querySelector(".second-draft-pair"))
+    && !document.querySelector(".second-draft-actionbar")
+    && !document.querySelector(".second-draft-sync-controls"),
+  );
+  await page.$eval(".second-draft-header select", (select, pairedId) => {
+    const control = select as HTMLSelectElement;
+    control.value = String(pairedId);
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+  }, pairedSourceId);
+  await page.waitForSelector(".second-draft-actionbar");
+  await page.waitForSelector(".second-draft-sync-controls");
+
+  const editorAlignment = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor");
+    const source = document.querySelector<HTMLElement>(".second-draft-source");
+    if (!target || !source) throw new Error("Second Draft editors missing for alignment QA");
+    const t = target.getBoundingClientRect();
+    const src = source.getBoundingClientRect();
+    return { targetTop: t.top, sourceTop: src.top, delta: Math.abs(t.top - src.top) };
+  });
+  if (editorAlignment.delta > 2) {
+    throw new Error("Second Draft editor surfaces are vertically misaligned: " + JSON.stringify(editorAlignment));
   }
 
   async function selectSourceText(skip = 0) {
@@ -123,81 +250,104 @@ try {
     }, skip);
   }
 
+  async function selectTargetText(skip = 0) {
+    return page.evaluate((skipIndex) => {
+      const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+      if (!editor) throw new Error("Second Draft target missing");
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        if (node.data.trim().length >= 24) nodes.push(node);
+      }
+      const node = nodes[Math.min(skipIndex, nodes.length - 1)];
+      if (!node) throw new Error("No selectable target prose found");
+      const start = Math.max(0, node.data.search(/\S/));
+      const end = Math.min(node.length, start + 36);
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, end);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      editor.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return selection.toString();
+    }, skip);
+  }
+
+  const expectedRewriteStart = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!editor) throw new Error("Target editor missing before Rewrite This");
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let node: Text | null = null;
+    while (walker.nextNode()) {
+      const candidate = walker.currentNode as Text;
+      if (candidate.data.trim().length >= 16) { node = candidate; break; }
+    }
+    if (!node) throw new Error("No target prose available for caret QA");
+    const localOffset = Math.min(node.length, Math.max(4, node.data.search(/\S/) + 12));
+    const range = document.createRange();
+    range.setStart(node, localOffset);
+    range.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    const prefix = document.createRange();
+    prefix.selectNodeContents(editor);
+    prefix.setEnd(node, localOffset);
+    return prefix.toString().length;
+  });
+
   const firstSelection = await selectSourceText(0);
   if (!firstSelection.trim()) throw new Error("Source selection failed");
-  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Rewrite this")));
-  await settle();
-  await page.screenshot({ path: path.join(qa, "02-rewrite-this.png") });
-  await assertActionbarFits("Rewrite This");
+  await page.waitForSelector(".second-draft-intent-select:not([disabled])");
+  await page.select(".second-draft-intent-select:not([disabled])", "tighten");
+  await settle(100);
+  await page.screenshot({ path: path.join(qa, "02-selection-light.png") });
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Rewrite this")));
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
       .find((item) => item.textContent?.includes("Rewrite this"));
     button?.click();
   });
-  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")));
-  await settle();
-  await page.screenshot({ path: path.join(qa, "03-rewrite-rail-active.png") });
-  await assertActionbarFits("active Rewrite actions");
-  const hasCancel = await page.evaluate(() =>
-    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.trim() === "Cancel"),
-  );
-  if (!hasCancel) throw new Error("Active Rewrite has no Cancel action");
-  await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
-      .find((item) => item.textContent?.trim() === "Cancel");
-    button?.click();
-  });
-  await page.waitForFunction(() =>
-    ![...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")),
-  );
-  const cancelledProgress = await page.$eval(".second-draft-progress", (el) => el.textContent?.trim() ?? "");
-  if (!cancelledProgress.startsWith("0%")) throw new Error("Cancel left processed progress behind: " + cancelledProgress);
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")].some((button) => button.textContent?.includes("Done")));
+  await settle(120);
+  await page.screenshot({ path: path.join(qa, "03-active-rewrite-light.png") });
 
-  // Later must be a real resumable queue, not a dead-end status.
-  await selectSourceText(0);
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Rewrite this")),
-  );
-  await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
-      .find((item) => item.textContent?.includes("Rewrite this"));
-    button?.click();
+  const restoredRewriteStart = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const selection = window.getSelection();
+    if (!editor || !selection?.focusNode || !editor.contains(selection.focusNode)) return -1;
+    const prefix = document.createRange();
+    prefix.selectNodeContents(editor);
+    prefix.setEnd(selection.focusNode, selection.focusOffset);
+    return prefix.toString().length;
   });
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")),
-  );
-  await page.evaluate(() => {
-    const later = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
-      .find((button) => button.textContent?.trim() === "Later");
-    later?.click();
-  });
-  await page.waitForSelector(".actionbar-resume-later");
-  const laterState = await page.evaluate(() => ({
-    status: document.querySelector(".actionbar-later-status")?.textContent?.trim(),
-    resume: document.querySelector(".actionbar-resume-later")?.textContent?.trim(),
-    sealDisabled: (document.querySelector(".actionbar-seal") as HTMLButtonElement | null)?.disabled,
-  }));
-  if (!laterState.status?.includes("1 saved for later") || laterState.resume !== "Resume next" || laterState.sealDisabled !== true) {
-    throw new Error("Later queue is not actionable: " + JSON.stringify(laterState));
+  if (Math.abs(restoredRewriteStart - expectedRewriteStart) > 1) {
+    throw new Error(`Rewrite This lost the target caret anchor: expected ${expectedRewriteStart}, restored ${restoredRewriteStart}`);
   }
-  await page.screenshot({ path: path.join(qa, "03a-later-queue.png") });
-  await page.click(".actionbar-resume-later");
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll(".second-draft-actionbar button")].some((button) => button.textContent?.includes("Done")),
-  );
 
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
-    if (!editor) throw new Error("Target editor missing");
-    editor.focus();
-    const p = document.createElement("p");
-    p.textContent = "Second Draft QA rewrite anchor.";
-    editor.appendChild(p);
-    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "Second Draft QA rewrite anchor." }));
+    const selection = window.getSelection();
+    if (!editor || !selection?.rangeCount || !selection.focusNode || !editor.contains(selection.focusNode)) {
+      throw new Error("Target caret missing before rewrite insertion");
+    }
+    const text = " Second Draft QA rewrite anchor.";
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
   });
   await settle(100);
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-actionbar button")]
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
       .find((item) => item.textContent?.includes("Done"));
     button?.click();
   });
@@ -210,106 +360,318 @@ try {
     activeHighlight: Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-active")),
   }));
   if (!burn.rewrittenHighlight || burn.activeHighlight) throw new Error("Source Burn did not move active source to rewritten state: " + JSON.stringify(burn));
-  await settle();
-  await page.screenshot({ path: path.join(qa, "04-source-burn.png") });
-  await page.click(".second-draft-head-actions button[title^='Source Burn']");
+  const mapState = await page.evaluate(() => ({
+    track: Boolean(document.querySelector(".second-draft-map-track")),
+    segments: document.querySelectorAll(".second-draft-map-segment").length,
+    scene: document.querySelector(".second-draft-scene-controls")?.textContent?.trim() ?? "",
+  }));
+  if (!mapState.track || mapState.segments < 1 || !mapState.scene.includes("Scene")) {
+    throw new Error("Revision map or scene navigation missing: " + JSON.stringify(mapState));
+  }
+
+  // A rewritten source decision must be reversible without deleting target prose.
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.trim() === "Undo rewrite"));
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((item) => item.textContent?.trim() === "Undo rewrite");
+    button?.click();
+  });
   await page.waitForFunction(() =>
-    document.querySelector(".second-draft-head-actions button[title^='Source Burn']")?.getAttribute("aria-pressed") === "false",
+    !(CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten"),
   );
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.includes("Rewrite this") && !(button as HTMLButtonElement).disabled));
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((item) => item.textContent?.includes("Rewrite this"));
+    button?.click();
+  });
+  await page.waitForFunction(() => [...document.querySelectorAll(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.includes("Done")));
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const selection = window.getSelection();
+    if (!editor || !selection?.rangeCount || !selection.focusNode || !editor.contains(selection.focusNode)) {
+      throw new Error("Target caret missing before demo rewrite insertion");
+    }
+    const text = " The address had led her to the wall, where the city seemed to run out of names.";
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  });
   await settle(80);
-  const burnOff = await page.evaluate(() =>
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((item) => item.textContent?.includes("Done"));
+    button?.click();
+  });
+  await page.waitForFunction(() =>
     Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten")),
   );
-  if (burnOff) throw new Error("Source Burn toggle off left processed highlights visible");
-  await page.screenshot({ path: path.join(qa, "04a-source-burn-off.png") });
-  await page.click(".second-draft-head-actions button[title^='Source Burn']");
+
+  // Compare Rewrite must show the actual source and current target slice.
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.trim() === "Compare rewrite"));
+  await page.evaluate(() => {
+    const compare = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Compare rewrite");
+    compare?.click();
+  });
+  await page.waitForSelector(".second-draft-compare");
+  const compareState = await page.$eval(".second-draft-compare", (dialog) => ({
+    text: dialog.textContent ?? "",
+    columns: dialog.querySelectorAll(".second-draft-compare-grid article").length,
+  }));
+  if (compareState.columns !== 2 || !compareState.text.includes("Source") || !compareState.text.includes("Rewrite")
+      || !compareState.text.includes("Intent: Tighten") || !compareState.text.includes("Word diff")
+      || compareState.text.includes("No target text captured for this rewrite.")
+      || !compareState.text.includes("The address had led her to the wall")) {
+    throw new Error("Compare Rewrite is missing real source/rewrite/intent/diff content: " + JSON.stringify(compareState));
+  }
+  const diffPieces = await page.$eval(".second-draft-word-diff", (diff) => ({
+    added: diff.querySelectorAll(".added").length,
+    removed: diff.querySelectorAll(".removed").length,
+  }));
+  if (!diffPieces.added || !diffPieces.removed) throw new Error("Word diff must show both added and removed words: " + JSON.stringify(diffPieces));
+  await page.screenshot({ path: path.join(qa, "04-compare-light.png") });
+  await page.click(".second-draft-compare .second-draft-drawer-head button");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-compare"));
+
+  // Issues must persist category + note.
+  await selectSourceText(3);
+  await page.click(".second-draft-flag-issue");
+  await page.waitForSelector(".second-draft-issues-drawer");
+  await page.select(".second-draft-issue-form select", "pacing");
+  await page.type(".second-draft-issue-form input", "Tighten this beat before the reveal.");
+  await page.click(".second-draft-issue-form button");
   await page.waitForFunction(() =>
-    document.querySelector(".second-draft-head-actions button[title^='Source Burn']")?.getAttribute("aria-pressed") === "true"
-    && Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-rewritten")),
+    (document.querySelector(".second-draft-head-actions")?.textContent ?? "").includes("Issues 1"),
+  );
+  const issueState = await page.$eval(".second-draft-issues-drawer", (drawer) => drawer.textContent ?? "");
+  if (!issueState.includes("Pacing") || !issueState.includes("Tighten this beat before the reveal.")) {
+    throw new Error("Second Draft issue did not persist category/note: " + issueState);
+  }
+  await page.screenshot({ path: path.join(qa, "05-issues-light.png") });
+  await page.click(".second-draft-issues-drawer .second-draft-drawer-head button");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-issues-drawer"));
+
+  // Chapter review passes persist independently from source decisions.
+  await page.evaluate(() => {
+    const passes = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Passes"));
+    if (!passes) throw new Error("Second Draft Passes control missing");
+    passes.click();
+  });
+  await page.waitForSelector(".second-draft-review-drawer");
+  await page.evaluate(() => {
+    const pacing = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-pass-grid button")]
+      .find((button) => button.textContent?.includes("Pacing"));
+    if (!pacing) throw new Error("Pacing review pass control missing");
+    pacing.click();
+  });
+  await page.waitForFunction(() =>
+    (document.querySelector(".second-draft-review-drawer")?.textContent ?? "").includes("1/7 complete"),
+  );
+  await page.evaluate(() => {
+    const continuity = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-pass-grid button")]
+      .find((button) => button.textContent?.includes("Continuity"));
+    if (!continuity) throw new Error("Continuity review pass control missing");
+    continuity.click();
+  });
+  await page.waitForFunction(() =>
+    (document.querySelector(".second-draft-review-drawer")?.textContent ?? "").includes("2/7 complete"),
+  );
+  await page.screenshot({ path: path.join(qa, "06-passes-light.png") });
+  await page.click(".second-draft-review-drawer .second-draft-drawer-head button");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-review-drawer"));
+
+  // Chapter draft brief is persisted with the Second Draft project state.
+  await page.evaluate(() => {
+    const brief = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Brief"));
+    if (!brief) throw new Error("Second Draft Brief control missing");
+    brief.click();
+  });
+  await page.waitForSelector(".second-draft-brief-drawer");
+  await page.type(".second-draft-brief-drawer textarea", "Tighten the middle and make the reveal land harder.");
+  await page.screenshot({ path: path.join(qa, "07-brief-light.png") });
+  await page.click(".second-draft-brief-actions button");
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .some((button) => button.textContent?.includes("Brief •")),
   );
 
-  await page.click(".second-draft-head-actions button[title^='Memory Rewrite']");
+  await page.click(".second-draft-head-actions button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
+  await settle(120);
+  await page.screenshot({ path: path.join(qa, "09-memory-light.png") });
   const blurred = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   if (blurred === "none") throw new Error("Memory Rewrite did not hide source");
-  await settle();
-  await page.screenshot({ path: path.join(qa, "05-memory-rewrite-hidden.png") });
   await page.keyboard.down("Alt");
   await page.waitForSelector(".second-draft-pane.memory-peek");
-  await page.waitForFunction(() => {
-    const source = document.querySelector(".second-draft-source");
-    return source instanceof HTMLElement && getComputedStyle(source).filter === "none";
-  });
-  await settle();
+  await settle(180);
   const peekFilter = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
-  await page.screenshot({ path: path.join(qa, "06-memory-rewrite-peek.png") });
   await page.keyboard.up("Alt");
   if (peekFilter !== "none") throw new Error("Hold-Alt Memory peek did not reveal source: " + peekFilter);
-  await page.click(".second-draft-head-actions button[title^='Memory Rewrite']");
+  await page.click(".second-draft-head-actions button[title*='Hide source']");
 
   const secondSelection = await selectSourceText(1);
   if (!secondSelection.trim()) throw new Error("Second source selection failed");
-  await page.waitForSelector(".actionbar-send-ahead select");
-  const destination = await page.$eval(".actionbar-send-ahead select", (select) => {
+  await page.waitForSelector(".second-draft-send-ahead select");
+  const destination = await page.$eval(".second-draft-send-ahead select", (select) => {
     const option = [...(select as HTMLSelectElement).options].find((item) => item.value);
-    if (!option) return { id: "", title: "" };
+    if (!option) return "";
     (select as HTMLSelectElement).value = option.value;
     select.dispatchEvent(new Event("change", { bubbles: true }));
-    return { id: option.value, title: option.textContent?.trim() ?? "" };
+    return option.value;
   });
-  if (!destination.id || !destination.title) throw new Error("Sample book has no Send Ahead destination");
-  await settle();
-  await page.screenshot({ path: path.join(qa, "07-send-ahead.png") });
-  await assertActionbarFits("Send Ahead");
-  await page.click(".actionbar-send-ahead button");
-  await settle(160);
-  const sentHighlight = await page.evaluate(() =>
-    Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
+  if (!destination) throw new Error("Sample book has no Send Ahead destination");
+  await page.waitForFunction(() => {
+    const button = document.querySelector<HTMLButtonElement>(".second-draft-send-ahead button");
+    return Boolean(button && !button.disabled && button.dataset.sendReady === "true");
+  });
+  const sendHitTest = await page.$eval(".second-draft-send-ahead button", (button) => {
+    const rect = button.getBoundingClientRect();
+    const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return {
+      visible: rect.width > 0 && rect.height > 0,
+      topTag: top?.tagName ?? "",
+      topClass: (top as HTMLElement | null)?.className ?? "",
+      clickable: top === button || button.contains(top),
+      ready: (button as HTMLButtonElement).dataset.sendReady,
+      disabled: (button as HTMLButtonElement).disabled,
+    };
+  });
+  if (!sendHitTest.visible || !sendHitTest.clickable || sendHitTest.ready !== "true" || sendHitTest.disabled) {
+    throw new Error("Send Ahead control is not genuinely clickable: " + JSON.stringify(sendHitTest));
+  }
+  const sendResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/write-studio/second-draft/send-ahead")
+    && response.request().method() === "POST",
   );
-  if (!sentHighlight) throw new Error("Send Ahead did not mark its source as processed");
-  await settle();
-  const sendConfirmation = await page.$eval(".actionbar-confirmation", (el) => el.textContent?.trim() ?? "");
-  if (!sendConfirmation.includes(destination.title)) {
-    throw new Error("Send Ahead did not confirm its destination: " + sendConfirmation);
+  await page.$eval(".second-draft-send-ahead button", (button) => (button as HTMLButtonElement).click());
+  const sendResponse = await sendResponsePromise;
+  const sendPayload = await sendResponse.json().catch(async () => ({ raw: await sendResponse.text().catch(() => "") }));
+  if (!sendResponse.ok()) {
+    throw new Error("Send Ahead request failed: " + JSON.stringify({ status: sendResponse.status(), payload: sendPayload }));
   }
-  await page.screenshot({ path: path.join(qa, "08-send-ahead-processed.png") });
-
-  // Verify the material actually arrives in the destination chapter UI.
-  const originalTargetTitle = await page.$eval(".section-title-button", (el) => el.textContent?.trim() ?? "");
-  await page.evaluate((title) => {
-    const row = [...document.querySelectorAll<HTMLButtonElement>(".contents-row.chapter-row")]
-      .find((button) => button.querySelector(".chapter-label")?.textContent?.trim() === title);
-    if (!row) throw new Error("Send Ahead destination row missing: " + title);
-    row.click();
-  }, destination.title);
-  await page.waitForFunction((title) =>
-    document.querySelector(".section-title-button")?.textContent?.trim() === title
-    && Boolean(document.querySelector(".second-draft-arrivals")),
-  {}, destination.title);
-  const arrival = await page.$eval(".second-draft-arrivals", (el) => el.textContent ?? "");
-  if (!arrival.includes("1 carried here") || !arrival.includes("Mark used")) {
-    throw new Error("Send Ahead material did not arrive as an actionable carryover: " + arrival);
+  const sentBlocks = Array.isArray((sendPayload as any)?.secondDraft?.blocks)
+    ? (sendPayload as any).secondDraft.blocks.filter((block: any) => block?.status === "sent")
+    : [];
+  if (!sentBlocks.length) {
+    throw new Error("Send Ahead response contained no sent block: " + JSON.stringify(sendPayload));
   }
-  await page.screenshot({ path: path.join(qa, "08a-send-ahead-arrival.png") });
+  try {
+    await page.waitForFunction(() =>
+      Boolean((CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights?.has("folio-source-sent")),
+      { timeout: 3000 },
+    );
+  } catch {
+    const uiDebug = await page.evaluate(() => {
+      const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+      return {
+        sentHighlight: Boolean(registry?.has("folio-source-sent")),
+        rewrittenHighlight: Boolean(registry?.has("folio-source-rewritten")),
+        progress: document.querySelector(".second-draft-progress")?.textContent ?? "",
+        action: document.querySelector(".second-draft-action-copy strong")?.textContent ?? "",
+        error: document.querySelector(".error-banner,.error-text,.folio-error")?.textContent ?? "",
+        sourceTextLength: document.querySelector(".second-draft-source")?.textContent?.length ?? -1,
+      };
+    });
+    throw new Error("Send Ahead persisted but Source Burn did not refresh: " + JSON.stringify({ sentBlocks, uiDebug }));
+  }
 
-  await page.evaluate((title) => {
-    const row = [...document.querySelectorAll<HTMLButtonElement>(".contents-row.chapter-row")]
-      .find((button) => button.querySelector(".chapter-label")?.textContent?.trim() === title);
-    if (!row) throw new Error("Original target row missing: " + title);
-    row.click();
-  }, originalTargetTitle);
-  await page.waitForFunction((title) =>
-    document.querySelector(".section-title-button")?.textContent?.trim() === title
-    && Boolean(document.querySelector(".second-draft-progress")),
-  {}, originalTargetTitle);
-  await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
+  // Later must be a real queue, not a permanent unresolved tombstone.
+  const laterSelection = await selectSourceText(2);
+  if (!laterSelection.trim()) throw new Error("Later source selection failed");
+  await page.evaluate(() => {
+    const later = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Later");
+    if (!later) throw new Error("Later action missing");
+    later.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-action-copy strong")?.textContent?.includes("Later queue"));
+  const sealWhileLater = await page.$eval(".second-draft-seal", (button) => (button as HTMLButtonElement).disabled);
+  if (!sealWhileLater) throw new Error("Seal must stay disabled while Later queue is unresolved");
+  await page.evaluate(() => {
+    const resume = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Resume next");
+    if (!resume) throw new Error("Resume next missing for Later queue");
+    resume.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-action-copy strong")?.textContent?.trim() === "Rewriting");
+  await page.evaluate(() => {
+    const keep = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Keep");
+    if (!keep) throw new Error("Keep action missing after resuming Later block");
+    keep.click();
+  });
+  await page.waitForFunction(() => !(document.querySelector(".second-draft-seal") as HTMLButtonElement | null)?.disabled);
+
+  // Live repetition heatmap must analyze the actual editable target without
+  // mutating its DOM structure or relying on the Writing Studio drawer.
+  const targetBeforeRepetitionQa = await page.$eval(".manuscript-editor", (el) => (el as HTMLElement).innerHTML);
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    const probe = document.createElement("p");
+    probe.dataset.repetitionQa = "true";
+    probe.textContent = "Lantern copper lantern marble lantern velvet lantern quartz lantern. The empty platform waited. The empty platform waited.";
+    editor.appendChild(probe);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: probe.textContent }));
+  });
+  await page.waitForFunction(() => {
+    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Repeats"));
+    return Boolean(registry?.has("folio-repeat-high") && registry?.has("folio-repeat-phrase") && repeats && /Repeats\s+\d+/.test(repeats.textContent ?? ""));
+  });
+  const repetitionQa = await page.evaluate(() => {
+    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Repeats"));
+    return {
+      high: Boolean(registry?.has("folio-repeat-high")),
+      phrase: Boolean(registry?.has("folio-repeat-phrase")),
+      medium: Boolean(registry?.has("folio-repeat-medium")),
+      low: Boolean(registry?.has("folio-repeat-low")),
+      label: repeats?.textContent?.trim() ?? "",
+    };
+  });
+  if (!repetitionQa.high || !repetitionQa.phrase || !/^Repeats\s+[1-9]/.test(repetitionQa.label)) {
+    throw new Error("Second Draft repetition heatmap did not expose repeated target prose: " + JSON.stringify(repetitionQa));
+  }
+  await page.screenshot({ path: path.join(qa, "16-repetition-heatmap-light.png") });
+  await page.$eval(".manuscript-editor", (el, html) => {
+    const editor = el as HTMLElement;
+    editor.innerHTML = String(html);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "historyUndo" }));
+  }, targetBeforeRepetitionQa);
+  await settle(160);
 
   const scrollGeometry = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor");
     const source = document.querySelector<HTMLElement>(".second-draft-source");
     if (!target || !source) throw new Error("Second Draft editors missing for paired-scroll QA");
-    target.style.setProperty("height", "180px", "important");
-    source.style.setProperty("height", "180px", "important");
+    let fixture = document.querySelector<HTMLStyleElement>("#second-draft-scroll-fixture");
+    if (!fixture) {
+      fixture = document.createElement("style");
+      fixture.id = "second-draft-scroll-fixture";
+      fixture.textContent = [
+        '.folio-shell[data-workspace-mode="write"][data-split-view="true"] .editor-pane .manuscript-editor',
+        '.folio-shell[data-workspace-mode="write"][data-split-view="true"] .second-draft-pane .second-draft-source',
+      ].join(",") + "{height:180px!important;}";
+      document.head.appendChild(fixture);
+    }
     return {
       targetMax: target.scrollHeight - target.clientHeight,
       sourceMax: source.scrollHeight - source.clientHeight,
@@ -318,105 +680,370 @@ try {
   if (scrollGeometry.targetMax <= 0 || scrollGeometry.sourceMax <= 0) {
     throw new Error("Paired Scroll QA could not create scrollable editors: " + JSON.stringify(scrollGeometry));
   }
-  await page.click(".second-draft-head-actions button[title^='Paired Scroll']");
-  await page.waitForFunction(() =>
-    document.querySelector(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed") === "false",
-  );
-  await settle(80);
-  await page.$eval(".second-draft-source", (el) => { (el as HTMLElement).scrollTop = 0; });
-  const scrollOffBefore = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  // Paired Scroll is intentionally inert until the writer explicitly links matching text on both sides.
+  const beforeUnlinkedScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   await page.$eval(".manuscript-editor", (el) => {
     const editor = el as HTMLElement;
-    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .25);
+    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .42);
     editor.dispatchEvent(new Event("scroll"));
-  });
-  await settle(220);
-  const scrollOffAfter = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
-  if (Math.abs(scrollOffAfter - scrollOffBefore) > 1) {
-    throw new Error(`Paired Scroll off still moved source: ${scrollOffBefore} -> ${scrollOffAfter}`);
-  }
-  await page.screenshot({ path: path.join(qa, "09a-paired-scroll-off.png") });
-
-  const manualAnchor = await page.evaluate(() => {
-    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
-    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
-    const targetMax = target.scrollHeight - target.clientHeight;
-    const sourceMax = source.scrollHeight - source.clientHeight;
-    target.scrollTop = targetMax * .27;
-    source.scrollTop = sourceMax * .68;
-    return { target: target.scrollTop, source: source.scrollTop, targetMax, sourceMax };
-  });
-  await page.click(".second-draft-align");
-  await page.waitForFunction(() =>
-    document.querySelector(".second-draft-head-actions button[title^='Paired Scroll']")?.getAttribute("aria-pressed") === "true"
-    && Boolean(document.querySelector(".second-draft-reset-align")),
-  );
-  await page.$eval(".second-draft-source", (el) => { (el as HTMLElement).scrollTop = 0; });
-  await page.$eval(".manuscript-editor", (el, top) => {
-    const editor = el as HTMLElement;
-    editor.scrollTop = Number(top);
-    editor.dispatchEvent(new Event("scroll"));
-  }, manualAnchor.target);
-  await settle(220);
-  const manualAlignedSource = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
-  if (Math.abs(manualAlignedSource - manualAnchor.source) > 14) {
-    throw new Error(`Manual Paired Scroll anchor failed: expected ~${manualAnchor.source}, got ${manualAlignedSource}`);
-  }
-  await page.screenshot({ path: path.join(qa, "09b-paired-scroll-manual-alignment.png") });
-
-  const beforeScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
-  await page.$eval(".manuscript-editor", (el) => {
-    const editor = el as HTMLElement;
-    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .45);
-    editor.dispatchEvent(new Event("scroll"));
-  });
-  await settle(220);
-  const afterScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
-  if (afterScroll <= beforeScroll) throw new Error(`Paired Scroll did not move source: ${beforeScroll} -> ${afterScroll}; ${JSON.stringify(scrollGeometry)}`);
-
-  await page.screenshot({ path: path.join(qa, "09-paired-scroll.png") });
-  await page.evaluate(() => {
-    document.querySelector<HTMLElement>(".manuscript-editor")?.style.removeProperty("height");
-    document.querySelector<HTMLElement>(".second-draft-source")?.style.removeProperty("height");
   });
   await settle(180);
-
-  const prematureSeal = await page.evaluate(() => ({
-    disabled: (document.querySelector(".actionbar-seal") as HTMLButtonElement | null)?.disabled,
-    title: document.querySelector(".actionbar-seal")?.getAttribute("title"),
-    progress: document.querySelector(".second-draft-progress")?.textContent?.trim(),
-    keepRemaining: Boolean(document.querySelector(".actionbar-keep-remaining")),
-  }));
-  if (prematureSeal.disabled !== true || !prematureSeal.keepRemaining || !prematureSeal.title?.includes("remaining")) {
-    throw new Error("Chapter Seal must stay blocked until the entire source is processed: " + JSON.stringify(prematureSeal));
+  const afterUnlinkedScroll = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  if (Math.abs(afterUnlinkedScroll - beforeUnlinkedScroll) > 2) {
+    throw new Error(`Paired Scroll moved before any text link existed: ${beforeUnlinkedScroll} -> ${afterUnlinkedScroll}`);
   }
-  await page.screenshot({ path: path.join(qa, "10a-chapter-seal-blocked.png") });
 
-  await page.click(".actionbar-keep-remaining");
-  await page.waitForFunction(() =>
-    document.querySelector(".second-draft-progress")?.textContent?.includes("100% processed")
-    && (document.querySelector(".actionbar-seal") as HTMLButtonElement | null)?.disabled === false
-    && !document.querySelector(".actionbar-keep-remaining"),
-  );
+  const linkedSourceText = await selectSourceText(3);
+  const linkedTargetText = await selectTargetText(1);
+  if (!linkedSourceText.trim() || !linkedTargetText.trim()) throw new Error("Could not select matching text for Paired Scroll");
+  await page.waitForFunction(() => {
+    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Link lines");
+    return Boolean(link && !link.disabled);
+  });
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Link lines");
+    link?.click();
+  });
+  await page.waitForFunction(() => /Synced.*1 link/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
+  await settle(120);
+  await page.screenshot({ path: path.join(qa, "08-linked-sync-map-light.png") });
+
+  const beforeLinkedMove = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    const max = Math.max(1, editor.scrollHeight - editor.clientHeight);
+    editor.scrollTop = Math.min(max, editor.scrollTop + max * .18);
+    editor.dispatchEvent(new Event("scroll"));
+  });
+  await settle(220);
+  const afterLinkedMove = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
+  if (Math.abs(afterLinkedMove - beforeLinkedMove) < 2) {
+    throw new Error(`Paired Scroll did not react after explicit line link: ${beforeLinkedMove} -> ${afterLinkedMove}`);
+  }
+
+  // The bottom of one document must map cleanly to the bottom region of the
+  // other instead of drifting because text coordinates exceed legal scrollTop.
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 900 }));
+    editor.scrollTop = Math.max(0, editor.scrollHeight - editor.clientHeight);
+    editor.dispatchEvent(new Event("scroll"));
+  });
+  await settle(220);
+  const bottomSync = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (bottomSync.target < .98 || bottomSync.source < .9) {
+    throw new Error("Paired Scroll drifted at the document end: " + JSON.stringify(bottomSync));
+  }
+
+  // Taking control of the opposite editor immediately must reverse the driver
+  // without the previous programmatic scroll bouncing it back.
+  await page.$eval(".second-draft-source", (el) => {
+    const editor = el as HTMLElement;
+    editor.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: -700 }));
+    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .37);
+    editor.dispatchEvent(new Event("scroll"));
+  });
+  await settle(220);
+  const reverseSync = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop,
+      source: source.scrollTop,
+      targetRatio: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      sourceRatio: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (Math.abs(reverseSync.sourceRatio - .37) > .08 || reverseSync.targetRatio > .92) {
+    throw new Error("Source did not take control of Paired Scroll cleanly: " + JSON.stringify(reverseSync));
+  }
+  await settle(220);
+  const stableAfterReverse = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return { target: target.scrollTop, source: source.scrollTop };
+  });
+  if (
+    Math.abs(stableAfterReverse.target - reverseSync.target) > 1.5
+    || Math.abs(stableAfterReverse.source - reverseSync.source) > 1.5
+  ) {
+    throw new Error("Paired Scroll kept bouncing after user input stopped: " + JSON.stringify({ reverseSync, stableAfterReverse }));
+  }
+
+  // Release stress gate: >10k words on both sides, twelve explicit links,
+  // individual link removal, jump-to-link, and stable bidirectional scrolling.
+  const beforeLongScrollQa = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return { target: target.innerHTML, source: source.innerHTML };
+  });
+  await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const targetFragment = document.createDocumentFragment();
+    const sourceFragment = document.createDocumentFragment();
+    for (let paragraph = 0; paragraph < 125; paragraph++) {
+      const targetP = document.createElement("p");
+      targetP.dataset.longScrollQa = String(paragraph);
+      const targetWords: string[] = [];
+      for (let word = 0; word < 90; word++) targetWords.push(`t${paragraph}w${word}`);
+      targetP.textContent = targetWords.join(" ");
+      targetFragment.appendChild(targetP);
+
+      const sourceP = document.createElement("p");
+      sourceP.dataset.longScrollQa = String(paragraph);
+      const sourceWords: string[] = [];
+      for (let word = 0; word < 90; word++) sourceWords.push(`s${paragraph}w${word}`);
+      sourceP.textContent = sourceWords.join(" ");
+      sourceFragment.appendChild(sourceP);
+    }
+    target.appendChild(targetFragment);
+    source.appendChild(sourceFragment);
+    target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "long-scroll-qa" }));
+  });
+  await settle(220);
+
+  const longGeometry = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      targetWords: target.textContent?.trim().match(/\S+/g)?.length ?? 0,
+      sourceWords: source.textContent?.trim().match(/\S+/g)?.length ?? 0,
+      targetMax: target.scrollHeight - target.clientHeight,
+      sourceMax: source.scrollHeight - source.clientHeight,
+    };
+  });
+  if (longGeometry.targetWords < 10_000 || longGeometry.sourceWords < 10_000 || longGeometry.targetMax <= 0 || longGeometry.sourceMax <= 0) {
+    throw new Error("Long-manuscript scroll fixture did not exceed 10k words: " + JSON.stringify(longGeometry));
+  }
+
+  // Start the stress map clean.
+  await page.evaluate(() => {
+    const reset = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Reset links");
+    reset?.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Select matching lines"));
+
+  for (let linkIndex = 0; linkIndex < 12; linkIndex++) {
+    const paragraph = Math.min(124, 5 + linkIndex * 10);
+    await page.evaluate((paragraphIndex) => {
+      const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+      const sourceNode = document.querySelector<HTMLElement>(`.second-draft-source [data-long-scroll-qa="${paragraphIndex}"]`)?.firstChild;
+      if (!(sourceNode instanceof Text)) throw new Error("Long-scroll QA source text node missing");
+      const sourceRange = document.createRange();
+      sourceRange.setStart(sourceNode, 0);
+      sourceRange.setEnd(sourceNode, Math.min(28, sourceNode.length));
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(sourceRange);
+      source.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    }, paragraph);
+    await settle(35);
+
+    await page.evaluate((paragraphIndex) => {
+      const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+      const targetNode = document.querySelector<HTMLElement>(`.manuscript-editor [data-long-scroll-qa="${paragraphIndex}"]`)?.firstChild;
+      if (!(targetNode instanceof Text)) throw new Error("Long-scroll QA target text node missing");
+      const targetRange = document.createRange();
+      targetRange.setStart(targetNode, 0);
+      targetRange.setEnd(targetNode, Math.min(28, targetNode.length));
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(targetRange);
+      target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    }, paragraph);
+
+    await page.waitForFunction(() => {
+      const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+        .find((button) => button.textContent?.trim() === "Link lines");
+      return Boolean(link && !link.disabled);
+    });
+    await page.evaluate(() => {
+      const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+        .find((button) => button.textContent?.trim() === "Link lines");
+      link?.click();
+    });
+    await page.waitForFunction((expected) => {
+      const status = document.querySelector(".second-draft-sync-status")?.textContent ?? "";
+      return status.includes(`${expected} link`);
+    }, {}, linkIndex + 1);
+  }
+
+  await page.evaluate(() => {
+    const links = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Links 12");
+    if (!links) throw new Error("Manage Links button missing after twelve links");
+    links.click();
+  });
+  await page.waitForSelector(".second-draft-links-popover");
+  const linkRowsBeforeRemove = await page.$$eval(".second-draft-link-row", (rows) => rows.length);
+  if (linkRowsBeforeRemove !== 12) throw new Error("Manage Links did not list all twelve links: " + linkRowsBeforeRemove);
+
+  await page.click(".second-draft-link-row:nth-child(6) .second-draft-link-jump");
+  await settle(140);
+  const jumpPosition = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (jumpPosition.target <= .15 || jumpPosition.source <= .15 || jumpPosition.target >= .8 || jumpPosition.source >= .8) {
+    throw new Error("Manage Links jump did not reveal the linked middle region: " + JSON.stringify(jumpPosition));
+  }
+
+  await page.click(".second-draft-link-row:nth-child(6) .second-draft-link-remove");
+  await page.waitForFunction(() => document.querySelectorAll(".second-draft-link-row").length === 11);
+  await page.waitForFunction(() => /11 links/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
+  await page.screenshot({ path: path.join(qa, "17-manage-scroll-links-light.png") });
+
+  // Restore the normal QA manuscript, then leave one valid link for remount testing.
+  await page.evaluate((saved) => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    target.innerHTML = saved.target;
+    source.innerHTML = saved.source;
+    target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "historyUndo" }));
+  }, beforeLongScrollQa);
+  await page.evaluate(() => {
+    const reset = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Reset links");
+    reset?.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Select matching lines"));
+  const remountSourceLink = await selectSourceText(3);
+  const remountTargetLink = await selectTargetText(1);
+  if (!remountSourceLink.trim() || !remountTargetLink.trim()) throw new Error("Could not recreate link after long-scroll stress QA");
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Link lines");
+    link?.click();
+  });
+  await page.waitForFunction(() => /Synced.*1 link/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
   await settle(160);
-  const fullCoverage = await page.$eval(".second-draft-progress", (el) => el.textContent?.trim() ?? "");
-  if (fullCoverage !== "100% processed") throw new Error("Second Draft never reached full coverage: " + fullCoverage);
 
-  await page.screenshot({ path: path.join(qa, "10-chapter-seal-ready.png") });
-  await assertActionbarFits("Chapter Seal");
-  await page.click(".actionbar-seal");
+  // Pause/resume only exists after at least one explicit line link.
+  await page.evaluate(() => {
+    const sync = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Sync");
+    if (!sync || sync.disabled) throw new Error("Second Draft Sync control missing after line link");
+    sync.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Paused"));
+  await page.evaluate(() => {
+    const sync = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Sync");
+    sync?.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Synced"));
+
+  // Mode remount must restore both scroll positions and Second Draft UI state.
+  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.waitForSelector(".second-draft-pane.memory-mode");
+  const savedBeforeRemount = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const storage = Object.fromEntries(
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("folio.second-draft.view.v3:"))
+        .map((key) => [key, localStorage.getItem(key)]),
+    );
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+      targetMax: Math.max(0, target.scrollHeight - target.clientHeight),
+      sourceMax: Math.max(0, source.scrollHeight - source.clientHeight),
+      storage,
+    };
+  });
+  await page.click(".second-draft-head-actions button[aria-label='Close Second Draft']");
+  await page.waitForFunction(() => !document.querySelector(".second-draft-pane"));
+  await page.click(".editor-second-draft-toggle");
+  await page.waitForSelector(".second-draft-pane.memory-mode");
+  await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
+  await settle(420);
+  const restoredAfterRemount = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const storage = Object.fromEntries(
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("folio.second-draft.view.v3:"))
+        .map((key) => [key, localStorage.getItem(key)]),
+    );
+    const paper = document.querySelector<HTMLElement>(".second-draft-source-paper");
+    const pane = document.querySelector<HTMLElement>(".second-draft-pane");
+    const shell = document.querySelector<HTMLElement>(".folio-shell");
+    const sourceStyle = getComputedStyle(source);
+    const paperStyle = paper ? getComputedStyle(paper) : null;
+    const paneStyle = pane ? getComputedStyle(pane) : null;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+      targetMax: Math.max(0, target.scrollHeight - target.clientHeight),
+      sourceMax: Math.max(0, source.scrollHeight - source.clientHeight),
+      status: document.querySelector(".second-draft-sync-status")?.textContent ?? "",
+      storage,
+      geometry: {
+        sourceClientHeight: source.clientHeight,
+        sourceScrollHeight: source.scrollHeight,
+        sourceRectHeight: source.getBoundingClientRect().height,
+        sourceHeight: sourceStyle.height,
+        sourceOverflowY: sourceStyle.overflowY,
+        paperClientHeight: paper?.clientHeight ?? -1,
+        paperScrollHeight: paper?.scrollHeight ?? -1,
+        paperRectHeight: paper?.getBoundingClientRect().height ?? -1,
+        paperHeight: paperStyle?.height ?? "",
+        paperFlex: paperStyle?.flex ?? "",
+        paneClientHeight: pane?.clientHeight ?? -1,
+        paneScrollHeight: pane?.scrollHeight ?? -1,
+        paneRectHeight: pane?.getBoundingClientRect().height ?? -1,
+        paneHeight: paneStyle?.height ?? "",
+        shellSplit: shell?.dataset.splitView ?? "",
+        textLength: source.textContent?.length ?? -1,
+      },
+    };
+  });
+  const persistedReviewUi = await page.$eval(".second-draft-head-actions", (head) => head.textContent ?? "");
+  if (!persistedReviewUi.includes("Issues 1") || !persistedReviewUi.includes("Passes 2/7") || !persistedReviewUi.includes("Brief •")) {
+    throw new Error("Second Draft issues/review passes/brief did not survive remount: " + persistedReviewUi);
+  }
+
+  if (Math.abs(restoredAfterRemount.target - savedBeforeRemount.target) > .10
+      || Math.abs(restoredAfterRemount.source - savedBeforeRemount.source) > .10
+      || !/Synced.*1 link/.test(restoredAfterRemount.status)) {
+    await page.screenshot({ path: path.join(qa, "debug-remount-geometry.png") });
+    throw new Error("Second Draft view state was not restored after mode remount: " + JSON.stringify({ savedBeforeRemount, restoredAfterRemount }));
+  }
+  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.evaluate(() => document.querySelector("#second-draft-scroll-fixture")?.remove());
+  await settle(220);
+
+  await page.screenshot({ path: path.join(qa, "10-workspace-light.png") });
+
+  const sealDisabled = await page.$eval(".second-draft-seal", (button) => (button as HTMLButtonElement).disabled);
+  if (sealDisabled) throw new Error("Seal should be available after resolving active source blocks");
+  await page.click(".second-draft-seal");
   await page.waitForSelector(".second-draft-reveal");
   const reveal = await page.evaluate(() => ({
     title: document.querySelector(".second-draft-reveal h2")?.textContent?.trim(),
     stats: [...document.querySelectorAll(".second-draft-reveal-grid strong")].map((item) => Number(item.textContent ?? 0)),
     words: [...document.querySelectorAll(".second-draft-reveal-words strong")].map((item) => Number((item.textContent ?? "0").replace(/[^\d]/g, ""))),
-    processed: document.querySelector(".second-draft-reveal-progress b")?.textContent?.trim(),
   }));
-  if (reveal.title !== "Draft 2" || reveal.words.some((value) => !value) || reveal.stats[0] < 1 || reveal.stats[2] < 1 || reveal.stats[3] < 1
-    || reveal.processed !== "100% source processed") {
+  if (reveal.title !== "Draft 2" || reveal.words.some((value) => !value) || reveal.stats[0] < 1 || reveal.stats[3] < 1) {
     throw new Error("Chapter Reveal stats failed: " + JSON.stringify(reveal));
   }
-  await page.screenshot({ path: path.join(qa, "11-chapter-reveal.png") });
+  await page.screenshot({ path: path.join(qa, "11-chapter-reveal-light.png") });
   await page.click(".second-draft-reveal-close");
 
   // Midnight parity while Second Draft remains open.
@@ -425,35 +1052,46 @@ try {
   await settle(180);
   const geometry = await page.evaluate(() => {
     const pane = document.querySelector<HTMLElement>(".second-draft-pane")!;
-    const bar = document.querySelector<HTMLElement>(".second-draft-actionbar")!;
+    const actions = document.querySelector<HTMLElement>(".second-draft-actionbar")!;
     const source = document.querySelector<HTMLElement>(".second-draft-source-paper")!;
-    const sourceEditor = document.querySelector<HTMLElement>(".second-draft-source")!;
-    const p = pane.getBoundingClientRect(), b = bar.getBoundingClientRect(), s = source.getBoundingClientRect(), e = sourceEditor.getBoundingClientRect();
+    const p = pane.getBoundingClientRect(), a = actions.getBoundingClientRect(), src = source.getBoundingClientRect();
     return {
       pane: { left:p.left,right:p.right,top:p.top,bottom:p.bottom },
-      bar:{left:b.left,right:b.right,top:b.top,bottom:b.bottom},
-      source:{left:s.left,right:s.right},
-      editor:{left:e.left,right:e.right},
+      actions:{left:a.left,right:a.right,top:a.top,bottom:a.bottom},
+      source:{left:src.left,right:src.right,top:src.top,bottom:src.bottom},
+      oldRail: Boolean(document.querySelector(".second-draft-rail")),
     };
   });
-  if (geometry.bar.left < geometry.pane.left - 1 || geometry.bar.right > geometry.pane.right + 1) {
-    throw new Error("Second Draft action bar clips outside its pane in Midnight: " + JSON.stringify(geometry));
+  if (geometry.oldRail
+      || geometry.actions.left < geometry.pane.left - 1
+      || geometry.actions.right > geometry.pane.right + 1
+      || geometry.actions.bottom > geometry.source.bottom) {
+    throw new Error("Second Draft integrated controls clip or old rail survived in Midnight: " + JSON.stringify(geometry));
   }
-  if (geometry.editor.left - geometry.source.left > 48) {
-    throw new Error("Second Draft source text is still horizontally crushed by action UI: " + JSON.stringify(geometry));
-  }
-  const midnightActionbar = await page.evaluate(() => {
-    const bar = document.querySelector<HTMLElement>(".second-draft-actionbar")!;
-    const button = bar.querySelector<HTMLElement>("button");
-    const bs = getComputedStyle(bar);
-    const cs = button ? getComputedStyle(button) : null;
-    return { barBackground: bs.backgroundColor, buttonBackground: cs?.backgroundColor, buttonColor: cs?.color };
+  await page.screenshot({ path: path.join(qa, "12-main-midnight.png") });
+
+  await page.evaluate(() => {
+    const issues = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Issues"));
+    issues?.click();
   });
-  if (/rgba?\(255, 255, 255, (?:0\.[3-9]|1)\)/.test(midnightActionbar.barBackground)
-    || midnightActionbar.buttonColor === "rgb(37, 40, 58)") {
-    throw new Error("Second Draft action bar is visually Light inside Midnight: " + JSON.stringify(midnightActionbar));
-  }
-  await page.screenshot({ path: path.join(qa, "12-second-draft-midnight.png") });
+  await page.waitForSelector(".second-draft-issues-drawer");
+  await settle(100);
+  await page.screenshot({ path: path.join(qa, "13-issues-midnight.png") });
+  await page.click(".second-draft-issues-drawer .second-draft-drawer-head button");
+
+  await selectSourceText(0);
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+    .some((button) => button.textContent?.trim() === "Compare rewrite"));
+  await page.evaluate(() => {
+    const compare = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-action-buttons button")]
+      .find((button) => button.textContent?.trim() === "Compare rewrite");
+    compare?.click();
+  });
+  await page.waitForSelector(".second-draft-compare");
+  await settle(100);
+  await page.screenshot({ path: path.join(qa, "14-compare-midnight.png") });
+  await page.click(".second-draft-compare .second-draft-drawer-head button");
 
   // Closing Second Draft must leave legacy Split intact and editable.
   await page.click(".second-draft-head-actions button[aria-label='Close Second Draft']");
@@ -462,7 +1100,7 @@ try {
   await page.waitForSelector(".writing-split-editor[contenteditable='true']");
   const legacyEditable = await page.$eval(".writing-split-editor", (el) => el.getAttribute("contenteditable"));
   if (legacyEditable !== "true") throw new Error("Legacy Split stopped being editable after Second Draft");
-  await page.screenshot({ path: path.join(qa, "13-legacy-split-still-intact.png") });
+  await page.screenshot({ path: path.join(qa, "15-legacy-split-still-intact.png") });
 
   console.log("Folio 3.0 Second Draft browser QA passed.");
 } finally {

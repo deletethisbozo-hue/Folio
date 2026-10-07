@@ -59,6 +59,9 @@ export interface RevisionSummary {
 
 export type SecondDraftBlockStatus = "active" | "rewritten" | "cut" | "later" | "keep" | "sent";
 export type SecondDraftCarryStatus = "pending" | "used" | "dismissed";
+export type SecondDraftIssueCategory = "pacing" | "continuity" | "dialogue" | "character" | "clarity" | "research" | "other";
+export type SecondDraftReviewPassKey = "structure" | "continuity" | "pacing" | "character" | "dialogue" | "prose" | "facts";
+export type SecondDraftRewriteIntent = "general" | "tighten" | "expand" | "clarify" | "voice" | "pacing" | "dialogue" | "emotion" | "continuity" | "description";
 
 export interface SecondDraftPair {
   targetSectionId: string;
@@ -81,6 +84,7 @@ export interface SecondDraftBlock {
   status: SecondDraftBlockStatus;
   targetStart?: number;
   targetEnd?: number;
+  intent?: SecondDraftRewriteIntent;
   createdAt: string;
   updatedAt: string;
 }
@@ -98,10 +102,27 @@ export interface SecondDraftCarryover {
   updatedAt: string;
 }
 
+export interface SecondDraftIssue {
+  id: string;
+  targetSectionId: string;
+  sourceSectionId: string;
+  sourceStart: number;
+  sourceEnd: number;
+  sourceText: string;
+  category: SecondDraftIssueCategory;
+  note: string;
+  resolved: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SecondDraftState {
   pairs: Record<string, SecondDraftPair>;
   blocks: SecondDraftBlock[];
   carryovers: SecondDraftCarryover[];
+  issues: SecondDraftIssue[];
+  reviews: Record<string, Partial<Record<SecondDraftReviewPassKey, boolean>>>;
+  briefs: Record<string, string>;
 }
 
 export interface WriteStudioState {
@@ -136,7 +157,7 @@ function defaultState(): WriteStudioState {
     researchImages: [],
     comments: [],
     revisions: [],
-    secondDraft: { pairs: {}, blocks: [], carryovers: [] },
+    secondDraft: { pairs: {}, blocks: [], carryovers: [], issues: [], reviews: {}, briefs: {} },
   };
 }
 
@@ -165,6 +186,13 @@ function normaliseState(value: Partial<WriteStudioState> | null | undefined): Wr
         : {},
       blocks: Array.isArray(incomingSecondDraft?.blocks) ? incomingSecondDraft!.blocks! : [],
       carryovers: Array.isArray(incomingSecondDraft?.carryovers) ? incomingSecondDraft!.carryovers! : [],
+      issues: Array.isArray(incomingSecondDraft?.issues) ? incomingSecondDraft!.issues! : [],
+      reviews: incomingSecondDraft?.reviews && typeof incomingSecondDraft.reviews === "object"
+        ? { ...incomingSecondDraft.reviews }
+        : {},
+      briefs: incomingSecondDraft?.briefs && typeof incomingSecondDraft.briefs === "object"
+        ? Object.fromEntries(Object.entries(incomingSecondDraft.briefs).map(([key, value]) => [key, String(value ?? "").slice(0, 4000)]))
+        : {},
     },
   };
 }
@@ -353,6 +381,23 @@ export async function migrateWriteStudioSectionId(projectId: string, previousSec
       sourceSectionId: item.sourceSectionId === previousSectionId ? nextSectionId : item.sourceSectionId,
       toTargetSectionId: item.toTargetSectionId === previousSectionId ? nextSectionId : item.toTargetSectionId,
     }));
+    state.secondDraft.issues = state.secondDraft.issues.map((item) => ({
+      ...item,
+      targetSectionId: item.targetSectionId === previousSectionId ? nextSectionId : item.targetSectionId,
+      sourceSectionId: item.sourceSectionId === previousSectionId ? nextSectionId : item.sourceSectionId,
+    }));
+    if (Object.prototype.hasOwnProperty.call(state.secondDraft.reviews, previousSectionId)) {
+      if (!Object.prototype.hasOwnProperty.call(state.secondDraft.reviews, nextSectionId)) {
+        state.secondDraft.reviews[nextSectionId] = state.secondDraft.reviews[previousSectionId];
+      }
+      delete state.secondDraft.reviews[previousSectionId];
+    }
+    if (Object.prototype.hasOwnProperty.call(state.secondDraft.briefs, previousSectionId)) {
+      if (!Object.prototype.hasOwnProperty.call(state.secondDraft.briefs, nextSectionId)) {
+        state.secondDraft.briefs[nextSectionId] = state.secondDraft.briefs[previousSectionId];
+      }
+      delete state.secondDraft.briefs[previousSectionId];
+    }
     return state;
   });
 }
@@ -367,15 +412,23 @@ function validateSecondDraftRange(start: number, end: number, sourceText: string
 
 async function requireSecondDraftSections(projectId: string, targetSectionId: string, sourceSectionId?: string): Promise<void> {
   const { book } = await loadProject(projectId);
-  if (!book.sections.some((section) => section.id === targetSectionId)) throw new Error("Second Draft target section not found.");
+  const target = book.sections.find((section) => section.id === targetSectionId);
+  if (!target) throw new Error("Second Draft target section not found.");
+  if (target.kind !== "chapter") throw new Error("Second Draft is only available for chapter sections.");
   if (sourceSectionId !== undefined) {
     if (sourceSectionId === targetSectionId) throw new Error("Second Draft source and target must be different sections.");
-    if (!book.sections.some((section) => section.id === sourceSectionId)) throw new Error("Second Draft source section not found.");
+    const source = book.sections.find((section) => section.id === sourceSectionId);
+    if (!source) throw new Error("Second Draft source section not found.");
+    if (source.kind !== "chapter") throw new Error("Second Draft source must be a chapter section.");
   }
 }
 
 function processedSecondDraftStatus(status: SecondDraftBlockStatus): boolean {
   return status === "rewritten" || status === "cut" || status === "keep" || status === "sent";
+}
+
+function secondDraftRangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
+  return startA < endB && endA > startB;
 }
 
 function secondDraftCoverage(pair: SecondDraftPair, blocks: SecondDraftBlock[]): number {
@@ -422,6 +475,9 @@ export async function setSecondDraftPair(
     };
     if (existing && (existing.sourceSectionId !== sourceSectionId || existing.sourceFingerprint !== sourceFingerprint)) {
       state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
+      state.secondDraft.issues = state.secondDraft.issues.filter((item) => item.targetSectionId !== targetSectionId);
+      delete state.secondDraft.reviews[targetSectionId];
+      delete state.secondDraft.briefs[targetSectionId];
     }
     return state;
   });
@@ -432,6 +488,9 @@ export async function removeSecondDraftPair(projectId: string, targetSectionId: 
   return mutateState(projectId, (state) => {
     delete state.secondDraft.pairs[targetSectionId];
     state.secondDraft.blocks = state.secondDraft.blocks.filter((item) => item.targetSectionId !== targetSectionId);
+    state.secondDraft.issues = state.secondDraft.issues.filter((item) => item.targetSectionId !== targetSectionId);
+    delete state.secondDraft.reviews[targetSectionId];
+    delete state.secondDraft.briefs[targetSectionId];
     return state;
   });
 }
@@ -443,15 +502,34 @@ export async function createSecondDraftBlock(
   sourceEnd: number,
   sourceText: string,
   targetStart?: number,
+  status: Exclude<SecondDraftBlockStatus, "sent"> = "active",
+  intent: SecondDraftRewriteIntent = "general",
 ): Promise<WriteStudioState> {
   validateSecondDraftRange(sourceStart, sourceEnd, sourceText);
+  const allowed: Array<Exclude<SecondDraftBlockStatus, "sent">> = ["active", "rewritten", "cut", "later", "keep"];
+  if (!allowed.includes(status)) throw new Error("Invalid initial Second Draft block status.");
+  const allowedIntents: SecondDraftRewriteIntent[] = ["general", "tighten", "expand", "clarify", "voice", "pacing", "dialogue", "emotion", "continuity", "description"];
+  if (!allowedIntents.includes(intent)) throw new Error("Invalid Second Draft rewrite intent.");
   await requireSecondDraftSections(projectId, targetSectionId);
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[targetSectionId];
     if (!pair) throw new Error("Pair this chapter with a source before starting Second Draft.");
+    if (sourceEnd > pair.sourceTextLength || sourceText.length !== sourceEnd - sourceStart) {
+      throw new Error("Second Draft source range no longer matches the paired source.");
+    }
+    const overlap = state.secondDraft.blocks.find((item) =>
+      item.targetSectionId === targetSectionId
+      && secondDraftRangesOverlap(sourceStart, sourceEnd, item.sourceStart, item.sourceEnd),
+    );
+    if (overlap) throw new Error("This source selection overlaps an existing Second Draft decision. Resume or resolve that decision instead.");
     const now = new Date().toISOString();
-    for (const item of state.secondDraft.blocks) {
-      if (item.targetSectionId === targetSectionId && item.status === "active") item.status = "later";
+    if (status === "active") {
+      for (const item of state.secondDraft.blocks) {
+        if (item.targetSectionId === targetSectionId && item.status === "active") {
+          item.status = "later";
+          item.updatedAt = now;
+        }
+      }
     }
     state.secondDraft.blocks.push({
       id: crypto.randomUUID(),
@@ -460,8 +538,9 @@ export async function createSecondDraftBlock(
       sourceStart,
       sourceEnd,
       sourceText: sourceText.slice(0, 100000),
-      status: "active",
+      status,
       targetStart: Number.isInteger(targetStart) && (targetStart as number) >= 0 ? targetStart : undefined,
+      intent: status === "active" || status === "rewritten" ? intent : undefined,
       createdAt: now,
       updatedAt: now,
     });
@@ -470,10 +549,28 @@ export async function createSecondDraftBlock(
   });
 }
 
+export async function removeSecondDraftBlock(
+  projectId: string,
+  blockId: string,
+): Promise<WriteStudioState> {
+  return mutateState(projectId, (state) => {
+    const index = state.secondDraft.blocks.findIndex((item) => item.id === blockId);
+    if (index < 0) throw new Error("Second Draft source block not found.");
+    const block = state.secondDraft.blocks[index];
+    if (block.status === "sent") {
+      throw new Error("Sent Ahead decisions cannot be undone here because they already created a carryover.");
+    }
+    state.secondDraft.blocks.splice(index, 1);
+    const pair = state.secondDraft.pairs[block.targetSectionId];
+    if (pair) pair.updatedAt = new Date().toISOString();
+    return state;
+  });
+}
+
 export async function updateSecondDraftBlock(
   projectId: string,
   blockId: string,
-  patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number },
+  patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number; intent?: SecondDraftRewriteIntent },
 ): Promise<WriteStudioState> {
   return mutateState(projectId, (state) => {
     const block = state.secondDraft.blocks.find((item) => item.id === blockId);
@@ -499,20 +596,14 @@ export async function updateSecondDraftBlock(
       if (!Number.isInteger(patch.targetEnd) || patch.targetEnd < 0) throw new Error("Invalid Second Draft target end.");
       block.targetEnd = patch.targetEnd;
     }
+    if (patch.intent !== undefined) {
+      const allowedIntents: SecondDraftRewriteIntent[] = ["general", "tighten", "expand", "clarify", "voice", "pacing", "dialogue", "emotion", "continuity", "description"];
+      if (!allowedIntents.includes(patch.intent)) throw new Error("Invalid Second Draft rewrite intent.");
+      block.intent = patch.intent;
+    }
     block.updatedAt = new Date().toISOString();
     const pair = state.secondDraft.pairs[block.targetSectionId];
     if (pair) pair.updatedAt = block.updatedAt;
-    return state;
-  });
-}
-
-export async function deleteSecondDraftBlock(projectId: string, blockId: string): Promise<WriteStudioState> {
-  return mutateState(projectId, (state) => {
-    const index = state.secondDraft.blocks.findIndex((item) => item.id === blockId);
-    if (index < 0) throw new Error("Second Draft source block not found.");
-    const [removed] = state.secondDraft.blocks.splice(index, 1);
-    const pair = state.secondDraft.pairs[removed.targetSectionId];
-    if (pair) pair.updatedAt = new Date().toISOString();
     return state;
   });
 }
@@ -532,6 +623,14 @@ export async function sendSecondDraftAhead(
   return mutateState(projectId, (state) => {
     const pair = state.secondDraft.pairs[fromTargetSectionId];
     if (!pair) throw new Error("Pair this chapter with a source before sending material ahead.");
+    if (sourceEnd > pair.sourceTextLength || sourceText.length !== sourceEnd - sourceStart) {
+      throw new Error("Second Draft source range no longer matches the paired source.");
+    }
+    const overlap = state.secondDraft.blocks.find((item) =>
+      item.targetSectionId === fromTargetSectionId
+      && secondDraftRangesOverlap(sourceStart, sourceEnd, item.sourceStart, item.sourceEnd),
+    );
+    if (overlap) throw new Error("This source selection overlaps an existing Second Draft decision. Resume or resolve that decision instead.");
     const now = new Date().toISOString();
     state.secondDraft.blocks.push({
       id: crypto.randomUUID(),
@@ -557,6 +656,93 @@ export async function sendSecondDraftAhead(
       updatedAt: now,
     });
     pair.updatedAt = now;
+    return state;
+  });
+}
+
+export async function createSecondDraftIssue(
+  projectId: string,
+  targetSectionId: string,
+  sourceStart: number,
+  sourceEnd: number,
+  sourceText: string,
+  category: SecondDraftIssueCategory,
+  note: string,
+): Promise<WriteStudioState> {
+  validateSecondDraftRange(sourceStart, sourceEnd, sourceText);
+  const allowed: SecondDraftIssueCategory[] = ["pacing", "continuity", "dialogue", "character", "clarity", "research", "other"];
+  if (!allowed.includes(category)) throw new Error("Invalid Second Draft issue category.");
+  await requireSecondDraftSections(projectId, targetSectionId);
+  return mutateState(projectId, (state) => {
+    const pair = state.secondDraft.pairs[targetSectionId];
+    if (!pair) throw new Error("Pair this chapter with a source before flagging an issue.");
+    if (sourceEnd > pair.sourceTextLength || sourceText.length !== sourceEnd - sourceStart) {
+      throw new Error("Second Draft source range no longer matches the paired source.");
+    }
+    const now = new Date().toISOString();
+    state.secondDraft.issues.push({
+      id: crypto.randomUUID(),
+      targetSectionId,
+      sourceSectionId: pair.sourceSectionId,
+      sourceStart,
+      sourceEnd,
+      sourceText: sourceText.slice(0, 100000),
+      category,
+      note: note.slice(0, 4000),
+      resolved: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    pair.updatedAt = now;
+    return state;
+  });
+}
+
+export async function updateSecondDraftIssue(
+  projectId: string,
+  issueId: string,
+  patch: { resolved?: boolean; category?: SecondDraftIssueCategory; note?: string },
+): Promise<WriteStudioState> {
+  const allowed: SecondDraftIssueCategory[] = ["pacing", "continuity", "dialogue", "character", "clarity", "research", "other"];
+  return mutateState(projectId, (state) => {
+    const issue = state.secondDraft.issues.find((item) => item.id === issueId);
+    if (!issue) throw new Error("Second Draft issue not found.");
+    if (patch.category !== undefined) {
+      if (!allowed.includes(patch.category)) throw new Error("Invalid Second Draft issue category.");
+      issue.category = patch.category;
+    }
+    if (patch.note !== undefined) issue.note = patch.note.slice(0, 4000);
+    if (patch.resolved !== undefined) issue.resolved = Boolean(patch.resolved);
+    issue.updatedAt = new Date().toISOString();
+    return state;
+  });
+}
+
+export async function setSecondDraftBrief(
+  projectId: string,
+  targetSectionId: string,
+  brief: string,
+): Promise<WriteStudioState> {
+  await requireSecondDraftSections(projectId, targetSectionId);
+  return mutateState(projectId, (state) => {
+    state.secondDraft.briefs[targetSectionId] = brief.slice(0, 4000);
+    return state;
+  });
+}
+
+export async function setSecondDraftReviewPasses(
+  projectId: string,
+  targetSectionId: string,
+  passes: Partial<Record<SecondDraftReviewPassKey, boolean>>,
+): Promise<WriteStudioState> {
+  await requireSecondDraftSections(projectId, targetSectionId);
+  const allowed: SecondDraftReviewPassKey[] = ["structure", "continuity", "pacing", "character", "dialogue", "prose", "facts"];
+  const clean: Partial<Record<SecondDraftReviewPassKey, boolean>> = {};
+  for (const key of allowed) {
+    if (passes[key] !== undefined) clean[key] = Boolean(passes[key]);
+  }
+  return mutateState(projectId, (state) => {
+    state.secondDraft.reviews[targetSectionId] = clean;
     return state;
   });
 }
@@ -600,15 +786,14 @@ export async function sealSecondDraftChapter(
     if (related.some((item) => item.status === "active" || item.status === "later")) {
       throw new Error("Finish or resolve the remaining active/later Second Draft blocks before sealing.");
     }
-    const coverage = secondDraftCoverage(pair, related);
-    if (coverage < .999999) {
-      throw new Error(`Process the full Second Draft source before sealing. ${Math.round(coverage * 100)}% is complete.`);
+    if (!related.some((item) => processedSecondDraftStatus(item.status))) {
+      throw new Error("Process at least one source passage before sealing Second Draft.");
     }
     const revision = await appendRevision(projectId, state, targetSectionId, markdown, "snapshot", "Second Draft seal");
     pair.sealedAt = new Date().toISOString();
     pair.sealRevisionId = revision.id;
     pair.updatedAt = pair.sealedAt;
-    const processedPercent = Math.round(coverage * 100);
+    const processedPercent = Math.round(secondDraftCoverage(pair, related) * 100);
     return {
       state,
       reveal: {

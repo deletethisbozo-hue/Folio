@@ -51,6 +51,9 @@ export interface RevisionSummary {
 
 export type SecondDraftBlockStatus = "active" | "rewritten" | "cut" | "later" | "keep" | "sent";
 export type SecondDraftCarryStatus = "pending" | "used" | "dismissed";
+export type SecondDraftIssueCategory = "pacing" | "continuity" | "dialogue" | "character" | "clarity" | "research" | "other";
+export type SecondDraftReviewPassKey = "structure" | "continuity" | "pacing" | "character" | "dialogue" | "prose" | "facts";
+export type SecondDraftRewriteIntent = "general" | "tighten" | "expand" | "clarify" | "voice" | "pacing" | "dialogue" | "emotion" | "continuity" | "description";
 
 export interface SecondDraftPair {
   targetSectionId: string;
@@ -73,6 +76,7 @@ export interface SecondDraftBlock {
   status: SecondDraftBlockStatus;
   targetStart?: number;
   targetEnd?: number;
+  intent?: SecondDraftRewriteIntent;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,10 +94,27 @@ export interface SecondDraftCarryover {
   updatedAt: string;
 }
 
+export interface SecondDraftIssue {
+  id: string;
+  targetSectionId: string;
+  sourceSectionId: string;
+  sourceStart: number;
+  sourceEnd: number;
+  sourceText: string;
+  category: SecondDraftIssueCategory;
+  note: string;
+  resolved: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SecondDraftState {
   pairs: Record<string, SecondDraftPair>;
   blocks: SecondDraftBlock[];
   carryovers: SecondDraftCarryover[];
+  issues: SecondDraftIssue[];
+  reviews: Record<string, Partial<Record<SecondDraftReviewPassKey, boolean>>>;
+  briefs: Record<string, string>;
 }
 
 export interface SecondDraftSealReveal {
@@ -155,10 +176,40 @@ export interface RepeatedWord {
   count: number;
 }
 
+export type RepetitionSeverity = "low" | "medium" | "high";
+
 export interface NearbyRepeat {
   word: string;
   count: number;
   windowWords: number;
+  spanWords: number;
+  severity: RepetitionSeverity;
+}
+
+export interface RepetitionOccurrence {
+  word: string;
+  start: number;
+  end: number;
+  count: number;
+  spanWords: number;
+  severity: RepetitionSeverity;
+}
+
+export interface NearbyPhraseRepeat {
+  phrase: string;
+  count: number;
+  words: number;
+  windowWords: number;
+  spanWords: number;
+}
+
+export interface PhraseOccurrence {
+  phrase: string;
+  start: number;
+  end: number;
+  count: number;
+  words: number;
+  spanWords: number;
 }
 
 const COMMON_EN = new Set("the a an and or but if then than of to in on at by for from with without into onto is are was were be been being it its this that these those i you he she they we me him her them us my your his their our as not no do does did have has had can could would should will just very so".split(" "));
@@ -187,10 +238,259 @@ export function todayKey(date = new Date()): string {
   return year + "-" + month + "-" + day;
 }
 
+interface LexicalToken {
+  word: string;
+  start: number;
+  end: number;
+  wordIndex: number;
+  segment: number;
+}
+
+function normalizeAnalysisWord(word: string): string {
+  return word
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/[‘’ʼ`]/g, "'")
+    .replace(/^[\-']+|[\-']+$/g, "");
+}
+
+function tokeniseWithOffsets(text: string): LexicalToken[] {
+  const tokens: LexicalToken[] = [];
+  const regex = /[\p{L}\p{N}][\p{L}\p{N}’'ʼ`-]*/gu;
+  let match: RegExpExecArray | null;
+  let previousEnd = 0;
+  let segment = 0;
+  while ((match = regex.exec(text))) {
+    if (tokens.length) {
+      const separator = text.slice(previousEnd, match.index);
+      // Nearby phrases never bridge sentence/paragraph boundaries. Commas and
+      // quotation marks are allowed so normal prose still behaves naturally.
+      if (/[.!?;:\n\r]/u.test(separator)) segment++;
+    }
+    const word = normalizeAnalysisWord(match[0]);
+    previousEnd = match.index + match[0].length;
+    if (!word) continue;
+    tokens.push({
+      word,
+      start: match.index,
+      end: match.index + match[0].length,
+      wordIndex: tokens.length,
+      segment,
+    });
+  }
+  return tokens;
+}
+
 function tokenise(text: string): string[] {
-  return (text.toLocaleLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}’'-]*/gu) ?? [])
-    .map((word) => word.replace(/^[’'-]+|[’'-]+$/g, ""))
-    .filter(Boolean);
+  return tokeniseWithOffsets(text).map((token) => token.word);
+}
+
+function eligibleAnalysisToken(token: LexicalToken, stop: Set<string>): boolean {
+  return token.word.length >= 3 && !stop.has(token.word) && !/^\d+$/u.test(token.word);
+}
+
+function repetitionSeverity(count: number, spanWords: number, windowWords: number): RepetitionSeverity {
+  if (
+    count >= 5
+    || (count >= 4 && spanWords <= Math.max(18, Math.round(windowWords * 0.7)))
+    || (count >= 3 && spanWords <= Math.max(12, Math.round(windowWords * 0.35)))
+  ) return "high";
+  if (count >= 3 || spanWords <= 12) return "medium";
+  return "low";
+}
+
+export function repetitionOccurrences(text: string, language = "en", windowWords = 80): RepetitionOccurrence[] {
+  const safeWindow = Math.max(12, Math.min(500, Math.round(windowWords)));
+  const tightPairWindow = Math.max(8, Math.min(28, Math.round(safeWindow * 0.3)));
+  const stop = stopWords(language);
+  const tokens = tokeniseWithOffsets(text);
+  const grouped = new Map<string, LexicalToken[]>();
+
+  for (const token of tokens) {
+    if (!eligibleAnalysisToken(token, stop)) continue;
+    const list = grouped.get(token.word) ?? [];
+    list.push(token);
+    grouped.set(token.word, list);
+  }
+
+  const marked = new Map<number, RepetitionOccurrence>();
+  const rank: Record<RepetitionSeverity, number> = { low: 1, medium: 2, high: 3 };
+
+  for (const [word, occurrences] of grouped) {
+    if (occurrences.length < 2) continue;
+    let right = 0;
+    for (let left = 0; left < occurrences.length; left++) {
+      if (right < left + 1) right = left + 1;
+      while (
+        right < occurrences.length
+        && occurrences[right].wordIndex - occurrences[left].wordIndex + 1 <= safeWindow
+      ) right++;
+
+      const count = right - left;
+      if (count < 2) continue;
+      const spanWords = occurrences[right - 1].wordIndex - occurrences[left].wordIndex + 1;
+      const notable = count >= 3 || (count === 2 && spanWords <= tightPairWindow);
+      if (!notable) continue;
+
+      const severity = repetitionSeverity(count, spanWords, safeWindow);
+      for (let index = left; index < right; index++) {
+        const token = occurrences[index];
+        const next: RepetitionOccurrence = {
+          word,
+          start: token.start,
+          end: token.end,
+          count,
+          spanWords,
+          severity,
+        };
+        const previous = marked.get(token.start);
+        if (
+          !previous
+          || rank[next.severity] > rank[previous.severity]
+          || (rank[next.severity] === rank[previous.severity] && next.count > previous.count)
+          || (rank[next.severity] === rank[previous.severity] && next.count === previous.count && next.spanWords < previous.spanWords)
+        ) marked.set(token.start, next);
+      }
+    }
+  }
+
+  return [...marked.values()].sort((a, b) => a.start - b.start);
+}
+
+
+type PhraseBaseOccurrence = {
+  start: number;
+  end: number;
+  startWord: number;
+  endWord: number;
+};
+
+type PhraseAnalysisGroup = {
+  summary: NearbyPhraseRepeat;
+  occurrences: PhraseBaseOccurrence[];
+  selected: Set<number>;
+};
+
+function phraseContainsPhrase(longer: string, shorter: string): boolean {
+  return (" " + longer + " ").includes(" " + shorter + " ");
+}
+
+function collectNearbyPhraseAnalysis(text: string, language = "en", windowWords = 80): {
+  summaries: NearbyPhraseRepeat[];
+  occurrences: PhraseOccurrence[];
+} {
+  const safeWindow = Math.max(20, Math.min(500, Math.round(windowWords)));
+  const stop = stopWords(language);
+  const tokens = tokeniseWithOffsets(text);
+  const groups = new Map<string, PhraseBaseOccurrence[]>();
+
+  for (let words = 2; words <= 5; words++) {
+    for (let start = 0; start + words <= tokens.length; start++) {
+      const slice = tokens.slice(start, start + words);
+      if (slice[0].segment !== slice[slice.length - 1].segment) continue;
+
+      const contentWords = slice.filter((token) => eligibleAnalysisToken(token, stop));
+      if (!contentWords.length) continue;
+
+      const phrase = slice.map((token) => token.word).join(" ");
+      const list = groups.get(phrase) ?? [];
+      list.push({
+        start: slice[0].start,
+        end: slice[slice.length - 1].end,
+        startWord: slice[0].wordIndex,
+        endWord: slice[slice.length - 1].wordIndex,
+      });
+      groups.set(phrase, list);
+    }
+  }
+
+  const analyzed: PhraseAnalysisGroup[] = [];
+  for (const [phrase, occurrences] of groups) {
+    if (occurrences.length < 2) continue;
+    const words = phrase.split(" ").length;
+    let bestCount = 0;
+    let bestSpan = Number.POSITIVE_INFINITY;
+    const selected = new Set<number>();
+    let right = 0;
+
+    for (let left = 0; left < occurrences.length; left++) {
+      if (right < left + 1) right = left + 1;
+      while (
+        right < occurrences.length
+        && occurrences[right].endWord - occurrences[left].startWord + 1 <= safeWindow
+      ) right++;
+
+      const count = right - left;
+      if (count < 2) continue;
+      const spanWords = occurrences[right - 1].endWord - occurrences[left].startWord + 1;
+      if (count > bestCount || (count === bestCount && spanWords < bestSpan)) {
+        bestCount = count;
+        bestSpan = spanWords;
+      }
+      for (let index = left; index < right; index++) selected.add(index);
+    }
+
+    if (bestCount < 2 || !Number.isFinite(bestSpan)) continue;
+    analyzed.push({
+      summary: { phrase, count: bestCount, words, windowWords: safeWindow, spanWords: bestSpan },
+      occurrences,
+      selected,
+    });
+  }
+
+  analyzed.sort((a, b) =>
+    b.summary.words - a.summary.words
+    || b.summary.count - a.summary.count
+    || a.summary.spanWords - b.summary.spanWords
+    || a.summary.phrase.localeCompare(b.summary.phrase));
+
+  // Prefer the longest useful expression. If "he looked at her" repeats twice,
+  // don't also flood the UI with "he looked", "looked at", etc. Keep a shorter
+  // phrase only when it occurs more often than its longer parent.
+  const accepted: PhraseAnalysisGroup[] = [];
+  for (const candidate of analyzed) {
+    const redundant = accepted.some((parent) =>
+      parent.summary.words > candidate.summary.words
+      && parent.summary.count >= candidate.summary.count
+      && phraseContainsPhrase(parent.summary.phrase, candidate.summary.phrase)
+    );
+    if (!redundant) accepted.push(candidate);
+    if (accepted.length >= 60) break;
+  }
+
+  const summaries = accepted
+    .map((item) => item.summary)
+    .sort((a, b) =>
+      b.count - a.count
+      || b.words - a.words
+      || a.spanWords - b.spanWords
+      || a.phrase.localeCompare(b.phrase));
+
+  const occurrences: PhraseOccurrence[] = [];
+  for (const group of accepted) {
+    for (const index of group.selected) {
+      const occurrence = group.occurrences[index];
+      occurrences.push({
+        phrase: group.summary.phrase,
+        start: occurrence.start,
+        end: occurrence.end,
+        count: group.summary.count,
+        words: group.summary.words,
+        spanWords: group.summary.spanWords,
+      });
+    }
+  }
+  occurrences.sort((a, b) => a.start - b.start || b.words - a.words);
+
+  return { summaries, occurrences };
+}
+
+export function nearbyPhrases(text: string, language = "en", windowWords = 80): NearbyPhraseRepeat[] {
+  return collectNearbyPhraseAnalysis(text, language, windowWords).summaries;
+}
+
+export function nearbyPhraseOccurrences(text: string, language = "en", windowWords = 80): PhraseOccurrence[] {
+  return collectNearbyPhraseAnalysis(text, language, windowWords).occurrences;
 }
 
 export function repeatedWords(text: string, language = "en"): RepeatedWord[] {
@@ -208,24 +508,32 @@ export function repeatedWords(text: string, language = "en"): RepeatedWord[] {
 }
 
 export function nearbyRepetitions(text: string, language = "en", windowWords = 80): NearbyRepeat[] {
-  const stop = stopWords(language);
-  const words = tokenise(text);
-  const positions = new Map<string, number[]>();
-  const best = new Map<string, number>();
+  const rank: Record<RepetitionSeverity, number> = { low: 1, medium: 2, high: 3 };
+  const best = new Map<string, NearbyRepeat>();
 
-  for (let index = 0; index < words.length; index++) {
-    const word = words[index];
-    if (word.length < 3 || stop.has(word) || /^\d+$/.test(word)) continue;
-    const queue = positions.get(word) ?? [];
-    queue.push(index);
-    while (queue.length && index - queue[0] > windowWords) queue.shift();
-    positions.set(word, queue);
-    if (queue.length >= 3) best.set(word, Math.max(best.get(word) ?? 0, queue.length));
+  for (const hit of repetitionOccurrences(text, language, windowWords)) {
+    const next: NearbyRepeat = {
+      word: hit.word,
+      count: hit.count,
+      windowWords: Math.max(12, Math.min(500, Math.round(windowWords))),
+      spanWords: hit.spanWords,
+      severity: hit.severity,
+    };
+    const previous = best.get(hit.word);
+    if (
+      !previous
+      || rank[next.severity] > rank[previous.severity]
+      || (rank[next.severity] === rank[previous.severity] && next.count > previous.count)
+      || (rank[next.severity] === rank[previous.severity] && next.count === previous.count && next.spanWords < previous.spanWords)
+    ) best.set(hit.word, next);
   }
 
-  return [...best.entries()]
-    .map(([word, count]) => ({ word, count, windowWords }))
-    .sort((a, b) => b.count - a.count || a.word.localeCompare(b.word))
+  return [...best.values()]
+    .sort((a, b) =>
+      rank[b.severity] - rank[a.severity]
+      || b.count - a.count
+      || a.spanWords - b.spanWords
+      || a.word.localeCompare(b.word))
     .slice(0, 60);
 }
 
