@@ -196,13 +196,14 @@ export function normalizePairedScrollAnchors(anchors: PairedScrollAnchor[]): Pai
   for (const item of sorted) {
     const previous = normalized.at(-1);
     if (previous && Math.abs(item.target - previous.target) < 0.5) {
-      previous.source = Math.max(previous.source, item.source);
+      // A continuous scroll mapping can only have one destination for one
+      // origin coordinate. Keep the newest/right-most concrete anchor instead
+      // of forcing the secondary axis to be monotonic. This also preserves
+      // legitimate reordered passages in a Second Draft.
+      normalized[normalized.length - 1] = item;
       continue;
     }
-    normalized.push({
-      target: item.target,
-      source: previous ? Math.max(previous.source, item.source) : item.source,
-    });
+    normalized.push(item);
   }
   return normalized;
 }
