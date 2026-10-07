@@ -779,7 +779,7 @@ try {
     });
     await page.waitForFunction((expected) => {
       const status = document.querySelector(".second-draft-sync-status")?.textContent ?? "";
-      return status.includes(`${expected} links`);
+      return status.includes(`${expected} link`);
     }, {}, linkIndex + 1);
   }
 
