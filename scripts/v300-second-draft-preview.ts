@@ -51,7 +51,7 @@ try {
     const editor = el as HTMLElement;
     const probe = document.createElement("p");
     probe.dataset.initialRepeatsQa = "true";
-    probe.textContent = "Lantern lantern lantern lantern lantern. The empty platform waited. The empty platform waited.";
+    probe.textContent = "Lantern copper lantern marble lantern velvet lantern quartz lantern. The empty platform waited. The empty platform waited.";
     editor.appendChild(probe);
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: probe.textContent }));
   });
@@ -532,7 +532,7 @@ try {
     const editor = el as HTMLElement;
     const probe = document.createElement("p");
     probe.dataset.repetitionQa = "true";
-    probe.textContent = "Lantern lantern lantern lantern lantern across the empty platform. The empty platform waited. The empty platform waited.";
+    probe.textContent = "Lantern copper lantern marble lantern velvet lantern quartz lantern. The empty platform waited. The empty platform waited.";
     editor.appendChild(probe);
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: probe.textContent }));
   });
