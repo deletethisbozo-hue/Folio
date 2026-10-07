@@ -742,31 +742,34 @@ try {
   await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Select matching lines"));
 
   for (let linkIndex = 0; linkIndex < 12; linkIndex++) {
-    await page.evaluate((index) => {
-      const paragraph = Math.min(124, 5 + index * 10);
+    const paragraph = Math.min(124, 5 + linkIndex * 10);
+    await page.evaluate((paragraphIndex) => {
       const source = document.querySelector<HTMLElement>(".second-draft-source")!;
-      const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
-
-      const sourceNode = document.querySelector<HTMLElement>(`.second-draft-source [data-long-scroll-qa="${paragraph}"]`)?.firstChild;
+      const sourceNode = document.querySelector<HTMLElement>(`.second-draft-source [data-long-scroll-qa="${paragraphIndex}"]`)?.firstChild;
       if (!(sourceNode instanceof Text)) throw new Error("Long-scroll QA source text node missing");
       const sourceRange = document.createRange();
       sourceRange.setStart(sourceNode, 0);
       sourceRange.setEnd(sourceNode, Math.min(28, sourceNode.length));
-      const sourceSelection = window.getSelection()!;
-      sourceSelection.removeAllRanges();
-      sourceSelection.addRange(sourceRange);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(sourceRange);
       source.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    }, paragraph);
+    await settle(35);
 
-      const targetNode = document.querySelector<HTMLElement>(`.manuscript-editor [data-long-scroll-qa="${paragraph}"]`)?.firstChild;
+    await page.evaluate((paragraphIndex) => {
+      const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+      const targetNode = document.querySelector<HTMLElement>(`.manuscript-editor [data-long-scroll-qa="${paragraphIndex}"]`)?.firstChild;
       if (!(targetNode instanceof Text)) throw new Error("Long-scroll QA target text node missing");
       const targetRange = document.createRange();
       targetRange.setStart(targetNode, 0);
       targetRange.setEnd(targetNode, Math.min(28, targetNode.length));
-      const targetSelection = window.getSelection()!;
-      targetSelection.removeAllRanges();
-      targetSelection.addRange(targetRange);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(targetRange);
       target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-    }, linkIndex);
+    }, paragraph);
+
     await page.waitForFunction(() => {
       const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
         .find((button) => button.textContent?.trim() === "Link lines");
