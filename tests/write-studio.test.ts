@@ -7,6 +7,8 @@ import {
   countMatches,
   diffLines,
   markdownToReadableSnapshotText,
+  nearbyPhraseOccurrences,
+  nearbyPhrases,
   nearbyRepetitions,
   repeatedWords,
   repetitionOccurrences,
@@ -81,6 +83,25 @@ await test("repetition analysis ignores stop words and measures actual repetitio
 
   const german = repeatedWords("der der der turm turm turm", "de");
   assert.deepEqual(german, [{ word: "turm", count: 3 }]);
+});
+
+await test("nearby phrase analysis prefers specific 2-5 word phrases and respects hard boundaries", () => {
+  const prose = [
+    "She looked over her shoulder before the train arrived.",
+    "A minute later she looked over her shoulder and stepped back.",
+  ].join(" ");
+  const phrases = nearbyPhrases(prose, "en", 80);
+  const five = phrases.find((item) => item.phrase === "she looked over her shoulder");
+  assert.ok(five && five.words === 5 && five.count === 2);
+  assert.equal(phrases.some((item) => item.phrase === "looked over her shoulder" && item.count === 2), false);
+
+  const hardBoundary = nearbyPhrases("alpha beta. gamma delta alpha. beta gamma delta", "en", 80);
+  assert.equal(hardBoundary.some((item) => item.phrase === "beta gamma"), false);
+
+  const hits = nearbyPhraseOccurrences(prose, "en", 80)
+    .filter((item) => item.phrase === "she looked over her shoulder");
+  assert.equal(hits.length, 2);
+  assert.equal(hits.every((item) => item.end > item.start && item.words === 5), true);
 });
 
 await test("revision diff preserves unchanged lines and marks additions/removals", () => {
