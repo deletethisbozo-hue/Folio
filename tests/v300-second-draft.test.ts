@@ -115,11 +115,22 @@ check("bidirectional paired scroll arbitrates user intent and suppresses feedbac
   && pane.includes("requestAnimationFrame")
   && pane.includes("ResizeObserver")
   && !pane.includes("programmaticScrollRef"));
-check("Second Draft repetition heatmap is live, local and graded",
+check("Second Draft repetition heatmap self-attaches, includes phrases, and stays local",
   pane.includes("repetitionOccurrences")
+  && pane.includes("nearbyPhraseOccurrences")
+  && pane.includes("MutationObserver")
+  && pane.includes("attachWhenReady")
   && pane.includes("repetitionHeatmap")
-  && ["folio-repeat-low", "folio-repeat-medium", "folio-repeat-high"].every((name) => pane.includes(name) || css.includes(name))
+  && ["folio-repeat-phrase", "folio-repeat-low", "folio-repeat-medium", "folio-repeat-high"].every((name) => pane.includes(name) || css.includes(name))
+  && pane.includes("Hide repetition highlights")
   && pane.includes("Repeats"));
+
+check("paired-scroll links can be managed individually",
+  pane.includes("Scroll links")
+  && pane.includes("removeManualScrollAnchor")
+  && pane.includes("jumpToManualScrollAnchor")
+  && pane.includes("Links {manualAnchors.length}")
+  && css.includes(".second-draft-links-popover"));
 
 check("Source Burn and paired scroll only operate on the actually paired source",
   pane.includes("!sourceMatchesPair || sourceChanged")
