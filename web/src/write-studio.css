@@ -433,3 +433,15 @@
 .analysis-list.nearby button.repeat-high {
   border-color: color-mix(in srgb, var(--mockup-accent, var(--studio-accent)) 42%, var(--mockup-rule, var(--studio-rule)));
 }
+
+.analysis-list.nearby.phrases button.repeat-phrase {
+  border-color: color-mix(in srgb, #5ab8ff 34%, var(--mockup-rule, var(--studio-rule)));
+  background: color-mix(in srgb, #7cc7ff 9%, var(--mockup-canvas, var(--studio-editor-canvas)));
+}
+.analysis-list.nearby.phrases button.repeat-phrase:hover {
+  border-color: color-mix(in srgb, #5ab8ff 68%, var(--mockup-rule, var(--studio-rule)));
+  background: color-mix(in srgb, #7cc7ff 16%, var(--mockup-canvas, var(--studio-editor-canvas)));
+}
+.analysis-list.nearby.phrases button.repeat-phrase strong {
+  color: #278fd8;
+}
