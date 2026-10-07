@@ -96,6 +96,99 @@ try {
   await settle();
   await page.screenshot({ path: path.join(qa, "01-main-light.png") });
 
+  // Sidebar-open responsive gate. Second Draft must react to its own pane width,
+  // not just to the browser viewport, and no control label may collapse into a
+  // neighboring button.
+  const sidebarToggle = await page.$(".write-sidebar-toggle");
+  if (!sidebarToggle) throw new Error("Write sidebar toggle missing for Second Draft responsive QA");
+  await sidebarToggle.click();
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-write-sidebar") === "open");
+  await settle(120);
+
+  const sidebarLayout = await page.evaluate(() => {
+    const pane = document.querySelector<HTMLElement>(".second-draft-pane");
+    if (!pane) throw new Error("Second Draft pane missing during sidebar-open QA");
+
+    const selectors = [
+      ".second-draft-head-actions button",
+      ".second-draft-header select",
+      ".second-draft-source-toolbar button",
+      ".second-draft-actionbar button",
+      ".second-draft-actionbar select",
+    ];
+    const controls = selectors.flatMap((selector) => [...document.querySelectorAll<HTMLElement>(selector)])
+      .filter((element, index, all) => all.indexOf(element) === index)
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      });
+
+    const clippedLabels = controls
+      .filter((element) => element.scrollWidth > element.clientWidth + 2)
+      .map((element) => ({
+        text: element.textContent?.trim() ?? "",
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }));
+
+    const rows = [
+      document.querySelector<HTMLElement>(".second-draft-head-actions"),
+      document.querySelector<HTMLElement>(".second-draft-source-toolbar"),
+      document.querySelector<HTMLElement>(".second-draft-actionbar"),
+    ].filter(Boolean) as HTMLElement[];
+
+    const overlaps: Array<{ row: string; left: string; right: string }> = [];
+    for (const row of rows) {
+      const children = [...row.querySelectorAll<HTMLElement>("button, select")]
+        .filter((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          const rowRect = row.getBoundingClientRect();
+          return style.display !== "none"
+            && style.visibility !== "hidden"
+            && rect.width > 0
+            && rect.right > rowRect.left
+            && rect.left < rowRect.right;
+        })
+        .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+      for (let index = 1; index < children.length; index++) {
+        const previous = children[index - 1].getBoundingClientRect();
+        const current = children[index].getBoundingClientRect();
+        if (current.left < previous.right - 1) {
+          overlaps.push({
+            row: row.className,
+            left: children[index - 1].textContent?.trim() ?? "",
+            right: children[index].textContent?.trim() ?? "",
+          });
+        }
+      }
+    }
+
+    return {
+      paneWidth: pane.getBoundingClientRect().width,
+      clippedLabels,
+      overlaps,
+      compactTitleHidden: getComputedStyle(document.querySelector<HTMLElement>(".second-draft-header .writing-split-title strong")!).display === "none",
+      compactMetaHidden: getComputedStyle(document.querySelector<HTMLElement>(".second-draft-source-meta")!).display === "none",
+    };
+  });
+
+  if (
+    sidebarLayout.paneWidth > 720
+    || sidebarLayout.clippedLabels.length
+    || sidebarLayout.overlaps.length
+    || !sidebarLayout.compactTitleHidden
+    || !sidebarLayout.compactMetaHidden
+  ) {
+    throw new Error("Second Draft sidebar-open layout overlapped or failed compact mode: " + JSON.stringify(sidebarLayout));
+  }
+  await page.screenshot({ path: path.join(qa, "18-sidebar-open-second-draft-light.png") });
+
+  await sidebarToggle.click();
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-write-sidebar") === "closed");
+  await settle(100);
+
   // Switching the dropdown must not apply the existing pair's ranges/actions to another source.
   const pairedSourceId = await page.$eval(".second-draft-header select", (select) => (select as HTMLSelectElement).value);
   const alternateSourceId = await page.$eval(".second-draft-header select", (select) => {
