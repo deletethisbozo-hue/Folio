@@ -9,6 +9,7 @@ import {
   markdownToReadableSnapshotText,
   nearbyRepetitions,
   repeatedWords,
+  repetitionOccurrences,
   replaceMatches,
   replacementForMatch,
 } from "../web/src/write-studio.ts";
@@ -58,12 +59,26 @@ await test("advanced find supports literal, case-sensitive, whole-word and regex
   assert.equal(countMatches(polish, "żaba", { caseSensitive: false, wholeWord: true, regex: false }), 2);
 });
 
-await test("repetition analysis ignores common stop words and ranks repeated terms", () => {
+await test("repetition analysis ignores stop words and measures actual repetition density", () => {
   const words = repeatedWords("the raven and the raven saw another raven beside the tower tower tower", "en");
   assert.deepEqual(words.slice(0, 2), [{ word: "raven", count: 3 }, { word: "tower", count: 3 }]);
-  const nearby = nearbyRepetitions("glass one two glass three four glass five six seven tower tower tower", "en", 8);
-  assert.equal(nearby.some((item) => item.word === "glass" && item.count >= 3), true);
-  assert.equal(nearby.some((item) => item.word === "tower" && item.count >= 3), true);
+
+  const nearby = nearbyRepetitions("glass one two glass three four glass five six seven tower tower tower", "en", 12);
+  const glass = nearby.find((item) => item.word === "glass");
+  const tower = nearby.find((item) => item.word === "tower");
+  assert.ok(glass && glass.count >= 3 && glass.spanWords < glass.windowWords);
+  assert.ok(tower && tower.count >= 3 && tower.spanWords <= 3);
+
+  const tightPair = nearbyRepetitions("lantern one two lantern", "en", 80).find((item) => item.word === "lantern");
+  assert.ok(tightPair && tightPair.count === 2 && tightPair.spanWords === 4);
+
+  const distantPair = "lantern " + Array.from({ length: 30 }, (_, index) => "word" + index).join(" ") + " lantern";
+  assert.equal(nearbyRepetitions(distantPair, "en", 80).some((item) => item.word === "lantern"), false);
+
+  const hits = repetitionOccurrences("mirror one two mirror three mirror", "en", 80).filter((item) => item.word === "mirror");
+  assert.equal(hits.length, 3);
+  assert.equal(hits.every((item) => item.severity === "high"), true);
+
   const german = repeatedWords("der der der turm turm turm", "de");
   assert.deepEqual(german, [{ word: "turm", count: 3 }]);
 });
