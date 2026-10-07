@@ -427,3 +427,9 @@
   text-align: center;
   font: 9px/1.2 var(--folio-ui-font);
 }
+
+.analysis-list.nearby button.repeat-low strong { opacity: .72; }
+.analysis-list.nearby button.repeat-medium strong { font-weight: 750; }
+.analysis-list.nearby button.repeat-high {
+  border-color: color-mix(in srgb, var(--mockup-accent, var(--studio-accent)) 42%, var(--mockup-rule, var(--studio-rule)));
+}
