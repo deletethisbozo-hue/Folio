@@ -475,7 +475,18 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         phrases.add(hit.phrase);
       }
 
+      let phraseCursor = 0;
       for (const hit of wordHits) {
+        while (phraseCursor < phraseHits.length && phraseHits[phraseCursor].end < hit.start) phraseCursor++;
+        let coveredByPhrase = false;
+        for (let index = phraseCursor; index < phraseHits.length && phraseHits[index].start <= hit.start; index++) {
+          if (phraseHits[index].end >= hit.end) {
+            coveredByPhrase = true;
+            break;
+          }
+        }
+        if (coveredByPhrase) continue;
+
         const range = rangeForTextOffsets(targetEditor, hit.start, hit.end);
         if (!range) continue;
         const name = `folio-repeat-${hit.severity}`;
