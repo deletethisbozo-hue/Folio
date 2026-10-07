@@ -129,6 +129,7 @@
 }
 .second-draft-sync-controls {
   margin-left: 4px;
+  position: relative;
 }
 .second-draft-scene-controls button,
 .second-draft-review-controls button,
@@ -165,6 +166,75 @@
   border-color: color-mix(in srgb, var(--sd-accent) 38%, transparent);
   background: color-mix(in srgb, var(--sd-accent) 12%, transparent);
   color: var(--sd-accent);
+}
+
+.second-draft-links-popover {
+  position: absolute;
+  z-index: 90;
+  top: calc(100% + 7px);
+  right: 0;
+  width: 290px;
+  max-height: min(330px, 46vh);
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 13%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mockup-paper, var(--studio-paper, #fff)) 97%, var(--sd-accent));
+  box-shadow: 0 14px 38px rgba(0,0,0,.18);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+.second-draft-links-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 3px 7px;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  font: 700 9.5px/1 var(--folio-ui-font);
+}
+.second-draft-links-head span {
+  font-variant-numeric: tabular-nums;
+  opacity: .58;
+}
+.second-draft-links-list {
+  display: grid;
+  gap: 4px;
+  max-height: 270px;
+  overflow: auto;
+}
+.second-draft-sync-controls .second-draft-link-row {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 26px;
+  gap: 4px;
+}
+.second-draft-sync-controls .second-draft-link-jump {
+  min-width: 0;
+  height: auto;
+  min-height: 38px;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 3px;
+  padding: 6px 7px;
+  text-align: left;
+}
+.second-draft-link-jump strong {
+  font: 700 9.5px/1 var(--folio-ui-font);
+}
+.second-draft-link-jump span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: .58;
+  font: 500 8.5px/1 var(--folio-ui-font);
+  font-variant-numeric: tabular-nums;
+}
+.second-draft-sync-controls .second-draft-link-remove {
+  min-width: 26px;
+  width: 26px;
+  padding: 0;
+  font-size: 14px;
+  color: color-mix(in srgb, currentColor 58%, transparent);
 }
  .second-draft-actionbar {
   position: absolute;
@@ -835,6 +905,10 @@
 
 /* Live nearby-repetition heatmap for the editable target manuscript.
  * CSS Highlights keep the editor DOM untouched, so typing/selection/undo stay native. */
+::highlight(folio-repeat-phrase) {
+  background-color: rgba(87, 183, 255, .18);
+  text-decoration: underline 1px rgba(52, 145, 216, .56);
+}
 ::highlight(folio-repeat-low) {
   background-color: rgba(234, 179, 8, .16);
   text-decoration: underline 1px rgba(202, 138, 4, .48);
@@ -846,4 +920,35 @@
 ::highlight(folio-repeat-high) {
   background-color: rgba(239, 68, 68, .23);
   text-decoration: underline 2px rgba(220, 38, 38, .72);
+}
+
+
+.second-draft-repeat-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+}
+.second-draft-repeat-eye {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .76;
+}
+.second-draft-repeat-eye circle {
+  fill: currentColor;
+  stroke: none;
+}
+.second-draft-repeat-toggle:not(.active) .second-draft-repeat-eye {
+  opacity: .5;
+}
+.second-draft-repeat-eye .slash {
+  stroke-width: 1.8;
+}
+.folio-shell[data-ui-tone="midnight"] ::highlight(folio-repeat-phrase) {
+  background-color: rgba(102, 196, 255, .21);
+  text-decoration-color: rgba(115, 202, 255, .70);
 }
