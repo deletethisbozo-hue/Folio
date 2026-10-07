@@ -54,10 +54,12 @@ const normalizedAnchors = normalizePairedScrollAnchors([
   { target: 100, source: 90 },
   { target: Number.NaN, source: 10 },
 ]);
-check("paired scroll anchors are finite, deduplicated and monotonic",
+check("paired scroll anchors deduplicate the driving axis without destroying reordered source links",
   normalizedAnchors.length === 3
   && normalizedAnchors.every((item, index) => index === 0 || item.target > normalizedAnchors[index - 1].target)
-  && normalizedAnchors.every((item, index) => index === 0 || item.source >= normalizedAnchors[index - 1].source));
+  && normalizedAnchors[1].source === 170
+  && normalizedAnchors[2].source === 90
+  && interpolatePairedScroll(75, normalizedAnchors) < normalizedAnchors[1].source);
 
 const app = readFileSync(path.join(ROOT, "web/src/App.tsx"), "utf8");
 const pane = readFileSync(path.join(ROOT, "web/src/SecondDraftPane.tsx"), "utf8");
@@ -107,10 +109,18 @@ check("paired scroll requires explicit source/target text links",
   && pane.includes("sourceOffset")
   && pane.includes("targetSelection")
   && pane.includes("manualAnchors"));
-check("bidirectional paired scroll consumes programmatic events instead of bouncing",
-  pane.includes("programmaticScrollRef")
-  && pane.includes("consumeProgrammatic")
-  && !pane.includes("scrollSyncRef"));
+check("bidirectional paired scroll arbitrates user intent and suppresses feedback loops",
+  pane.includes("scrollSuppressedUntilRef")
+  && pane.includes("scrollLeaderRef")
+  && pane.includes("requestAnimationFrame")
+  && pane.includes("ResizeObserver")
+  && !pane.includes("programmaticScrollRef"));
+check("Second Draft repetition heatmap is live, local and graded",
+  pane.includes("repetitionOccurrences")
+  && pane.includes("repetitionHeatmap")
+  && ["folio-repeat-low", "folio-repeat-medium", "folio-repeat-high"].every((name) => pane.includes(name) || css.includes(name))
+  && pane.includes("Repeats"));
+
 check("Source Burn and paired scroll only operate on the actually paired source",
   pane.includes("!sourceMatchesPair || sourceChanged")
   && pane.includes("sourceMatchesPair && !sourceChanged")
