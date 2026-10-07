@@ -696,18 +696,25 @@ try {
   await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
     const source = document.querySelector<HTMLElement>(".second-draft-source")!;
-    const makeLongBlock = (prefix: string) => {
-      const fragment = document.createDocumentFragment();
-      for (let paragraph = 0; paragraph < 125; paragraph++) {
-        const p = document.createElement("p");
-        p.dataset.longScrollQa = String(paragraph);
-        p.textContent = Array.from({ length: 90 }, (_, word) => `${prefix}${paragraph}w${word}`).join(" ");
-        fragment.appendChild(p);
-      }
-      return fragment;
-    };
-    target.appendChild(makeLongBlock("t"));
-    source.appendChild(makeLongBlock("s"));
+    const targetFragment = document.createDocumentFragment();
+    const sourceFragment = document.createDocumentFragment();
+    for (let paragraph = 0; paragraph < 125; paragraph++) {
+      const targetP = document.createElement("p");
+      targetP.dataset.longScrollQa = String(paragraph);
+      const targetWords: string[] = [];
+      for (let word = 0; word < 90; word++) targetWords.push(`t${paragraph}w${word}`);
+      targetP.textContent = targetWords.join(" ");
+      targetFragment.appendChild(targetP);
+
+      const sourceP = document.createElement("p");
+      sourceP.dataset.longScrollQa = String(paragraph);
+      const sourceWords: string[] = [];
+      for (let word = 0; word < 90; word++) sourceWords.push(`s${paragraph}w${word}`);
+      sourceP.textContent = sourceWords.join(" ");
+      sourceFragment.appendChild(sourceP);
+    }
+    target.appendChild(targetFragment);
+    source.appendChild(sourceFragment);
     target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "long-scroll-qa" }));
   });
   await settle(220);
@@ -715,8 +722,12 @@ try {
   const longGeometry = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
     const source = document.querySelector<HTMLElement>(".second-draft-source")!;
-    const words = (el: HTMLElement) => (el.textContent?.trim().match(/\S+/g)?.length ?? 0);
-    return { targetWords: words(target), sourceWords: words(source), targetMax: target.scrollHeight - target.clientHeight, sourceMax: source.scrollHeight - source.clientHeight };
+    return {
+      targetWords: target.textContent?.trim().match(/\S+/g)?.length ?? 0,
+      sourceWords: source.textContent?.trim().match(/\S+/g)?.length ?? 0,
+      targetMax: target.scrollHeight - target.clientHeight,
+      sourceMax: source.scrollHeight - source.clientHeight,
+    };
   });
   if (longGeometry.targetWords < 10_000 || longGeometry.sourceWords < 10_000 || longGeometry.targetMax <= 0 || longGeometry.sourceMax <= 0) {
     throw new Error("Long-manuscript scroll fixture did not exceed 10k words: " + JSON.stringify(longGeometry));
@@ -732,22 +743,29 @@ try {
 
   for (let linkIndex = 0; linkIndex < 12; linkIndex++) {
     await page.evaluate((index) => {
-      const select = (selector: string, eventTarget: HTMLElement) => {
-        const node = document.querySelector<HTMLElement>(selector)?.firstChild;
-        if (!(node instanceof Text)) throw new Error("Long-scroll QA text node missing: " + selector);
-        const range = document.createRange();
-        range.setStart(node, 0);
-        range.setEnd(node, Math.min(28, node.length));
-        const selection = window.getSelection()!;
-        selection.removeAllRanges();
-        selection.addRange(range);
-        eventTarget.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-      };
       const paragraph = Math.min(124, 5 + index * 10);
       const source = document.querySelector<HTMLElement>(".second-draft-source")!;
       const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
-      select(`.second-draft-source [data-long-scroll-qa="${paragraph}"]`, source);
-      select(`.manuscript-editor [data-long-scroll-qa="${paragraph}"]`, target);
+
+      const sourceNode = document.querySelector<HTMLElement>(`.second-draft-source [data-long-scroll-qa="${paragraph}"]`)?.firstChild;
+      if (!(sourceNode instanceof Text)) throw new Error("Long-scroll QA source text node missing");
+      const sourceRange = document.createRange();
+      sourceRange.setStart(sourceNode, 0);
+      sourceRange.setEnd(sourceNode, Math.min(28, sourceNode.length));
+      const sourceSelection = window.getSelection()!;
+      sourceSelection.removeAllRanges();
+      sourceSelection.addRange(sourceRange);
+      source.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+
+      const targetNode = document.querySelector<HTMLElement>(`.manuscript-editor [data-long-scroll-qa="${paragraph}"]`)?.firstChild;
+      if (!(targetNode instanceof Text)) throw new Error("Long-scroll QA target text node missing");
+      const targetRange = document.createRange();
+      targetRange.setStart(targetNode, 0);
+      targetRange.setEnd(targetNode, Math.min(28, targetNode.length));
+      const targetSelection = window.getSelection()!;
+      targetSelection.removeAllRanges();
+      targetSelection.addRange(targetRange);
+      target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
     }, linkIndex);
     await page.waitForFunction(() => {
       const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
