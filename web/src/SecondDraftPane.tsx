@@ -96,7 +96,7 @@ function readSecondDraftViewState(key: string): SecondDraftViewState | null {
             sourceOffset: Math.max(0, Math.round(Number(item?.sourceOffset))),
           }))
           .filter((item) => Number.isFinite(item.targetOffset) && Number.isFinite(item.sourceOffset))
-          .slice(-8)
+          .sort((a, b) => a.targetOffset - b.targetOffset)
       : [];
     return {
       targetRatio: clampRatio(Number(value.targetRatio ?? 0)),
@@ -560,12 +560,21 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       return anchors;
     };
 
-    const remember = () => persistViewState();
+    let cachedAnchors = buildAnchors();
+    let persistTimer: ReturnType<typeof setTimeout> | null = null;
+    const rebuildAnchors = () => { cachedAnchors = buildAnchors(); };
+    const remember = () => {
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        persistTimer = null;
+        persistViewState();
+      }, 45);
+    };
     const now = () => performance.now();
 
     const syncOneWay = (from: "target" | "source") => {
       if (restoringScrollRef.current || !syncScrollStateRef.current || manualAnchorsStateRef.current.length === 0) return;
-      const anchors = buildAnchors();
+      const anchors = cachedAnchors;
       if (!anchors.length) return;
 
       if (from === "target") {
@@ -613,7 +622,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     };
     const targetIntent = () => userTookControl("target");
     const sourceIntent = () => userTookControl("source");
-    const targetInput = () => schedule("target");
+    const targetInput = () => {
+      rebuildAnchors();
+      schedule("target");
+    };
 
     targetEditor.addEventListener("scroll", onTargetScroll, { passive: true });
     sourceEditor.addEventListener("scroll", onSourceScroll, { passive: true });
@@ -624,6 +636,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     targetEditor.addEventListener("input", targetInput);
 
     const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      rebuildAnchors();
       schedule(scrollLeaderRef.current);
     });
     resizeObserver?.observe(targetEditor);
@@ -632,6 +645,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     return () => {
       if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
       scrollFrameRef.current = null;
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = null;
       scrollSuppressedUntilRef.current.target = 0;
       scrollSuppressedUntilRef.current.source = 0;
       targetEditor.removeEventListener("scroll", onTargetScroll);
@@ -651,9 +666,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       targetOffset: Math.round((targetSelection.start + targetSelection.end) / 2),
       sourceOffset: Math.round((selection.start + selection.end) / 2),
     };
-    const next = [...manualAnchors.filter((item) => Math.abs(item.targetOffset - anchor.targetOffset) > 8), anchor]
-      .sort((a, b) => a.targetOffset - b.targetOffset)
-      .slice(-8);
+    const next = [...manualAnchors.filter((item) =>
+      Math.abs(item.targetOffset - anchor.targetOffset) > 8
+      && Math.abs(item.sourceOffset - anchor.sourceOffset) > 8
+    ), anchor].sort((a, b) => a.targetOffset - b.targetOffset);
     setManualAnchors(next);
     setSyncScroll(true);
     setTargetSelection(null);
