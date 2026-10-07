@@ -790,7 +790,7 @@ try {
     links.click();
   });
   await page.waitForSelector(".second-draft-links-popover");
-  const linkRowsBeforeRemove = await page.$eval(".second-draft-link-row", (rows) => rows.length);
+  const linkRowsBeforeRemove = await page.$$eval(".second-draft-link-row", (rows) => rows.length);
   if (linkRowsBeforeRemove !== 12) throw new Error("Manage Links did not list all twelve links: " + linkRowsBeforeRemove);
 
   await page.click(".second-draft-link-row:nth-child(6) .second-draft-link-jump");
