@@ -2,7 +2,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5]
+    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5, feature/folio-3.0-second-draft]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -93,6 +93,19 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Full formatter and UI suite on Windows
+        shell: pwsh
+        run: |
+          $maxAttempts = 3
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "Full test suite attempt $attempt/$maxAttempts"
+            npm test
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($attempt -eq $maxAttempts) { throw "Full formatter/UI suite failed after $maxAttempts attempts." }
+            Write-Warning "Transient browser-test failure; retrying the complete suite."
+            Start-Sleep -Seconds 5
+          }
+
       - name: Build web and server
         run: npm run build
 
@@ -116,7 +129,7 @@ jobs:
           }
 
       - name: Upload UI screenshots
-        if: always()
+        if: always() && (github.ref == 'refs/heads/experiment/ulysses-liquid-glass' || github.ref == 'refs/heads/fix/midnight-2.5' || github.ref == 'refs/heads/feature/folio-3.0-second-draft')
         uses: actions/upload-artifact@v4
         with:
           name: Folio-UI-Preview
@@ -125,19 +138,6 @@ jobs:
             build/qa-v300-second-draft/*.png
             build/qa-v107/*.png
           if-no-files-found: error
-
-      - name: Full formatter and UI suite on Windows
-        shell: pwsh
-        run: |
-          $maxAttempts = 3
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Host "Full test suite attempt $attempt/$maxAttempts"
-            npm test
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            if ($attempt -eq $maxAttempts) { throw "Full formatter/UI suite failed after $maxAttempts attempts." }
-            Write-Warning "Transient browser-test failure; retrying the complete suite."
-            Start-Sleep -Seconds 5
-          }
 
       - name: Full Print PDF trim matrix with physical gap gate
         run: node --import tsx scripts/print-matrix-qa.ts
@@ -253,11 +253,11 @@ jobs:
             build/qa-v107/*
             build/qa-print-matrix/*
             build/qa-v210-writing-studio/*
-            build/qa-v300-second-draft/*.png
+            build/qa-v300-second-draft/*
           if-no-files-found: error
 
       - name: Publish immutable GitHub Release
-        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

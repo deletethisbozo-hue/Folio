@@ -1,0 +1,56 @@
+name: Folio 3.0 Second Draft QA
+
+on:
+  push:
+    branches: [feature/folio-3.0-second-draft]
+    paths:
+      - web/src/SecondDraftPane.tsx
+      - web/src/second-draft.ts
+      - web/src/App.tsx
+      - web/src/v300-second-draft.css
+      - server/write-studio.ts
+      - server/write-studio-api.ts
+      - scripts/v300-second-draft-preview.ts
+      - tests/v300-second-draft.test.ts
+      - .github/workflows/second-draft-qa.yml
+  workflow_dispatch:
+
+concurrency:
+  group: folio-second-draft-qa-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  second-draft:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install pinned Chromium runtime
+        shell: pwsh
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build web and server
+        run: npm run build
+      - name: Second Draft unit contract
+        run: node --import tsx tests/v300-second-draft.test.ts
+      - name: Second Draft interaction QA
+        run: node --import tsx scripts/v300-second-draft-preview.ts
+      - name: Upload Second Draft screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-Second-Draft-QA
+          path: build/qa-v300-second-draft/*
+          if-no-files-found: warn

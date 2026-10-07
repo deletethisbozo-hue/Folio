@@ -13,7 +13,7 @@ import type {
   Typography,
 } from "./types";
 import type { RecentProject } from "./recent-projects";
-import type { RevisionPayload, SecondDraftBlockStatus, SecondDraftCarryStatus, SecondDraftSealReveal, WriteStudioState, WritingTargets } from "./write-studio";
+import type { RevisionPayload, SecondDraftBlockStatus, SecondDraftCarryStatus, SecondDraftIssueCategory, SecondDraftReviewPassKey, SecondDraftRewriteIntent, SecondDraftSealReveal, WriteStudioState, WritingTargets } from "./write-studio";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -80,23 +80,52 @@ export const api = {
     fetch(`/api/projects/${projectId}/write-studio/second-draft/pairs/${encodeURIComponent(targetSectionId)}`, { method: "DELETE" })
       .then((r) => json<WriteStudioState>(r)),
 
-  createSecondDraftBlock: (projectId: string, payload: { targetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string; targetStart?: number }) =>
+  createSecondDraftBlock: (projectId: string, payload: { targetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string; targetStart?: number; status?: Exclude<SecondDraftBlockStatus, "sent">; intent?: SecondDraftRewriteIntent }) =>
     fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).then((r) => json<WriteStudioState>(r)),
 
-  updateSecondDraftBlock: (projectId: string, blockId: string, patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number }) =>
+  updateSecondDraftBlock: (projectId: string, blockId: string, patch: { status?: SecondDraftBlockStatus; targetStart?: number; targetEnd?: number; intent?: SecondDraftRewriteIntent }) =>
     fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks/${encodeURIComponent(blockId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     }).then((r) => json<WriteStudioState>(r)),
 
-  deleteSecondDraftBlock: (projectId: string, blockId: string) =>
-    fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks/${encodeURIComponent(blockId)}`, { method: "DELETE" })
-      .then((r) => json<WriteStudioState>(r)),
+  removeSecondDraftBlock: (projectId: string, blockId: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/blocks/${encodeURIComponent(blockId)}`, {
+      method: "DELETE",
+    }).then((r) => json<WriteStudioState>(r)),
+
+  createSecondDraftIssue: (projectId: string, payload: { targetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string; category: SecondDraftIssueCategory; note: string }) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/issues`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  updateSecondDraftIssue: (projectId: string, issueId: string, patch: { resolved?: boolean; category?: SecondDraftIssueCategory; note?: string }) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/issues/${encodeURIComponent(issueId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  setSecondDraftBrief: (projectId: string, targetSectionId: string, brief: string) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/briefs/${encodeURIComponent(targetSectionId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brief }),
+    }).then((r) => json<WriteStudioState>(r)),
+
+  setSecondDraftReviewPasses: (projectId: string, targetSectionId: string, passes: Partial<Record<SecondDraftReviewPassKey, boolean>>) =>
+    fetch(`/api/projects/${projectId}/write-studio/second-draft/reviews/${encodeURIComponent(targetSectionId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passes }),
+    }).then((r) => json<WriteStudioState>(r)),
 
   sendSecondDraftAhead: (projectId: string, payload: { fromTargetSectionId: string; toTargetSectionId: string; sourceStart: number; sourceEnd: number; sourceText: string }) =>
     fetch(`/api/projects/${projectId}/write-studio/second-draft/send-ahead`, {

@@ -12,10 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Second Draft, a dedicated rewrite workflow layered on top of the existing Write workspace while keeping the original Split View intact.
 - Source Burn: source text progressively fades as it is rewritten, cut, kept, or sent ahead, giving the old draft a live visual completion state.
-- Rewrite This and the compact Rewrite Rail for explicitly linking a selected source passage to the new draft and resolving it as Done, Cut, Later, or Keep.
+- Rewrite This and the integrated Source Burn action bar for explicitly linking a selected source passage to the new draft and resolving it as Done, Cut, Later, or Keep, with a resumable Later queue.
 - Send Ahead for carrying selected source material directly to a later target chapter, where it reappears as a pending carried item.
 - Memory mode: hide the source while writing and hold Alt for a temporary peek without leaving the new draft.
-- Anchor-aware Paired Scroll that follows real source-to-target rewrite anchors instead of assuming both drafts have matching lengths.
+- Anchor-aware Paired Scroll that follows real source-to-target rewrite anchors, remembers each draft's position across mode changes, and supports Free Scroll + manual Link Here alignment when drafts diverge.
 - Chapter Seal, which snapshots a completed second-draft chapter after all active/later source blocks are resolved.
 - Chapter Reveal, a post-seal summary showing source/new word counts plus rewritten, cut, kept, sent-ahead, and processed-source totals.
 
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Second Draft source chapters are read-only inside the dedicated workflow so Source Burn ranges and scroll anchors remain stable.
 
 ### Tests
-- Added dedicated Folio 3.0 browser QA covering source pairing, Rewrite This, Source Burn, Memory/Alt peek, Send Ahead, Paired Scroll, Chapter Seal, Chapter Reveal, Midnight layout, and legacy Split View fallback.
+- Added dedicated Folio 3.0 browser QA covering source pairing integrity, true target-caret Rewrite anchors, Source Burn, resumable Later, Memory/Alt peek, Send Ahead, automatic/manual Paired Scroll, remount persistence, editor-top alignment, Chapter Seal/Reveal, Midnight layout, and legacy Split View fallback.
 - Added Second Draft regression coverage for progress merging, source fingerprints, paired-scroll interpolation, persistence wiring, and schema migration.
 
 ## [2.8.5] - 2026-10-05

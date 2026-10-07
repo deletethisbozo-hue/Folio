@@ -6,6 +6,7 @@ import {
   countMatches,
   diffLines,
   markdownToReadableSnapshotText,
+  nearbyPhrases,
   nearbyRepetitions,
   repeatedWords,
   replaceMatches,
@@ -183,9 +184,14 @@ export default function WriteStudioDrawer(props: Props) {
   const todayProgress = props.state?.dailyProgress[today] ?? 0;
   const chapterTarget = props.selectedId ? targetDraft.chapters[props.selectedId] ?? null : null;
   const analysisSeparator = useMemo(() => Array.from({ length: 200 }, (_, index) => String(1000000 + index)).join(" "), []);
+  const readableDraft = useMemo(() => markdownToReadableSnapshotText(props.draft), [props.draft]);
   const analysisSource = analysisScope === "book"
-    ? (bookDocs ? bookDocs.map((doc) => doc.id === props.selectedId ? props.draft : doc.markdown).join("\n\n" + analysisSeparator + "\n\n") : "")
-    : props.draft;
+    ? (bookDocs
+        ? bookDocs
+            .map((doc) => markdownToReadableSnapshotText(doc.id === props.selectedId ? props.draft : doc.markdown))
+            .join("\n\n" + analysisSeparator + "\n\n")
+        : "")
+    : readableDraft;
   const exactBookWords = exactCounts
     ? exactCounts.total + Object.entries(props.liveSectionWordCounts).reduce((delta, [sectionId, liveCount]) => {
         const kind = props.project.sections.find((section) => section.id === sectionId)?.kind;
@@ -196,6 +202,7 @@ export default function WriteStudioDrawer(props: Props) {
     : props.totalWords;
   const repeated = useMemo(() => repeatedWords(analysisSource, props.language), [analysisSource, props.language]);
   const nearby = useMemo(() => nearbyRepetitions(analysisSource, props.language, analysisWindow), [analysisSource, props.language, analysisWindow]);
+  const nearbyPhraseResults = useMemo(() => nearbyPhrases(analysisSource, props.language, analysisWindow), [analysisSource, props.language, analysisWindow]);
   const revisions = useMemo(() => (props.state?.revisions ?? []).filter((item) => item.scope === "book" || item.sectionId === props.selectedId), [props.state?.revisions, props.selectedId]);
   const comments = useMemo(() => (props.state?.comments ?? []).filter((item) => item.sectionId === props.selectedId).sort((a, b) => Number(a.resolved) - Number(b.resolved) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [props.state?.comments, props.selectedId]);
   const notes = useMemo(() => {
@@ -614,7 +621,9 @@ export default function WriteStudioDrawer(props: Props) {
           <div className="analysis-list">{repeated.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}</strong></button>)}{!repeated.length && <div className="write-studio-empty">No notable repetitions in this scope.</div>}</div>
           <div className="analysis-window"><label>Nearby window <input type="range" min="30" max="180" step="10" value={analysisWindow} onChange={(event) => setAnalysisWindow(Number(event.target.value))}/><span>{analysisWindow} words</span></label></div>
           <h4>Nearby repetitions</h4>
-          <div className="analysis-list nearby">{nearby.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}× / {item.windowWords}</strong></button>)}{!nearby.length && <div className="write-studio-empty">Nothing repeated three times inside this window.</div>}</div>
+          <div className="analysis-list nearby">{nearby.map((item) => <button key={item.word} className={"repeat-" + item.severity} title={`${item.count} uses across ${item.spanWords} words inside the ${item.windowWords}-word scan window`} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}× · {item.spanWords}w</strong></button>)}{!nearby.length && <div className="write-studio-empty">No notable nearby repetitions in this window.</div>}</div>
+          <h4>Nearby phrases · 2–5 words</h4>
+          <div className="analysis-list nearby phrases">{nearbyPhraseResults.map((item) => <button key={item.phrase} className="repeat-phrase" title={`${item.count} uses of this ${item.words}-word phrase across ${item.spanWords} words`} onClick={() => void inspectAnalysisWord(item.phrase)}><span>{item.phrase}</span><strong>{item.count}× · {item.spanWords}w</strong></button>)}{!nearbyPhraseResults.length && <div className="write-studio-empty">No nearby repeated 2–5 word phrases in this window.</div>}</div>
         </>}
       </div>}
     </div>

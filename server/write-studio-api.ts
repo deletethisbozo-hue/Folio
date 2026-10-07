@@ -11,7 +11,6 @@ import {
   deleteResearchImage,
   deleteResearchNote,
   deleteWritingComment,
-  deleteSecondDraftBlock,
   readResearchImage,
   readRevisionMarkdown,
   readWritingWordCounts,
@@ -22,8 +21,17 @@ import {
   setSecondDraftPair,
   setWritingTargets,
   createSecondDraftBlock,
+  createSecondDraftIssue,
+  type SecondDraftBlockStatus,
+  type SecondDraftIssueCategory,
+  type SecondDraftReviewPassKey,
+  type SecondDraftRewriteIntent,
   removeSecondDraftPair,
+  removeSecondDraftBlock,
+  setSecondDraftBrief,
+  setSecondDraftReviewPasses,
   updateSecondDraftBlock,
+  updateSecondDraftIssue,
   updateSecondDraftCarryover,
   updateResearchNote,
   updateWritingComment,
@@ -115,6 +123,8 @@ export function registerWriteStudioApi(app: Express): void {
         Number(req.body?.sourceEnd),
         String(req.body?.sourceText ?? ""),
         req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
+        typeof req.body?.status === "string" ? req.body.status as Exclude<SecondDraftBlockStatus, "sent"> : undefined,
+        typeof req.body?.intent === "string" ? req.body.intent as SecondDraftRewriteIntent : undefined,
       ));
     } catch (error) { sendError(res, error); }
   });
@@ -126,6 +136,7 @@ export function registerWriteStudioApi(app: Express): void {
         status: typeof req.body?.status === "string" ? req.body.status : undefined,
         targetStart: req.body?.targetStart === undefined ? undefined : Number(req.body.targetStart),
         targetEnd: req.body?.targetEnd === undefined ? undefined : Number(req.body.targetEnd),
+        intent: typeof req.body?.intent === "string" ? req.body.intent as SecondDraftRewriteIntent : undefined,
       }));
     } catch (error) { sendError(res, error); }
   });
@@ -133,7 +144,56 @@ export function registerWriteStudioApi(app: Express): void {
   app.delete("/api/projects/:id/write-studio/second-draft/blocks/:blockId", async (req: Request, res: Response) => {
     try {
       requireProject(req.params.id);
-      res.json(await deleteSecondDraftBlock(req.params.id, req.params.blockId));
+      res.json(await removeSecondDraftBlock(req.params.id, req.params.blockId));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.post("/api/projects/:id/write-studio/second-draft/issues", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await createSecondDraftIssue(
+        req.params.id,
+        String(req.body?.targetSectionId ?? ""),
+        Number(req.body?.sourceStart),
+        Number(req.body?.sourceEnd),
+        String(req.body?.sourceText ?? ""),
+        String(req.body?.category ?? "other") as SecondDraftIssueCategory,
+        String(req.body?.note ?? ""),
+      ));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.patch("/api/projects/:id/write-studio/second-draft/issues/:issueId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await updateSecondDraftIssue(req.params.id, req.params.issueId, {
+        resolved: req.body?.resolved === undefined ? undefined : Boolean(req.body.resolved),
+        category: typeof req.body?.category === "string" ? req.body.category as SecondDraftIssueCategory : undefined,
+        note: req.body?.note === undefined ? undefined : String(req.body.note),
+      }));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.put("/api/projects/:id/write-studio/second-draft/briefs/:targetSectionId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      res.json(await setSecondDraftBrief(
+        req.params.id,
+        req.params.targetSectionId,
+        String(req.body?.brief ?? ""),
+      ));
+    } catch (error) { sendError(res, error); }
+  });
+
+  app.put("/api/projects/:id/write-studio/second-draft/reviews/:targetSectionId", async (req: Request, res: Response) => {
+    try {
+      requireProject(req.params.id);
+      const raw = req.body?.passes && typeof req.body.passes === "object" ? req.body.passes : {};
+      res.json(await setSecondDraftReviewPasses(
+        req.params.id,
+        req.params.targetSectionId,
+        raw as Partial<Record<SecondDraftReviewPassKey, boolean>>,
+      ));
     } catch (error) { sendError(res, error); }
   });
 
