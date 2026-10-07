@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
-import { repetitionOccurrences } from "./write-studio";
+import { nearbyPhraseOccurrences, repetitionOccurrences } from "./write-studio";
 import { markdownToEditorHtml } from "./rich-text";
 import {
   caretTextOffset,
@@ -201,7 +201,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [syncScroll, setSyncScroll] = useState(false);
   const [manualAnchors, setManualAnchors] = useState<ManualScrollAnchor[]>([]);
   const [repetitionHeatmap, setRepetitionHeatmap] = useState(true);
-  const [repetitionSummary, setRepetitionSummary] = useState({ words: 0, occurrences: 0, high: 0 });
+  const [repetitionSummary, setRepetitionSummary] = useState({ words: 0, phrases: 0, occurrences: 0, high: 0 });
+  const [linksPanelOpen, setLinksPanelOpen] = useState(false);
   const memoryModeStateRef = useRef(memoryMode);
   const syncScrollStateRef = useRef(syncScroll);
   const manualAnchorsStateRef = useRef(manualAnchors);
@@ -433,27 +434,48 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }, [relevantBlocks, sourceDoc?.id, sourceDoc?.markdown, sourceMatchesPair, sourceChanged]);
 
   useEffect(() => {
-    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     const registry = (CSS as unknown as {
       highlights?: { set: (name: string, value: unknown) => unknown; delete: (name: string) => unknown };
     }).highlights;
     const HighlightCtor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
-    const names = ["folio-repeat-low", "folio-repeat-medium", "folio-repeat-high"] as const;
-    if (!targetEditor || !registry || !HighlightCtor) return;
+    const names = ["folio-repeat-phrase", "folio-repeat-low", "folio-repeat-medium", "folio-repeat-high"] as const;
+    if (!registry || !HighlightCtor) return;
 
+    let targetEditor: HTMLElement | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let attachFrame: number | null = null;
+    let mutationObserver: MutationObserver | null = null;
+    let attachAttempts = 0;
+
     const clear = () => { for (const name of names) registry.delete(name); };
     const update = () => {
       clear();
-      if (!repetitionHeatmapStateRef.current) {
-        setRepetitionSummary({ words: 0, occurrences: 0, high: 0 });
+      if (!targetEditor || !repetitionHeatmapStateRef.current) {
+        setRepetitionSummary({ words: 0, phrases: 0, occurrences: 0, high: 0 });
         return;
       }
-      const hits = repetitionOccurrences(targetEditor.textContent ?? "", props.project.meta.language, 80);
+
+      const text = targetEditor.textContent ?? "";
+      const phraseHits = nearbyPhraseOccurrences(text, props.project.meta.language, 80);
+      const wordHits = repetitionOccurrences(text, props.project.meta.language, 80);
       const grouped = new Map<string, Range[]>();
       const words = new Set<string>();
+      const phrases = new Set<string>();
       let high = 0;
-      for (const hit of hits) {
+
+      // Register phrase ranges first. Word-level severity highlights are added
+      // afterwards, so a strong single-word warning stays visible even when it
+      // sits inside a repeated phrase.
+      for (const hit of phraseHits) {
+        const range = rangeForTextOffsets(targetEditor, hit.start, hit.end);
+        if (!range) continue;
+        const list = grouped.get("folio-repeat-phrase") ?? [];
+        list.push(range);
+        grouped.set("folio-repeat-phrase", list);
+        phrases.add(hit.phrase);
+      }
+
+      for (const hit of wordHits) {
         const range = rangeForTextOffsets(targetEditor, hit.start, hit.end);
         if (!range) continue;
         const name = `folio-repeat-${hit.severity}`;
@@ -463,19 +485,50 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
         words.add(hit.word);
         if (hit.severity === "high") high++;
       }
-      for (const [name, ranges] of grouped) registry.set(name, new HighlightCtor(...ranges));
-      setRepetitionSummary({ words: words.size, occurrences: hits.length, high });
+
+      for (const name of names) {
+        const ranges = grouped.get(name);
+        if (ranges?.length) registry.set(name, new HighlightCtor(...ranges));
+      }
+      setRepetitionSummary({
+        words: words.size,
+        phrases: phrases.size,
+        occurrences: wordHits.length + phraseHits.length,
+        high,
+      });
     };
+
     const schedule = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(update, 90);
     };
 
-    update();
-    targetEditor.addEventListener("input", schedule);
+    const attach = (editor: HTMLElement) => {
+      if (targetEditor === editor) return;
+      if (targetEditor) targetEditor.removeEventListener("input", schedule);
+      mutationObserver?.disconnect();
+      targetEditor = editor;
+      targetEditor.addEventListener("input", schedule);
+      mutationObserver = new MutationObserver(schedule);
+      mutationObserver.observe(targetEditor, { subtree: true, childList: true, characterData: true });
+      requestAnimationFrame(update);
+    };
+
+    const attachWhenReady = () => {
+      const editor = document.querySelector<HTMLElement>(".manuscript-editor");
+      if (editor) {
+        attach(editor);
+        return;
+      }
+      if (attachAttempts++ < 120) attachFrame = requestAnimationFrame(attachWhenReady);
+    };
+
+    attachWhenReady();
     return () => {
       if (timer) clearTimeout(timer);
-      targetEditor.removeEventListener("input", schedule);
+      if (attachFrame !== null) cancelAnimationFrame(attachFrame);
+      mutationObserver?.disconnect();
+      targetEditor?.removeEventListener("input", schedule);
       clear();
     };
   }, [props.targetSectionId, props.project.meta.language, repetitionHeatmap]);
@@ -682,6 +735,41 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     setManualAnchors([]);
     setSyncScroll(false);
     persistViewState({ manualAnchors: [], syncScroll: false });
+  }
+
+  function removeManualScrollAnchor(index: number) {
+    const next = manualAnchors.filter((_, itemIndex) => itemIndex !== index);
+    setManualAnchors(next);
+    manualAnchorsStateRef.current = next;
+    const nextSync = next.length > 0 && syncScrollStateRef.current;
+    setSyncScroll(nextSync);
+    syncScrollStateRef.current = nextSync;
+    if (!next.length) setLinksPanelOpen(false);
+    persistViewState({ manualAnchors: next, syncScroll: nextSync });
+  }
+
+  function jumpToManualScrollAnchor(anchor: ManualScrollAnchor) {
+    const sourceEditor = sourceEditorRef.current;
+    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    if (!sourceEditor || !targetEditor) return;
+
+    const reveal = (editor: HTMLElement, offset: number) => {
+      const length = editor.textContent?.length ?? 0;
+      if (!length) return;
+      const start = Math.max(0, Math.min(length - 1, offset));
+      const range = rangeForTextOffsets(editor, start, start + 1);
+      if (!range) return;
+      const rect = range.getBoundingClientRect();
+      const host = editor.getBoundingClientRect();
+      const next = editor.scrollTop + rect.top - host.top - editor.clientHeight * .28;
+      editor.scrollTop = Math.max(0, Math.min(editor.scrollHeight - editor.clientHeight, next));
+    };
+
+    const suppressUntil = performance.now() + 140;
+    scrollSuppressedUntilRef.current.target = suppressUntil;
+    scrollSuppressedUntilRef.current.source = suppressUntil;
+    reveal(targetEditor, anchor.targetOffset);
+    reveal(sourceEditor, anchor.sourceOffset);
   }
 
   function captureSelection() {
@@ -1094,14 +1182,24 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           setIssuePanelOpen(false);
           setReviewPanelOpen(false);
         }}>Brief{draftBrief ? " •" : ""}</button>}
-        <button type="button" className={repetitionHeatmap ? "active" : ""} aria-pressed={repetitionHeatmap}
-          title={repetitionHeatmap ? `Nearby repetition heatmap: ${repetitionSummary.words} repeated words, ${repetitionSummary.occurrences} highlighted uses` : "Show nearby repetitions in the new draft"}
+        <button type="button" className={"second-draft-repeat-toggle " + (repetitionHeatmap ? "active" : "")} aria-pressed={repetitionHeatmap}
+          aria-label={repetitionHeatmap ? "Hide repetition highlights" : "Show repetition highlights"}
+          title={repetitionHeatmap
+            ? `Hide repetition highlights · ${repetitionSummary.words} repeated words · ${repetitionSummary.phrases} repeated phrases`
+            : "Show nearby word and phrase repetitions in the new draft"}
           onClick={() => setRepetitionHeatmap((value) => {
             const next = !value;
             repetitionHeatmapStateRef.current = next;
             persistViewState({ repetitionHeatmap: next });
             return next;
-          })}>Repeats{repetitionHeatmap && repetitionSummary.words ? ` ${repetitionSummary.words}` : ""}</button>
+          })}>
+          <svg className="second-draft-repeat-eye" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M1.8 10s3.1-5 8.2-5 8.2 5 8.2 5-3.1 5-8.2 5-8.2-5-8.2-5Z" />
+            <circle cx="10" cy="10" r="2.35" />
+            {!repetitionHeatmap && <path className="slash" d="M3.4 3.4 16.6 16.6" />}
+          </svg>
+          <span>Repeats{repetitionHeatmap && (repetitionSummary.words + repetitionSummary.phrases) > 0 ? ` ${repetitionSummary.words + repetitionSummary.phrases}` : ""}</span>
+        </button>
         <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => {
           const next = !value;
           persistViewState({ memoryMode: next });
@@ -1159,8 +1257,25 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <button type="button" disabled={!selection || !targetSelection}
             title="Select matching text on the source and target, then link those exact lines"
             onClick={linkSelectedLines}>Link lines</button>
+          {manualAnchors.length > 0 && <button type="button" className={linksPanelOpen ? "active" : ""}
+            aria-expanded={linksPanelOpen} title="View, jump to, or remove individual paired-scroll links"
+            onClick={() => setLinksPanelOpen((value) => !value)}>Links {manualAnchors.length}</button>}
           {manualAnchors.length > 0 && <button type="button" title="Remove all explicit text links"
             onClick={clearManualScrollAnchors}>Reset links</button>}
+          {linksPanelOpen && manualAnchors.length > 0 && <div className="second-draft-links-popover" role="dialog" aria-label="Paired scroll links">
+            <div className="second-draft-links-head"><strong>Scroll links</strong><span>{manualAnchors.length}</span></div>
+            <div className="second-draft-links-list">
+              {manualAnchors.map((anchor, index) => <div className="second-draft-link-row" key={`${anchor.targetOffset}:${anchor.sourceOffset}`}>
+                <button type="button" className="second-draft-link-jump" title="Jump both drafts to this link"
+                  onClick={() => jumpToManualScrollAnchor(anchor)}>
+                  <strong>Link {index + 1}</strong>
+                  <span>Target {anchor.targetOffset.toLocaleString()} ↔ Source {anchor.sourceOffset.toLocaleString()}</span>
+                </button>
+                <button type="button" className="second-draft-link-remove" aria-label={`Remove link ${index + 1}`}
+                  title="Remove this link" onClick={() => removeManualScrollAnchor(index)}>×</button>
+              </div>)}
+            </div>
+          </div>}
         </div>
       </>}
     </div>
