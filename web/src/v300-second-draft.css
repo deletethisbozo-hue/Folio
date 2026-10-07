@@ -831,3 +831,19 @@
   .second-draft-action-buttons { flex: 1 1 auto; flex-wrap: wrap; }
   .second-draft-send-ahead select { width: 104px; }
 }
+
+
+/* Live nearby-repetition heatmap for the editable target manuscript.
+ * CSS Highlights keep the editor DOM untouched, so typing/selection/undo stay native. */
+::highlight(folio-repeat-low) {
+  background-color: rgba(234, 179, 8, .16);
+  text-decoration: underline 1px rgba(202, 138, 4, .48);
+}
+::highlight(folio-repeat-medium) {
+  background-color: rgba(249, 115, 22, .19);
+  text-decoration: underline 1px rgba(234, 88, 12, .62);
+}
+::highlight(folio-repeat-high) {
+  background-color: rgba(239, 68, 68, .23);
+  text-decoration: underline 2px rgba(220, 38, 38, .72);
+}
