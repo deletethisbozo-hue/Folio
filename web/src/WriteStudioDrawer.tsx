@@ -614,7 +614,7 @@ export default function WriteStudioDrawer(props: Props) {
           <div className="analysis-list">{repeated.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}</strong></button>)}{!repeated.length && <div className="write-studio-empty">No notable repetitions in this scope.</div>}</div>
           <div className="analysis-window"><label>Nearby window <input type="range" min="30" max="180" step="10" value={analysisWindow} onChange={(event) => setAnalysisWindow(Number(event.target.value))}/><span>{analysisWindow} words</span></label></div>
           <h4>Nearby repetitions</h4>
-          <div className="analysis-list nearby">{nearby.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}× / {item.windowWords}</strong></button>)}{!nearby.length && <div className="write-studio-empty">Nothing repeated three times inside this window.</div>}</div>
+          <div className="analysis-list nearby">{nearby.map((item) => <button key={item.word} className={"repeat-" + item.severity} title={`${item.count} uses across ${item.spanWords} words inside the ${item.windowWords}-word scan window`} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}× · {item.spanWords}w</strong></button>)}{!nearby.length && <div className="write-studio-empty">No notable nearby repetitions in this window.</div>}</div>
         </>}
       </div>}
     </div>
