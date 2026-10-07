@@ -47,11 +47,35 @@ try {
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"]');
 
+  const initialTargetBeforeRepeatsQa = await page.$eval(".manuscript-editor", (el) => (el as HTMLElement).innerHTML);
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    const probe = document.createElement("p");
+    probe.dataset.initialRepeatsQa = "true";
+    probe.textContent = "Lantern lantern lantern lantern lantern. The empty platform waited. The empty platform waited.";
+    editor.appendChild(probe);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: probe.textContent }));
+  });
+
   const secondDraftButton = await page.$(".editor-second-draft-toggle");
   if (!secondDraftButton) throw new Error("Second Draft toolbar button missing");
   await secondDraftButton.click();
   await page.waitForSelector(".second-draft-pane");
   await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
+  await page.waitForFunction(() => {
+    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+    const repeats = document.querySelector<HTMLButtonElement>(".second-draft-repeat-toggle");
+    return Boolean(
+      repeats?.getAttribute("aria-pressed") === "true"
+      && registry?.has("folio-repeat-high")
+      && registry?.has("folio-repeat-phrase")
+    );
+  });
+  await page.$eval(".manuscript-editor", (el, html) => {
+    const editor = el as HTMLElement;
+    editor.innerHTML = String(html);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "historyUndo" }));
+  }, initialTargetBeforeRepeatsQa);
 
   const initial = await page.evaluate(() => {
     const source = document.querySelector<HTMLElement>(".second-draft-source");
@@ -509,7 +533,7 @@ try {
     const editor = el as HTMLElement;
     const probe = document.createElement("p");
     probe.dataset.repetitionQa = "true";
-    probe.textContent = "Lantern lantern lantern lantern lantern across the empty platform.";
+    probe.textContent = "Lantern lantern lantern lantern lantern across the empty platform. The empty platform waited. The empty platform waited.";
     editor.appendChild(probe);
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: probe.textContent }));
   });
@@ -517,7 +541,7 @@ try {
     const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
     const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
       .find((button) => button.textContent?.startsWith("Repeats"));
-    return Boolean(registry?.has("folio-repeat-high") && repeats && /Repeats\s+\d+/.test(repeats.textContent ?? ""));
+    return Boolean(registry?.has("folio-repeat-high") && registry?.has("folio-repeat-phrase") && repeats && /Repeats\s+\d+/.test(repeats.textContent ?? ""));
   });
   const repetitionQa = await page.evaluate(() => {
     const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
@@ -525,12 +549,13 @@ try {
       .find((button) => button.textContent?.startsWith("Repeats"));
     return {
       high: Boolean(registry?.has("folio-repeat-high")),
+      phrase: Boolean(registry?.has("folio-repeat-phrase")),
       medium: Boolean(registry?.has("folio-repeat-medium")),
       low: Boolean(registry?.has("folio-repeat-low")),
       label: repeats?.textContent?.trim() ?? "",
     };
   });
-  if (!repetitionQa.high || !/^Repeats\s+[1-9]/.test(repetitionQa.label)) {
+  if (!repetitionQa.high || !repetitionQa.phrase || !/^Repeats\s+[1-9]/.test(repetitionQa.label)) {
     throw new Error("Second Draft repetition heatmap did not expose repeated target prose: " + JSON.stringify(repetitionQa));
   }
   await page.screenshot({ path: path.join(qa, "16-repetition-heatmap-light.png") });
@@ -661,6 +686,139 @@ try {
   ) {
     throw new Error("Paired Scroll kept bouncing after user input stopped: " + JSON.stringify({ reverseSync, stableAfterReverse }));
   }
+
+  // Release stress gate: >10k words on both sides, twelve explicit links,
+  // individual link removal, jump-to-link, and stable bidirectional scrolling.
+  const beforeLongScrollQa = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return { target: target.innerHTML, source: source.innerHTML };
+  });
+  await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const makeLongBlock = (prefix: string) => {
+      const fragment = document.createDocumentFragment();
+      for (let paragraph = 0; paragraph < 125; paragraph++) {
+        const p = document.createElement("p");
+        p.dataset.longScrollQa = String(paragraph);
+        p.textContent = Array.from({ length: 90 }, (_, word) => `${prefix}${paragraph}w${word}`).join(" ");
+        fragment.appendChild(p);
+      }
+      return fragment;
+    };
+    target.appendChild(makeLongBlock("t"));
+    source.appendChild(makeLongBlock("s"));
+    target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "long-scroll-qa" }));
+  });
+  await settle(220);
+
+  const longGeometry = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    const words = (el: HTMLElement) => (el.textContent?.trim().match(/\S+/g)?.length ?? 0);
+    return { targetWords: words(target), sourceWords: words(source), targetMax: target.scrollHeight - target.clientHeight, sourceMax: source.scrollHeight - source.clientHeight };
+  });
+  if (longGeometry.targetWords < 10_000 || longGeometry.sourceWords < 10_000 || longGeometry.targetMax <= 0 || longGeometry.sourceMax <= 0) {
+    throw new Error("Long-manuscript scroll fixture did not exceed 10k words: " + JSON.stringify(longGeometry));
+  }
+
+  // Start the stress map clean.
+  await page.evaluate(() => {
+    const reset = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Reset links");
+    reset?.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Select matching lines"));
+
+  for (let linkIndex = 0; linkIndex < 12; linkIndex++) {
+    await page.evaluate((index) => {
+      const select = (selector: string, eventTarget: HTMLElement) => {
+        const node = document.querySelector<HTMLElement>(selector)?.firstChild;
+        if (!(node instanceof Text)) throw new Error("Long-scroll QA text node missing: " + selector);
+        const range = document.createRange();
+        range.setStart(node, 0);
+        range.setEnd(node, Math.min(28, node.length));
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        eventTarget.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      };
+      const paragraph = Math.min(124, 5 + index * 10);
+      const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+      const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+      select(`.second-draft-source [data-long-scroll-qa="${paragraph}"]`, source);
+      select(`.manuscript-editor [data-long-scroll-qa="${paragraph}"]`, target);
+    }, linkIndex);
+    await page.waitForFunction(() => {
+      const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+        .find((button) => button.textContent?.trim() === "Link lines");
+      return Boolean(link && !link.disabled);
+    });
+    await page.evaluate(() => {
+      const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+        .find((button) => button.textContent?.trim() === "Link lines");
+      link?.click();
+    });
+    await page.waitForFunction((expected) => {
+      const status = document.querySelector(".second-draft-sync-status")?.textContent ?? "";
+      return status.includes(`${expected} links`);
+    }, linkIndex + 1);
+  }
+
+  await page.evaluate(() => {
+    const links = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Links 12");
+    if (!links) throw new Error("Manage Links button missing after twelve links");
+    links.click();
+  });
+  await page.waitForSelector(".second-draft-links-popover");
+  const linkRowsBeforeRemove = await page.$eval(".second-draft-link-row", (rows) => rows.length);
+  if (linkRowsBeforeRemove !== 12) throw new Error("Manage Links did not list all twelve links: " + linkRowsBeforeRemove);
+
+  await page.click(".second-draft-link-row:nth-child(6) .second-draft-link-jump");
+  await settle(140);
+  const jumpPosition = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (jumpPosition.target <= .15 || jumpPosition.source <= .15 || jumpPosition.target >= .8 || jumpPosition.source >= .8) {
+    throw new Error("Manage Links jump did not reveal the linked middle region: " + JSON.stringify(jumpPosition));
+  }
+
+  await page.click(".second-draft-link-row:nth-child(6) .second-draft-link-remove");
+  await page.waitForFunction(() => document.querySelectorAll(".second-draft-link-row").length === 11);
+  await page.waitForFunction(() => /11 links/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
+  await page.screenshot({ path: path.join(qa, "17-manage-scroll-links-light.png") });
+
+  // Restore the normal QA manuscript, then leave one valid link for remount testing.
+  await page.evaluate((saved) => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    target.innerHTML = saved.target;
+    source.innerHTML = saved.source;
+    target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "historyUndo" }));
+  }, beforeLongScrollQa);
+  await page.evaluate(() => {
+    const reset = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Reset links");
+    reset?.click();
+  });
+  await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Select matching lines"));
+  const remountSourceLink = await selectSourceText(3);
+  const remountTargetLink = await selectTargetText(1);
+  if (!remountSourceLink.trim() || !remountTargetLink.trim()) throw new Error("Could not recreate link after long-scroll stress QA");
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-sync-controls button")]
+      .find((button) => button.textContent?.trim() === "Link lines");
+    link?.click();
+  });
+  await page.waitForFunction(() => /Synced.*1 link/.test(document.querySelector(".second-draft-sync-status")?.textContent ?? ""));
+  await settle(160);
 
   // Pause/resume only exists after at least one explicit line link.
   await page.evaluate(() => {
