@@ -23,6 +23,8 @@
 .second-draft-pane {
   font-family: var(--folio-ui-font);
   position: relative;
+  container-type: inline-size;
+  container-name: second-draft;
   overflow: visible !important;
   --sd-accent: var(--studio-accent, #5b5ce2);
   --sd-green: #29a36a;
@@ -54,6 +56,8 @@
 }
 .second-draft-pair,
 .second-draft-head-actions button {
+  flex: 0 0 auto;
+  white-space: nowrap;
   min-height: 26px;
   border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   border-radius: 7px;
@@ -70,10 +74,15 @@
 }
 .second-draft-head-actions {
   margin-left: auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.second-draft-head-actions::-webkit-scrollbar { display: none; }
 .second-draft-head-actions button.active {
   background: var(--sd-accent);
   color: white;
@@ -87,10 +96,15 @@
 }
 
 .second-draft-source-toolbar {
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   font-size: 9.5px;
 }
+.second-draft-source-toolbar::-webkit-scrollbar { display: none; }
 .second-draft-source-meta {
   display: flex;
   align-items: center;
@@ -105,6 +119,7 @@
 .second-draft-scene-controls,
 .second-draft-review-controls,
 .second-draft-sync-controls {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -134,6 +149,8 @@
 .second-draft-scene-controls button,
 .second-draft-review-controls button,
 .second-draft-sync-controls button {
+  flex: 0 0 auto;
+  white-space: nowrap;
   min-height: 24px;
   padding: 0 7px;
   border: 1px solid color-mix(in srgb, currentColor 13%, transparent);
@@ -253,7 +270,11 @@
   background: color-mix(in srgb, var(--mockup-paper, var(--studio-paper, #fff)) 91%, transparent);
   box-shadow: 0 10px 34px rgba(0,0,0,.13);
   backdrop-filter: blur(16px) saturate(1.12);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.second-draft-actionbar::-webkit-scrollbar { display: none; }
 .second-draft-action-copy {
   min-width: 125px;
   flex: 1 1 190px;
@@ -277,6 +298,7 @@
   opacity: .72;
 }
 .second-draft-action-buttons {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -297,6 +319,8 @@
 .second-draft-seal,
 .second-draft-send-ahead button,
 .second-draft-send-ahead select {
+  flex: 0 0 auto;
+  white-space: nowrap;
   min-height: 30px;
   border: 1px solid color-mix(in srgb, currentColor 13%, transparent);
   border-radius: 8px;
@@ -951,4 +975,105 @@
 .folio-shell[data-ui-tone="midnight"] ::highlight(folio-repeat-phrase) {
   background-color: rgba(102, 196, 255, .21);
   text-decoration-color: rgba(115, 202, 255, .70);
+}
+
+
+/* Second Draft responds to its own pane width, not the browser viewport.
+ * This is critical when the manuscript sidebar is open. */
+@container second-draft (max-width: 720px) {
+  .second-draft-header {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+  .second-draft-header .writing-split-title {
+    flex: 0 1 118px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+  }
+  .second-draft-header .writing-split-title strong,
+  .second-draft-progress {
+    display: none;
+  }
+  .second-draft-header .writing-split-title select {
+    width: 118px;
+    min-width: 96px;
+    max-width: 118px;
+  }
+  .second-draft-head-actions {
+    gap: 4px;
+  }
+  .second-draft-head-actions button,
+  .second-draft-pair {
+    padding-inline: 7px;
+    font-size: 9px;
+  }
+
+  .second-draft-source-toolbar {
+    padding-inline: 8px;
+    gap: 5px;
+  }
+  .second-draft-source-meta,
+  .second-draft-sync-status {
+    display: none;
+  }
+  .second-draft-review-controls {
+    margin-left: 0;
+  }
+  .second-draft-sync-controls {
+    margin-left: 0;
+  }
+  .second-draft-scene-controls button,
+  .second-draft-review-controls button,
+  .second-draft-sync-controls button {
+    padding-inline: 6px;
+    font-size: 9px;
+  }
+
+  .second-draft-actionbar {
+    left: 8px;
+    right: 8px;
+    gap: 5px;
+    padding-inline: 7px;
+  }
+  .second-draft-action-copy {
+    display: none;
+  }
+  .second-draft-action-buttons {
+    gap: 4px;
+  }
+  .second-draft-intent-select {
+    width: 82px;
+  }
+  .second-draft-action-buttons > button,
+  .second-draft-flag-issue,
+  .second-draft-seal,
+  .second-draft-send-ahead button {
+    padding-inline: 7px;
+  }
+  .second-draft-send-ahead select {
+    width: 96px;
+  }
+}
+
+@container second-draft (max-width: 560px) {
+  .second-draft-header .writing-split-title {
+    flex-basis: 98px;
+  }
+  .second-draft-header .writing-split-title select {
+    width: 98px;
+    min-width: 84px;
+  }
+  .second-draft-head-actions button {
+    padding-inline: 6px;
+  }
+  .second-draft-source-toolbar {
+    gap: 4px;
+  }
+  .second-draft-scene-controls button,
+  .second-draft-review-controls button,
+  .second-draft-sync-controls button {
+    padding-inline: 5px;
+  }
 }
