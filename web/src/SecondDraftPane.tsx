@@ -399,8 +399,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       sourceEditor.scrollTop = scrollTopForRatio(sourceEditor, saved.sourceRatio);
       requestAnimationFrame(() => {
         if (cancelled) return;
-        programmaticScrollRef.current.target = null;
-        programmaticScrollRef.current.source = null;
+        scrollSuppressedUntilRef.current.target = 0;
+        scrollSuppressedUntilRef.current.source = 0;
         restoringScrollRef.current = false;
       });
     };
