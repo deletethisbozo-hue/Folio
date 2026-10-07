@@ -183,9 +183,14 @@ export default function WriteStudioDrawer(props: Props) {
   const todayProgress = props.state?.dailyProgress[today] ?? 0;
   const chapterTarget = props.selectedId ? targetDraft.chapters[props.selectedId] ?? null : null;
   const analysisSeparator = useMemo(() => Array.from({ length: 200 }, (_, index) => String(1000000 + index)).join(" "), []);
+  const readableDraft = useMemo(() => markdownToReadableSnapshotText(props.draft), [props.draft]);
   const analysisSource = analysisScope === "book"
-    ? (bookDocs ? bookDocs.map((doc) => doc.id === props.selectedId ? props.draft : doc.markdown).join("\n\n" + analysisSeparator + "\n\n") : "")
-    : props.draft;
+    ? (bookDocs
+        ? bookDocs
+            .map((doc) => markdownToReadableSnapshotText(doc.id === props.selectedId ? props.draft : doc.markdown))
+            .join("\n\n" + analysisSeparator + "\n\n")
+        : "")
+    : readableDraft;
   const exactBookWords = exactCounts
     ? exactCounts.total + Object.entries(props.liveSectionWordCounts).reduce((delta, [sectionId, liveCount]) => {
         const kind = props.project.sections.find((section) => section.id === sectionId)?.kind;
