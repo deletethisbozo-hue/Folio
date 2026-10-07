@@ -502,6 +502,44 @@ try {
   });
   await page.waitForFunction(() => !(document.querySelector(".second-draft-seal") as HTMLButtonElement | null)?.disabled);
 
+  // Live repetition heatmap must analyze the actual editable target without
+  // mutating its DOM structure or relying on the Writing Studio drawer.
+  const targetBeforeRepetitionQa = await page.$eval(".manuscript-editor", (el) => (el as HTMLElement).innerHTML);
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    const probe = document.createElement("p");
+    probe.dataset.repetitionQa = "true";
+    probe.textContent = "Lantern lantern lantern lantern lantern across the empty platform.";
+    editor.appendChild(probe);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: probe.textContent }));
+  });
+  await page.waitForFunction(() => {
+    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Repeats"));
+    return Boolean(registry?.has("folio-repeat-high") && repeats && /Repeats\s+\d+/.test(repeats.textContent ?? ""));
+  });
+  const repetitionQa = await page.evaluate(() => {
+    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+      .find((button) => button.textContent?.startsWith("Repeats"));
+    return {
+      high: Boolean(registry?.has("folio-repeat-high")),
+      medium: Boolean(registry?.has("folio-repeat-medium")),
+      low: Boolean(registry?.has("folio-repeat-low")),
+      label: repeats?.textContent?.trim() ?? "",
+    };
+  });
+  if (!repetitionQa.high || !/^Repeats\s+[1-9]/.test(repetitionQa.label)) {
+    throw new Error("Second Draft repetition heatmap did not expose repeated target prose: " + JSON.stringify(repetitionQa));
+  }
+  await page.$eval(".manuscript-editor", (el, html) => {
+    const editor = el as HTMLElement;
+    editor.innerHTML = String(html);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "historyUndo" }));
+  }, targetBeforeRepetitionQa);
+  await settle(160);
+
   const scrollGeometry = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor");
     const source = document.querySelector<HTMLElement>(".second-draft-source");
@@ -565,6 +603,62 @@ try {
   const afterLinkedMove = await page.$eval(".second-draft-source", (el) => (el as HTMLElement).scrollTop);
   if (Math.abs(afterLinkedMove - beforeLinkedMove) < 2) {
     throw new Error(`Paired Scroll did not react after explicit line link: ${beforeLinkedMove} -> ${afterLinkedMove}`);
+  }
+
+  // The bottom of one document must map cleanly to the bottom region of the
+  // other instead of drifting because text coordinates exceed legal scrollTop.
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 900 }));
+    editor.scrollTop = Math.max(0, editor.scrollHeight - editor.clientHeight);
+    editor.dispatchEvent(new Event("scroll"));
+  });
+  await settle(220);
+  const bottomSync = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      source: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (bottomSync.target < .98 || bottomSync.source < .9) {
+    throw new Error("Paired Scroll drifted at the document end: " + JSON.stringify(bottomSync));
+  }
+
+  // Taking control of the opposite editor immediately must reverse the driver
+  // without the previous programmatic scroll bouncing it back.
+  await page.$eval(".second-draft-source", (el) => {
+    const editor = el as HTMLElement;
+    editor.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: -700 }));
+    editor.scrollTop = Math.max(1, (editor.scrollHeight - editor.clientHeight) * .37);
+    editor.dispatchEvent(new Event("scroll"));
+  });
+  await settle(220);
+  const reverseSync = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return {
+      target: target.scrollTop,
+      source: source.scrollTop,
+      targetRatio: target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight),
+      sourceRatio: source.scrollTop / Math.max(1, source.scrollHeight - source.clientHeight),
+    };
+  });
+  if (Math.abs(reverseSync.sourceRatio - .37) > .08 || reverseSync.targetRatio > .92) {
+    throw new Error("Source did not take control of Paired Scroll cleanly: " + JSON.stringify(reverseSync));
+  }
+  await settle(220);
+  const stableAfterReverse = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
+    const source = document.querySelector<HTMLElement>(".second-draft-source")!;
+    return { target: target.scrollTop, source: source.scrollTop };
+  });
+  if (
+    Math.abs(stableAfterReverse.target - reverseSync.target) > 1.5
+    || Math.abs(stableAfterReverse.source - reverseSync.source) > 1.5
+  ) {
+    throw new Error("Paired Scroll kept bouncing after user input stopped: " + JSON.stringify({ reverseSync, stableAfterReverse }));
   }
 
   // Pause/resume only exists after at least one explicit line link.
