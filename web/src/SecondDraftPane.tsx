@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
+import { repetitionOccurrences } from "./write-studio";
 import { markdownToEditorHtml } from "./rich-text";
 import {
   caretTextOffset,
@@ -33,6 +34,7 @@ type SecondDraftViewState = {
   memoryMode: boolean;
   syncScroll: boolean;
   manualAnchors: ManualScrollAnchor[];
+  repetitionHeatmap: boolean;
 };
 
 function clampRatio(value: number): number {
@@ -102,6 +104,7 @@ function readSecondDraftViewState(key: string): SecondDraftViewState | null {
       memoryMode: Boolean(value.memoryMode),
       syncScroll: Boolean(value.syncScroll && manualAnchors.length),
       manualAnchors,
+      repetitionHeatmap: value.repetitionHeatmap !== false,
     };
   } catch {
     return null;
@@ -197,12 +200,16 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [memoryPeek, setMemoryPeek] = useState(false);
   const [syncScroll, setSyncScroll] = useState(false);
   const [manualAnchors, setManualAnchors] = useState<ManualScrollAnchor[]>([]);
+  const [repetitionHeatmap, setRepetitionHeatmap] = useState(true);
+  const [repetitionSummary, setRepetitionSummary] = useState({ words: 0, occurrences: 0, high: 0 });
   const memoryModeStateRef = useRef(memoryMode);
   const syncScrollStateRef = useRef(syncScroll);
   const manualAnchorsStateRef = useRef(manualAnchors);
+  const repetitionHeatmapStateRef = useRef(repetitionHeatmap);
   memoryModeStateRef.current = memoryMode;
   syncScrollStateRef.current = syncScroll;
   manualAnchorsStateRef.current = manualAnchors;
+  repetitionHeatmapStateRef.current = repetitionHeatmap;
   const [sendTargetId, setSendTargetId] = useState("");
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
@@ -252,7 +259,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   );
   const sourceEditorRef = useRef<HTMLDivElement>(null);
   const sourcePaperRef = useRef<HTMLDivElement>(null);
-  const programmaticScrollRef = useRef<{ target: number | null; source: number | null }>({ target: null, source: null });
+  const scrollSuppressedUntilRef = useRef<{ target: number; source: number }>({ target: 0, source: 0 });
+  const scrollLeaderRef = useRef<"target" | "source">("target");
+  const scrollFrameRef = useRef<number | null>(null);
   const restoringScrollRef = useRef(false);
   const targetCaretRef = useRef<number | null>(null);
   const rewriteTargetSnapshotRef = useRef<{ text: string; anchor: number } | null>(null);
@@ -283,6 +292,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       memoryMode: memoryModeStateRef.current,
       syncScroll: syncScrollStateRef.current,
       manualAnchors: manualAnchorsStateRef.current,
+      repetitionHeatmap: repetitionHeatmapStateRef.current,
       ...overrides,
     };
     try { window.localStorage.setItem(viewKey, JSON.stringify(next)); } catch { /* best-effort UI memory */ }
@@ -299,14 +309,17 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const nextMemory = saved?.memoryMode ?? false;
     const nextSync = saved?.syncScroll ?? false;
     const nextAnchors = saved?.manualAnchors ?? [];
+    const nextRepetitions = saved?.repetitionHeatmap ?? true;
     // Mark restoration before any scroll-sync effect gets a chance to react.
     restoringScrollRef.current = Boolean(saved);
     memoryModeStateRef.current = nextMemory;
     syncScrollStateRef.current = nextSync;
     manualAnchorsStateRef.current = nextAnchors;
+    repetitionHeatmapStateRef.current = nextRepetitions;
     setMemoryMode(nextMemory);
     setSyncScroll(nextSync);
     setManualAnchors(nextAnchors);
+    setRepetitionHeatmap(nextRepetitions);
   }, [viewKey]);
 
   useEffect(() => {
@@ -421,6 +434,54 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   useEffect(() => {
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const registry = (CSS as unknown as {
+      highlights?: { set: (name: string, value: unknown) => unknown; delete: (name: string) => unknown };
+    }).highlights;
+    const HighlightCtor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
+    const names = ["folio-repeat-low", "folio-repeat-medium", "folio-repeat-high"] as const;
+    if (!targetEditor || !registry || !HighlightCtor) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const clear = () => { for (const name of names) registry.delete(name); };
+    const update = () => {
+      clear();
+      if (!repetitionHeatmapStateRef.current) {
+        setRepetitionSummary({ words: 0, occurrences: 0, high: 0 });
+        return;
+      }
+      const hits = repetitionOccurrences(targetEditor.textContent ?? "", props.project.meta.language, 80);
+      const grouped = new Map<string, Range[]>();
+      const words = new Set<string>();
+      let high = 0;
+      for (const hit of hits) {
+        const range = rangeForTextOffsets(targetEditor, hit.start, hit.end);
+        if (!range) continue;
+        const name = `folio-repeat-${hit.severity}`;
+        const list = grouped.get(name) ?? [];
+        list.push(range);
+        grouped.set(name, list);
+        words.add(hit.word);
+        if (hit.severity === "high") high++;
+      }
+      for (const [name, ranges] of grouped) registry.set(name, new HighlightCtor(...ranges));
+      setRepetitionSummary({ words: words.size, occurrences: hits.length, high });
+    };
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(update, 90);
+    };
+
+    update();
+    targetEditor.addEventListener("input", schedule);
+    return () => {
+      if (timer) clearTimeout(timer);
+      targetEditor.removeEventListener("input", schedule);
+      clear();
+    };
+  }, [props.targetSectionId, props.project.meta.language, repetitionHeatmap]);
+
+  useEffect(() => {
+    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!targetEditor) return;
     const rememberTargetSelection = () => {
       const selected = selectedTextOffsets(targetEditor);
@@ -461,88 +522,128 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
     if (!sourceEditor || !targetEditor) return;
 
-    const pointForOffset = (editor: HTMLElement, offset: number): number | null => {
+    const scrollPointForOffset = (editor: HTMLElement, offset: number): number | null => {
       const length = editor.textContent?.length ?? 0;
-      if (length <= 0) return 0;
+      const max = Math.max(0, editor.scrollHeight - editor.clientHeight);
+      if (length <= 0 || max <= 0) return 0;
       const start = Math.max(0, Math.min(length - 1, offset));
       const range = rangeForTextOffsets(editor, start, start + 1);
       if (!range) return null;
       const rect = range.getBoundingClientRect();
       const host = editor.getBoundingClientRect();
-      return Math.max(0, rect.top - host.top + editor.scrollTop);
+      const contentY = rect.top - host.top + editor.scrollTop;
+      // Keep linked text around the upper third of each editor. Raw content-Y
+      // cannot be used as scrollTop near the end of a document because the
+      // browser clamps it, which was the main source of late-chapter drift.
+      return Math.max(0, Math.min(max, contentY - editor.clientHeight * 0.28));
     };
 
     const buildAnchors = () => {
       const targetMax = Math.max(0, targetEditor.scrollHeight - targetEditor.clientHeight);
       const sourceMax = Math.max(0, sourceEditor.scrollHeight - sourceEditor.clientHeight);
-      const anchors: Array<{ target: number; source: number }> = [{ target: 0, source: 0 }];
+      const manual: Array<{ target: number; source: number }> = [];
 
       for (const anchor of manualAnchors) {
-        const targetPoint = pointForOffset(targetEditor, anchor.targetOffset);
-        const sourcePoint = pointForOffset(sourceEditor, anchor.sourceOffset);
-        if (targetPoint !== null && sourcePoint !== null) anchors.push({ target: targetPoint, source: sourcePoint });
+        const targetPoint = scrollPointForOffset(targetEditor, anchor.targetOffset);
+        const sourcePoint = scrollPointForOffset(sourceEditor, anchor.sourceOffset);
+        if (targetPoint !== null && sourcePoint !== null) manual.push({ target: targetPoint, source: sourcePoint });
       }
 
-      anchors.push({ target: targetMax, source: sourceMax });
+      const edgeTolerance = 3;
+      const anchors = [...manual];
+      if (!manual.some((item) => item.target <= edgeTolerance || item.source <= edgeTolerance)) {
+        anchors.push({ target: 0, source: 0 });
+      }
+      if (!manual.some((item) => item.target >= targetMax - edgeTolerance || item.source >= sourceMax - edgeTolerance)) {
+        anchors.push({ target: targetMax, source: sourceMax });
+      }
       return anchors;
     };
 
     const remember = () => persistViewState();
-    const consumeProgrammatic = (side: "target" | "source", actual: number): boolean => {
-      const expected = programmaticScrollRef.current[side];
-      if (expected === null) return false;
-      programmaticScrollRef.current[side] = null;
-      return Math.abs(actual - expected) <= 1;
-    };
-    const syncFromTarget = () => {
-      if (restoringScrollRef.current) return;
-      if (consumeProgrammatic("target", targetEditor.scrollTop)) { remember(); return; }
-      if (!syncScroll || manualAnchors.length === 0) { remember(); return; }
-      const next = Math.max(
-        0,
-        Math.min(
-          sourceEditor.scrollHeight - sourceEditor.clientHeight,
-          interpolatePairedScroll(targetEditor.scrollTop, buildAnchors()),
-        ),
-      );
-      if (Math.abs(sourceEditor.scrollTop - next) > 0.5) {
-        programmaticScrollRef.current.source = next;
-        sourceEditor.scrollTop = next;
-      }
-      remember();
-    };
-    const syncFromSource = () => {
-      if (restoringScrollRef.current) return;
-      if (consumeProgrammatic("source", sourceEditor.scrollTop)) { remember(); return; }
-      if (!syncScroll || manualAnchors.length === 0) { remember(); return; }
-      const inverse = buildAnchors().map((item) => ({ target: item.source, source: item.target }));
-      const next = Math.max(
-        0,
-        Math.min(
-          targetEditor.scrollHeight - targetEditor.clientHeight,
-          interpolatePairedScroll(sourceEditor.scrollTop, inverse),
-        ),
-      );
-      if (Math.abs(targetEditor.scrollTop - next) > 0.5) {
-        programmaticScrollRef.current.target = next;
-        targetEditor.scrollTop = next;
+    const now = () => performance.now();
+
+    const syncOneWay = (from: "target" | "source") => {
+      if (restoringScrollRef.current || !syncScrollStateRef.current || manualAnchorsStateRef.current.length === 0) return;
+      const anchors = buildAnchors();
+      if (!anchors.length) return;
+
+      if (from === "target") {
+        const max = Math.max(0, sourceEditor.scrollHeight - sourceEditor.clientHeight);
+        const next = Math.max(0, Math.min(max, interpolatePairedScroll(targetEditor.scrollTop, anchors)));
+        if (Math.abs(sourceEditor.scrollTop - next) > 0.75) {
+          scrollSuppressedUntilRef.current.source = now() + 90;
+          sourceEditor.scrollTop = next;
+        }
+      } else {
+        const inverse = anchors.map((item) => ({ target: item.source, source: item.target }));
+        const max = Math.max(0, targetEditor.scrollHeight - targetEditor.clientHeight);
+        const next = Math.max(0, Math.min(max, interpolatePairedScroll(sourceEditor.scrollTop, inverse)));
+        if (Math.abs(targetEditor.scrollTop - next) > 0.75) {
+          scrollSuppressedUntilRef.current.target = now() + 90;
+          targetEditor.scrollTop = next;
+        }
       }
       remember();
     };
 
-    targetEditor.addEventListener("scroll", syncFromTarget, { passive: true });
-    sourceEditor.addEventListener("scroll", syncFromSource, { passive: true });
+    const schedule = (from: "target" | "source") => {
+      scrollLeaderRef.current = from;
+      if (scrollFrameRef.current !== null) return;
+      scrollFrameRef.current = requestAnimationFrame(() => {
+        scrollFrameRef.current = null;
+        syncOneWay(scrollLeaderRef.current);
+      });
+    };
+
+    const userTookControl = (side: "target" | "source") => {
+      scrollSuppressedUntilRef.current[side] = 0;
+      scrollLeaderRef.current = side;
+    };
+
+    const onTargetScroll = () => {
+      if (restoringScrollRef.current) return;
+      if (now() < scrollSuppressedUntilRef.current.target) { remember(); return; }
+      schedule("target");
+    };
+    const onSourceScroll = () => {
+      if (restoringScrollRef.current) return;
+      if (now() < scrollSuppressedUntilRef.current.source) { remember(); return; }
+      schedule("source");
+    };
+    const targetIntent = () => userTookControl("target");
+    const sourceIntent = () => userTookControl("source");
+    const targetInput = () => schedule("target");
+
+    targetEditor.addEventListener("scroll", onTargetScroll, { passive: true });
+    sourceEditor.addEventListener("scroll", onSourceScroll, { passive: true });
+    for (const event of ["wheel", "pointerdown", "touchstart", "keydown"] as const) {
+      targetEditor.addEventListener(event, targetIntent, { passive: event !== "keydown" });
+      sourceEditor.addEventListener(event, sourceIntent, { passive: event !== "keydown" });
+    }
+    targetEditor.addEventListener("input", targetInput);
+
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      schedule(scrollLeaderRef.current);
+    });
+    resizeObserver?.observe(targetEditor);
+    resizeObserver?.observe(sourceEditor);
 
     return () => {
-      // Scroll/state changes are persisted when they happen. Do not sample the
-      // editors during unmount: the parent may already have switched out of
-      // split layout, which can clamp scrollTop and overwrite the real position.
-      programmaticScrollRef.current.target = null;
-      programmaticScrollRef.current.source = null;
-      targetEditor.removeEventListener("scroll", syncFromTarget);
-      sourceEditor.removeEventListener("scroll", syncFromSource);
+      if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = null;
+      scrollSuppressedUntilRef.current.target = 0;
+      scrollSuppressedUntilRef.current.source = 0;
+      targetEditor.removeEventListener("scroll", onTargetScroll);
+      sourceEditor.removeEventListener("scroll", onSourceScroll);
+      for (const event of ["wheel", "pointerdown", "touchstart", "keydown"] as const) {
+        targetEditor.removeEventListener(event, targetIntent);
+        sourceEditor.removeEventListener(event, sourceIntent);
+      }
+      targetEditor.removeEventListener("input", targetInput);
+      resizeObserver?.disconnect();
     };
-  }, [pair?.sourceSectionId, relevantBlocks, sourceMatchesPair, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey]);
+  }, [pair?.sourceSectionId, sourceMatchesPair, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey]);
 
   function linkSelectedLines() {
     if (!selection || !targetSelection) return;
@@ -977,6 +1078,14 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           setIssuePanelOpen(false);
           setReviewPanelOpen(false);
         }}>Brief{draftBrief ? " •" : ""}</button>}
+        <button type="button" className={repetitionHeatmap ? "active" : ""} aria-pressed={repetitionHeatmap}
+          title={repetitionHeatmap ? `Nearby repetition heatmap: ${repetitionSummary.words} repeated words, ${repetitionSummary.occurrences} highlighted uses` : "Show nearby repetitions in the new draft"}
+          onClick={() => setRepetitionHeatmap((value) => {
+            const next = !value;
+            repetitionHeatmapStateRef.current = next;
+            persistViewState({ repetitionHeatmap: next });
+            return next;
+          })}>Repeats{repetitionHeatmap && repetitionSummary.words ? ` ${repetitionSummary.words}` : ""}</button>
         <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => {
           const next = !value;
           persistViewState({ memoryMode: next });
