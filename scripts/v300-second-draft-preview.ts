@@ -47,7 +47,6 @@ try {
   });
   await page.waitForSelector('.folio-shell[data-workspace-mode="write"]');
 
-  const initialTargetBeforeRepeatsQa = await page.$eval(".manuscript-editor", (el) => (el as HTMLElement).innerHTML);
   await page.$eval(".manuscript-editor", (el) => {
     const editor = el as HTMLElement;
     const probe = document.createElement("p");
@@ -71,11 +70,11 @@ try {
       && registry?.has("folio-repeat-phrase")
     );
   });
-  await page.$eval(".manuscript-editor", (el, html) => {
+  await page.$eval(".manuscript-editor", (el) => {
     const editor = el as HTMLElement;
-    editor.innerHTML = String(html);
-    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "historyUndo" }));
-  }, initialTargetBeforeRepeatsQa);
+    editor.querySelector('[data-initial-repeats-qa="true"]')?.remove();
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+  });
 
   const initial = await page.evaluate(() => {
     const source = document.querySelector<HTMLElement>(".second-draft-source");
