@@ -533,6 +533,7 @@ try {
   if (!repetitionQa.high || !/^Repeats\s+[1-9]/.test(repetitionQa.label)) {
     throw new Error("Second Draft repetition heatmap did not expose repeated target prose: " + JSON.stringify(repetitionQa));
   }
+  await page.screenshot({ path: path.join(qa, "16-repetition-heatmap-light.png") });
   await page.$eval(".manuscript-editor", (el, html) => {
     const editor = el as HTMLElement;
     editor.innerHTML = String(html);
