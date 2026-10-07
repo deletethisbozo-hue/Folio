@@ -734,6 +734,9 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   function clearManualScrollAnchors() {
     setManualAnchors([]);
     setSyncScroll(false);
+    setLinksPanelOpen(false);
+    manualAnchorsStateRef.current = [];
+    syncScrollStateRef.current = false;
     persistViewState({ manualAnchors: [], syncScroll: false });
   }
 
