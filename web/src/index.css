@@ -232,7 +232,7 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-decorative .sample-ornament { display:none; }
 .theme-literary .sample-chapter { margin-top:30px; color:#776b5d; }
 .theme-literary .sample-title { max-width:7em; font-size:18px; }
-.theme-editorial .sample-title { padding:7px 0; border-top:3px solid currentColor; border-bottom:1px solid #aaa; font:700 19px Source Sans 3,sans-serif; }
+.theme-editorial .sample-title { padding:7px 0; border-top:3px solid currentColor; border-bottom:1px solid #aaa; font:700 19px "Source Sans 3",sans-serif; }
 .theme-editorial .sample-chapter { color:#a52d2d; }
 .theme-heritage .sample-title { font-variant:small-caps; letter-spacing:.1em; font-style:normal; }
 .theme-scholar .sample-title { padding-bottom:6px; border-bottom:1px solid #8392a0; font-style:normal; font-weight:600; }
@@ -244,7 +244,7 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-cloister .sample-title::after { content:"✠"; display:block; margin-top:8px; color:#8e302b; font-size:11px; }
 .theme-blackletter .sample-title { font:400 22px "Grenze Gotisch",Gelasio,serif; }
 .theme-parchment .sample-title { padding:5px 0 5px 10px; border-left:4px double #9b6b42; }
-.theme-atlas .sample-title { padding:8px; border:1px solid #71877d; font:700 17px "Barlow Condensed",Source Sans 3,sans-serif; text-transform:uppercase; }
+.theme-atlas .sample-title { padding:8px; border:1px solid #71877d; font:700 17px "Barlow Condensed","Source Sans 3",sans-serif; text-transform:uppercase; }
 .theme-atlas .sample-chapter { color:#527065; }
 .theme-stanza .sample-copy { line-height:1.7; }
 .theme-stanza .sample-copy b { font-weight:400; }
@@ -253,8 +253,8 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-cinder .sample-title { font:400 18px "Barlow Condensed","Segoe UI",sans-serif; text-transform:uppercase; letter-spacing:.12em; }
 .theme-solstice .sample-chapter { color:#688490; letter-spacing:.23em; }
 .theme-solstice .sample-title { font-style:normal; text-transform:uppercase; letter-spacing:.14em; }
-.theme-timber .sample-title { padding:7px 9px; border-left:5px solid #6d5336; font:700 17px Roboto Slab,Gelasio,serif; }
-.theme-obsidian .sample-title { padding:7px 2px; border-top:1px solid #17171b; border-bottom:4px double #17171b; font:400 18px Bodoni Moda,Gelasio,serif; font-style:normal; letter-spacing:.06em; }
+.theme-timber .sample-title { padding:7px 9px; border-left:5px solid #6d5336; font:700 17px "Roboto Slab",Gelasio,serif; }
+.theme-obsidian .sample-title { padding:7px 2px; border-top:1px solid #17171b; border-bottom:4px double #17171b; font:400 18px "Bodoni Moda",Gelasio,serif; font-style:normal; letter-spacing:.06em; }
 .theme-bloodmoon .sample-chapter { width:31px; height:31px; margin-top:18px; border:1px solid #771f26; border-radius:50%; line-height:31px; }
 .theme-bloodmoon .sample-title { color:#771f26; font:italic 19px "Bodoni Moda",Gelasio,serif; }
 .theme-grimoire .sample-title { padding:7px; border:3px double #6d5873; font-style:normal; font-variant:small-caps; letter-spacing:.08em; }
@@ -263,8 +263,8 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-wyrmwood .sample-title { padding:5px 0 5px 10px; border-left:3px solid #47644c; color:#29442f; font:italic 18px Vollkorn,Gelasio,serif; }
 .theme-runestone .sample-title { padding:7px; border-top:5px solid #405868; border-bottom:2px solid #71838b; font:700 15px Cinzel,"Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.12em; }
 .theme-witchlight { align-items:flex-end; text-align:right; }
-.theme-witchlight .sample-title { padding-right:9px; border-right:3px solid #745683; color:#60446f; font:italic 18px Libre Baskerville,Gelasio,serif; }
-.theme-ironbound .sample-title { padding:7px; border:3px solid #3e4749; font:700 16px Roboto Slab,Gelasio,serif; text-transform:uppercase; }
+.theme-witchlight .sample-title { padding-right:9px; border-right:3px solid #745683; color:#60446f; font:italic 18px "Libre Baskerville",Gelasio,serif; }
+.theme-ironbound .sample-title { padding:7px; border:3px solid #3e4749; font:700 16px "Roboto Slab",Gelasio,serif; text-transform:uppercase; }
 .style-library-footer { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 0 14px 0 18px; border-top: 1px solid #c9c8c3; background: linear-gradient(#f4f3ef,#e8e7e2); }
 .style-library-footer>div { min-width: 0; display: flex; flex-direction: column; }
 .style-library-footer strong { font-size: 10px; }
