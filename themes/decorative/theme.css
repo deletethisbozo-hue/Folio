@@ -4,7 +4,7 @@
 
 body {
   font-family: "Hoefler Text", Baskerville, "Palatino Linotype", Palatino,
-    Georgia, serif;
+    Gelasio, serif;
 }
 main.book { counter-reset: decorative-chapter; }
 section.chapter { counter-increment: decorative-chapter; }
@@ -70,7 +70,7 @@ section.chapter > h1.has-subtitle::after {
    and the display face. */
 .dropcap {
   color: #7a3b2e;
-  font-family: "Hoefler Text", Baskerville, "Palatino Linotype", Georgia, serif;
+  font-family: "Hoefler Text", Baskerville, "Palatino Linotype", Gelasio, serif;
 }
 
 /* Subtitle ties the title page into the theme's copper/gold palette (keeps the
