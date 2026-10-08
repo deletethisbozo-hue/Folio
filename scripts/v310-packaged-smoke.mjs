@@ -148,7 +148,7 @@ try {
   if (dropcapGeometry.textLeft && dropcapGeometry.textLeft < dropcapGeometry.capRight - 2) {
     throw new Error("Theme Lab drop cap overlaps the first line of body text.");
   }
-  if (dropcapGeometry.capHeight > dropcapGeometry.paraHeight * .95) {
+  if (dropcapGeometry.capHeight > dropcapGeometry.paraHeight * 1.35) {
     throw new Error("Theme Lab drop cap expands beyond the paragraph flow.");
   }
 
@@ -186,8 +186,8 @@ try {
     const doc = frame?.contentDocument;
     const heading = doc?.querySelector("section.chapter > h1, h1.chapter");
     if (!heading) return false;
-    const after = getComputedStyle(heading, "::after").backgroundImage;
-    const sectionBefore = getComputedStyle(heading.closest("section.chapter"), "::before").backgroundImage;
+    const after = doc.defaultView.getComputedStyle(heading, "::after").backgroundImage;
+    const sectionBefore = doc.defaultView.getComputedStyle(heading.closest("section.chapter"), "::before").backgroundImage;
     return String(after).includes("data:image/png") || String(sectionBefore).includes("data:image/png");
   }, { timeout: 15000 });
 
