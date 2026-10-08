@@ -50,6 +50,34 @@ for (const theme of themes.body) {
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
 }
 
+const retiredFontAliases = [
+  "Georgia", "Times New Roman", "Garamond", "Baskerville", "Palatino", "Palatino Linotype",
+  "Cambria", "Charter", "Rockwell", "Avenir", "Didot", "Bodoni MT", "Trajan Pro",
+  "Book Antiqua", "Hoefler Text", "Old English Text MT", "UnifrakturCook", "Copperplate",
+  "Arial Narrow", "Arial Black", "Helvetica Neue",
+];
+const themeEntries = await fs.readdir(path.join(ROOT, "themes"), { withFileTypes: true });
+for (const entry of themeEntries.filter((item) => item.isDirectory() && item.name !== "fonts")) {
+  const file = path.join(ROOT, "themes", entry.name, "theme.css");
+  try {
+    const css = await fs.readFile(file, "utf8");
+    const found = retiredFontAliases.filter((alias) => css.includes(alias));
+    check(`${entry.name} uses canonical bundled font names`, found.length === 0, found.join(", "));
+  } catch {
+    // Not every resource directory is a book theme.
+  }
+}
+const uiFontSources = [
+  path.join(ROOT, "web", "src", "App.tsx"),
+  path.join(ROOT, "web", "src", "ThemeLab.tsx"),
+  path.join(ROOT, "server", "pipeline", "themes.ts"),
+];
+for (const file of uiFontSources) {
+  const source = await fs.readFile(file, "utf8");
+  check(`${path.basename(file)} does not expose Georgia as Gelasio`, !source.includes("Georgia"));
+  check(`${path.basename(file)} does not expose prefixed font family names`, !/"Folio (?:Source|EB|Libre|Newsreader|Vollkorn|Barlow|Bodoni|Cinzel|Grenze|Roboto|Jena|Manufacturing|Kings|CAT|Slavkappen)/.test(source));
+}
+
 const newBookRoot = await fs.mkdtemp(path.join(os.tmpdir(), "folio-new-"));
 const newBookFile = path.join(newBookRoot, "Born Tied.folio");
 const created = await post("/api/projects/new", { path: newBookFile, title: "Born Tied", author: "Folio Test" });
@@ -133,7 +161,7 @@ const preview = await post(`/api/projects/${projectId}/preview`, {
   draft: transient,
 });
 check("preview contains the transient editor draft", preview.status === 200 && preview.body.html.includes("ransient ink appears before"));
-check("preview contains selected theme CSS", preview.body.html.includes("Folio Grenze Gotisch"));
+check("preview contains selected theme CSS", preview.body.html.includes("Grenze Gotisch"));
 check("preview renders exactly the selected section", (preview.body.html.match(/<section/g) ?? []).length === 1);
 
 const softBreakPreview = await post(`/api/projects/${projectId}/preview`, {
