@@ -12,7 +12,7 @@
   background: var(--studio-surface) !important;
   color: var(--studio-ink) !important;
   box-shadow: 0 1px 0 rgba(255,255,255,.55);
-  font: 600 12.5px/1 Newsreader, "Times New Roman", serif;
+  font: 600 12.5px/1 Newsreader, serif;
   letter-spacing: -.01em;
 }
 
