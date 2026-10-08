@@ -7,7 +7,7 @@
 }
 
 @font-face {
-  font-family: "Folio IBM Plex Sans";
+  font-family: "IBM Plex Sans";
   src: url("/theme-fonts/ibm-plex-sans.ttf") format("truetype");
   font-style: normal;
   font-weight: 100 700;
@@ -16,14 +16,14 @@
 }
 
 :root {
-  --folio-ui-font: "Folio IBM Plex Sans", "Segoe UI", sans-serif;
+  --folio-ui-font: "IBM Plex Sans", "Segoe UI", sans-serif;
   font-family: var(--folio-ui-font);
 }
 
 .start-shell,
 .folio-shell {
   --folio-logo-font: "Pelagiad", Newsreader, serif;
-  --folio-ui-font: "Folio IBM Plex Sans", "Segoe UI", sans-serif;
+  --folio-ui-font: "IBM Plex Sans", "Segoe UI", sans-serif;
   font-family: var(--folio-ui-font);
 }
 
