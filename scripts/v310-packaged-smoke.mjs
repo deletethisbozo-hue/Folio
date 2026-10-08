@@ -43,7 +43,18 @@ try {
   });
   await page.waitForSelector('.theme-lab-window[aria-label="Theme Lab"]', { timeout: 10000 });
 
-  const fontNames = await page.$$eval(".theme-lab-window select option", (items) =>
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll(".theme-lab-nav button")]
+      .find((item) => item.textContent?.trim() === "Body");
+    if (!button) throw new Error("Theme Lab Body panel is missing.");
+    button.click();
+  });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll(".theme-lab-window select option")]
+      .some((item) => item.textContent?.trim() === "Gelasio"),
+    { timeout: 10000 },
+  );
+  const fontNames = await page.$eval(".theme-lab-window select option", (items) =>
     items.map((item) => item.textContent?.trim()).filter(Boolean)
   );
   for (const required of ["Gelasio", "Newsreader", "EB Garamond", "Libre Baskerville"]) {
