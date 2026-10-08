@@ -213,9 +213,11 @@ export async function buildThemeRuntimeCss(
   const normalized = normalizeThemeFontFamilies(source);
   const requested = new Set<FontKey>();
   for (const family of requestedFamilies) {
-    const match = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
-      .find(([, spec]) => spec.family === family);
-    if (match) requested.add(match[0]);
+    const direct = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
+      .find(([, spec]) => spec.family === family)?.[0];
+    const legacy = LEGACY_TO_BUILTIN.find(([name]) => name === family)?.[1];
+    const key = direct ?? legacy;
+    if (key) requested.add(key);
   }
   const keys = [...new Set<FontKey>([...normalized.used, ...requested])];
   const faces = await Promise.all(keys.map((key) => fontFaceCss(FONTS[key], target)));
