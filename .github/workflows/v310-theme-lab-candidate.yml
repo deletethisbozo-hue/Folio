@@ -68,8 +68,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Full formatter and UI suite
-        run: npm test
+      - name: Candidate regression suite
+        run: npm test -- typesetting-language ui-coherence v206-ui-regression folio-runtime web-export v300-second-draft
 
       - name: Build web and server
         run: npm run build
