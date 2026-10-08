@@ -1,5 +1,5 @@
 /* Scholar — academic monograph grid with numbered rail and disciplined rules. */
-body{font-family:Georgia,"Times New Roman",serif;line-height:1.5;color:#20262c;background:#fbfcfd}
+body{font-family:Gelasio,"Times New Roman",serif;line-height:1.5;color:#20262c;background:#fbfcfd}
 main.book{counter-reset:study}
 section.chapter{counter-increment:study}
 section.chapter>h1{text-align:left;margin:.55em 0 1.95em;padding:.7em 0 .65em 3.2em;border-top:2px solid #243d56;border-bottom:1px solid #9aa8b3;font-family:Avenir,"Segoe UI",Arial,sans-serif;font-size:1.65em;font-weight:700;line-height:1.08;color:#23374b;position:relative}
