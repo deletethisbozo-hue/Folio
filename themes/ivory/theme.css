@@ -1,11 +1,11 @@
 /* Ivory — luxury minimalism: high contrast, silence and generous air. */
-body{font-family:Cambria,Gelasio,serif;line-height:1.66;color:#3f3a34;background:#fffdf8}
+body{font-family:Newsreader,Gelasio,serif;line-height:1.66;color:#3f3a34;background:#fffdf8}
 p{text-indent:1.05em}
-section.chapter>h1{text-align:center;margin:3.1em 0 3.05em;font-family:Didot,"Bodoni MT",Gelasio,serif;font-size:2.15em;font-weight:400;line-height:1.05;letter-spacing:.045em;color:#554b41}
-section.chapter>h1::before{content:"CHAPTER";display:block;margin-bottom:1.25em;font-family:Avenir,Arial,sans-serif;font-size:.3em;font-weight:600;letter-spacing:.38em;color:#b3a793}
+section.chapter>h1{text-align:center;margin:3.1em 0 3.05em;font-family:Bodoni Moda,"Bodoni Moda",Gelasio,serif;font-size:2.15em;font-weight:400;line-height:1.05;letter-spacing:.045em;color:#554b41}
+section.chapter>h1::before{content:"CHAPTER";display:block;margin-bottom:1.25em;font-family:Source Sans 3,Source Sans 3,sans-serif;font-size:.3em;font-weight:600;letter-spacing:.38em;color:#b3a793}
 section.chapter>h1::after{content:"";display:block;width:2.4em;height:1px;margin:1em auto -.25em;background:#d4c9b8}
-.chapter-subtitle{margin:-2.45em 0 2.7em}.chapter-subtitle p{font-family:Didot,"Bodoni MT",Gelasio,serif;font-style:italic;font-size:.96em;color:#8c7f6c}
-.scene-break{font-family:Didot,"Bodoni MT",Gelasio,serif;font-size:.9em;letter-spacing:.65em;color:#b7aa98}
-section.titlepage{padding-top:5em}section.titlepage>h1{font-family:Didot,"Bodoni MT",Gelasio,serif;font-size:2.65em;font-weight:400;letter-spacing:.05em;color:#51483f}.tp-subtitle{font-family:Didot,"Bodoni MT",Gelasio,serif;font-style:italic;color:#8c7f6c}.tp-author{margin-top:3.5em;font-family:Avenir,Arial,sans-serif;font-size:.88em;letter-spacing:.2em;text-transform:uppercase;color:#766c61}
-section.copyright{font-size:.74em;color:#8b8278}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Didot,"Bodoni MT",Gelasio,serif;font-weight:400;letter-spacing:.05em}
+.chapter-subtitle{margin:-2.45em 0 2.7em}.chapter-subtitle p{font-family:Bodoni Moda,"Bodoni Moda",Gelasio,serif;font-style:italic;font-size:.96em;color:#8c7f6c}
+.scene-break{font-family:Bodoni Moda,"Bodoni Moda",Gelasio,serif;font-size:.9em;letter-spacing:.65em;color:#b7aa98}
+section.titlepage{padding-top:5em}section.titlepage>h1{font-family:Bodoni Moda,"Bodoni Moda",Gelasio,serif;font-size:2.65em;font-weight:400;letter-spacing:.05em;color:#51483f}.tp-subtitle{font-family:Bodoni Moda,"Bodoni Moda",Gelasio,serif;font-style:italic;color:#8c7f6c}.tp-author{margin-top:3.5em;font-family:Source Sans 3,Source Sans 3,sans-serif;font-size:.88em;letter-spacing:.2em;text-transform:uppercase;color:#766c61}
+section.copyright{font-size:.74em;color:#8b8278}section.frontmatter>h1,section.backmatter>h1{text-align:center;font-family:Bodoni Moda,"Bodoni Moda",Gelasio,serif;font-weight:400;letter-spacing:.05em}
 @media print{section.chapter>h1{margin-top:2.1in}}
