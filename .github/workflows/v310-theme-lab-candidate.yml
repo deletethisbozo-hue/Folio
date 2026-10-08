@@ -92,16 +92,6 @@ jobs:
           "$hash  $(Split-Path $file -Leaf)" | Set-Content -Encoding ascii release\sha256.txt
           Get-Content release\sha256.txt
 
-      - name: Upload Theme Lab candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: Folio-3.1.0-beta.1-Theme-Lab-Windows
-          path: |
-            release/Folio-3.1.0-beta.1-portable.exe
-            release/sha256.txt
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Smoke-test packaged Folio
         shell: pwsh
         run: |
@@ -117,26 +107,19 @@ jobs:
             }
             if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged app did not become ready." }
             node scripts\v310-packaged-smoke.mjs
-            if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
-
-            $themes = Invoke-RestMethod "$base/api/themes"
-            if ($themes.Count -ne 13) { throw "Expected 13 curated themes, found $($themes.Count)." }
-
-            $sample = Invoke-RestMethod -Method Post -ContentType "application/json" -Body "{}" "$base/api/sample"
-            $chapter = $sample.sections | Where-Object { $_.kind -eq "chapter" } | Select-Object -First 1
-            if (-not $chapter) { throw "Packaged sample has no chapter." }
-
-            $previewBody = @{
-              meta = $sample.meta
-              theme = "blackletter"
-              typography = @{}
-              previewSectionId = $chapter.id
-              draft = "Folio 3.1 Theme Lab candidate smoke test."
-            } | ConvertTo-Json -Depth 10
-            $preview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $previewBody "$base/api/projects/$($sample.projectId)/preview"
-            if ($preview.html -notmatch "Theme Lab candidate smoke test" -or $preview.html -notmatch "Grenze Gotisch") { throw "Packaged preview omitted draft text or bundled theme font." }
+            if ($LASTEXITCODE -ne 0) { throw "Packaged Theme Lab smoke failed." }
           }
           finally {
             Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
+
+      - name: Upload Theme Lab candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-3.1.0-beta.1-Theme-Lab-Windows
+          path: |
+            release/Folio-3.1.0-beta.1-portable.exe
+            release/sha256.txt
+          if-no-files-found: error
+          retention-days: 14
