@@ -1,6 +1,6 @@
 /* Cloister — illuminated monastic bookwork without fake immutable manuscript labels. */
 body {
-  font-family: "Libre Caslon Text", Garamond, Georgia, serif;
+  font-family: "Libre Caslon Text", Garamond, Gelasio, serif;
   line-height: 1.52;
   color: #2d241c;
   background: #e9d8ae;
@@ -68,7 +68,7 @@ h1.chapter::after {
   margin-top: .78em;
   padding-top: .72em;
   border-top: 1px solid #b39156;
-  font-family: Georgia, serif;
+  font-family: Gelasio, serif;
   font-size: .38em;
   letter-spacing: .36em;
   color: #285a79;
