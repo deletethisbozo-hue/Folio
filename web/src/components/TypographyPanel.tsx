@@ -12,19 +12,25 @@ interface Props {
   onSaved: (s: ProjectSummary) => void;
 }
 
-const SYSTEM_FONTS = [
-  "Georgia",
-  "Palatino Linotype",
-  "Iowan Old Style",
-  "Book Antiqua",
-  "Times New Roman",
-  "Garamond",
-  "Baskerville",
-  "Helvetica Neue",
-  "Segoe UI",
-  "Arial",
-  "Verdana",
-  "system-ui",
+const BUNDLED_FONTS = [
+  "Source Serif 4",
+  "Source Sans 3",
+  "EB Garamond",
+  "Libre Caslon Text",
+  "Libre Baskerville",
+  "Newsreader",
+  "Gelasio",
+  "Vollkorn",
+  "Barlow Condensed",
+  "Bodoni Moda",
+  "Cinzel",
+  "Grenze Gotisch",
+  "Roboto Slab",
+  "Jena Gotisch",
+  "Manufacturing Consent",
+  "Kings",
+  "CAT Altenglisch",
+  "Slavkappen",
 ];
 
 const ORNAMENTS = ["* * *", "•  •  •", "❧", "❦", "✦  ✦  ✦", "⁂", "— ⁂ —"];
@@ -67,8 +73,8 @@ function FontOptions({ families }: { families: string[] }) {
           ))}
         </optgroup>
       )}
-      <optgroup label="System fonts">
-        {SYSTEM_FONTS.map((f) => (
+      <optgroup label="Bundled fonts">
+        {BUNDLED_FONTS.map((f) => (
           <option key={f} value={f}>
             {f}
           </option>
@@ -184,8 +190,8 @@ export default function TypographyPanel({ projectId, meta, fontFamilies, editabl
       )}
       {error && <div className="rounded-md bg-red-50 p-2 text-xs text-red-700">{error}</div>}
       <p className="text-[11px] leading-snug text-slate-400">
-        Overrides the theme. Custom fonts (from <code>fonts:</code> in book.yaml) appear under “Your embedded fonts” and
-        render everywhere; system fonts are suggestions e-readers may substitute.
+        Overrides the theme. Bundled families render consistently in preview, PDF and EPUB. Custom embedded fonts from
+        <code> fonts:</code> in book.yaml remain available under “Your embedded fonts”.
       </p>
     </div>
   );
