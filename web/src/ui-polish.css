@@ -2,10 +2,10 @@
   /* Backward-compatible display token for older chrome rules. The product UI
    * uses one sans family; the Folio wordmark is handled separately by the
    * dedicated Pelagiad branding rule in the final correction layer. */
-  --folio-ui-display: "Folio Source Sans 3", "Segoe UI", Arial, sans-serif;
+  --folio-ui-display: "Source Sans 3", "Segoe UI", Arial, sans-serif;
 }
 
-/* This file used to force Georgia onto every bold heading and even the Folio
+/* This file used to force Newsreader onto every bold heading and even the Folio
  * wordmark with !important. That made later typography fixes lose the cascade
  * despite loading afterwards. Typography now belongs to the single final UI
  * system; this layer keeps only the publishing-control structure. */
