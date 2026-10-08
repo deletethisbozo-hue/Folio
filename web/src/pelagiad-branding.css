@@ -22,7 +22,7 @@
 
 .start-shell,
 .folio-shell {
-  --folio-logo-font: "Pelagiad", Georgia, "Times New Roman", serif;
+  --folio-logo-font: "Pelagiad", Newsreader, "Times New Roman", serif;
   --folio-ui-font: "Folio IBM Plex Sans", "Segoe UI", sans-serif;
   font-family: var(--folio-ui-font);
 }
