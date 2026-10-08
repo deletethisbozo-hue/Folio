@@ -47,6 +47,11 @@ const dropcapFontOptions = [
   ["Roboto Slab", "Roboto Slab"],
 ] as const;
 
+const safeDropcapFamilies = new Set(dropcapFontOptions.map(([value]) => value));
+function safeDropcapFamily(value: string | undefined): string {
+  return value && safeDropcapFamilies.has(value) ? value : "Libre Baskerville";
+}
+
 function numberValue(value: unknown, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -57,7 +62,9 @@ function selectedTheme(themes: Theme[], name: string): Theme | undefined {
 }
 
 function defaultConfig(theme: Theme | undefined, typography: Typography): ThemeLabConfig {
-  if (typography.themeLab?.enabled) return { ...typography.themeLab, enabled: true };
+  if (typography.themeLab?.enabled) {
+    return { ...typography.themeLab, dropcapFont: safeDropcapFamily(typography.themeLab.dropcapFont), enabled: true };
+  }
   return {
     enabled: true,
     name: "My Theme",
@@ -92,7 +99,7 @@ function defaultConfig(theme: Theme | undefined, typography: Typography): ThemeL
     labelColor: theme?.previewAccent ?? "#856744",
     dropcap: typography.dropcap ?? theme?.dropcap ?? true,
     dropcapSize: typography.dropcapSize ?? "small",
-    dropcapFont: typography.dropcapFont ?? typography.headingFont ?? theme?.previewHeadingFont ?? "Libre Baskerville",
+    dropcapFont: safeDropcapFamily(typography.dropcapFont ?? typography.headingFont ?? theme?.previewHeadingFont),
     sceneOrnament: typography.sceneOrnament ?? theme?.sceneOrnament ?? "⁂",
     sceneSize: 1.1,
     sceneColor: theme?.previewAccent ?? "#856744",
@@ -118,7 +125,7 @@ export function themeLabTypography(base: Typography, lab: ThemeLabConfig): Typog
     headingFont: lab.headingFont,
     dropcap: lab.dropcap,
     dropcapSize: lab.dropcapSize,
-    dropcapFont: lab.dropcapFont,
+    dropcapFont: safeDropcapFamily(lab.dropcapFont ?? lab.headingFont),
     sceneOrnament: lab.sceneOrnament,
     titlePageFont: lab.titlePageFont,
     chapterTitle: {
@@ -385,7 +392,9 @@ export default function ThemeLab(props: {
       const theme = props.themes.find((item) => item.name === parsed.baseTheme);
       if (!theme) throw new Error("The package uses a base theme this Folio build does not know.");
       setBaseTheme(theme.name);
-      setLab({ ...defaultConfig(theme, {}), ...parsed.config, enabled: true });
+      const imported = { ...defaultConfig(theme, {}), ...parsed.config, enabled: true };
+      imported.dropcapFont = safeDropcapFamily(imported.dropcapFont);
+      setLab(imported);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
