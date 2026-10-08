@@ -1,5 +1,5 @@
 /* Folio — signature editorial: serif reading face + disciplined sans rail. */
-body{font-family:Georgia,"Times New Roman",serif;line-height:1.54;color:#242527;background:#fbfaf6}
+body{font-family:Gelasio,"Times New Roman",serif;line-height:1.54;color:#242527;background:#fbfaf6}
 main.book{counter-reset:foliosig}
 section.chapter{counter-increment:foliosig}
 section.chapter>h1{position:relative;text-align:left;margin:.55em 0 2.35em;padding:.15em 0 .7em 1.15em;border-left:5px solid #8a6b47;font-family:Avenir,"Segoe UI",Arial,sans-serif;font-size:1.9em;font-weight:700;line-height:1.05;letter-spacing:-.02em;color:#202329}
