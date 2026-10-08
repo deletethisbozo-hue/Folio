@@ -570,7 +570,7 @@
 .second-draft-compare-grid p {
   margin: 0;
   white-space: pre-wrap;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: Newsreader, "Times New Roman", serif;
   font-size: 13px;
   line-height: 1.55;
 }
@@ -682,7 +682,7 @@
 }
 .second-draft-word-diff p {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: Newsreader, "Times New Roman", serif;
   font-size: 13px;
   line-height: 1.55;
 }
