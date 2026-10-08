@@ -14,7 +14,7 @@ const panels: LabPanel[] = ["Foundation", "Body", "Chapter", "Ornaments", "Title
 
 const fontOptions = [
   ["EB Garamond", "EB Garamond"],
-  ["Libre Caslon Text", "Libre Caslon"],
+  ["Libre Caslon Text", "Libre Caslon Text"],
   ["Libre Baskerville", "Libre Baskerville"],
   ["Newsreader", "Newsreader"],
   ["Gelasio", "Gelasio"],
