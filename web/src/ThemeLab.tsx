@@ -31,8 +31,6 @@ const fontOptions = [
   ["Kings", "Kings"],
   ["CAT Altenglisch", "CAT Altenglisch"],
   ["Slavkappen", "Slavkappen"],
-  ["Georgia, serif", "Georgia"],
-  ["Arial, sans-serif", "Arial"],
 ] as const;
 
 function numberValue(value: unknown, fallback: number): number {
