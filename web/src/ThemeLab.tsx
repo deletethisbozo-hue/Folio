@@ -183,10 +183,32 @@ function ColorControl(props: { label: string; value: string; onChange: (value: s
   return <label className="theme-lab-row color-row"><span>{props.label}</span><span className="theme-lab-color"><input type="color" value={props.value} onChange={(event) => props.onChange(event.target.value)}/><input value={props.value} maxLength={9} onChange={(event) => props.onChange(event.target.value)}/></span></label>;
 }
 
-function FontControl(props: { label: string; value: string; onChange: (value: string) => void }) {
-  return <SelectControl label={props.label} value={props.value} onChange={props.onChange}>
-    {fontOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-  </SelectControl>;
+function FontControl(props: { label: string; value: string; installedFonts: string[]; onChange: (value: string) => void }) {
+  const builtInValues = new Set(fontOptions.map(([value]) => value));
+  const installed = props.installedFonts.filter((family) => !builtInValues.has(family as (typeof fontOptions)[number][0]));
+  const known = builtInValues.has(props.value as (typeof fontOptions)[number][0]) || installed.includes(props.value);
+  return <label className="theme-lab-row theme-lab-font-row">
+    <span>{props.label}</span>
+    <div className="theme-lab-font-picker">
+      <select value={known ? props.value : "__custom__"} onChange={(event) => {
+        if (event.target.value !== "__custom__") props.onChange(event.target.value);
+      }}>
+        <optgroup label="Folio built-ins">
+          {fontOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </optgroup>
+        {installed.length > 0 && <optgroup label="Fonts on this computer">
+          {installed.map((family) => <option key={family} value={family}>{family}</option>)}
+        </optgroup>}
+        <option value="__custom__">Custom font name…</option>
+      </select>
+      <input
+        className="theme-lab-font-custom"
+        value={known ? "" : props.value}
+        placeholder="Type any installed font family"
+        onChange={(event) => props.onChange(event.target.value)}
+      />
+    </div>
+  </label>;
 }
 
 function ArtworkControl(props: {
@@ -241,6 +263,8 @@ export default function ThemeLab(props: {
   const [previewTarget, setPreviewTarget] = useState<"chapter" | "title">("chapter");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [installedFonts, setInstalledFonts] = useState<string[]>([]);
+  const [fontAccessState, setFontAccessState] = useState<"idle" | "loading" | "ready" | "unavailable" | "denied">("idle");
   const importRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -295,6 +319,31 @@ export default function ThemeLab(props: {
 
   function resetFromBase() {
     setLab(defaultConfig(selectedTheme(props.themes, baseTheme), {}));
+  }
+
+  async function loadInstalledFonts() {
+    setError(null);
+    const localFontWindow = window as Window & {
+      queryLocalFonts?: () => Promise<Array<{ family: string; fullName?: string; postscriptName?: string; style?: string }>>;
+    };
+    if (typeof localFontWindow.queryLocalFonts !== "function") {
+      setFontAccessState("unavailable");
+      setError("This build cannot enumerate local fonts. You can still type a font family name manually.");
+      return;
+    }
+    setFontAccessState("loading");
+    try {
+      const fonts = await localFontWindow.queryLocalFonts();
+      const families = [...new Set(fonts.map((font) => font.family?.trim()).filter((family): family is string => Boolean(family)))].sort((a, b) => a.localeCompare(b));
+      setInstalledFonts(families);
+      setFontAccessState("ready");
+    } catch (reason) {
+      const name = reason instanceof DOMException ? reason.name : "";
+      setFontAccessState(name === "NotAllowedError" || name === "SecurityError" ? "denied" : "unavailable");
+      setError(name === "NotAllowedError"
+        ? "Local font access was not granted. Theme Lab can still use a font if you type its family name."
+        : reason instanceof Error ? reason.message : String(reason));
+    }
   }
 
   async function uploadArtwork(slot: "chapterOrnament" | "sceneImage", file: File) {
@@ -388,6 +437,10 @@ export default function ThemeLab(props: {
             <div className="theme-lab-section-heading"><h3>Foundation</h3><p>Start from a proven Folio theme, then override it deliberately.</p></div>
             {row("Theme name", <input value={lab.name ?? ""} maxLength={64} onChange={(event) => patch({ name: event.target.value })}/>)}
             <SelectControl label="Base theme" value={baseTheme} onChange={setBaseTheme}>{props.themes.map((theme) => <option key={theme.name} value={theme.name}>{theme.label}</option>)}</SelectControl>
+            <div className="theme-lab-font-access">
+              <div><strong>Computer fonts</strong><span>{fontAccessState === "ready" ? `${installedFonts.length} font families loaded from this computer.` : "Use any font installed on this machine, not only Folio's bundled faces."}</span></div>
+              <button type="button" className="native-button" disabled={fontAccessState === "loading"} onClick={() => void loadInstalledFonts()}>{fontAccessState === "loading" ? "Reading fonts…" : fontAccessState === "ready" ? "Refresh fonts" : "Load installed fonts"}</button>
+            </div>
             <div className="theme-lab-color-grid">
               <ColorControl label="Paper" value={lab.paper ?? "#fbfaf6"} onChange={(value) => patch({ paper: value })}/>
               <ColorControl label="Ink" value={lab.ink ?? "#242527"} onChange={(value) => patch({ ink: value })}/>
@@ -399,7 +452,7 @@ export default function ThemeLab(props: {
 
           {panel === "Body" && <>
             <div className="theme-lab-section-heading"><h3>Body</h3><p>Reading face, density and paragraph rhythm.</p></div>
-            <FontControl label="Body typeface" value={lab.bodyFont ?? "Folio EB Garamond"} onChange={(value) => patch({ bodyFont: value })}/>
+            <FontControl label="Body typeface" value={lab.bodyFont ?? "Folio EB Garamond"} installedFonts={installedFonts} onChange={(value) => patch({ bodyFont: value })}/>
             <RangeControl label="Type size" value={lab.bodySize ?? 1} min={.72} max={1.5} step={.02} suffix="em" onChange={(value) => patch({ bodySize: value })}/>
             <RangeControl label="Line height" value={lab.lineHeight ?? 1.5} min={1.2} max={2.1} step={.02} onChange={(value) => patch({ lineHeight: value })}/>
             <SelectControl label="Alignment" value={lab.bodyAlign ?? "justify"} onChange={(value) => patch({ bodyAlign: value as "left" | "justify" })}><option value="justify">Justified</option><option value="left">Ragged right</option></SelectControl>
@@ -409,7 +462,7 @@ export default function ThemeLab(props: {
 
           {panel === "Chapter" && <>
             <div className="theme-lab-section-heading"><h3>Chapter opening</h3><p>Build the hierarchy instead of inheriting whatever the base theme happened to like that morning.</p></div>
-            <FontControl label="Heading typeface" value={lab.headingFont ?? "Folio Libre Baskerville"} onChange={(value) => patch({ headingFont: value })}/>
+            <FontControl label="Heading typeface" value={lab.headingFont ?? "Folio Libre Baskerville"} installedFonts={installedFonts} onChange={(value) => patch({ headingFont: value })}/>
             <ColorControl label="Heading color" value={lab.headingColor ?? "#242527"} onChange={(value) => patch({ headingColor: value })}/>
             <RangeControl label="Heading size" value={lab.headingSize ?? 1.8} min={.8} max={4.5} step={.05} suffix="em" onChange={(value) => patch({ headingSize: value })}/>
             <RangeControl label="Tracking" value={lab.headingTracking ?? 0} min={-.08} max={.5} step={.01} suffix="em" onChange={(value) => patch({ headingTracking: value })}/>
@@ -441,7 +494,7 @@ export default function ThemeLab(props: {
 
             <div className="theme-lab-subsection"><h4>Drop cap</h4></div>
             {row("Use drop cap", <input type="checkbox" checked={lab.dropcap !== false} onChange={(event) => patch({ dropcap: event.target.checked })}/>)}
-            <FontControl label="Drop-cap typeface" value={lab.dropcapFont ?? lab.headingFont ?? "Folio Libre Baskerville"} onChange={(value) => patch({ dropcapFont: value })}/>
+            <FontControl label="Drop-cap typeface" value={lab.dropcapFont ?? lab.headingFont ?? "Folio Libre Baskerville"} installedFonts={installedFonts} onChange={(value) => patch({ dropcapFont: value })}/>
             <SelectControl label="Drop-cap size" value={lab.dropcapSize ?? "small"} onChange={(value) => patch({ dropcapSize: value as "small" | "large" })}><option value="small">Small · 2 lines</option><option value="large">Large · 3 lines</option></SelectControl>
           </>}
 
@@ -457,7 +510,7 @@ export default function ThemeLab(props: {
 
           {panel === "Title Page" && <>
             <div className="theme-lab-section-heading"><h3>Title page</h3><p>The title page inherits your palette but can use its own display face and composition.</p></div>
-            <FontControl label="Title typeface" value={lab.titlePageFont ?? lab.headingFont ?? "Folio Libre Baskerville"} onChange={(value) => patch({ titlePageFont: value })}/>
+            <FontControl label="Title typeface" value={lab.titlePageFont ?? lab.headingFont ?? "Folio Libre Baskerville"} installedFonts={installedFonts} onChange={(value) => patch({ titlePageFont: value })}/>
             <RangeControl label="Title size" value={lab.titlePageSize ?? 2.4} min={1} max={5} step={.05} suffix="em" onChange={(value) => patch({ titlePageSize: value })}/>
             <SelectControl label="Alignment" value={lab.titlePageAlign ?? "center"} onChange={(value) => patch({ titlePageAlign: value as "left" | "center" | "right" })}>{alignOptions}</SelectControl>
             {!props.titlePagePreviewId && <div className="theme-lab-note"><strong>No title page in this book</strong><span>The settings are still saved and will apply when a title page exists.</span></div>}
@@ -482,7 +535,7 @@ export default function ThemeLab(props: {
       </div>
 
       <footer className="theme-lab-footer">
-        <div>{error ? <span className="theme-lab-error">{error}</span> : <span>Theme Lab settings are stored inside the book. Export creates a portable .folio-theme.json package.</span>}</div>
+        <div>{error ? <span className="theme-lab-error">{error}</span> : <span>Theme Lab settings are stored inside the book. Local fonts render on this computer; EPUB portability still depends on whether that font is embedded or available on the reading device.</span>}</div>
         <button type="button" className="native-button" disabled={busy} onClick={props.onClose}>Cancel</button>
         <button type="button" className="native-button primary" disabled={busy} onClick={() => void apply()}>{busy ? "Saving…" : "Apply to Book"}</button>
       </footer>
