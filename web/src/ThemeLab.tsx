@@ -377,7 +377,7 @@ export default function ThemeLab(props: {
   async function importPackage(file: File) {
     setError(null);
     try {
-      if (file.size > 24 * 1024 * 1024) throw new Error("Theme package is unexpectedly large.");
+      if (file.size > 40 * 1024 * 1024) throw new Error("Theme package is unexpectedly large.");
       const parsed = JSON.parse(await file.text()) as Partial<ThemePackage>;
       if (parsed.format !== "folio-theme" || parsed.version !== 1 || !parsed.config || typeof parsed.config !== "object") {
         throw new Error("That is not a Folio Theme Lab package.");
