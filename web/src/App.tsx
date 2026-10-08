@@ -21,6 +21,7 @@ import WritingSplitPane from "./WritingSplitPane";
 import SecondDraftPane from "./SecondDraftPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
 import WritingProgressHalo from "./WritingProgressHalo";
+import ThemeLab from "./ThemeLab";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
@@ -254,6 +255,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [error, setError] = useState<string | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showStyle, setShowStyle] = useState(false);
+  const [showThemeLab, setShowThemeLab] = useState(false);
   const [showContent, setShowContent] = useState(false);
   const [showBookDetails, setShowBookDetails] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -479,6 +481,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const coverSelected = selectedId === COVER_ID;
   const stylePreviewSectionId = selectedSection?.kind === "chapter" ? selectedSection.id : chapters[0]?.id;
   const stylePreviewDraft = stylePreviewSectionId && stylePreviewSectionId === selectedId ? draft : undefined;
+  const titlePagePreviewId = project?.sections.find((section) => section.kind === "titlepage")?.id;
   const previewProfile = getPreviewProfile(previewMode);
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
   const writingOrnament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
@@ -1245,6 +1248,15 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     editor.dataset.markdown = markdown;
     editorDomDirtyRef.current = false;
     recordDraft(markdown);
+  }
+
+  async function applyThemeLab(nextMeta: BookMeta, nextTypography: Typography): Promise<void> {
+    if (!project || !(await saveCurrent())) return;
+    setSaveState("saving");
+    const summary = await persistAppearance(project.projectId, nextMeta, nextTypography);
+    setTypography(nextTypography);
+    adopt(summary, selectedId ?? undefined);
+    setSaveState("saved");
   }
 
   async function saveBookDetails() {
@@ -2485,7 +2497,20 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span>{workspaceMode === "write" && <button className="write-session-chip" onClick={() => openWriteStudio("session")}>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()} words · {Math.max(0, Math.floor(sessionStats.activeMs / 60000))} active min{writeStudioState?.targets.session ? ` · ${Math.max(0, sessionNet).toLocaleString()} / ${writeStudioState.targets.session.toLocaleString()}` : ""}</button>}<span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
-        <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
+        <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()} onOpenThemeLab={() => { setShowStyle(false); setShowThemeLab(true); }}/>
+      )}
+      {showThemeLab && (
+        <ThemeLab
+          themes={themes}
+          meta={meta}
+          typography={typography}
+          projectId={project.projectId}
+          chapterPreviewId={stylePreviewSectionId}
+          titlePagePreviewId={titlePagePreviewId}
+          previewDraft={stylePreviewDraft}
+          onClose={() => setShowThemeLab(false)}
+          onApply={applyThemeLab}
+        />
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
@@ -2639,7 +2664,7 @@ function StyleLibrary(props: {
   category: StyleCategory; setCategory: (category: StyleCategory) => void;
   printOptions: PrintOptions; setPrintOptions: (options: PrintOptions) => void;
   projectId: string; previewSectionId?: string; previewDraft?: string;
-  onClose: () => void; onSave: () => void;
+  onClose: () => void; onSave: () => void; onOpenThemeLab: () => void;
 }) {
   const { themes, meta, setMeta, typography, setTypography, category, setCategory, printOptions, setPrintOptions, projectId, previewSectionId, previewDraft } = props;
   const selected = themes.find((theme) => theme.name === meta.theme);
@@ -2666,7 +2691,7 @@ function StyleLibrary(props: {
   };
   return <div className="style-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
     <section className="style-library" role="dialog" aria-modal="true" aria-label="Book style library">
-      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply.</p></div><button onClick={props.onClose} aria-label="Close">×</button></header>
+      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="native-button" onClick={props.onOpenThemeLab}>Theme Lab</button><button onClick={props.onClose} aria-label="Close">×</button></div></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
         <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">{themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => setMeta({ ...meta, theme: theme.name })}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}</div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selected?.dropcap ?? false}/>}</div>
