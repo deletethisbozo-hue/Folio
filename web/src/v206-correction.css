@@ -48,7 +48,7 @@
 /* Book prose/editor copy keeps a manuscript face. */
 .folio-shell .manuscript-editor:not(.folio-image-page-editor),
 .folio-shell .manuscript-editor:not(.folio-image-page-editor) :is(p, blockquote, li, h1, h2, h3, em, strong, b, i, u) {
-  font-family: Newsreader, "Times New Roman", serif;
+  font-family: Newsreader, serif;
 }
 
 /* Pelagiad is branding only. These selectors deliberately outrank the legacy
