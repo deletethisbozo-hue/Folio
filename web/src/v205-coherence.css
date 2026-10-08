@@ -6,7 +6,7 @@
  */
 
 @font-face {
-  font-family: "Folio Pelagiad Exact";
+  font-family: "Pelagiad";
   src: url("./assets/Pelagiad.ttf") format("truetype");
   font-style: normal;
   font-weight: 400;
@@ -16,8 +16,8 @@
 :root,
 .start-shell,
 .folio-shell {
-  --folio-logo-font: "Folio Pelagiad Exact", "Pelagiad", Newsreader, serif;
-  --folio-ui-font: "Folio IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  --folio-logo-font: "Pelagiad", "Pelagiad", Newsreader, serif;
+  --folio-ui-font: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
 }
 
 /* Pelagiad is branding, not an alternate heading/button face. */
