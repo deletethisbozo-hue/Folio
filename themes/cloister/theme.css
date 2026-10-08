@@ -1,6 +1,6 @@
 /* Cloister — illuminated monastic bookwork without fake immutable manuscript labels. */
 body {
-  font-family: "Libre Caslon Text", Garamond, Gelasio, serif;
+  font-family: "Libre Caslon Text", EB Garamond, Gelasio, serif;
   line-height: 1.52;
   color: #2d241c;
   background: #e9d8ae;
@@ -34,7 +34,7 @@ h1.chapter {
   text-align: center;
   margin: .7em 0 2.15em;
   padding: .35em .55em .9em;
-  font-family: Cinzel, "Times New Roman", serif;
+  font-family: Cinzel, "Source Serif 4", serif;
   font-size: 1.72em;
   font-weight: 600;
   line-height: 1.12;
@@ -55,7 +55,7 @@ h1.chapter::before {
   outline-offset: -.34em;
   background: #8f3129;
   color: #f0d68a;
-  font-family: Cinzel, "Times New Roman", serif;
+  font-family: Cinzel, "Source Serif 4", serif;
   font-size: .72em;
   font-weight: 700;
   line-height: 1;
@@ -81,7 +81,7 @@ h1.chapter::after {
   border: 2px solid #b39156;
   background: #8f3129;
   box-shadow: inset 0 0 0 2px rgba(240, 214, 138, .18);
-  font-family: Cinzel, "Times New Roman", serif;
+  font-family: Cinzel, "Source Serif 4", serif;
   --folio-dropcap-theme-size: 3.7em;
   font-weight: 700;
   line-height: .82;
@@ -100,7 +100,7 @@ section.chapter > p:not(:first-of-type):not(.scene-break) { text-indent: 1.08em;
   color: #7f3029;
 }
 section.titlepage > h1 {
-  font-family: Cinzel, "Times New Roman", serif;
+  font-family: Cinzel, "Source Serif 4", serif;
   font-size: 2.18em;
   letter-spacing: .085em;
   color: #712b24;
@@ -113,7 +113,7 @@ section.backmatter > h1 {
   padding: .5em 0 .62em;
   border-top: 1px solid #b39156;
   border-bottom: 1px solid #b39156;
-  font-family: Cinzel, "Times New Roman", serif;
+  font-family: Cinzel, "Source Serif 4", serif;
   font-size: 1.22em;
   letter-spacing: .1em;
   color: #702a24;
