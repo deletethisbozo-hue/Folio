@@ -16,7 +16,7 @@
 :root,
 .start-shell,
 .folio-shell {
-  --folio-logo-font: "Folio Pelagiad Exact", "Pelagiad", Georgia, "Times New Roman", serif;
+  --folio-logo-font: "Folio Pelagiad Exact", "Pelagiad", Newsreader, "Times New Roman", serif;
   --folio-ui-font: "Folio IBM Plex Sans", "Segoe UI", Arial, sans-serif;
 }
 
