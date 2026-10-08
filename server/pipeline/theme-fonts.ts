@@ -8,65 +8,69 @@ type FontFace = { file: string; weight: string; style: "normal" | "italic" };
 type FontSpec = { family: string; faces: FontFace[] };
 
 const FONTS = {
-  sourceSerif: { family: "Folio Source Serif 4", faces: [
+  sourceSerif: { family: "Source Serif 4", faces: [
     { file: "source-serif-4.ttf", weight: "200 900", style: "normal" },
     { file: "source-serif-4-italic.ttf", weight: "200 900", style: "italic" },
   ] },
-  sourceSans: { family: "Folio Source Sans 3", faces: [
+  sourceSans: { family: "Source Sans 3", faces: [
     { file: "source-sans-3.ttf", weight: "200 900", style: "normal" },
     { file: "source-sans-3-italic.ttf", weight: "200 900", style: "italic" },
   ] },
-  garamond: { family: "Folio EB Garamond", faces: [
+  garamond: { family: "EB Garamond", faces: [
     { file: "eb-garamond.ttf", weight: "400 800", style: "normal" },
     { file: "eb-garamond-italic.ttf", weight: "400 800", style: "italic" },
   ] },
-  caslon: { family: "Folio Libre Caslon Text", faces: [
+  caslon: { family: "Libre Caslon Text", faces: [
     { file: "libre-caslon-text.ttf", weight: "400 700", style: "normal" },
     { file: "libre-caslon-text-italic.ttf", weight: "400 700", style: "italic" },
   ] },
-  baskerville: { family: "Folio Libre Baskerville", faces: [
+  baskerville: { family: "Libre Baskerville", faces: [
     { file: "libre-baskerville.ttf", weight: "400 700", style: "normal" },
     { file: "libre-baskerville-italic.ttf", weight: "400 700", style: "italic" },
   ] },
-  newsreader: { family: "Folio Newsreader", faces: [
+  newsreader: { family: "Newsreader", faces: [
     { file: "newsreader.ttf", weight: "200 800", style: "normal" },
     { file: "newsreader-italic.ttf", weight: "200 800", style: "italic" },
   ] },
-  vollkorn: { family: "Folio Vollkorn", faces: [
+  gelasio: { family: "Gelasio", faces: [
+    { file: "gelasio.ttf", weight: "400 700", style: "normal" },
+    { file: "gelasio-italic.ttf", weight: "400 700", style: "italic" },
+  ] },
+  vollkorn: { family: "Vollkorn", faces: [
     { file: "vollkorn.ttf", weight: "400 900", style: "normal" },
     { file: "vollkorn-italic.ttf", weight: "400 900", style: "italic" },
   ] },
-  condensed: { family: "Folio Barlow Condensed", faces: [
+  condensed: { family: "Barlow Condensed", faces: [
     { file: "barlow-condensed-regular.ttf", weight: "400", style: "normal" },
     { file: "barlow-condensed-bold.ttf", weight: "700", style: "normal" },
     { file: "barlow-condensed-black.ttf", weight: "900", style: "normal" },
   ] },
-  bodoni: { family: "Folio Bodoni Moda", faces: [
+  bodoni: { family: "Bodoni Moda", faces: [
     { file: "bodoni-moda.ttf", weight: "400 900", style: "normal" },
     { file: "bodoni-moda-italic.ttf", weight: "400 900", style: "italic" },
   ] },
-  cinzel: { family: "Folio Cinzel", faces: [
+  cinzel: { family: "Cinzel", faces: [
     { file: "cinzel.ttf", weight: "400 900", style: "normal" },
   ] },
-  gothic: { family: "Folio Grenze Gotisch", faces: [
+  gothic: { family: "Grenze Gotisch", faces: [
     { file: "grenze-gotisch.ttf", weight: "100 900", style: "normal" },
   ] },
-  slab: { family: "Folio Roboto Slab", faces: [
+  slab: { family: "Roboto Slab", faces: [
     { file: "roboto-slab.ttf", weight: "100 900", style: "normal" },
   ] },
-  jenaGotisch: { family: "Folio Jena Gotisch", faces: [
+  jenaGotisch: { family: "Jena Gotisch", faces: [
     { file: "jena-gotisch.ttf", weight: "400", style: "normal" },
   ] },
-  manufacturingConsent: { family: "Folio Manufacturing Consent", faces: [
+  manufacturingConsent: { family: "Manufacturing Consent", faces: [
     { file: "manufacturing-consent.ttf", weight: "400", style: "normal" },
   ] },
-  kings: { family: "Folio Kings", faces: [
+  kings: { family: "Kings", faces: [
     { file: "kings.ttf", weight: "400", style: "normal" },
   ] },
-  altenglisch: { family: "Folio CAT Altenglisch", faces: [
+  altenglisch: { family: "CAT Altenglisch", faces: [
     { file: "cat-altenglisch.ttf", weight: "400", style: "normal" },
   ] },
-  slavkappen: { family: "Folio Slavkappen", faces: [
+  slavkappen: { family: "Slavkappen", faces: [
     { file: "slavkappen.ttf", weight: "400", style: "normal" },
   ] },
 } satisfies Record<string, FontSpec>;
@@ -105,6 +109,14 @@ const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
   ["Folio Vollkorn", "vollkorn"], ["Folio Barlow Condensed", "condensed"],
   ["Folio Bodoni Moda", "bodoni"], ["Folio Cinzel", "cinzel"],
   ["Folio Grenze Gotisch", "gothic"], ["Folio Roboto Slab", "slab"],
+  ["Folio Jena Gotisch", "jenaGotisch"], ["Folio Manufacturing Consent", "manufacturingConsent"],
+  ["Folio Kings", "kings"], ["Folio CAT Altenglisch", "altenglisch"], ["Folio Slavkappen", "slavkappen"],
+  ["Source Serif 4", "sourceSerif"], ["Source Sans 3", "sourceSans"],
+  ["EB Garamond", "garamond"], ["Libre Caslon Text", "caslon"],
+  ["Libre Baskerville", "baskerville"], ["Newsreader", "newsreader"], ["Gelasio", "gelasio"],
+  ["Vollkorn", "vollkorn"], ["Barlow Condensed", "condensed"],
+  ["Bodoni Moda", "bodoni"], ["Cinzel", "cinzel"],
+  ["Grenze Gotisch", "gothic"], ["Roboto Slab", "slab"],
 
   ["Libre Caslon Text", "caslon"], ["Libre Baskerville", "baskerville"],
   ["EB Garamond", "garamond"], ["Newsreader", "newsreader"], ["Vollkorn", "vollkorn"],
@@ -119,7 +131,7 @@ const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
   ["Hoefler Text", "baskerville"], ["UnifrakturCook", "gothic"], ["Copperplate", "cinzel"],
   ["Baskerville", "baskerville"], ["Garamond", "garamond"], ["Palatino", "vollkorn"],
   ["Cambria", "newsreader"], ["Charter", "caslon"], ["Rockwell", "slab"],
-  ["Georgia", "sourceSerif"], ["Avenir", "sourceSans"], ["Didot", "bodoni"],
+  ["Georgia", "gelasio"], ["Avenir", "sourceSans"], ["Didot", "bodoni"],
   ["Arial", "sourceSans"], ["Segoe UI", "sourceSans"],
 ];
 
@@ -194,9 +206,17 @@ async function faceSource(file: string, target: FontTarget): Promise<string> {
 
 async function fontFaceCss(spec: FontSpec, target: FontTarget): Promise<string> {
   const rules: string[] = [];
+  const legacyFamily = "Folio " + spec.family;
   for (const face of spec.faces) {
+    const src = await faceSource(face.file, target);
     rules.push(
-      `@font-face{font-family:${JSON.stringify(spec.family)};src:${await faceSource(face.file, target)};` +
+      `@font-face{font-family:${JSON.stringify(spec.family)};src:${src};` +
+      `font-weight:${face.weight};font-style:${face.style};font-display:block;}`,
+    );
+    // Backward compatibility only: projects saved before 3.1 may contain the
+    // old prefixed family name. New UI and new project data never emit it.
+    rules.push(
+      `@font-face{font-family:${JSON.stringify(legacyFamily)};src:${src};` +
       `font-weight:${face.weight};font-style:${face.style};font-display:block;}`,
     );
   }
