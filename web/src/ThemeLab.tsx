@@ -33,6 +33,20 @@ const fontOptions = [
   ["Slavkappen", "Slavkappen"],
 ] as const;
 
+const dropcapFontOptions = [
+  ["EB Garamond", "EB Garamond"],
+  ["Libre Caslon Text", "Libre Caslon Text"],
+  ["Libre Baskerville", "Libre Baskerville"],
+  ["Newsreader", "Newsreader"],
+  ["Gelasio", "Gelasio"],
+  ["Vollkorn", "Vollkorn"],
+  ["Source Serif 4", "Source Serif 4"],
+  ["Bodoni Moda", "Bodoni Moda"],
+  ["Cinzel", "Cinzel"],
+  ["Grenze Gotisch", "Grenze Gotisch"],
+  ["Roboto Slab", "Roboto Slab"],
+] as const;
+
 function numberValue(value: unknown, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -129,11 +143,18 @@ function readBlobAsDataUrl(blob: Blob): Promise<string> {
 }
 
 async function imageFileToSafeDataUrl(file: File): Promise<string> {
-  if (file.size > 3 * 1024 * 1024) throw new Error("Theme artwork must be 3 MB or smaller.");
-  if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(file.type)) {
-    throw new Error("Use PNG, JPEG, WebP or SVG artwork.");
+  if (file.size > 12 * 1024 * 1024) throw new Error("Image must be 12 MB or smaller.");
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const mime = file.type || (
+    extension === "png" ? "image/png" :
+    extension === "jpg" || extension === "jpeg" ? "image/jpeg" :
+    extension === "webp" ? "image/webp" :
+    extension === "svg" ? "image/svg+xml" : ""
+  );
+  if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(mime)) {
+    throw new Error("Use PNG, JPG/JPEG, WebP or SVG.");
   }
-  if (file.type !== "image/svg+xml") return readBlobAsDataUrl(file);
+  if (mime !== "image/svg+xml") return readBlobAsDataUrl(file);
 
   const source = await file.text();
   const doc = new DOMParser().parseFromString(source, "image/svg+xml");
@@ -169,8 +190,10 @@ function RangeControl(props: {
 }) {
   return <label className="theme-lab-row range-row">
     <span>{props.label}</span>
-    <input type="range" min={props.min} max={props.max} step={props.step} value={props.value} onChange={(event) => props.onChange(Number(event.target.value))}/>
-    <output>{props.value}{props.suffix ?? ""}</output>
+    <span className="theme-lab-range-control">
+      <input type="range" min={props.min} max={props.max} step={props.step} value={props.value} onChange={(event) => props.onChange(Number(event.target.value))}/>
+      <output>{props.value}{props.suffix ?? ""}</output>
+    </span>
   </label>;
 }
 
@@ -182,9 +205,10 @@ function ColorControl(props: { label: string; value: string; onChange: (value: s
   return <label className="theme-lab-row color-row"><span>{props.label}</span><span className="theme-lab-color"><input type="color" value={props.value} onChange={(event) => props.onChange(event.target.value)}/><input value={props.value} maxLength={9} onChange={(event) => props.onChange(event.target.value)}/></span></label>;
 }
 
-function FontControl(props: { label: string; value: string; onChange: (value: string) => void }) {
+function FontControl(props: { label: string; value: string; onChange: (value: string) => void; options?: readonly (readonly [string, string])[] }) {
+  const options = props.options ?? fontOptions;
   return <SelectControl label={props.label} value={props.value} onChange={props.onChange}>
-    {fontOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
   </SelectControl>;
 }
 
@@ -196,19 +220,39 @@ function ArtworkControl(props: {
   onUpload: (file: File) => Promise<void>;
 }) {
   const image = props.image;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const upload = (file?: File) => {
+    if (file) void props.onUpload(file);
+  };
   return <section className="theme-lab-artwork-card">
     <div className="theme-lab-artwork-head">
-      <div><strong>{props.title}</strong><small>Transparent PNG/WebP or SVG works best.</small></div>
-      {image?.dataUrl && <button type="button" className="native-button compact" onClick={() => props.onChange(undefined)}>Remove</button>}
+      <div><strong>{props.title}</strong><small>PNG, JPG, WebP or SVG · up to 12 MB</small></div>
+      {image?.dataUrl && <button type="button" className="theme-lab-button compact danger" onClick={() => props.onChange(undefined)}>Remove</button>}
     </div>
-    <label className="theme-lab-artwork-drop">
-      {image?.dataUrl ? <img src={image.dataUrl} alt="Theme artwork preview"/> : <span>Drop in an ornament or illustration</span>}
-      <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(event) => {
-        const file = event.target.files?.[0];
-        if (file) void props.onUpload(file);
+    <button
+      type="button"
+      className={"theme-lab-artwork-drop" + (image?.dataUrl ? " has-image" : "")}
+      onClick={() => inputRef.current?.click()}
+      onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
+      onDrop={(event) => {
+        event.preventDefault();
+        upload(event.dataTransfer.files?.[0]);
+      }}
+    >
+      {image?.dataUrl
+        ? <><img src={image.dataUrl} alt="Theme artwork preview"/><span className="theme-lab-artwork-name">{image.name || "Uploaded image"}</span><span className="theme-lab-artwork-action">Click or drop another image to replace</span></>
+        : <><span className="theme-lab-artwork-icon">＋</span><strong>Choose image</strong><span>or drag and drop it here</span></>}
+    </button>
+    <input
+      ref={inputRef}
+      className="theme-lab-hidden-input"
+      type="file"
+      accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"
+      onChange={(event) => {
+        upload(event.target.files?.[0]);
         event.currentTarget.value = "";
-      }}/>
-    </label>
+      }}
+    />
     {image?.dataUrl && <div className="theme-lab-artwork-controls">
       {props.placement && <SelectControl label="Placement" value={image.placement ?? "below"} onChange={(value) => props.onChange({ ...image, placement: value as "above" | "below" })}><option value="above">Above chapter title</option><option value="below">Below chapter title</option></SelectControl>}
       <RangeControl label="Width" value={image.width ?? 34} min={6} max={100} step={1} suffix="%" onChange={(value) => props.onChange({ ...image, width: value })}/>
@@ -333,7 +377,7 @@ export default function ThemeLab(props: {
   async function importPackage(file: File) {
     setError(null);
     try {
-      if (file.size > 8 * 1024 * 1024) throw new Error("Theme package is unexpectedly large.");
+      if (file.size > 24 * 1024 * 1024) throw new Error("Theme package is unexpectedly large.");
       const parsed = JSON.parse(await file.text()) as Partial<ThemePackage>;
       if (parsed.format !== "folio-theme" || parsed.version !== 1 || !parsed.config || typeof parsed.config !== "object") {
         throw new Error("That is not a Folio Theme Lab package.");
@@ -368,9 +412,9 @@ export default function ThemeLab(props: {
       <header className="theme-lab-header">
         <div><span className="theme-lab-eyebrow">Folio 3.1</span><h2>Theme Lab</h2><p>Build a complete book style, preview it on the manuscript, then keep it in the .folio file or export it as a portable theme package.</p></div>
         <div className="theme-lab-header-actions">
-          <button type="button" className="native-button" onClick={() => importRef.current?.click()}>Import Theme</button>
+          <button type="button" className="theme-lab-button" onClick={() => importRef.current?.click()}>Import Theme</button>
           <input ref={importRef} className="theme-lab-hidden-input" type="file" accept=".json,.folio-theme.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importPackage(file); event.currentTarget.value = ""; }}/>
-          <button type="button" className="native-button" onClick={exportPackage}>Export Theme</button>
+          <button type="button" className="theme-lab-button" onClick={exportPackage}>Export Theme</button>
           <button type="button" className="theme-lab-close" aria-label="Close Theme Lab" disabled={busy} onClick={props.onClose}>×</button>
         </div>
       </header>
@@ -440,7 +484,7 @@ export default function ThemeLab(props: {
 
             <div className="theme-lab-subsection"><h4>Drop cap</h4></div>
             {row("Use drop cap", <input type="checkbox" checked={lab.dropcap !== false} onChange={(event) => patch({ dropcap: event.target.checked })}/>)}
-            <FontControl label="Drop-cap typeface" value={lab.dropcapFont ?? lab.headingFont ?? "Libre Baskerville"} onChange={(value) => patch({ dropcapFont: value })}/>
+            <FontControl label="Drop-cap typeface" value={lab.dropcapFont ?? "Libre Baskerville"} options={dropcapFontOptions} onChange={(value) => patch({ dropcapFont: value })}/>
             <SelectControl label="Drop-cap size" value={lab.dropcapSize ?? "small"} onChange={(value) => patch({ dropcapSize: value as "small" | "large" })}><option value="small">Small · 2 lines</option><option value="large">Large · 3 lines</option></SelectControl>
           </>}
 
@@ -482,8 +526,10 @@ export default function ThemeLab(props: {
 
       <footer className="theme-lab-footer">
         <div>{error ? <span className="theme-lab-error">{error}</span> : <span>Theme Lab uses Folio's bundled font library so preview, PDF and EPUB stay portable and deterministic across devices.</span>}</div>
-        <button type="button" className="native-button" disabled={busy} onClick={props.onClose}>Cancel</button>
-        <button type="button" className="native-button primary" disabled={busy} onClick={() => void apply()}>{busy ? "Saving…" : "Apply to Book"}</button>
+        <div className="theme-lab-footer-actions">
+          <button type="button" className="theme-lab-button" disabled={busy} onClick={props.onClose}>Cancel</button>
+          <button type="button" className="theme-lab-button primary" disabled={busy} onClick={() => void apply()}>{busy ? "Saving…" : "Apply to Book"}</button>
+        </div>
       </footer>
     </section>
   </div>;
