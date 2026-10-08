@@ -118,6 +118,7 @@ export interface ThemeLabConfig {
   paragraphIndent?: number; // em
   paragraphSpacing?: number; // em
   headingFont?: string;
+  headingColor?: string;
   headingSize?: number; // em
   headingWeight?: 400 | 500 | 600 | 700 | 800 | 900;
   headingTracking?: number; // em
@@ -126,6 +127,11 @@ export interface ThemeLabConfig {
   headingStyle?: "normal" | "italic";
   headingTop?: number; // em
   headingBottom?: number; // em
+  subtitleSize?: number; // em
+  subtitleAlign?: "left" | "center" | "right";
+  subtitleStyle?: "normal" | "italic";
+  subtitleTracking?: number; // em
+  subtitleColor?: string;
   labelVisible?: boolean;
   labelText?: string;
   labelSize?: number; // em, relative to heading
