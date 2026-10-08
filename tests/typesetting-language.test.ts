@@ -84,12 +84,12 @@ test("theme font normalization does not corrupt longer quoted fallback names", (
   const heritage = normalizeThemeFontFamilies('body{font-family:Baskerville,"Baskerville Old Face",Georgia,serif}');
   assert.equal(
     heritage.css,
-    'body{font-family:"Folio Libre Baskerville","Baskerville Old Face","Folio Source Serif 4",serif}',
+    'body{font-family:"Libre Baskerville","Baskerville Old Face","Gelasio",serif}',
   );
   const timber = normalizeThemeFontFamilies('body{font-family:Charter,"Bitstream Charter",Georgia,serif}');
   assert.equal(
     timber.css,
-    'body{font-family:"Folio Libre Caslon Text","Bitstream Charter","Folio Source Serif 4",serif}',
+    'body{font-family:"Libre Caslon Text","Bitstream Charter","Gelasio",serif}',
   );
 });
 
@@ -97,7 +97,7 @@ test("theme font normalization leaves quoted content strings untouched", () => {
   const normalized = normalizeThemeFontFamilies('body{font-family:Garamond,Georgia,serif}.label::after{content:"Garamond, Baskerville and Charter"}');
   assert.equal(
     normalized.css,
-    'body{font-family:"Folio EB Garamond","Folio Source Serif 4",serif}.label::after{content:"Garamond, Baskerville and Charter"}',
+    'body{font-family:"EB Garamond","Gelasio",serif}.label::after{content:"Garamond, Baskerville and Charter"}',
   );
 });
 
