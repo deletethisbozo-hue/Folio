@@ -83,25 +83,6 @@ type FontKey = keyof typeof FONTS;
  * ornaments, while body text and drop caps use the families that passed the
  * compositor qualification matrix across PL, PL-dropcap and EN scenarios.
  */
-const BODY_FONT_OVERRIDES: Partial<Record<ThemeName, FontKey>> = {
-  decorative: "garamond",
-  heritage: "garamond",
-  nocturne: "garamond",
-  obsidian: "garamond",
-  cathedral: "garamond",
-  editorial: "vollkorn",
-  scholar: "vollkorn",
-  folio: "vollkorn",
-  atlas: "vollkorn",
-  ember: "vollkorn",
-  solstice: "vollkorn",
-  runestone: "vollkorn",
-  cloister: "garamond",
-  timber: "garamond",
-  wyrmwood: "garamond",
-  ironbound: "garamond",
-};
-
 const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
   ["Folio Source Serif 4", "sourceSerif"], ["Folio Source Sans 3", "sourceSans"],
   ["Folio EB Garamond", "garamond"], ["Folio Libre Caslon Text", "caslon"],
@@ -230,12 +211,6 @@ export async function buildThemeRuntimeCss(
 ): Promise<{ css: string; themeCss: string; fontCss: string; fontFiles: string[]; families: string[] }> {
   const source = await fs.readFile(themeCss(theme), "utf8");
   const normalized = normalizeThemeFontFamilies(source);
-  const bodyFontOverride = BODY_FONT_OVERRIDES[theme];
-  if (bodyFontOverride) {
-    const family = JSON.stringify(FONTS[bodyFontOverride].family);
-    normalized.css += `\nbody{font-family:${family},serif;}\n.dropcap{font-family:${family},serif;}\n`;
-    normalized.used.add(bodyFontOverride);
-  }
   const requested = new Set<FontKey>();
   for (const family of requestedFamilies) {
     const match = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
