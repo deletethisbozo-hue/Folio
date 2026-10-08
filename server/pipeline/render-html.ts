@@ -24,7 +24,7 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
     const runtimeTheme = await buildThemeRuntimeCss(
       book.meta.theme,
       target === "print" ? "print" : "html",
-      [book.typography.headingFont, book.typography.dropcapFont].filter((value): value is string => Boolean(value)),
+      [book.typography.bodyFont, book.typography.headingFont, book.typography.dropcapFont, book.typography.titlePageFont].filter((value): value is string => Boolean(value)),
     );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.themeCss, "utf8");
