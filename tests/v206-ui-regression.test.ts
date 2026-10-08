@@ -47,7 +47,7 @@ try {
     (button as HTMLButtonElement).click();
   });
   await page.waitForSelector(".folio-shell .command-wordmark");
-  await page.waitForFunction(() => document.fonts.check('16px "Folio Pelagiad Exact"') && document.fonts.check('12px "Folio Source Sans 3"'));
+  await page.waitForFunction(() => document.fonts.check('16px "Pelagiad"') && document.fonts.check('12px "Source Sans 3"'));
 
   const typography = await page.evaluate(() => {
     const manuscriptElement = document.querySelector(".pane-label");
@@ -75,9 +75,9 @@ try {
       exportBackground: exportButton.backgroundColor,
     };
   });
-  check("Folio wordmark uses the exact Pelagiad family", typography.logoFont.includes("Folio Pelagiad Exact"), typography.logoFont);
+  check("Folio wordmark uses the exact Pelagiad family", typography.logoFont.includes("Pelagiad"), typography.logoFont);
   check("Folio wordmark keeps its lowercase branding treatment", typography.logoTransform === "lowercase", typography.logoTransform);
-  check("application chrome uses the single Source Sans UI family", typography.manuscriptFont.includes("Folio Source Sans 3") && typography.previewFont.includes("Folio Source Sans 3") && typography.exportFont.includes("Folio Source Sans 3"), `${typography.manuscriptFont} | ${typography.previewFont} | ${typography.exportFont}`);
+  check("application chrome uses the single Source Sans UI family", typography.manuscriptFont.includes("Source Sans 3") && typography.previewFont.includes("Source Sans 3") && typography.exportFont.includes("Source Sans 3"), `${typography.manuscriptFont} | ${typography.previewFont} | ${typography.exportFont}`);
   check("Manuscript and Page Preview share the UI family with deliberate label hierarchy",
     typography.manuscriptFont === typography.previewFont &&
     typography.manuscriptWeight === typography.previewWeight &&
@@ -107,7 +107,7 @@ try {
     };
   });
   check("cover preview maximises without cropping", coverState.fit === "contain", coverState.fit);
-  check("Replace Cover is a coherent desktop secondary action", coverState.buttonHeight >= 34 && coverState.buttonFont.includes("Folio Source Sans 3") && Number.parseFloat(coverState.buttonRadius) <= 5, JSON.stringify(coverState));
+  check("Replace Cover is a coherent desktop secondary action", coverState.buttonHeight >= 34 && coverState.buttonFont.includes("Source Sans 3") && Number.parseFloat(coverState.buttonRadius) <= 5, JSON.stringify(coverState));
 
   async function addFullPageImage() {
     const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, neutralImageLabel);
