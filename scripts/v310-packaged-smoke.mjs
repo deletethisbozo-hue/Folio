@@ -54,8 +54,11 @@ try {
       .some((item) => item.textContent?.trim() === "Gelasio"),
     { timeout: 10000 },
   );
-  const fontNames = await page.$eval(".theme-lab-window select option", (items) =>
-    items.map((item) => item.textContent?.trim()).filter(Boolean)
+  const fontNames = await page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll(".theme-lab-window select option"),
+      (item) => item.textContent?.trim(),
+    ).filter(Boolean)
   );
   for (const required of ["Gelasio", "Newsreader", "EB Garamond", "Libre Baskerville"]) {
     if (!fontNames.includes(required)) throw new Error(`Theme Lab is missing bundled font: ${required}`);
