@@ -47,7 +47,7 @@ const dropcapFontOptions = [
   ["Roboto Slab", "Roboto Slab"],
 ] as const;
 
-const safeDropcapFamilies = new Set(dropcapFontOptions.map(([value]) => value));
+const safeDropcapFamilies: Set<string> = new Set(dropcapFontOptions.map(([value]) => value));
 function safeDropcapFamily(value: string | undefined): string {
   return value && safeDropcapFamilies.has(value) ? value : "Libre Baskerville";
 }
