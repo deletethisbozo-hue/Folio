@@ -13,23 +13,24 @@ type ThemePackage = {
 const panels: LabPanel[] = ["Foundation", "Body", "Chapter", "Ornaments", "Title Page"];
 
 const fontOptions = [
-  ["Folio EB Garamond", "EB Garamond"],
-  ["Folio Libre Caslon Text", "Libre Caslon"],
-  ["Folio Libre Baskerville", "Libre Baskerville"],
-  ["Folio Newsreader", "Newsreader"],
-  ["Folio Vollkorn", "Vollkorn"],
-  ["Folio Source Serif 4", "Source Serif 4"],
-  ["Folio Source Sans 3", "Source Sans 3"],
-  ["Folio Barlow Condensed", "Barlow Condensed"],
-  ["Folio Bodoni Moda", "Bodoni Moda"],
-  ["Folio Cinzel", "Cinzel"],
-  ["Folio Grenze Gotisch", "Grenze Gotisch"],
-  ["Folio Roboto Slab", "Roboto Slab"],
-  ["Folio Jena Gotisch", "Jena Gotisch"],
-  ["Folio Manufacturing Consent", "Manufacturing Consent"],
-  ["Folio Kings", "Kings"],
-  ["Folio CAT Altenglisch", "CAT Altenglisch"],
-  ["Folio Slavkappen", "Slavkappen"],
+  ["EB Garamond", "EB Garamond"],
+  ["Libre Caslon Text", "Libre Caslon"],
+  ["Libre Baskerville", "Libre Baskerville"],
+  ["Newsreader", "Newsreader"],
+  ["Gelasio", "Gelasio"],
+  ["Vollkorn", "Vollkorn"],
+  ["Source Serif 4", "Source Serif 4"],
+  ["Source Sans 3", "Source Sans 3"],
+  ["Barlow Condensed", "Barlow Condensed"],
+  ["Bodoni Moda", "Bodoni Moda"],
+  ["Cinzel", "Cinzel"],
+  ["Grenze Gotisch", "Grenze Gotisch"],
+  ["Roboto Slab", "Roboto Slab"],
+  ["Jena Gotisch", "Jena Gotisch"],
+  ["Manufacturing Consent", "Manufacturing Consent"],
+  ["Kings", "Kings"],
+  ["CAT Altenglisch", "CAT Altenglisch"],
+  ["Slavkappen", "Slavkappen"],
   ["Georgia, serif", "Georgia"],
   ["Arial, sans-serif", "Arial"],
 ] as const;
@@ -51,13 +52,13 @@ function defaultConfig(theme: Theme | undefined, typography: Typography): ThemeL
     paper: theme?.previewPaper ?? "#fbfaf6",
     ink: "#242527",
     accent: theme?.previewAccent ?? "#856744",
-    bodyFont: typography.bodyFont ?? theme?.previewFont ?? "Folio EB Garamond",
+    bodyFont: typography.bodyFont ?? theme?.previewFont ?? "EB Garamond",
     bodySize: numberValue(String(typography.fontSize ?? "1").replace("em", ""), 1),
     lineHeight: numberValue(typography.lineHeight, 1.5),
     bodyAlign: typography.bodyAlign ?? "justify",
     paragraphIndent: numberValue(String(typography.paragraphIndent ?? "1.25").replace("em", ""), 1.25),
     paragraphSpacing: numberValue(String(typography.paragraphSpacing ?? "0").replace("em", ""), 0),
-    headingFont: typography.headingFont ?? theme?.previewHeadingFont ?? "Folio Libre Baskerville",
+    headingFont: typography.headingFont ?? theme?.previewHeadingFont ?? "Libre Baskerville",
     headingColor: "#242527",
     headingSize: numberValue(String(typography.chapterTitle?.size ?? "1.8").replace("em", ""), 1.8),
     headingWeight: 600,
@@ -79,14 +80,14 @@ function defaultConfig(theme: Theme | undefined, typography: Typography): ThemeL
     labelColor: theme?.previewAccent ?? "#856744",
     dropcap: typography.dropcap ?? theme?.dropcap ?? true,
     dropcapSize: typography.dropcapSize ?? "small",
-    dropcapFont: typography.dropcapFont ?? typography.headingFont ?? theme?.previewHeadingFont ?? "Folio Libre Baskerville",
+    dropcapFont: typography.dropcapFont ?? typography.headingFont ?? theme?.previewHeadingFont ?? "Libre Baskerville",
     sceneOrnament: typography.sceneOrnament ?? theme?.sceneOrnament ?? "⁂",
     sceneSize: 1.1,
     sceneColor: theme?.previewAccent ?? "#856744",
     chapterRule: "none",
     ruleWidth: 1,
     ruleColor: theme?.previewAccent ?? "#856744",
-    titlePageFont: typography.titlePageFont ?? typography.headingFont ?? theme?.previewHeadingFont ?? "Folio Libre Baskerville",
+    titlePageFont: typography.titlePageFont ?? typography.headingFont ?? theme?.previewHeadingFont ?? "Libre Baskerville",
     titlePageAlign: "center",
     titlePageSize: 2.4,
   };
@@ -399,7 +400,7 @@ export default function ThemeLab(props: {
 
           {panel === "Body" && <>
             <div className="theme-lab-section-heading"><h3>Body</h3><p>Reading face, density and paragraph rhythm.</p></div>
-            <FontControl label="Body typeface" value={lab.bodyFont ?? "Folio EB Garamond"} onChange={(value) => patch({ bodyFont: value })}/>
+            <FontControl label="Body typeface" value={lab.bodyFont ?? "EB Garamond"} onChange={(value) => patch({ bodyFont: value })}/>
             <RangeControl label="Type size" value={lab.bodySize ?? 1} min={.72} max={1.5} step={.02} suffix="em" onChange={(value) => patch({ bodySize: value })}/>
             <RangeControl label="Line height" value={lab.lineHeight ?? 1.5} min={1.2} max={2.1} step={.02} onChange={(value) => patch({ lineHeight: value })}/>
             <SelectControl label="Alignment" value={lab.bodyAlign ?? "justify"} onChange={(value) => patch({ bodyAlign: value as "left" | "justify" })}><option value="justify">Justified</option><option value="left">Ragged right</option></SelectControl>
@@ -409,7 +410,7 @@ export default function ThemeLab(props: {
 
           {panel === "Chapter" && <>
             <div className="theme-lab-section-heading"><h3>Chapter opening</h3><p>Build the hierarchy instead of inheriting whatever the base theme happened to like that morning.</p></div>
-            <FontControl label="Heading typeface" value={lab.headingFont ?? "Folio Libre Baskerville"} onChange={(value) => patch({ headingFont: value })}/>
+            <FontControl label="Heading typeface" value={lab.headingFont ?? "Libre Baskerville"} onChange={(value) => patch({ headingFont: value })}/>
             <ColorControl label="Heading color" value={lab.headingColor ?? "#242527"} onChange={(value) => patch({ headingColor: value })}/>
             <RangeControl label="Heading size" value={lab.headingSize ?? 1.8} min={.8} max={4.5} step={.05} suffix="em" onChange={(value) => patch({ headingSize: value })}/>
             <RangeControl label="Tracking" value={lab.headingTracking ?? 0} min={-.08} max={.5} step={.01} suffix="em" onChange={(value) => patch({ headingTracking: value })}/>
@@ -441,7 +442,7 @@ export default function ThemeLab(props: {
 
             <div className="theme-lab-subsection"><h4>Drop cap</h4></div>
             {row("Use drop cap", <input type="checkbox" checked={lab.dropcap !== false} onChange={(event) => patch({ dropcap: event.target.checked })}/>)}
-            <FontControl label="Drop-cap typeface" value={lab.dropcapFont ?? lab.headingFont ?? "Folio Libre Baskerville"} onChange={(value) => patch({ dropcapFont: value })}/>
+            <FontControl label="Drop-cap typeface" value={lab.dropcapFont ?? lab.headingFont ?? "Libre Baskerville"} onChange={(value) => patch({ dropcapFont: value })}/>
             <SelectControl label="Drop-cap size" value={lab.dropcapSize ?? "small"} onChange={(value) => patch({ dropcapSize: value as "small" | "large" })}><option value="small">Small · 2 lines</option><option value="large">Large · 3 lines</option></SelectControl>
           </>}
 
@@ -457,7 +458,7 @@ export default function ThemeLab(props: {
 
           {panel === "Title Page" && <>
             <div className="theme-lab-section-heading"><h3>Title page</h3><p>The title page inherits your palette but can use its own display face and composition.</p></div>
-            <FontControl label="Title typeface" value={lab.titlePageFont ?? lab.headingFont ?? "Folio Libre Baskerville"} onChange={(value) => patch({ titlePageFont: value })}/>
+            <FontControl label="Title typeface" value={lab.titlePageFont ?? lab.headingFont ?? "Libre Baskerville"} onChange={(value) => patch({ titlePageFont: value })}/>
             <RangeControl label="Title size" value={lab.titlePageSize ?? 2.4} min={1} max={5} step={.05} suffix="em" onChange={(value) => patch({ titlePageSize: value })}/>
             <SelectControl label="Alignment" value={lab.titlePageAlign ?? "center"} onChange={(value) => patch({ titlePageAlign: value as "left" | "center" | "right" })}>{alignOptions}</SelectControl>
             {!props.titlePagePreviewId && <div className="theme-lab-note"><strong>No title page in this book</strong><span>The settings are still saved and will apply when a title page exists.</span></div>}
