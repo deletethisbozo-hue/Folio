@@ -97,7 +97,7 @@
   color: var(--studio-ink);
   text-align: left;
   cursor: pointer;
-  font: 600 15px/1 Newsreader, "Times New Roman", serif;
+  font: 600 15px/1 Newsreader, serif;
   letter-spacing: -.015em;
 }
 
@@ -238,7 +238,7 @@
 
 .folio-shell[data-ui-tone] .book-title {
   color: var(--studio-ink);
-  font: 600 15px/1.25 Newsreader, "Times New Roman", serif;
+  font: 600 15px/1.25 Newsreader, serif;
   letter-spacing: -.01em;
 }
 
@@ -424,7 +424,7 @@
 .folio-shell[data-ui-tone] .section-title-button {
   padding: 0;
   color: var(--studio-ink);
-  font: 600 20px/1.15 Newsreader, "Times New Roman", serif;
+  font: 600 20px/1.15 Newsreader, serif;
   letter-spacing: -.02em;
 }
 
@@ -437,7 +437,7 @@
 .folio-shell[data-ui-tone] .section-subtitle-button {
   padding: 0;
   color: var(--studio-muted);
-  font: italic 10px/1.3 Newsreader, "Times New Roman", serif;
+  font: italic 10px/1.3 Newsreader, serif;
 }
 
 .folio-shell[data-ui-tone] .section-subtitle-button.placeholder {
@@ -621,7 +621,7 @@
   background: var(--studio-paper);
   color: var(--studio-ink);
   box-shadow: none;
-  font-family: Newsreader, "Times New Roman", serif;
+  font-family: Newsreader, serif;
   font-size: 15px;
   line-height: 1.56;
   letter-spacing: 0;
@@ -841,7 +841,7 @@
 .folio-shell[data-ui-tone] .folio-dialog > header h2,
 .folio-shell[data-ui-tone] .style-library-title {
   color: var(--studio-ink);
-  font-family: Newsreader, "Times New Roman", serif;
+  font-family: Newsreader, serif;
   font-weight: 600;
 }
 
@@ -1007,7 +1007,7 @@
 .folio-shell[data-ui-tone] .manuscript-editor,
 .folio-shell[data-ui-tone] .manuscript-editor input,
 .folio-shell[data-ui-tone] .manuscript-editor textarea {
-  font-family: Newsreader, "Times New Roman", serif;
+  font-family: Newsreader, serif;
 }
 
 /* Export is a clear text action, not another little dashboard rectangle. */
