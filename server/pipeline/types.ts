@@ -99,6 +99,7 @@ export interface ThemeLabImage {
   dataUrl?: string;
   name?: string;
   width?: number; // percent of the text column
+  height?: number; // em
   opacity?: number; // 0..1
   gap?: number; // em
   placement?: "above" | "below";
@@ -119,6 +120,7 @@ export interface ThemeLabConfig {
   headingFont?: string;
   headingSize?: number; // em
   headingWeight?: 400 | 500 | 600 | 700 | 800 | 900;
+  headingTracking?: number; // em
   headingAlign?: "left" | "center" | "right";
   headingCase?: "normal" | "smallcaps" | "uppercase";
   headingStyle?: "normal" | "italic";
