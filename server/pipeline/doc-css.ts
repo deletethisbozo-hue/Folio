@@ -99,10 +99,10 @@ function themeLabCss(book: Book): string {
   const sceneColor = safeColor(lab.sceneColor, accent);
   const ruleColor = safeColor(lab.ruleColor, accent);
 
-  const bodyFont = safeFontFamily(lab.bodyFont, "Georgia, serif");
-  const headingFont = safeFontFamily(lab.headingFont, "Georgia, serif");
-  const dropcapFont = safeFontFamily(lab.dropcapFont || lab.headingFont || lab.bodyFont, "Georgia, serif");
-  const titlePageFont = safeFontFamily(lab.titlePageFont || lab.headingFont, "Georgia, serif");
+  const bodyFont = safeFontFamily(lab.bodyFont, "Gelasio, serif");
+  const headingFont = safeFontFamily(lab.headingFont, "Gelasio, serif");
+  const dropcapFont = safeFontFamily(lab.dropcapFont || lab.headingFont || lab.bodyFont, "Gelasio, serif");
+  const titlePageFont = safeFontFamily(lab.titlePageFont || lab.headingFont, "Gelasio, serif");
 
   const bodySize = clampNumber(lab.bodySize, .72, 1.5, 1);
   const lineHeight = clampNumber(lab.lineHeight, 1.2, 2.1, 1.5);
