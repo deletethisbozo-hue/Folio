@@ -83,6 +83,25 @@ jobs:
       - name: Build portable Windows candidate
         run: npx electron-builder --win portable --x64 --publish never
 
+      - name: Hash portable candidate
+        shell: pwsh
+        run: |
+          $file = "release\Folio-$env:FOLIO_VERSION-portable.exe"
+          if (-not (Test-Path $file)) { throw "Missing portable candidate." }
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $file -Leaf)" | Set-Content -Encoding ascii release\sha256.txt
+          Get-Content release\sha256.txt
+
+      - name: Upload Theme Lab candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-3.1.0-beta.1-Theme-Lab-Windows
+          path: |
+            release/Folio-3.1.0-beta.1-portable.exe
+            release/sha256.txt
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Smoke-test packaged Folio
         shell: pwsh
         run: |
@@ -121,22 +140,3 @@ jobs:
             Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
-
-      - name: Hash portable candidate
-        shell: pwsh
-        run: |
-          $file = "release\Folio-$env:FOLIO_VERSION-portable.exe"
-          if (-not (Test-Path $file)) { throw "Missing portable candidate." }
-          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $(Split-Path $file -Leaf)" | Set-Content -Encoding ascii release\sha256.txt
-          Get-Content release\sha256.txt
-
-      - name: Upload Theme Lab candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: Folio-3.1.0-beta.1-Theme-Lab-Windows
-          path: |
-            release/Folio-3.1.0-beta.1-portable.exe
-            release/sha256.txt
-          if-no-files-found: error
-          retention-days: 14
