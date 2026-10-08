@@ -50,18 +50,23 @@ for (const theme of themes.body) {
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
 }
 
-const retiredFontAliases = [
-  "Georgia", "Times New Roman", "Garamond", "Baskerville", "Palatino", "Palatino Linotype",
-  "Cambria", "Charter", "Rockwell", "Avenir", "Didot", "Bodoni MT", "Trajan Pro",
-  "Book Antiqua", "Hoefler Text", "Old English Text MT", "UnifrakturCook", "Copperplate",
-  "Arial Narrow", "Arial Black", "Helvetica Neue",
+const retiredFontAliases: Array<[string, RegExp]> = [
+  ["Georgia", /\bGeorgia\b/], ["Times New Roman", /\bTimes New Roman\b/],
+  ["Garamond", /(?<!EB )\bGaramond\b/], ["Baskerville", /(?<!Libre )\bBaskerville\b/],
+  ["Palatino", /\bPalatino(?: Linotype)?\b/], ["Cambria", /\bCambria\b/],
+  ["Charter", /\bCharter\b/], ["Rockwell", /\bRockwell\b/], ["Avenir", /\bAvenir\b/],
+  ["Didot", /\bDidot\b/], ["Bodoni MT", /\bBodoni MT\b/], ["Trajan Pro", /\bTrajan Pro\b/],
+  ["Book Antiqua", /\bBook Antiqua\b/], ["Hoefler Text", /\bHoefler Text\b/],
+  ["Old English Text MT", /\bOld English Text MT\b/], ["UnifrakturCook", /\bUnifrakturCook\b/],
+  ["Copperplate", /\bCopperplate\b/], ["Arial Narrow", /\bArial Narrow\b/],
+  ["Arial Black", /\bArial Black\b/], ["Helvetica Neue", /\bHelvetica Neue\b/],
 ];
 const themeEntries = await fs.readdir(path.join(ROOT, "themes"), { withFileTypes: true });
 for (const entry of themeEntries.filter((item) => item.isDirectory() && item.name !== "fonts")) {
   const file = path.join(ROOT, "themes", entry.name, "theme.css");
   try {
     const css = await fs.readFile(file, "utf8");
-    const found = retiredFontAliases.filter((alias) => css.includes(alias));
+    const found = retiredFontAliases.filter(([, pattern]) => pattern.test(css)).map(([name]) => name);
     check(`${entry.name} uses canonical bundled font names`, found.length === 0, found.join(", "));
   } catch {
     // Not every resource directory is a book theme.
