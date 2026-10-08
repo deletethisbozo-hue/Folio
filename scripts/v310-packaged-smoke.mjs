@@ -33,6 +33,7 @@ try {
     if (!page) await new Promise((resolve) => setTimeout(resolve, 250));
   }
   if (!page) throw new Error("Packaged Folio window was not found.");
+  await page.setViewport({ width: 1280, height: 760, deviceScaleFactor: 1 });
 
   await page.waitForSelector(".start-actions", { timeout: 20000 });
   await page.evaluate(() => {
@@ -64,12 +65,24 @@ try {
       clientWidth: element.clientWidth,
     };
   });
-  if (geometry.width < 850 || geometry.height < 520) {
-    throw new Error(`Theme Lab layout is unexpectedly small: ${geometry.width}x${geometry.height}`);
+  if (geometry.width < 1000 || geometry.height < 600) {
+    throw new Error(`Theme Lab desktop layout is unexpectedly small: ${geometry.width}x${geometry.height}`);
   }
   if (geometry.scrollWidth > geometry.clientWidth + 2) {
     throw new Error(`Theme Lab has horizontal overflow: ${geometry.scrollWidth} > ${geometry.clientWidth}`);
   }
+
+  await page.setViewport({ width: 1000, height: 650, deviceScaleFactor: 1 });
+  await page.waitForFunction(() => document.querySelector(".theme-lab-window")?.clientWidth > 0);
+  const compactGeometry = await page.$eval(".theme-lab-window", (element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    rect: element.getBoundingClientRect().width,
+  }));
+  if (compactGeometry.scrollWidth > compactGeometry.clientWidth + 2 || compactGeometry.rect > 990) {
+    throw new Error(`Theme Lab overflows the supported minimum window: ${JSON.stringify(compactGeometry)}`);
+  }
+  await page.setViewport({ width: 1280, height: 760, deviceScaleFactor: 1 });
 
   await clickLabPanel(page, "Body");
   await page.waitForFunction(() =>
