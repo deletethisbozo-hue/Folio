@@ -78,7 +78,7 @@ button:disabled { cursor: default; opacity: .45; }
 .book-author { margin-top: 2px; font-size: 9px; color: #595957; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .contents-list { flex: 1; min-height: 0; overflow-y: auto; padding: 5px 6px 10px; }
-.contents-heading { padding: 5px 5px 3px; font-family: Newsreader, "Times New Roman", serif; font-style: italic; font-size: 11px; color: #444440; }
+.contents-heading { padding: 5px 5px 3px; font-family: Newsreader, serif; font-style: italic; font-size: 11px; color: #444440; }
 .contents-heading.back-heading { margin-top: 7px; }
 .contents-row {
   width: 100%; height: 20px; padding: 0 5px; border: 0; border-radius: 3px; background: transparent;
@@ -113,10 +113,10 @@ button:disabled { cursor: default; opacity: .45; }
 .section-title-button { max-width:100%; padding:2px 3px; border:0; border-radius:3px; background:transparent; text-align:left; }
 .section-title-button:not(:disabled):hover { background:#efefed; }
 .section-title-input { grid-column:2; min-width:120px; width:min(320px,40vw); height:25px; border:1px solid #7699c1; border-radius:4px; outline:0; padding:2px 6px; font-size:13px; font-weight:650; box-shadow:0 0 0 2px rgba(73,126,185,.14); }
-.section-subtitle-button { grid-column:2; min-width:0; max-width:100%; padding:0 3px; border:0; border-radius:3px; background:transparent; color:#77736d; font:italic 9.5px Newsreader,"Times New Roman",serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+.section-subtitle-button { grid-column:2; min-width:0; max-width:100%; padding:0 3px; border:0; border-radius:3px; background:transparent; color:#77736d; font:italic 9.5px Newsreader,serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
 .section-subtitle-button.placeholder { color:#aaa7a1; font-style:normal; }
 .section-subtitle-button:not(:disabled):hover { background:#f2f1ef; color:#4e4b46; }
-.section-subtitle-input { grid-column:2; width:min(320px,40vw); height:21px; border:1px solid #7699c1; border-radius:4px; outline:0; padding:1px 6px; font:italic 9.5px Newsreader,"Times New Roman",serif; box-shadow:0 0 0 2px rgba(73,126,185,.14); }
+.section-subtitle-input { grid-column:2; width:min(320px,40vw); height:21px; border:1px solid #7699c1; border-radius:4px; outline:0; padding:1px 6px; font:italic 9.5px Newsreader,serif; box-shadow:0 0 0 2px rgba(73,126,185,.14); }
 .section-actions { margin-left:auto; display:flex; align-items:center; gap:3px; }
 .section-move { width:22px; height:22px; border:0; border-radius:3px; background:transparent; color:#66635d; font-size:12px; }
 .section-move:hover:not(:disabled) { background:#ecebe7; color:#292825; }
@@ -141,14 +141,14 @@ button:disabled { cursor: default; opacity: .45; }
 .editor-paper { position: relative; flex: 1 1 0; width:100%; height:0; min-height: 0; overflow: hidden; background: #fff; contain: layout paint; }
 .manuscript-editor {
   display:block; width: 100%; height: 100%; min-height:0; max-height:100%; resize: none; border: 0; outline: 0; padding: 10px 18px 28px;
-  background: #fff; color: #171717; font-family: Newsreader, "Times New Roman", serif; font-size: 12.4px; line-height: 1.28;
+  background: #fff; color: #171717; font-family: Newsreader, serif; font-size: 12.4px; line-height: 1.28;
   letter-spacing: -0.01em; overflow-x:hidden; overflow-y: auto; overscroll-behavior:contain; scrollbar-gutter:stable; scrollbar-color: #c9c9c5 transparent;
 }
 .rich-editor { white-space:normal; cursor:text; }
 .rich-editor[contenteditable="false"] { background:#fcfcfb; color:#444; }
 .rich-editor:empty::before { content:attr(data-placeholder); color:#aaa; pointer-events:none; }
 .rich-editor p { margin:0 0 .72em; text-indent:0; }
-.rich-editor h1,.rich-editor h2,.rich-editor h3 { margin:.85em 0 .45em; font-family:Newsreader,"Times New Roman",serif; line-height:1.2; }
+.rich-editor h1,.rich-editor h2,.rich-editor h3 { margin:.85em 0 .45em; font-family:Newsreader,serif; line-height:1.2; }
 .rich-editor h1 { font-size:1.45em; }.rich-editor h2 { font-size:1.23em; }.rich-editor h3 { font-size:1.08em; }
 .rich-editor blockquote { margin:.75em 1.6em; color:#5c5953; }
 .rich-editor ul,.rich-editor ol { margin:.65em 0 .8em; padding-left:2em; }
@@ -232,7 +232,7 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-decorative .sample-ornament { display:none; }
 .theme-literary .sample-chapter { margin-top:30px; color:#776b5d; }
 .theme-literary .sample-title { max-width:7em; font-size:18px; }
-.theme-editorial .sample-title { padding:7px 0; border-top:3px solid currentColor; border-bottom:1px solid #aaa; font:700 19px Arial,sans-serif; }
+.theme-editorial .sample-title { padding:7px 0; border-top:3px solid currentColor; border-bottom:1px solid #aaa; font:700 19px Source Sans 3,sans-serif; }
 .theme-editorial .sample-chapter { color:#a52d2d; }
 .theme-heritage .sample-title { font-variant:small-caps; letter-spacing:.1em; font-style:normal; }
 .theme-scholar .sample-title { padding-bottom:6px; border-bottom:1px solid #8392a0; font-style:normal; font-weight:600; }
@@ -240,31 +240,31 @@ button:disabled { cursor: default; opacity: .45; }
 .theme-folio .sample-title { font-style:normal; letter-spacing:.04em; }
 .theme-ivory { padding-left:22px; padding-right:22px; }
 .theme-ivory .sample-title { margin-top:15px; color:#665846; }
-.theme-nocturne .sample-title { font:400 20px "Bodoni MT",Didot,Gelasio,serif; }
+.theme-nocturne .sample-title { font:400 20px "Bodoni Moda",Gelasio,serif; }
 .theme-cloister .sample-title::after { content:"✠"; display:block; margin-top:8px; color:#8e302b; font-size:11px; }
-.theme-blackletter .sample-title { font:400 22px "Old English Text MT",Gelasio,serif; }
+.theme-blackletter .sample-title { font:400 22px "Grenze Gotisch",Gelasio,serif; }
 .theme-parchment .sample-title { padding:5px 0 5px 10px; border-left:4px double #9b6b42; }
-.theme-atlas .sample-title { padding:8px; border:1px solid #71877d; font:700 17px "Arial Narrow",Arial,sans-serif; text-transform:uppercase; }
+.theme-atlas .sample-title { padding:8px; border:1px solid #71877d; font:700 17px "Barlow Condensed",Source Sans 3,sans-serif; text-transform:uppercase; }
 .theme-atlas .sample-chapter { color:#527065; }
 .theme-stanza .sample-copy { line-height:1.7; }
 .theme-stanza .sample-copy b { font-weight:400; }
 .theme-aubade .sample-chapter { color:#c47c36; }
-.theme-ember .sample-title { padding-bottom:7px; border-bottom:5px solid #a33f25; font:900 18px "Arial Black",Arial,sans-serif; text-transform:uppercase; }
-.theme-cinder .sample-title { font:400 18px "Arial Narrow","Segoe UI",sans-serif; text-transform:uppercase; letter-spacing:.12em; }
+.theme-ember .sample-title { padding-bottom:7px; border-bottom:5px solid #a33f25; font:900 18px "Source Sans 3",sans-serif; text-transform:uppercase; }
+.theme-cinder .sample-title { font:400 18px "Barlow Condensed","Segoe UI",sans-serif; text-transform:uppercase; letter-spacing:.12em; }
 .theme-solstice .sample-chapter { color:#688490; letter-spacing:.23em; }
 .theme-solstice .sample-title { font-style:normal; text-transform:uppercase; letter-spacing:.14em; }
-.theme-timber .sample-title { padding:7px 9px; border-left:5px solid #6d5336; font:700 17px Rockwell,Gelasio,serif; }
-.theme-obsidian .sample-title { padding:7px 2px; border-top:1px solid #17171b; border-bottom:4px double #17171b; font:400 18px Didot,Gelasio,serif; font-style:normal; letter-spacing:.06em; }
+.theme-timber .sample-title { padding:7px 9px; border-left:5px solid #6d5336; font:700 17px Roboto Slab,Gelasio,serif; }
+.theme-obsidian .sample-title { padding:7px 2px; border-top:1px solid #17171b; border-bottom:4px double #17171b; font:400 18px Bodoni Moda,Gelasio,serif; font-style:normal; letter-spacing:.06em; }
 .theme-bloodmoon .sample-chapter { width:31px; height:31px; margin-top:18px; border:1px solid #771f26; border-radius:50%; line-height:31px; }
-.theme-bloodmoon .sample-title { color:#771f26; font:italic 19px "Bodoni MT",Didot,Gelasio,serif; }
+.theme-bloodmoon .sample-title { color:#771f26; font:italic 19px "Bodoni Moda",Gelasio,serif; }
 .theme-grimoire .sample-title { padding:7px; border:3px double #6d5873; font-style:normal; font-variant:small-caps; letter-spacing:.08em; }
-.theme-cathedral .sample-title { padding:11px 7px 7px; border:1px solid #536270; border-top:5px double #293543; border-radius:50% 50% 0 0/28% 28% 0 0; font:400 19px "Old English Text MT",Gelasio,serif; }
-.theme-necropolis .sample-title { padding:7px 9px; border-top:1px solid #777a7e; border-bottom:1px solid #777a7e; border-left:7px solid #44464b; font:700 16px "Times New Roman",serif; text-transform:uppercase; letter-spacing:.07em; }
-.theme-wyrmwood .sample-title { padding:5px 0 5px 10px; border-left:3px solid #47644c; color:#29442f; font:italic 18px Palatino,Gelasio,serif; }
-.theme-runestone .sample-title { padding:7px; border-top:5px solid #405868; border-bottom:2px solid #71838b; font:700 15px Copperplate,"Arial Narrow",sans-serif; text-transform:uppercase; letter-spacing:.12em; }
+.theme-cathedral .sample-title { padding:11px 7px 7px; border:1px solid #536270; border-top:5px double #293543; border-radius:50% 50% 0 0/28% 28% 0 0; font:400 19px "Grenze Gotisch",Gelasio,serif; }
+.theme-necropolis .sample-title { padding:7px 9px; border-top:1px solid #777a7e; border-bottom:1px solid #777a7e; border-left:7px solid #44464b; font:700 16px "Source Serif 4",serif; text-transform:uppercase; letter-spacing:.07em; }
+.theme-wyrmwood .sample-title { padding:5px 0 5px 10px; border-left:3px solid #47644c; color:#29442f; font:italic 18px Vollkorn,Gelasio,serif; }
+.theme-runestone .sample-title { padding:7px; border-top:5px solid #405868; border-bottom:2px solid #71838b; font:700 15px Cinzel,"Barlow Condensed",sans-serif; text-transform:uppercase; letter-spacing:.12em; }
 .theme-witchlight { align-items:flex-end; text-align:right; }
-.theme-witchlight .sample-title { padding-right:9px; border-right:3px solid #745683; color:#60446f; font:italic 18px Baskerville,Gelasio,serif; }
-.theme-ironbound .sample-title { padding:7px; border:3px solid #3e4749; font:700 16px Rockwell,Gelasio,serif; text-transform:uppercase; }
+.theme-witchlight .sample-title { padding-right:9px; border-right:3px solid #745683; color:#60446f; font:italic 18px Libre Baskerville,Gelasio,serif; }
+.theme-ironbound .sample-title { padding:7px; border:3px solid #3e4749; font:700 16px Roboto Slab,Gelasio,serif; text-transform:uppercase; }
 .style-library-footer { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 0 14px 0 18px; border-top: 1px solid #c9c8c3; background: linear-gradient(#f4f3ef,#e8e7e2); }
 .style-library-footer>div { min-width: 0; display: flex; flex-direction: column; }
 .style-library-footer strong { font-size: 10px; }
@@ -311,7 +311,7 @@ button:disabled { cursor: default; opacity: .45; }
 .folio-windowbar { height: 38px; border-bottom: 1px solid #d0cfcb; display: flex; align-items: center; padding: 0 10px; background: linear-gradient(#f4f3f0, #e9e8e4); }
 .empty-windowbar { justify-content: space-between; }
 .windowbar-spacer { width: 55px; }
-.folio-wordmark { font:700 20px/1 Newsreader,"Times New Roman",serif; letter-spacing:-.02em; }
+.folio-wordmark { font:700 20px/1 Newsreader,serif; letter-spacing:-.02em; }
 .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 7vh; }
 .empty-book-mark { width: 64px; height: 82px; display: grid; place-items: center; border: 1px solid #bdbbb4; border-radius: 3px; background: #faf9f4; box-shadow: 0 6px 18px rgba(0,0,0,.08); font: italic 34px Newsreader, serif; color: #3e3d39; }
 .empty-state h1 { margin: 16px 0 4px; font: 600 20px Newsreader, serif; }
@@ -383,7 +383,7 @@ button:disabled { cursor: default; opacity: .45; }
   background:var(--folio-bg); color:var(--folio-text);
 }
 .folio-commandbar { grid-column:1/-1; display:flex; align-items:center; min-width:0; padding:0 12px; border-bottom:1px solid var(--folio-border); background:var(--folio-bg); }
-.command-wordmark { width:152px; font:700 20px/1 Newsreader,"Times New Roman",serif; letter-spacing:-.02em; color:var(--folio-text); }
+.command-wordmark { width:152px; font:700 20px/1 Newsreader,serif; letter-spacing:-.02em; color:var(--folio-text); }
 .folio-commandbar nav { display:flex; align-items:center; gap:2px; }
 .folio-commandbar button { height:26px; padding:0 9px; border:0; border-radius:3px; background:transparent; color:var(--folio-text); font-size:11px; }
 .folio-commandbar button:hover { background:var(--folio-hover); }
