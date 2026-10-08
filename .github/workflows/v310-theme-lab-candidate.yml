@@ -97,7 +97,7 @@ jobs:
               try { $health = Invoke-RestMethod "$base/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
             }
             if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged app did not become ready." }
-            node scripts\packaged-ui-smoke.mjs
+            node scripts\v310-packaged-smoke.mjs
             if ($LASTEXITCODE -ne 0) { throw "Packaged UI smoke failed." }
 
             $themes = Invoke-RestMethod "$base/api/themes"
