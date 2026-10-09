@@ -23,6 +23,17 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
   const para = cap.closest<HTMLElement>("p");
   if (!para) return;
 
+  // The compositor can reach this function before a theme face finishes
+  // loading. Seating against fallback metrics leaves a stale wrapped-line
+  // count once the real font swaps in, so defer authoritative calibration
+  // until the document font set is settled.
+  if (doc.fonts.status !== "loaded") {
+    void doc.fonts.ready.then(() => {
+      if (cap.isConnected && cap.ownerDocument === doc) seatPreviewDropCap(cap);
+    }).catch(() => undefined);
+    return;
+  }
+
   const canvas = doc.createElement("canvas").getContext("2d");
   if (!canvas) return;
 
@@ -98,9 +109,10 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     void para.offsetHeight;
   }
 
-  // Keep a small visible gap between the painted initial and the first word.
-  // Decorative fonts can overhang their advance box, so tune the live gap
-  // instead of applying a font-specific magic number.
+  // Keep prose outside the native float box itself. Measuring only the
+  // painted glyph edge can pull text into the cap's line box on faces with
+  // side bearings, which creates real Range/rect collisions even when the
+  // visible outlines appear separated.
   capStyle = view.getComputedStyle(cap);
   const desiredGap = Math.max(1.5, bodySize * .13);
   let rightMargin = Number.parseFloat(capStyle.marginRight || "0") || 0;
@@ -108,10 +120,7 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     const textRect = bodyRange.getClientRects()[0];
     if (!textRect) break;
     const capRect = cap.getBoundingClientRect();
-    canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
-    const liveMetrics = canvas.measureText(glyph);
-    const paintedRight = capRect.left + (liveMetrics.actualBoundingBoxRight || liveMetrics.width);
-    const gap = textRect.left - paintedRight;
+    const gap = textRect.left - capRect.right;
     if (!Number.isFinite(gap) || Math.abs(gap - desiredGap) < .25) break;
     const delta = Math.max(-capFontSize * .20, Math.min(capFontSize * .20, desiredGap - gap));
     rightMargin = Math.max(-capFontSize * .25, Math.min(capFontSize * .25, rightMargin + delta));
