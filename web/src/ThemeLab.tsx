@@ -1,3 +1,4 @@
+import { seatPreviewDropCaps } from "./dropcap-seat";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import FontPicker from "./components/FontPicker";
@@ -557,7 +558,7 @@ export default function ThemeLab(props: {
             {previewLoading && <div className="theme-lab-preview-status">Rendering…</div>}
             {previewError && !previewLoading && <div className="theme-lab-preview-status error">{previewError}</div>}
             {!previewId && <div className="theme-lab-preview-status">Add a chapter to preview this theme.</div>}
-            {previewId && previewHtml && <iframe title={(lab.name ?? "Theme") + " live preview"} srcDoc={previewHtml}/>}
+            {previewId && previewHtml && <iframe title={(lab.name ?? "Theme") + " live preview"} srcDoc={previewHtml} onLoad={(event) => { void seatPreviewDropCaps(event.currentTarget); }}/>}
           </div>
         </section>
       </div>
