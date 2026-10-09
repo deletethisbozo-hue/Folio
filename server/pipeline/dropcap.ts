@@ -38,6 +38,7 @@ export async function alignDropCaps(page: Page): Promise<number> {
       // Print can calibrate against an indented first row and preserve the very
       // gap we are trying to remove.
       para.classList.add("folio-native-dropcap");
+      para.style.setProperty("text-indent", "0px", "important");
       void para.offsetHeight;
 
       const bodyWalker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
