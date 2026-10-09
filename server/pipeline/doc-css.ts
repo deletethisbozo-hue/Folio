@@ -182,9 +182,9 @@ function themeLabCss(book: Book): string {
     out.push(`.folio-native-dropcap { text-indent:${paragraphIndent}em !important; } .folio-native-dropcap .dropcap, .dropcap { float:none !important; display:inline !important; position:static !important; max-width:none !important; font-size:inherit !important; line-height:inherit !important; padding:0 !important; margin:0 !important; font-family:inherit !important; color:inherit !important; transform:none !important; }`);
   } else {
     const dc = lab.dropcapSize === "large" ? 4.35 : 3.05;
-    out.push(`:root { --folio-dropcap-user-size:${dc}em; }`);
+    out.push(`:root { --folio-dropcap-user-size:${dc}em; --folio-dropcap-lines:${lab.dropcapSize === "large" ? 3 : 2}; }`);
     out.push(`.folio-native-dropcap { text-indent:0 !important; overflow:visible !important; }`);
-    out.push(`.folio-native-dropcap .dropcap, .dropcap { float:left !important; display:block !important; position:relative !important; box-sizing:border-box !important; max-width:38% !important; font-family:${dropcapFont} !important; color:${accent} !important; font-size:var(--folio-dropcap-user-size) !important; line-height:1 !important; padding:0 .13em 0 0 !important; margin:0 .06em 0 0 !important; transform:none !important; white-space:nowrap !important; overflow:visible !important; }`);
+    out.push(`.folio-native-dropcap .dropcap, .dropcap { float:left !important; display:block !important; position:relative !important; box-sizing:border-box !important; max-width:38% !important; font-family:${dropcapFont} !important; color:${accent} !important; font-size:var(--folio-dropcap-user-size) !important; line-height:.9 !important; padding:0 .09em 0 0 !important; margin:0 0 0 0 !important; transform:none !important; white-space:nowrap !important; overflow:visible !important; }`);
   }
 
   const sceneSize = clampNumber(lab.sceneSize, .5, 3, 1.1);
