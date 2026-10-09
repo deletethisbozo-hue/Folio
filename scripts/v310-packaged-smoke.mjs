@@ -346,7 +346,7 @@ try {
   const applied = await (await saveResponse).json();
   await page.waitForFunction(() => !document.querySelector(".theme-lab-window"), { timeout: 30000 });
   if (applied.typography?.themeLab?.bodyFont !== "Gelasio"
-    || applied.typography.themeLab.sceneImage?.dataUrl?.startsWith("data:image/png") !== true
+    || applied.typography.themeLab.chapterOrnament?.dataUrl?.startsWith("data:image/png") !== true
     || !applied.typography.themeLab.enabled) {
     throw new Error("Applied Theme Lab typography/artwork did not persist in the returned book: "
       + JSON.stringify(applied.typography?.themeLab).slice(0, 600));
@@ -396,6 +396,7 @@ try {
   const importInput = await page.$(".theme-lab-hidden-input");
   if (!importInput) throw new Error("Import Theme file control is missing.");
   await importInput.uploadFile(importPath);
+  await clickLabPanel(page, "Foundation");
   await page.waitForFunction(() =>
     document.querySelector(".theme-lab-window input[maxlength='64']")?.value === "QA Imported Theme");
   const importedResponse = page.waitForResponse((response) =>
