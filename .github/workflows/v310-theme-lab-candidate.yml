@@ -40,7 +40,7 @@ jobs:
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.1.0-beta.1") { throw "Expected 3.1.0-beta.1, found $version." }
+          if ($version -ne "3.1.0") { throw "Expected 3.1.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -118,9 +118,9 @@ jobs:
       - name: Upload Theme Lab candidate
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-3.1.0-beta.1-Theme-Lab-Windows
+          name: Folio-3.1.0-Theme-Lab-Windows
           path: |
-            release/Folio-3.1.0-beta.1-portable.exe
+            release/Folio-3.1.0-portable.exe
             release/sha256.txt
           if-no-files-found: error
           retention-days: 14
