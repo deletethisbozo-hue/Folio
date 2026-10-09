@@ -1,0 +1,42 @@
+name: Publish Folio 3.1.0 Beta direct download
+
+on:
+  push:
+    branches: ["main"]
+    paths: [".github/workflows/publish-v310-beta-asset.yml"]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified Windows build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_ARTIFACT_ID: "11590697410"
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${BUILD_ARTIFACT_ID}/zip" > build.zip
+          unzip -o build.zip -d artifact
+          cp artifact/Folio-3.1.0-beta.1-portable.exe .
+          cp artifact/sha256.txt .
+          sha256sum --check sha256.txt
+      - name: Create prerelease and upload actual EXE
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v3.1.0-beta.1
+          BUILD_SHA: 351d24c4ce7cd9080e5ba0fb9819d0059a0fd83a
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" Folio-3.1.0-beta.1-portable.exe sha256.txt --clobber --repo "${GITHUB_REPOSITORY}"
+          else
+            gh release create "${TAG}" Folio-3.1.0-beta.1-portable.exe sha256.txt --repo "${GITHUB_REPOSITORY}" \
+              --target "${BUILD_SHA}" --title "Folio 3.1.0 Beta 1 - Theme Lab" --prerelease \
+              --notes "Windows portable beta build, verified in GitHub Actions run 37870863949. Theme Lab remains a preview. Stable Folio 3.0.0 is unchanged."
+          fi
+          gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url,isPrerelease,assets
