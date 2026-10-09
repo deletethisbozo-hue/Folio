@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: write
