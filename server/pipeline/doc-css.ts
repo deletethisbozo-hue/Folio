@@ -201,7 +201,10 @@ function themeLabCss(book: Book): string {
     const height = clampNumber(lab.chapterOrnament?.height, .6, 12, 3.2);
     const opacity = clampNumber(lab.chapterOrnament?.opacity, .1, 1, 1);
     const gap = clampNumber(lab.chapterOrnament?.gap, 0, 5, .7);
-    const imageRule = `background-image:url(${JSON.stringify(chapterImage)});background-position:center;background-repeat:no-repeat;background-size:contain;`;
+    const x = clampNumber(lab.chapterOrnament?.offsetX, -100, 100, 0);
+    const y = clampNumber(lab.chapterOrnament?.offsetY, -60, 60, 0);
+    const align = lab.chapterOrnament?.align === "left" ? "margin-left:0!important;margin-right:auto!important;" : lab.chapterOrnament?.align === "right" ? "margin-left:auto!important;margin-right:0!important;" : "";
+    const imageRule = "background-image:url(" + JSON.stringify(chapterImage) + ");background-position:center;background-repeat:no-repeat;background-size:contain;transform:translate(" + x + "px," + y + "px);" + align;
     if (lab.chapterOrnament?.placement === "above") {
       out.push(`section.chapter::before { content:""; display:block; width:${width}%; height:${height}em; margin:0 auto ${gap}em; opacity:${opacity}; ${imageRule} }`);
       out.push(`section.chapter > h1::after, h1.chapter::after { content:none !important; display:none !important; }`);
@@ -218,8 +221,11 @@ function themeLabCss(book: Book): string {
     const width = clampNumber(lab.sceneImage?.width, 4, 80, 18);
     const height = clampNumber(lab.sceneImage?.height, .4, 8, 1.8);
     const opacity = clampNumber(lab.sceneImage?.opacity, .1, 1, 1);
-    const gap = clampNumber(lab.sceneImage?.gap, 0, 4, .2);
-    out.push(`.scene-break { font-size:0 !important; color:transparent !important; } .scene-break::before { content:"" !important; display:block !important; width:${width}% !important; height:${height}em !important; margin:${gap}em auto !important; opacity:${opacity} !important; background-image:url(${JSON.stringify(sceneImage)}); background-position:center; background-repeat:no-repeat; background-size:contain; }`);
+    const gap = clampNumber(lab.sceneImage?.gap, 0, 6, .2);
+    const x = clampNumber(lab.sceneImage?.offsetX, -100, 100, 0);
+    const y = clampNumber(lab.sceneImage?.offsetY, -60, 60, 0);
+    const align = lab.sceneImage?.align === "left" ? "margin-left:0!important;margin-right:auto!important;" : lab.sceneImage?.align === "right" ? "margin-left:auto!important;margin-right:0!important;" : "";
+    out.push(`.scene-break { font-size:0 !important; color:transparent !important; } .scene-break::before { content:"" !important; display:block !important; width:${width}% !important; height:${height}em !important; font-size:1rem !important; margin:${gap}em auto !important; opacity:${opacity} !important; transform:translate(${x}px,${y}px) !important; ${align} background-image:url(${JSON.stringify(sceneImage)}); background-position:center; background-repeat:no-repeat; background-size:contain; }`);
     out.push(`.scene-break::after { content:none !important; display:none !important; }`);
   } else {
     out.push(`.scene-break::before { content:none !important; display:none !important; } .scene-break { font-size:0 !important; color:transparent !important; } .scene-break::after { content:${JSON.stringify(sceneText)} !important; display:inline !important; color:${sceneColor} !important; font-size:${sceneSize}rem !important; }`);
