@@ -109,8 +109,11 @@ try {
       trigger.click();
     }, label);
     await page.waitForSelector(".folio-font-picker-panel");
-    const options = await page.$eval(".folio-font-picker-panel .folio-font-picker-option strong",
-      (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
+    const options = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>(".folio-font-picker-panel .folio-font-picker-option strong")]
+        .map((item) => item.textContent?.trim())
+        .filter((name): name is string => Boolean(name))
+    );
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector(".folio-font-picker-panel"));
     return options;
