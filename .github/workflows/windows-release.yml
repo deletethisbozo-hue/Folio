@@ -37,11 +37,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.0.0 version consistency
+      - name: Verify Folio 3.1.0 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.0.0") { throw "Windows release is scoped to Folio 3.0.0, found $version." }
+          if ($version -ne "3.1.0") { throw "Windows release is scoped to Folio 3.1.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -271,4 +271,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.0 introduces Second Draft: a dedicated rewrite workflow beside the existing Write editor. Pair a source chapter, select source passages with Rewrite This, watch processed source fade through Source Burn, send material to later chapters with Send Ahead, hide the old draft in Memory mode with hold-Alt peek, and keep unequal drafts aligned with anchor-aware Paired Scroll. Chapter Seal snapshots a completed rewrite and Chapter Reveal summarizes the transformation. Legacy Split View remains intact. The Windows build is gated by typecheck, the full formatter/UI suite with retries, Writing Studio QA, dedicated Folio 3.0 Second Draft browser QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 3.1 finalizes Theme Lab for real book use. Apply to Book now persists the selected theme and typography instead of snapping back to stale appearance state; imported themes survive reloads and a real .folio close/reopen cycle. Font pickers now keep previews inside dropdown options only and use the exact sample Write. Format. Publish. The Theme Lab launcher is centered and star-free. Light and Midnight use the new supplied glyphs with protected left-edge breathing room, and Windows packaging, the app window, file association and favicon now use NEUE.ico consistently. The release remains gated by typecheck, the full formatter/UI suite with retries, Writing Studio and Second Draft QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
