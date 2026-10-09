@@ -982,11 +982,16 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, paragraphLanguage, sectionStats, true);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, false, paragraphLanguage, sectionStats, true);
   const strictFailure = breaks ? null : lastBreakFailure;
+  // A paragraph can be temporarily above the section-wide hyphen ceiling while
+  // still having a fully professional strict layout. Keep that strict layout
+  // before considering any ragged/emergency rescue; following paragraphs can
+  // bring the section aggregate back below the release ceiling.
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, false, false, paragraphLanguage, sectionStats, false);
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, paragraphLanguage, sectionStats, true);
-  // If no section-rate-compliant route exists, preserve the compositor's
-  // established emergency behavior rather than dropping to an unsafe layout.
+  // If no section-rate-compliant route exists even with emergency fitting,
+  // preserve the established final fallback rather than dropping the paragraph.
   if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, paragraphLanguage, sectionStats, false);
   if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
