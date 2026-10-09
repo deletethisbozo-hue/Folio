@@ -1,4 +1,5 @@
 const pendingFontLoads = new WeakMap<HTMLElement, string>();
+const loadedFontProbes = new WeakMap<HTMLElement, string>();
 const seatingGeneration = new WeakMap<HTMLElement, number>();
 
 /**
@@ -40,11 +41,17 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
   const initialStyle = view.getComputedStyle(cap);
   const initialGlyph = cap.textContent?.trim() || "H";
   const fontProbe = `${initialStyle.fontStyle} ${initialStyle.fontWeight} ${initialStyle.fontSize} ${initialStyle.fontFamily}`;
-  if (!doc.fonts.check(fontProbe, initialGlyph)) {
+  // FontFaceSet.check() is not strong enough here: Chromium can report that a
+  // face is available while fonts.load() still causes the final glyph metrics
+  // to settle. V6 caught exactly that transition (3 wrapped rows before load,
+  // 2 after). Explicitly load each resolved face/size probe once before any
+  // seating measurement.
+  if (loadedFontProbes.get(cap) !== fontProbe) {
     if (pendingFontLoads.get(cap) === fontProbe) return;
     pendingFontLoads.set(cap, fontProbe);
     void doc.fonts.load(fontProbe, initialGlyph).then(() => {
       pendingFontLoads.delete(cap);
+      loadedFontProbes.set(cap, fontProbe);
       if (cap.isConnected && cap.ownerDocument === doc) seatPreviewDropCap(cap);
     }).catch(() => {
       pendingFontLoads.delete(cap);
