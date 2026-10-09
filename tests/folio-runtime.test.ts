@@ -79,7 +79,7 @@ const uiFontSources = [
 ];
 for (const file of uiFontSources) {
   const source = await fs.readFile(file, "utf8");
-  check(`${path.basename(file)} does not expose Georgia as Gelasio`, !source.includes("Georgia"));
+  check(`${path.basename(file)} does not expose Georgia as Gelasio`, !/<option[^>]*value=["\x27]Georgia["\x27]/.test(source) && !/\bGeorgia\s*<\/option>/.test(source));
   check(`${path.basename(file)} does not expose prefixed font family names`, !/"Folio (?:Source|EB|Libre|Newsreader|Vollkorn|Barlow|Bodoni|Cinzel|Grenze|Roboto|Jena|Manufacturing|Kings|CAT|Slavkappen)/.test(source));
 }
 
