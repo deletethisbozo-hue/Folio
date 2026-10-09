@@ -93,12 +93,13 @@ try {
     const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
     const size = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap size")
       ?.querySelector<HTMLSelectElement>("select");
-    const font = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap typeface")
-      ?.querySelector<HTMLSelectElement>("select");
+    const fontRow = rows.find((row) => row.querySelector("span")?.textContent?.trim() === "Drop cap typeface");
+    const fontTrigger = fontRow?.querySelector<HTMLButtonElement>(".folio-font-picker-trigger");
+    if (!fontTrigger) throw new Error("Drop cap FontPicker trigger missing");
+    fontTrigger.click();
     return {
       sizeValue: size?.value,
       sizeOptions: [...(size?.options ?? [])].map((option) => ({ value: option.value, text: option.textContent?.trim() })),
-      fontOptions: [...(font?.options ?? [])].map((option) => option.textContent?.trim()),
     };
   });
   const hasSeparateThemeAndSmall =
@@ -108,10 +109,14 @@ try {
   check("Theme default and Small are separate drop-cap states", hasSeparateThemeAndSmall, JSON.stringify(pickerState.sizeOptions));
   if (!hasSeparateThemeAndSmall) throw new Error("Drop cap size picker still aliases theme default to Small");
 
+  await page.waitForSelector(".folio-font-picker-panel");
+  const fontOptions = await page.$eval(".folio-font-picker-panel .folio-font-picker-option strong",
+    (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
   const requestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"];
-  const hasRequestedFonts = requestedFonts.every((name) => pickerState.fontOptions.includes(name));
-  check("Drop cap font picker exposes all requested licensed fonts", hasRequestedFonts, JSON.stringify(pickerState.fontOptions));
+  const hasRequestedFonts = requestedFonts.every((name) => fontOptions.includes(name));
+  check("Drop cap font picker exposes all requested licensed fonts", hasRequestedFonts, JSON.stringify(fontOptions));
   if (!hasRequestedFonts) throw new Error("Drop cap font picker is missing requested fonts");
+  await page.keyboard.press("Escape");
 
   const bookStylesFont = await page.$eval(".style-library-header h2", (node) => getComputedStyle(node).fontFamily);
   const uiFontOk = !/Georgia|Times New Roman/i.test(bookStylesFont);
