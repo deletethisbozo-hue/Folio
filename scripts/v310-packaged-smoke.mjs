@@ -260,9 +260,10 @@ try {
             paraWidth:para.getBoundingClientRect().width,
             bodySize:Number.parseFloat(bodyStyle.fontSize),
             visualGap:text.left - cr.left - ink.actualBoundingBoxRight,
+            textIndent:Number.parseFloat(bodyStyle.textIndent) || 0,
           };
         });
-        if (!m || m.seated !== "true" || m.wrapped !== m.lines
+        if (!m || m.seated !== "true" || m.wrapped !== m.lines || Math.abs(m.textIndent) > .5
             || m.capWidth > m.paraWidth*.41 || m.visualGap < -2.5
             || m.visualGap > Math.max(11, m.bodySize*.72)) {
           failures.push({preset,family,metrics:m});
