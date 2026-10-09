@@ -85,21 +85,24 @@ try {
   await page.setViewport({ width: 1280, height: 760, deviceScaleFactor: 1 });
 
   await clickLabPanel(page, "Body");
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll(".theme-lab-window select option")]
-      .some((item) => item.textContent?.trim() === "Gelasio"),
-    { timeout: 10000 },
-  );
-  const fontNames = await page.evaluate(() =>
-    Array.from(
-      document.querySelectorAll(".theme-lab-window select option"),
-      (item) => item.textContent?.trim(),
-    ).filter(Boolean)
-  );
-  for (const required of ["Gelasio", "Newsreader", "EB Garamond", "Libre Baskerville"]) {
-    if (!fontNames.includes(required)) throw new Error(`Theme Lab is missing bundled font: ${required}`);
+  await page.click(".theme-lab-font-row .folio-font-picker-trigger");
+  await page.waitForSelector(".folio-font-picker-panel .folio-font-picker-option", {timeout: 10000});
+  const fontNames = await page.$$eval(".folio-font-picker-panel .folio-font-picker-option strong",
+    (items) => items.map((item) => item.textContent?.trim()).filter(Boolean));
+  for (const required of ["Gelasio", "Newsreader", "EB Garamond", "Libre Baskerville", "CAT Altenglisch"]) {
+    if (!fontNames.includes(required)) throw new Error("Theme Lab font gallery is missing " + required);
   }
-  if (fontNames.includes("Georgia")) throw new Error("Theme Lab still exposes Georgia.");
+  if (fontNames.includes("Georgia")) throw new Error("Legacy Georgia leaked into font gallery.");
+  await page.evaluate(() => {
+    const option = [...document.querySelectorAll(".folio-font-picker-panel .folio-font-picker-option")]
+      .find((item) => item.querySelector("strong")?.textContent?.trim() === "Gelasio");
+    if (!option) throw new Error("Gelasio cannot be selected.");
+    option.click();
+  });
+  await page.waitForFunction(() => {
+    const label = document.querySelector(".theme-lab-font-row .folio-font-picker-selected");
+    return label?.textContent?.trim() === "Gelasio";
+  });
 
   const rangeGeometry = await page.$eval(".theme-lab-range-control", (element) => {
     const r = element.getBoundingClientRect();
