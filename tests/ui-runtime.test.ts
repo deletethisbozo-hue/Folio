@@ -307,7 +307,7 @@ try {
     return heading ? getComputedStyle(heading, "::before").content.includes("ROZDZIAŁ 1") : false;
   }));
   check("arbitrary chapter label text is automatically numbered", true);
-  await page.click(".style-library-header button");
+  await page.click(".style-library-close");
 
   const deviceModes = await page.$$eval('select[aria-label="Preview device"] option', (items) => items.map((item) => (item as HTMLOptionElement).value));
 check("preview offers size-based Kindle, Kobo, phone, tablet and print profiles",
@@ -451,7 +451,7 @@ await stage("switch to phone size class", () => page.waitForSelector('.reader-de
     select.value = "justify";
     select.dispatchEvent(new Event("change", { bubbles: true }));
   });
-  await page.click(".style-library-header button");
+  await page.click(".style-library-close");
   await new Promise((resolve) => setTimeout(resolve, 900));
   const stableStyleUpdate = await page.evaluate(() => ({
     loads: (window as any).__folioFrameLoads,
