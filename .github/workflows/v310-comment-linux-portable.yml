@@ -1,0 +1,92 @@
+name: Folio 3.1 Linux cross-build portable
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    if: github.event.issue.pull_request && github.event.comment.body == '/build-folio-3.1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}/build/pandoc/pandoc.exe
+
+    steps:
+      - name: Check out current Folio 3.1 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/folio-3.1-theme-lab
+          fetch-depth: 0
+
+      - name: Record exact source commit
+        run: |
+          mkdir -p release
+          git rev-parse HEAD | tee release/source-commit.txt
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Wine and packaging tools
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y wine64 wine32 nsis unzip
+          wine --version
+          makensis -VERSION
+
+      - name: Download pinned Windows Pandoc 3.11
+        run: |
+          mkdir -p build/pandoc build/pandoc-unpack
+          curl -L --fail --retry 3 -o build/pandoc.zip https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip
+          echo "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d  build/pandoc.zip" | sha256sum -c -
+          unzip -q build/pandoc.zip -d build/pandoc-unpack
+          cp "$(find build/pandoc-unpack -name pandoc.exe -print -quit)" build/pandoc/pandoc.exe
+
+      - name: Install pinned Windows Chromium runtime
+        run: |
+          mkdir -p build/puppeteer-cache
+          npx @puppeteer/browsers install chrome-headless-shell@152.0.7977.75 --platform=win64 --path build/puppeteer-cache
+          test -n "$(find build/puppeteer-cache -iname chrome-headless-shell.exe -print -quit)"
+
+      - name: Typecheck and regression tests
+        run: |
+          npm run typecheck
+          npm test -- typesetting-language ui-coherence v206-ui-regression folio-runtime web-export v300-second-draft
+
+      - name: Build web and server
+        run: npm run build
+
+      - name: Stage exact NEUE.ico
+        shell: pwsh
+        run: .\scripts\generate-windows-icon.ps1
+
+      - name: Build Windows portable
+        run: npx electron-builder --win portable --x64 --publish never
+
+      - name: Hash candidate
+        run: |
+          test -s release/Folio-3.1.0-beta.1-portable.exe
+          sha256sum release/Folio-3.1.0-beta.1-portable.exe | tee release/sha256.txt
+
+      - name: Upload portable candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-3.1.0-beta.1-Theme-Lab-Windows-current
+          path: |
+            release/Folio-3.1.0-beta.1-portable.exe
+            release/sha256.txt
+            release/source-commit.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
