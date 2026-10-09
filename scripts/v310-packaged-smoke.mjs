@@ -187,6 +187,94 @@ try {
     throw new Error("Theme Lab drop cap expands beyond the paragraph flow.");
   }
 
+  // Matrix: every bundled family must seat without phantom blank rows.
+  // Test both 2-line and 3-line presets in the actual packaged Chromium app.
+  const fontMatrix = [
+    "Source Serif 4", "Source Sans 3", "EB Garamond", "Libre Caslon Text",
+    "Libre Baskerville", "Newsreader", "Gelasio", "Vollkorn",
+    "Barlow Condensed", "Bodoni Moda", "Cinzel", "Grenze Gotisch",
+    "Roboto Slab", "Jena Gotisch", "Manufacturing Consent", "Kings",
+    "CAT Altenglisch", "Slavkappen",
+  ];
+  const failures = [];
+  for (const preset of ["small", "large"]) {
+    await page.evaluate((value) => {
+      const row = [...document.querySelectorAll(".theme-lab-row")]
+        .find((item) => item.textContent?.includes("Drop-cap size"));
+      const select = row?.querySelector("select");
+      if (!select) throw new Error("Drop-cap preset picker is missing.");
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+      setter?.call(select, value);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }, preset);
+    for (const family of fontMatrix) {
+      await page.evaluate(() => {
+        const row = [...document.querySelectorAll(".theme-lab-font-row")]
+          .find((item) => item.textContent?.includes("Drop-cap typeface"));
+        if (!row) throw new Error("Drop-cap family picker is missing.");
+        row.querySelector(".folio-font-picker-trigger")?.click();
+      });
+      await page.waitForSelector(".folio-font-picker-panel .folio-font-picker-option", {timeout:10000});
+      await page.evaluate((font) => {
+        const button = [...document.querySelectorAll(".folio-font-picker-panel .folio-font-picker-option")]
+          .find((item) => item.querySelector("strong")?.textContent?.trim() === font);
+        if (!button) throw new Error("Cannot select drop-cap font: " + font);
+        button.click();
+      }, family);
+      try {
+        await page.waitForFunction((font, expected) => {
+          const doc = document.querySelector(".theme-lab-preview-stage iframe")?.contentDocument;
+          const cap = doc?.querySelector(".dropcap");
+          return cap && doc.defaultView.getComputedStyle(cap).fontFamily.includes(font)
+            && cap.dataset.folioDropcapLines === String(expected)
+            && cap.dataset.folioDropcapSeated;
+        }, {timeout:15000}, family, preset === "large" ? 3 : 2);
+        const m = await page.evaluate(() => {
+          const doc = document.querySelector(".theme-lab-preview-stage iframe")?.contentDocument;
+          const cap = doc?.querySelector(".dropcap");
+          const para = cap?.closest("p");
+          if (!cap || !para) return null;
+          const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+          let body = null;
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            if (!cap.contains(node) && node.data.trim()) { body = node; break; }
+          }
+          if (!body) return null;
+          const range = doc.createRange();
+          range.setStart(body,0);
+          range.setEnd(body,Math.min(8,body.data.length));
+          const text = range.getClientRects()[0];
+          if (!text) return null;
+          const cr = cap.getBoundingClientRect();
+          const style = doc.defaultView.getComputedStyle(cap);
+          const bodyStyle = doc.defaultView.getComputedStyle(para);
+          const canvas = doc.createElement("canvas").getContext("2d");
+          canvas.font = style.fontStyle+" "+style.fontWeight+" "+style.fontSize+" "+style.fontFamily;
+          const ink = canvas.measureText(cap.textContent?.trim() || "S");
+          return {
+            seated:cap.dataset.folioDropcapSeated,
+            wrapped:+(cap.dataset.folioDropcapWrappedLines || 0),
+            lines:+(cap.dataset.folioDropcapLines || 0),
+            capWidth:cr.width,
+            paraWidth:para.getBoundingClientRect().width,
+            bodySize:Number.parseFloat(bodyStyle.fontSize),
+            visualGap:text.left - cr.left - ink.actualBoundingBoxRight,
+          };
+        });
+        if (!m || m.seated !== "true" || m.wrapped !== m.lines
+            || m.capWidth > m.paraWidth*.41 || m.visualGap < -2.5
+            || m.visualGap > Math.max(11, m.bodySize*.72)) {
+          failures.push({preset,family,metrics:m});
+        }
+      } catch (error) {
+        failures.push({preset,family,error:String(error)});
+      }
+    }
+  }
+  if (failures.length) throw new Error("Drop-cap font matrix failed: " + JSON.stringify(failures));
+  console.log("Drop-cap matrix passed: " + fontMatrix.length + " bundled families × Small/Large.");
+
   await clickLabPanel(page, "Ornaments");
   await page.waitForSelector('.theme-lab-artwork-card input[type="file"]', { timeout: 5000 });
   const pngPath = path.join(os.tmpdir(), "folio-theme-lab-smoke.png");
