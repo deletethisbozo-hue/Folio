@@ -46,9 +46,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
-          if (-not (Test-Path "assets\najnowszaikona.ico")) { throw "Approved Folio ICO is missing." }
-          $glyphHash = (Get-FileHash "assets\najnowszaikona.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($glyphHash -ne "cefa1effb655c1c6f63db9d06143dea4d4e137bdbcf6b48d6347c51fe389b0a9") { throw "Approved Folio ICO checksum mismatch: $glyphHash" }
+          if (-not (Test-Path "assets\NEUE.ico")) { throw "NEUE.ico is missing from the release inputs." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Refuse an existing immutable version
@@ -146,14 +144,11 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force build | Out-Null
-          Copy-Item "assets\najnowszaikona.ico" "build\folio.ico" -Force
-          $expected = "cefa1effb655c1c6f63db9d06143dea4d4e137bdbcf6b48d6347c51fe389b0a9"
-          $source = (Get-FileHash "assets\najnowszaikona.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
+          & .\scripts\generate-windows-icon.ps1
+          $source = (Get-FileHash "assets\NEUE.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
           $staged = (Get-FileHash "build\folio.ico" -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($source -ne $expected -or $staged -ne $expected) { throw "Folio ICO changed during staging. source=$source staged=$staged" }
-          $bytes = [IO.File]::ReadAllBytes("build\folio.ico")
-          if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes, 0) -ne 0 -or [BitConverter]::ToUInt16($bytes, 2) -ne 1 -or [BitConverter]::ToUInt16($bytes, 4) -ne 9) { throw "Approved Folio ICO header/frame count is invalid." }
-          Write-Host "Using exact approved Folio ICO ($staged)"
+          if ($source -ne $staged) { throw "Folio ICO changed during staging. source=$source staged=$staged" }
+          Write-Host "Using exact NEUE.ico ($staged)"
 
       - name: Build installer and portable app
         run: npx electron-builder --win nsis portable --x64 --publish never

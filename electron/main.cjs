@@ -170,7 +170,9 @@ async function startFolio(initialProjectFile = null) {
     minHeight: 650,
     show: false,
     autoHideMenuBar: true,
-    icon: path.join(appRoot, "build", "folio.ico"),
+    icon: fs.existsSync(path.join(appRoot, "build", "folio.ico"))
+      ? path.join(appRoot, "build", "folio.ico")
+      : path.join(appRoot, "assets", "NEUE.ico"),
     backgroundColor: "#f2f3f5",
     webPreferences: {
       contextIsolation: true,

@@ -42,6 +42,27 @@ try {
     button.click();
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 25000 });
+  // Both new glyph assets must load and remain inset from the left chrome edge.
+  const firstTone = await page.$eval(".folio-shell", (node) => node.getAttribute("data-ui-tone"));
+  for (let index = 0; index < 2; index++) {
+    await page.waitForFunction(() => {
+      const button = document.querySelector(".command-wordmark");
+      const img = button?.querySelector("img");
+      const tone = document.querySelector(".folio-shell")?.getAttribute("data-ui-tone");
+      return Boolean(img?.complete && img.naturalWidth === 1884 && img.naturalHeight === 1884
+        && img.getAttribute("src") === (tone === "midnight" ? "/brand/flyph-midnight.svg" : "/brand/flyph.svg"));
+    }, { timeout: 10000 });
+    const gap = await page.$eval(".command-wordmark", (button) => {
+      const rect = button.getBoundingClientRect();
+      const icon = button.querySelector("img")?.getBoundingClientRect();
+      return { left: icon ? icon.left - rect.left : 0, right: icon ? rect.right - icon.right : 0 };
+    });
+    if (gap.left < 13 || gap.right < 7) throw new Error("Glyph touches commandbar edge: " + JSON.stringify(gap));
+    await page.click(".tone-toggle");
+  }
+  const restoredTone = await page.$eval(".folio-shell", (node) => node.getAttribute("data-ui-tone"));
+  if (restoredTone !== firstTone) throw new Error("Glyph QA did not restore the user's active UI tone.");
+
   await page.waitForSelector('[data-command="design"]', { timeout: 10000 });
   await page.click('[data-command="design"]');
   await page.waitForSelector(".style-library", { timeout: 10000 });

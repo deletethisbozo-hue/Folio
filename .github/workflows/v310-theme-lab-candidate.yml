@@ -80,7 +80,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force build | Out-Null
-          Copy-Item "assets\najnowszaikona.ico" "build\folio.ico" -Force
+          & .\scripts\generate-windows-icon.ps1
 
       - name: Build portable Windows candidate
         run: npx electron-builder --win portable --x64 --publish never

@@ -79,3 +79,18 @@
   .folio-shell .style-library-header .style-open-theme-lab{min-width:100px!important;padding:0 8px!important}
   .folio-shell .style-library-header p{display:none!important}
 }
+
+/* Uploaded Light/Midnight glyphs: preserve breathing room at the left edge. */
+.folio-shell[data-ui-tone] button.command-wordmark{
+  box-sizing:border-box!important;
+  padding:0 6px 0 10px!important;
+  overflow:hidden!important;
+}
+.folio-shell[data-ui-tone] button.command-wordmark img{
+  flex:0 0 40px!important;
+  width:40px!important;
+  height:40px!important;
+  max-width:40px!important;
+  max-height:40px!important;
+  object-fit:contain!important;
+}
