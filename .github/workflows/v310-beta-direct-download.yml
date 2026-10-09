@@ -1,0 +1,48 @@
+name: Publish Folio 3.1 Beta direct download
+
+on:
+  push:
+    branches: ["feature/folio-3.1-theme-lab"]
+    paths: [".github/workflows/v310-beta-direct-download.yml"]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-verified-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download previously verified Windows candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_ARTIFACT_ID: "11590697410"
+        run: |
+          set -euo pipefail
+          gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" > candidate.zip
+          unzip -o candidate.zip -d candidate
+          cd candidate
+          test -s Folio-3.1.0-beta.1-portable.exe
+          test -s sha256.txt
+          sha256sum --check sha256.txt
+          cp Folio-3.1.0-beta.1-portable.exe ../
+          cp sha256.txt ../
+      - name: Publish direct portable download as prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: 351d24c4ce7cd9080e5ba0fb9819d0059a0fd83a
+          TAG: v3.1.0-beta.1
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" Folio-3.1.0-beta.1-portable.exe sha256.txt --clobber --repo "${GITHUB_REPOSITORY}"
+          else
+            gh release create "${TAG}" Folio-3.1.0-beta.1-portable.exe sha256.txt \
+              --repo "${GITHUB_REPOSITORY}" \
+              --target "${SOURCE_COMMIT}" \
+              --title "Folio 3.1.0 Beta 1 - Theme Lab" \
+              --prerelease \
+              --notes "Preview build for testing Theme Lab, bundled font names, visual font picker, ornaments and optical drop caps. Verified on Windows by GitHub Actions run 37870863949. This is a beta and does not replace stable Folio 3.0.0."
+          fi
+          gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets,url,isPrerelease
