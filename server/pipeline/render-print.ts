@@ -355,6 +355,7 @@ async function withPaginated<T>(
       document.head.appendChild(sourceMeasure);
     }, contentWidthIn);
 
+    await page.evaluate(() => document.fonts.ready);
     await applyProfessionalHyphenation(page, book);
     // Seat the drop caps before pagination — the correction changes how text
     // wraps around the float, so it has to settle before pages are measured.
