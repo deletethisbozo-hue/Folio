@@ -600,6 +600,23 @@ function chooseBreaks(
           break;
         }
         const dropcapRescue = false;
+        const naturalFill = natural / Math.max(1, available);
+        // In a narrow justified measure there are cases where two consecutive
+        // legal hyphens leave no third-line whole-word break that can be fully
+        // justified inside the professional spacing/scale limits. Rather than
+        // create a third consecutive hyphen or enter the visibly ragged
+        // emergency path, allow one deliberately high-fill natural line to
+        // reset the streak. This is a normal composition decision, not a
+        // quality-gate escape hatch: it is only available after an existing
+        // hyphen and only when at least 87.5% of the measure is occupied.
+        const hyphenStreakRelief = !last
+          && !hyphenBreak
+          && previousHyphenStreak >= 1
+          && !fit
+          && !continuityFit
+          && !spacingFit
+          && natural <= available + 0.75
+          && naturalFill >= 0.875;
         const emergencyRescue = allowNaturalRescue
           && !last
           && !fit
@@ -610,8 +627,8 @@ function chooseBreaks(
           // measure is more conspicuous than an extra legal hyphen. Folio 1.0.9
           // could otherwise choose lines such as a lone “Umierali,” merely to
           // improve the paragraph-wide hyphen budget.
-          && natural / Math.max(1, available) >= 0.72;
-        const rescueNatural = emergencyRescue;
+          && naturalFill >= 0.72;
+        const rescueNatural = emergencyRescue || hyphenStreakRelief;
         const fitOptions: Array<LineFit | null> = [];
         if (fit) fitOptions.push(fit);
         if (continuityFit && !fitOptions.some((candidate) =>
@@ -684,12 +701,16 @@ function chooseBreaks(
           : 0;
         const rescuePenalty = dropcapRescue
           ? 115 + 260 * Math.pow(1 - fill, 2)
-          : rescueNatural
-            // Natural rescue is a cross-platform escape hatch, not a preferred
-            // way to lower hyphen density. Keep it available for genuinely hard
-            // measures, but make a legal justified line decisively cheaper.
-            ? 4200 + 18000 * Math.pow(Math.max(0, 0.90 - fill) / 0.18, 2)
-            : 0;
+          : hyphenStreakRelief
+            // Prefer ordinary justified composition whenever it exists. The
+            // relief line is intentionally expensive, but still preferable to
+            // a third hyphen or an emergency line.
+            ? 7200 + 12000 * Math.pow(Math.max(0, 0.92 - fill) / 0.12, 2)
+            : emergencyRescue
+              // Natural emergency rescue remains the final cross-platform
+              // escape hatch for genuinely hard measures.
+              ? 4200 + 18000 * Math.pow(Math.max(0, 0.90 - fill) / 0.18, 2)
+              : 0;
         const relaxedPenalty = relaxedFit
           ? Math.max(220, 420 - previousHyphenCount * 100)
           : 0;
