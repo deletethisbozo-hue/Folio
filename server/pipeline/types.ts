@@ -95,7 +95,72 @@ export interface ChapterTitleStyle {
   labelText?: string;
 }
 
+export interface ThemeLabImage {
+  dataUrl?: string;
+  name?: string;
+  width?: number; // percent of the text column
+  height?: number; // em
+  opacity?: number; // 0..1
+  gap?: number; // em
+  placement?: "above" | "below";
+  align?: "left" | "center" | "right";
+  offsetX?: number; // px; visual translation
+  offsetY?: number; // px; visual translation
+}
+
+export interface ThemeLabConfig {
+  enabled?: boolean;
+  name?: string;
+  paper?: string;
+  ink?: string;
+  accent?: string;
+  bodyFont?: string;
+  bodySize?: number; // em
+  lineHeight?: number;
+  bodyAlign?: "left" | "justify";
+  paragraphIndent?: number; // em
+  paragraphSpacing?: number; // em
+  headingFont?: string;
+  headingColor?: string;
+  headingSize?: number; // em
+  headingWeight?: 400 | 500 | 600 | 700 | 800 | 900;
+  headingTracking?: number; // em
+  headingAlign?: "left" | "center" | "right";
+  headingCase?: "normal" | "smallcaps" | "uppercase";
+  headingStyle?: "normal" | "italic";
+  headingTop?: number; // em
+  headingBottom?: number; // em
+  subtitleSize?: number; // em
+  subtitleAlign?: "left" | "center" | "right";
+  subtitleStyle?: "normal" | "italic";
+  subtitleTracking?: number; // em
+  subtitleColor?: string;
+  labelVisible?: boolean;
+  labelText?: string;
+  labelSize?: number; // em, relative to heading
+  labelTracking?: number; // em
+  labelColor?: string;
+  dropcap?: boolean;
+  dropcapSize?: "small" | "large";
+  dropcapFont?: string;
+  sceneOrnament?: string;
+  sceneSize?: number; // em
+  sceneColor?: string;
+  chapterRule?: "none" | "top" | "bottom" | "top-bottom" | "left" | "right" | "box" | "double" | "dashed" | "dotted" | "shadow" | "corners";
+  ruleWidth?: number; // px
+  ruleLength?: number; // % of text width
+  rulePadding?: number; // em
+  ruleRadius?: number; // px
+  ruleColor?: string;
+  titlePageFont?: string;
+  titlePageAlign?: "left" | "center" | "right";
+  titlePageSize?: number; // em
+  chapterOrnament?: ThemeLabImage;
+  sceneImage?: ThemeLabImage;
+}
+
 export interface Typography {
+  themeLab?: ThemeLabConfig;
   bodyFont?: string; // family name (registered custom or system stack)
   headingFont?: string;
   fontSize?: string; // base size, e.g. "12pt"

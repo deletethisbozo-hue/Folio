@@ -99,7 +99,7 @@
   background: color-mix(in srgb, var(--studio-surface) 98%, transparent) !important;
   box-shadow: 0 7px 20px rgba(30,26,22,.16);
   color: var(--studio-ink);
-  font: 10px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font: 10px/1 "Source Sans 3", "Segoe UI", Arial, sans-serif !important;
 }
 
 .folio-illustration-overlay .folio-image-inspector[data-open="true"] {
@@ -128,7 +128,7 @@
   background: var(--studio-control) !important;
   color: var(--studio-ink) !important;
   box-shadow: none !important;
-  font: 600 9.5px/1 "Folio Source Sans 3", "Segoe UI", Arial, sans-serif !important;
+  font: 600 9.5px/1 "Source Sans 3", "Segoe UI", Arial, sans-serif !important;
 }
 
 .folio-illustration-overlay .folio-wrap-group button:last-child,

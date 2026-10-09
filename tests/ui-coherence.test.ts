@@ -22,19 +22,19 @@ test("the 2.0.6 correction layer is loaded after every older polish layer", () =
 test("legacy UI polish no longer forces Georgia onto application chrome", () => {
   assert.doesNotMatch(uiPolish, /\.command-wordmark[^\{]*\{[^}]*Georgia/s);
   assert.doesNotMatch(uiPolish, /\.pane-label[^\{]*\{[^}]*Georgia/s);
-  assert.match(uiPolish, /--folio-ui-display:\s*"Folio Source Sans 3"/);
+  assert.match(uiPolish, /--folio-ui-display:\s*"Source Sans 3"/);
 });
 
 test("exact Pelagiad asset is reserved for Folio wordmarks", () => {
-  assert.match(v205, /@font-face\s*\{[\s\S]*font-family:\s*"Folio Pelagiad Exact"[\s\S]*src:\s*url\("\.\/assets\/Pelagiad\.ttf"\)/);
-  assert.match(v206, /\.folio-shell \.command-wordmark,[\s\S]*?font-family:\s*"Folio Pelagiad Exact"\s*!important/);
+  assert.match(v205, /@font-face\s*\{[\s\S]*font-family:\s*"Pelagiad"[\s\S]*src:\s*url\("\.\/assets\/Pelagiad\.ttf"\)/);
+  assert.match(v206, /\.folio-shell \.command-wordmark,[\s\S]*?font-family:\s*"Pelagiad"\s*!important/);
   assert.match(v206, /text-transform:\s*lowercase\s*!important/);
-  assert.match(v206, /--folio-ui-font:\s*"Folio Source Sans 3"/);
+  assert.match(v206, /--folio-ui-font:\s*"Source Sans 3"/);
 });
 
 test("Manuscript and Page Preview use exactly the same UI typography metrics", () => {
   const peerBlock = v206.match(/\.pane-label,\s*\n\.folio-shell\[data-ui-tone\] \.preview-pane-title\s*\{([\s\S]*?)\}/)?.[1] ?? "";
-  assert.match(peerBlock, /font-family:\s*"Folio Source Sans 3"/);
+  assert.match(peerBlock, /font-family:\s*"Source Sans 3"/);
   assert.match(peerBlock, /font-size:\s*10\.5px\s*!important/);
   assert.match(peerBlock, /font-weight:\s*650\s*!important/);
   assert.match(peerBlock, /letter-spacing:\s*\.115em\s*!important/);
@@ -45,9 +45,9 @@ test("Replace Cover and Export use one UI family and desktop control sizing", ()
   const coverBlock = v206.match(/\.native-button\.primary\.cover-upload-button,[\s\S]*?\.cover-button\s*\{([\s\S]*?)\}/)?.[1] ?? "";
   const exportBlock = v206.match(/\.folio-shell\[data-ui-tone\] \.generate-button\s*\{([\s\S]*?)\}/)?.[1] ?? "";
 
-  assert.match(coverBlock, /font-family:\s*"Folio Source Sans 3"/);
+  assert.match(coverBlock, /font-family:\s*"Source Sans 3"/);
   assert.doesNotMatch(coverBlock, /Georgia|Times New Roman/);
-  assert.match(exportBlock, /font-family:\s*"Folio Source Sans 3"/);
+  assert.match(exportBlock, /font-family:\s*"Source Sans 3"/);
   assert.doesNotMatch(exportBlock, /Georgia|Times New Roman/);
   assert.match(coverBlock, /min-height:\s*36px\s*!important/);
   assert.match(exportBlock, /height:\s*36px\s*!important/);

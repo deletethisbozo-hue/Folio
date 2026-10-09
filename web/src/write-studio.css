@@ -129,7 +129,7 @@
 .write-card > p { white-space: pre-wrap; }
 .write-card-actions { display: flex; justify-content: flex-end; gap: 5px; margin-top: 10px; }
 .comment-card.resolved { opacity: .58; }
-.comment-quote { width: 100%; padding: 0; border: 0; background: transparent; color: var(--mockup-ink, var(--studio-ink)); text-align: left; font: italic 11px/1.45 Georgia, serif; }
+.comment-quote { width: 100%; padding: 0; border: 0; background: transparent; color: var(--mockup-ink, var(--studio-ink)); text-align: left; font: italic 11px/1.45 Newsreader, serif; }
 .comment-quote:hover { color: var(--mockup-accent, var(--studio-accent)); }
 
 .snapshot-compose { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }

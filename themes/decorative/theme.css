@@ -3,8 +3,8 @@
    ============================================================ */
 
 body {
-  font-family: "Hoefler Text", Baskerville, "Palatino Linotype", Palatino,
-    Georgia, serif;
+  font-family: "Libre Baskerville", Libre Baskerville, "Vollkorn", Vollkorn,
+    Gelasio, serif;
 }
 main.book { counter-reset: decorative-chapter; }
 section.chapter { counter-increment: decorative-chapter; }
@@ -20,7 +20,7 @@ section.chapter > h1::before {
   content: "Chapter " counter(decorative-chapter);
   display: block;
   margin-bottom: 0.9em;
-  font: 400 0.42em/1 Arial, sans-serif;
+  font: 400 0.42em/1 Source Sans 3, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.22em;
   color: #8b6c3d;
@@ -70,7 +70,7 @@ section.chapter > h1.has-subtitle::after {
    and the display face. */
 .dropcap {
   color: #7a3b2e;
-  font-family: "Hoefler Text", Baskerville, "Palatino Linotype", Georgia, serif;
+  font-family: "Libre Baskerville", Libre Baskerville, "Vollkorn", Gelasio, serif;
 }
 
 /* Subtitle ties the title page into the theme's copper/gold palette (keeps the

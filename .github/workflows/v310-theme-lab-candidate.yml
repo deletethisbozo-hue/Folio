@@ -1,15 +1,16 @@
-name: Folio 3.1 Theme Lab bridge build
+name: Folio 3.1 Theme Lab candidate
+# merge-trigger: rebuild current 3.1 portable
 
 on:
-  workflow_run:
-    workflows: ["Extract Folio 3.0 portable"]
-    types: [completed]
+  push:
+    branches: ["feature/folio-3.1-theme-lab"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: folio-3.1-theme-lab-bridge
+  group: folio-3.1-theme-lab-candidate
   cancel-in-progress: true
 
 jobs:
@@ -25,15 +26,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: feature/folio-3.1-theme-lab
-
-      - name: Record exact source commit
-        shell: pwsh
-        run: |
-          $sha = (git rev-parse HEAD).Trim()
-          New-Item -ItemType Directory -Force release | Out-Null
-          $sha | Set-Content -Encoding ascii release\source-commit.txt
-          Write-Host "Building source commit: $sha"
 
       - name: Set up Node 22.23.2
         uses: actions/setup-node@v4
@@ -48,7 +40,7 @@ jobs:
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.1.0-beta.1") { throw "Expected 3.1.0-beta.1, found $version." }
+          if ($version -ne "3.1.0") { throw "Expected 3.1.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -126,10 +118,9 @@ jobs:
       - name: Upload Theme Lab candidate
         uses: actions/upload-artifact@v4
         with:
-          name: Folio-3.1.0-beta.1-Theme-Lab-Windows-current
+          name: Folio-3.1.0-Theme-Lab-Windows
           path: |
-            release/Folio-3.1.0-beta.1-portable.exe
+            release/Folio-3.1.0-portable.exe
             release/sha256.txt
-            release/source-commit.txt
           if-no-files-found: error
           retention-days: 14

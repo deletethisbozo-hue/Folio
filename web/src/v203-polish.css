@@ -14,7 +14,7 @@
 
 .folio-shell[data-ui-tone] .command-wordmark {
   padding: 0 20px;
-  font: 700 24px/.95 Georgia, "Times New Roman", serif;
+  font: 700 24px/.95 Newsreader, serif;
   letter-spacing: -.045em;
 }
 
@@ -189,7 +189,7 @@
   background: var(--studio-control);
   color: var(--studio-ink);
   box-shadow: none;
-  font: 650 12px/1 Georgia, "Times New Roman", serif;
+  font: 650 12px/1 Newsreader, serif;
 }
 
 .folio-shell[data-ui-tone] .cover-upload-button:hover,

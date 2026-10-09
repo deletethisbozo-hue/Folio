@@ -83,7 +83,7 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
     const runtimeTheme = await buildThemeRuntimeCss(
       book.meta.theme,
       "epub",
-      [book.typography.headingFont, book.typography.dropcapFont].filter((value): value is string => Boolean(value)),
+      [book.typography.bodyFont, book.typography.headingFont, book.typography.dropcapFont, book.typography.titlePageFont].filter((value): value is string => Boolean(value)),
     );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.css, "utf8");

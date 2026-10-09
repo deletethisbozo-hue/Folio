@@ -46,6 +46,9 @@ import "./v244-release-feedback.css";
 import "./v245-halo-audio-polish.css";
 import "./v246-writing-studio-halo-stability.css";
 import "./v300-second-draft.css";
+import "./v310-theme-lab.css";
+import "./font-picker.css";
+import "./v311-design-fixes.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);

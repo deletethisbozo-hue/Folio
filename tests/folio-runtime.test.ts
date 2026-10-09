@@ -50,6 +50,39 @@ for (const theme of themes.body) {
   check(`${theme.label} has substantive CSS`, css.length > 180 && css.includes("section.chapter"), `${css.length} bytes`);
 }
 
+const retiredFontAliases: Array<[string, RegExp]> = [
+  ["Georgia", /\bGeorgia\b/], ["Times New Roman", /\bTimes New Roman\b/],
+  ["Garamond", /(?<!EB )\bGaramond\b/], ["Baskerville", /(?<!Libre )\bBaskerville\b/],
+  ["Palatino", /\bPalatino(?: Linotype)?\b/], ["Cambria", /\bCambria\b/],
+  ["Charter", /\bCharter\b/], ["Rockwell", /\bRockwell\b/], ["Avenir", /\bAvenir\b/],
+  ["Didot", /\bDidot\b/], ["Bodoni MT", /\bBodoni MT\b/], ["Trajan Pro", /\bTrajan Pro\b/],
+  ["Book Antiqua", /\bBook Antiqua\b/], ["Hoefler Text", /\bHoefler Text\b/],
+  ["Old English Text MT", /\bOld English Text MT\b/], ["UnifrakturCook", /\bUnifrakturCook\b/],
+  ["Copperplate", /\bCopperplate\b/], ["Arial Narrow", /\bArial Narrow\b/],
+  ["Arial Black", /\bArial Black\b/], ["Helvetica Neue", /\bHelvetica Neue\b/],
+];
+const themeEntries = await fs.readdir(path.join(ROOT, "themes"), { withFileTypes: true });
+for (const entry of themeEntries.filter((item) => item.isDirectory() && item.name !== "fonts")) {
+  const file = path.join(ROOT, "themes", entry.name, "theme.css");
+  try {
+    const css = await fs.readFile(file, "utf8");
+    const found = retiredFontAliases.filter(([, pattern]) => pattern.test(css)).map(([name]) => name);
+    check(`${entry.name} uses canonical bundled font names`, found.length === 0, found.join(", "));
+  } catch {
+    // Not every resource directory is a book theme.
+  }
+}
+const uiFontSources = [
+  path.join(ROOT, "web", "src", "App.tsx"),
+  path.join(ROOT, "web", "src", "ThemeLab.tsx"),
+  path.join(ROOT, "server", "pipeline", "themes.ts"),
+];
+for (const file of uiFontSources) {
+  const source = await fs.readFile(file, "utf8");
+  check(`${path.basename(file)} does not expose Georgia as Gelasio`, !/<option[^>]*value=["\x27]Georgia["\x27]/.test(source) && !/\bGeorgia\s*<\/option>/.test(source));
+  check(`${path.basename(file)} does not expose prefixed font family names`, !/"Folio (?:Source|EB|Libre|Newsreader|Vollkorn|Barlow|Bodoni|Cinzel|Grenze|Roboto|Jena|Manufacturing|Kings|CAT|Slavkappen)/.test(source));
+}
+
 const newBookRoot = await fs.mkdtemp(path.join(os.tmpdir(), "folio-new-"));
 const newBookFile = path.join(newBookRoot, "Born Tied.folio");
 const created = await post("/api/projects/new", { path: newBookFile, title: "Born Tied", author: "Folio Test" });
@@ -133,7 +166,7 @@ const preview = await post(`/api/projects/${projectId}/preview`, {
   draft: transient,
 });
 check("preview contains the transient editor draft", preview.status === 200 && preview.body.html.includes("ransient ink appears before"));
-check("preview contains selected theme CSS", preview.body.html.includes("Folio Grenze Gotisch"));
+check("preview contains selected theme CSS", preview.body.html.includes("Grenze Gotisch"));
 check("preview renders exactly the selected section", (preview.body.html.match(/<section/g) ?? []).length === 1);
 
 const softBreakPreview = await post(`/api/projects/${projectId}/preview`, {

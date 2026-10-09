@@ -60,7 +60,7 @@
 
 .cover-editor-empty strong {
   color: var(--ui-text, #2f2923);
-  font: 600 20px/1.2 Georgia, serif;
+  font: 600 20px/1.2 Newsreader, serif;
 }
 
 .cover-editor-copy {

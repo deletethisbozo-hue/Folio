@@ -32,7 +32,7 @@
   background:color-mix(in srgb,var(--start-panel) 78%,transparent);
 }
 .start-brand{
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:Newsreader,serif;
   font-size:20px;
   font-weight:700;
   letter-spacing:-.02em;
@@ -64,7 +64,7 @@
 .start-intro h1{
   margin:0;
   max-width:320px;
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:Newsreader,serif;
   font-size:43px;
   line-height:1.04;
   font-weight:500;
@@ -121,7 +121,7 @@
 }
 .recent-heading h2{
   margin:0;
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:Newsreader,serif;
   font-size:27px;
   font-weight:500;
   letter-spacing:-.02em;
@@ -162,7 +162,7 @@
   box-shadow:0 5px 11px rgba(42,35,27,.08);
 }
 .recent-cover b{
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:Newsreader,serif;
   font-size:24px;
   font-weight:500;
   line-height:1;
@@ -179,7 +179,7 @@
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:Newsreader,serif;
   font-size:18px;
   font-weight:600;
   letter-spacing:-.01em;
@@ -236,10 +236,10 @@
   margin-bottom:16px;
   border:1px solid var(--start-line);
   color:var(--start-soft);
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:Newsreader,serif;
   font-size:24px;
 }
-.recent-empty h3{margin:0 0 7px;color:var(--start-text);font-family:Georgia,"Times New Roman",serif;font-size:19px;font-weight:500}
+.recent-empty h3{margin:0 0 7px;color:var(--start-text);font-family:Newsreader,serif;font-size:19px;font-weight:500}
 .recent-empty p{margin:0 0 18px;font-size:12px}
 .start-modal-backdrop{
   position:fixed;
@@ -260,7 +260,7 @@
   box-shadow:0 28px 80px rgba(20,17,13,.26);
 }
 .start-modal-head{display:flex;justify-content:space-between;align-items:start;margin-bottom:20px}
-.start-modal-head h2{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:24px;font-weight:500}
+.start-modal-head h2{margin:0;font-family:Newsreader,serif;font-size:24px;font-weight:500}
 .start-modal-close{
   width:30px;height:30px;border:0;border-radius:5px;background:transparent;color:var(--start-muted);font-size:22px;cursor:pointer
 }

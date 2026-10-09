@@ -1,3 +1,5 @@
+import { seatPreviewDropCaps } from "./dropcap-seat";
+import FontPicker, { BUNDLED_FONT_FAMILIES } from "./components/FontPicker";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
@@ -21,6 +23,7 @@ import WritingSplitPane from "./WritingSplitPane";
 import SecondDraftPane from "./SecondDraftPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
 import WritingProgressHalo from "./WritingProgressHalo";
+import ThemeLab from "./ThemeLab";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
 
@@ -254,6 +257,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [error, setError] = useState<string | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showStyle, setShowStyle] = useState(false);
+  const [showThemeLab, setShowThemeLab] = useState(false);
   const [showContent, setShowContent] = useState(false);
   const [showBookDetails, setShowBookDetails] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -479,6 +483,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const coverSelected = selectedId === COVER_ID;
   const stylePreviewSectionId = selectedSection?.kind === "chapter" ? selectedSection.id : chapters[0]?.id;
   const stylePreviewDraft = stylePreviewSectionId && stylePreviewSectionId === selectedId ? draft : undefined;
+  const titlePagePreviewId = project?.sections.find((section) => section.kind === "titlepage")?.id;
   const previewProfile = getPreviewProfile(previewMode);
   const chapterIndex = selectedSection?.kind === "chapter" ? chapters.findIndex((s) => s.id === selectedSection.id) + 1 : null;
   const writingOrnament = typography.sceneOrnament ?? themes.find((theme) => theme.name === meta?.theme)?.sceneOrnament ?? "❦";
@@ -828,10 +833,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [workspaceMode, previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
-  function adopt(summary: ProjectSummary, preferredId?: string) {
+  function adopt(summary: ProjectSummary, preferredId?: string, preferSavedAppearance = false) {
     const sameProject = summary.projectId === project?.projectId;
-    const liveMeta = sameProject && meta ? meta : summary.meta;
-    const liveTypography = sameProject ? typography : (summary.typography ?? {});
+    // While editing, keep unsaved appearance changes; after an explicit Apply,
+    // the server-returned values are authoritative (never resurrect old React state).
+    const liveMeta = sameProject && meta && !preferSavedAppearance ? meta : summary.meta;
+    const liveTypography = sameProject && !preferSavedAppearance ? typography : (summary.typography ?? {});
     const displayedSummary = sameProject ? { ...summary, meta: liveMeta, typography: liveTypography } : summary;
     const preferred = preferredId ? summary.sections.find((s) => s.id === preferredId) : null;
     const first = preferred ?? summary.sections.find((s) => s.kind === "chapter") ?? summary.sections[0] ?? null;
@@ -1245,6 +1252,31 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     editor.dataset.markdown = markdown;
     editorDomDirtyRef.current = false;
     recordDraft(markdown);
+  }
+
+  async function applyThemeLab(nextMeta: BookMeta, nextTypography: Typography): Promise<void> {
+    if (!project) throw new Error("No open book to apply the theme to.");
+    if (!(await saveCurrent())) throw new Error("Save the current chapter before applying this theme.");
+    setSaveState("saving");
+    try {
+      const summary = await persistAppearance(project.projectId, nextMeta, nextTypography);
+      const requestedLab = nextTypography.themeLab;
+      const savedLab = summary.typography?.themeLab;
+      if (summary.meta.theme !== nextMeta.theme || !savedLab?.enabled
+        || savedLab.name !== requestedLab?.name
+        || savedLab.bodyFont !== requestedLab?.bodyFont
+        || savedLab.paper !== requestedLab?.paper) {
+        throw new Error("Theme Lab changes were not confirmed by the book. Nothing was applied.");
+      }
+      // Flush the .folio container before closing the Theme Lab. Do not allow
+      // a success state if the project could not be written to disk.
+      await api.flushProject(project.projectId);
+      adopt(summary, selectedId ?? undefined, true);
+      setSaveState("saved");
+    } catch (reason) {
+      setSaveState("error");
+      throw reason;
+    }
   }
 
   async function saveBookDetails() {
@@ -1823,6 +1855,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
     doc.head.appendChild(style);
     const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
+    if (previewMode !== "print") void seatPreviewDropCaps(frame);
     if (pendingPreviewDraftRef.current) {
       livePreviewDraftRef.current = pendingPreviewDraftRef.current;
       pendingPreviewDraftRef.current = "";
@@ -2485,7 +2518,20 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span>{workspaceMode === "write" && <button className="write-session-chip" onClick={() => openWriteStudio("session")}>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()} words · {Math.max(0, Math.floor(sessionStats.activeMs / 60000))} active min{writeStudioState?.targets.session ? ` · ${Math.max(0, sessionNet).toLocaleString()} / ${writeStudioState.targets.session.toLocaleString()}` : ""}</button>}<span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
-        <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()}/>
+        <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()} onOpenThemeLab={() => { setShowStyle(false); setShowThemeLab(true); }}/>
+      )}
+      {showThemeLab && (
+        <ThemeLab
+          themes={themes}
+          meta={meta}
+          typography={typography}
+          projectId={project.projectId}
+          chapterPreviewId={stylePreviewSectionId}
+          titlePagePreviewId={titlePagePreviewId}
+          previewDraft={stylePreviewDraft}
+          onClose={() => setShowThemeLab(false)}
+          onApply={applyThemeLab}
+        />
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
@@ -2639,7 +2685,7 @@ function StyleLibrary(props: {
   category: StyleCategory; setCategory: (category: StyleCategory) => void;
   printOptions: PrintOptions; setPrintOptions: (options: PrintOptions) => void;
   projectId: string; previewSectionId?: string; previewDraft?: string;
-  onClose: () => void; onSave: () => void;
+  onClose: () => void; onSave: () => void; onOpenThemeLab: () => void;
 }) {
   const { themes, meta, setMeta, typography, setTypography, category, setCategory, printOptions, setPrintOptions, projectId, previewSectionId, previewDraft } = props;
   const selected = themes.find((theme) => theme.name === meta.theme);
@@ -2666,7 +2712,7 @@ function StyleLibrary(props: {
   };
   return <div className="style-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
     <section className="style-library" role="dialog" aria-modal="true" aria-label="Book style library">
-      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply.</p></div><button onClick={props.onClose} aria-label="Close">×</button></header>
+      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}>Theme Lab</button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
         <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">{themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => setMeta({ ...meta, theme: theme.name })}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}</div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selected?.dropcap ?? false}/>}</div>
@@ -2685,8 +2731,9 @@ function StyleLibrary(props: {
 function CustomizePanel(props: { category: StyleCategory; typography: Typography; setTypography: (ty: Typography) => void; printOptions: PrintOptions; setPrintOptions: (opts: PrintOptions) => void; themeDropcap: boolean }) {
   const { category, typography: ty, setTypography: setTy, printOptions, setPrintOptions } = props;
   const row = (label: string, control: React.ReactNode) => <label className="customize-row"><span>{label}</span>{control}</label>;
-  const fonts = <><option value="">Theme default</option><option value="Georgia, serif">Georgia</option><option value="Garamond, Georgia, serif">Garamond</option><option value="Baskerville, Georgia, serif">Baskerville</option><option value="Palatino, Georgia, serif">Palatino</option><option value="Cambria, Georgia, serif">Cambria</option><option value="Segoe UI, Arial, sans-serif">Segoe UI</option></>;
-  const displayFonts = <><option value="">Theme default</option><optgroup label="New display fonts"><option value="Folio Jena Gotisch">Jena Gotisch</option><option value="Folio Manufacturing Consent">Manufacturing Consent</option><option value="Folio Kings">Kings</option><option value="Folio CAT Altenglisch">CAT Altenglisch</option><option value="Folio Slavkappen">Slavkappen</option></optgroup><optgroup label="Folio built-ins"><option value="Folio Cinzel">Cinzel</option><option value="Folio Grenze Gotisch">Grenze Gotisch</option><option value="Folio Bodoni Moda">Bodoni Moda</option><option value="Folio EB Garamond">EB Garamond</option><option value="Folio Libre Baskerville">Libre Baskerville</option><option value="Folio Barlow Condensed">Barlow Condensed</option></optgroup></>;
+  const fontRow = (label: string, current: string | undefined, onChange:(value:string)=>void, options:readonly string[]=BUNDLED_FONT_FAMILIES, disabled=false) =>
+    <div className="customize-row customize-font-row"><span>{label}</span><FontPicker label={label} value={current} allowDefault disabled={disabled} families={options} onChange={onChange}/></div>;
+  const displayFamilies = BUNDLED_FONT_FAMILIES;
   const clearTypographyKeys = (...keys: Array<keyof Typography>) => {
     const next = { ...ty };
     for (const key of keys) delete next[key];
@@ -2723,7 +2770,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     <div className="customize-heading"><h3>{category}</h3><button type="button" className="customize-reset-button" onClick={resetCategory}>Reset to Theme Default</button></div>
     <p>Theme defaults already form a complete design. Override only what the book needs.</p>
     {category === "Body" && <>
-      {row("Typeface", <select value={ty.bodyFont ?? ""} onChange={(e) => setTy({ ...ty, bodyFont: e.target.value || undefined })}>{fonts}</select>)}
+      {fontRow("Typeface", ty.bodyFont, (value) => setTy({ ...ty, bodyFont: value || undefined }))}
       {row("Size", <select value={ty.fontSize ?? ""} onChange={(e) => setTy({ ...ty, fontSize: e.target.value || undefined })}><option value="">Theme default</option><option value="0.92em">Small</option><option value="1em">Standard</option><option value="1.08em">Large</option><option value="1.16em">Extra large</option></select>)}
       {row("Line spacing", <input type="range" min="1.3" max="1.8" step="0.05" value={Number(ty.lineHeight ?? 1.5)} onChange={(e) => setTy({ ...ty, lineHeight: Number(e.target.value) })}/>)}
       {row("Alignment", <select value={ty.bodyAlign ?? ""} onChange={(e) => setTy({ ...ty, bodyAlign: (e.target.value || undefined) as "left" | "justify" | undefined })}><option value="">Theme default</option><option value="justify">Professional justified</option><option value="left">Ragged right</option></select>)}
@@ -2732,7 +2779,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     {category === "Chapter Heading" && <>
       {row("Show theme label", <input type="checkbox" checked={ty.chapterTitle?.showLabel ?? true} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, showLabel: e.target.checked } })}/>)}
       {row("Label text", <input value={ty.chapterTitle?.labelText ?? ""} disabled={ty.chapterTitle?.showLabel === false} placeholder="CHAPTER → CHAPTER 1, CHAPTER 2…" title="Folio automatically appends the chapter number in current book order" onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, labelText: e.target.value || undefined } })}/>)}
-      {row("Typeface", <select value={ty.headingFont ?? ""} onChange={(e) => setTy({ ...ty, headingFont: e.target.value || undefined })}>{displayFonts}</select>)}
+      {fontRow("Typeface", ty.headingFont, (value) => setTy({ ...ty, headingFont: value || undefined }), displayFamilies)}
       {row("Size", <select value={ty.chapterTitle?.size ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, size: e.target.value || undefined } })}><option value="">Theme default</option><option value="1.4em">Compact</option><option value="1.8em">Standard</option><option value="2.2em">Large</option></select>)}
       {row("Alignment", <select value={ty.chapterTitle?.align ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, align: (e.target.value || undefined) as "left" | "center" | "right" | undefined } })}><option value="">Theme default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>)}
       {row("Letter case", <select value={ty.chapterTitle?.case ?? ""} onChange={(e) => setTy({ ...ty, chapterTitle: { ...ty.chapterTitle, case: (e.target.value || undefined) as "normal" | "smallcaps" | "uppercase" | undefined } })}><option value="">Theme default</option><option value="normal">Normal</option><option value="smallcaps">Small caps</option><option value="uppercase">Uppercase</option></select>)}
@@ -2741,11 +2788,11 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     {category === "First Paragraph" && <>
       {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
       {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small</option><option value="large">Large</option></select>)}
-      {row("Drop cap typeface", <select value={ty.dropcapFont ?? ""} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapFont: e.target.value || undefined })}>{displayFonts}</select>)}
+      {fontRow("Drop cap typeface", ty.dropcapFont, (value) => setTy({ ...ty, dropcapFont: value || undefined }), displayFamilies, !(ty.dropcap ?? props.themeDropcap))}
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
     {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
-    {category === "Title Page" && row("Title typeface", <select value={ty.titlePageFont ?? ""} onChange={(e) => setTy({ ...ty, titlePageFont: e.target.value || undefined })}>{fonts}</select>)}
+    {category === "Title Page" && fontRow("Title typeface", ty.titlePageFont, (value) => setTy({ ...ty, titlePageFont: value || undefined }))}
   </div>;
 }
