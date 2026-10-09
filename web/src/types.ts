@@ -53,6 +53,9 @@ export interface ThemeLabImage {
   opacity?: number; // 0..1
   gap?: number; // em
   placement?: "above" | "below";
+  align?: "left" | "center" | "right";
+  offsetX?: number; // px; visual translation
+  offsetY?: number; // px; visual translation
 }
 
 export interface ThemeLabConfig {
@@ -93,8 +96,11 @@ export interface ThemeLabConfig {
   sceneOrnament?: string;
   sceneSize?: number; // em
   sceneColor?: string;
-  chapterRule?: "none" | "top" | "bottom" | "left" | "box";
+  chapterRule?: "none" | "top" | "bottom" | "top-bottom" | "left" | "right" | "box" | "double" | "dashed" | "dotted" | "shadow" | "corners";
   ruleWidth?: number; // px
+  ruleLength?: number; // % of text width
+  rulePadding?: number; // em
+  ruleRadius?: number; // px
   ruleColor?: string;
   titlePageFont?: string;
   titlePageAlign?: "left" | "center" | "right";
