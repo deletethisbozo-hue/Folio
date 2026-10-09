@@ -3,8 +3,6 @@ name: Folio 3.1 Theme Lab candidate
 on:
   push:
     branches: ["feature/folio-3.1-theme-lab"]
-  pull_request:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:
