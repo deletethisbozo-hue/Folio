@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
+import FontPicker from "./components/FontPicker";
 import type { BookMeta, Theme, ThemeLabConfig, ThemeLabImage, Typography } from "./types";
 
 type LabPanel = "Foundation" | "Body" | "Chapter" | "Ornaments" | "Title Page";
@@ -237,11 +238,11 @@ function ColorControl(props: { label: string; value: string; onChange: (value: s
   return <label className="theme-lab-row color-row"><span>{props.label}</span><span className="theme-lab-color"><input type="color" value={props.value} onChange={(event) => props.onChange(event.target.value)}/><input value={props.value} maxLength={9} onChange={(event) => props.onChange(event.target.value)}/></span></label>;
 }
 
-function FontControl(props: { label: string; value: string; onChange: (value: string) => void; options?: readonly (readonly [string, string])[] }) {
-  const options = props.options ?? fontOptions;
-  return <SelectControl label={props.label} value={props.value} onChange={props.onChange}>
-    {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-  </SelectControl>;
+function FontControl(props: {label:string; value:string; onChange:(value:string)=>void; options?:readonly (readonly [string,string])[]}) {
+  return <div className="theme-lab-row theme-lab-font-row">
+    <span>{props.label}</span>
+    <FontPicker label={props.label} value={props.value} onChange={props.onChange} families={(props.options ?? fontOptions).map(([value]) => value)}/>
+  </div>;
 }
 
 function ArtworkControl(props: {
