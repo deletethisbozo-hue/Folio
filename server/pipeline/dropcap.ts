@@ -90,7 +90,7 @@ export async function alignDropCaps(page: Page): Promise<number> {
       let capAdjusted = false;
 
       if (Math.abs(topDelta) > 0.25) {
-        cap.style.marginTop = `${Number.parseFloat(capStyle.marginTop || "0") - topDelta}px`;
+        cap.style.setProperty("margin-top", `${Number.parseFloat(capStyle.marginTop || "0") - topDelta}px`, "important");
         void para.offsetHeight;
         capAdjusted = true;
       }
@@ -178,14 +178,14 @@ export async function alignDropCaps(page: Page): Promise<number> {
       const desiredFloatBottom =
         bodyLineBoxTop + seatLines * bodyLineHeight - 1.25;
       let marginBottom = desiredFloatBottom - capRect.bottom;
-      cap.style.marginBottom = `${marginBottom}px`;
+      cap.style.setProperty("margin-bottom", `${marginBottom}px`, "important");
       void para.offsetHeight;
 
       const step = Math.max(1, bodyLineHeight * 0.10);
       let wrappedLines = wrappedLineCount();
       for (let pass = 0; pass < 16 && wrappedLines !== seatLines; pass++) {
         marginBottom += wrappedLines > seatLines ? -step : step;
-        cap.style.marginBottom = `${marginBottom}px`;
+        cap.style.setProperty("margin-bottom", `${marginBottom}px`, "important");
         void para.offsetHeight;
         wrappedLines = wrappedLineCount();
         capAdjusted = true;
