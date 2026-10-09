@@ -34,19 +34,8 @@ const fontOptions = [
   ["Slavkappen", "Slavkappen"],
 ] as const;
 
-const dropcapFontOptions = [
-  ["EB Garamond", "EB Garamond"],
-  ["Libre Caslon Text", "Libre Caslon Text"],
-  ["Libre Baskerville", "Libre Baskerville"],
-  ["Newsreader", "Newsreader"],
-  ["Gelasio", "Gelasio"],
-  ["Vollkorn", "Vollkorn"],
-  ["Source Serif 4", "Source Serif 4"],
-  ["Bodoni Moda", "Bodoni Moda"],
-  ["Cinzel", "Cinzel"],
-  ["Grenze Gotisch", "Grenze Gotisch"],
-  ["Roboto Slab", "Roboto Slab"],
-] as const;
+const dropcapFontOptions = fontOptions;
+
 
 const safeDropcapFamilies: Set<string> = new Set(dropcapFontOptions.map(([value]) => value));
 function safeDropcapFamily(value: string | undefined): string {
