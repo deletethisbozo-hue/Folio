@@ -30,7 +30,7 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     const node = walker.currentNode as Text;
     if (!cap.contains(node) && node.data.trim()) {bodyNode = node; break;}
   }
-  if (!bodyNode) continue;
+  if (!bodyNode) return;
   // Restore CSS values before measuring, so previous calibration cannot
   // accumulate with font-size or line-height changes.
   for (const property of ["font-size", "line-height", "padding-right", "margin-top", "margin-right", "margin-bottom"]) {
@@ -43,7 +43,7 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
   bodyRange.setStart(bodyNode, 0);
   bodyRange.setEnd(bodyNode, Math.min(8, bodyNode.length));
   const firstRect = bodyRange.getClientRects()[0];
-  if (!firstRect) continue;
+  if (!firstRect) return;
 
   // Determine the actual body ink height from the selected book font.
   context.font = paraStyle.fontStyle + " " + paraStyle.fontWeight + " " + paraStyle.fontSize + " " + paraStyle.fontFamily;
