@@ -65,7 +65,7 @@ try {
     throw new Error("Theme Lab launcher/backdrop layout is invalid: " + JSON.stringify(overlayGeometry));
   }
 
-  const themeCount = await page.$eval(".theme-sample", (items) => items.length);
+  const themeCount = await page.evaluate(() => document.querySelectorAll(".theme-sample").length);
   if (themeCount !== 13) throw new Error(`Expected 13 curated themes, found ${themeCount}.`);
 
   await page.evaluate(() => {
