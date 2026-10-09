@@ -201,8 +201,22 @@ try {
     await page.waitForSelector('.customize-row input[type="checkbox"]');
     const checked = await page.$eval('.customize-row input[type="checkbox"]', (node) => (node as HTMLInputElement).checked);
     if (checked !== enabled) await page.click('.customize-row input[type="checkbox"]');
+    await page.waitForFunction(
+      (want) => (document.querySelector('.customize-row input[type="checkbox"]') as HTMLInputElement | null)?.checked === want,
+      {},
+      enabled,
+    );
+    // Keep Design open until the live preview has actually committed the
+    // toggle. Closing the library immediately after click races React state
+    // propagation on slower Windows runners and can leave the iframe on the
+    // previous drop-cap state even though the checkbox already flipped.
+    await page.waitForFunction(
+      (want) => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".dropcap")) === want,
+      {},
+      enabled,
+    );
     await page.click(".style-library-header button");
-    await page.waitForFunction((want) => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".dropcap")) === want, {}, enabled);
+    await page.waitForFunction(() => !document.querySelector(".style-library"));
     await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed")));
   };
 
