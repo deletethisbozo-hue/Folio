@@ -134,12 +134,28 @@ function themeLabCss(book: Book): string {
   out.push(`section.chapter > h1, h1.chapter { box-sizing:border-box; color:${headingColor} !important; font-family:${headingFont} !important; font-size:${headingSize}em !important; font-weight:${headingWeight} !important; font-style:${headingStyle} !important; letter-spacing:${headingTracking}em !important; text-align:${headingAlign} !important; text-align-last:${headingAlign} !important; margin:${headingTop}em 0 ${headingBottom}em !important; ${headingCase} }`);
 
   const ruleWidth = clampNumber(lab.ruleWidth, .5, 8, 1);
+  const ruleLength = clampNumber(lab.ruleLength, 35, 100, 100);
+  const rulePadding = clampNumber(lab.rulePadding, 0, 3, .65);
+  const ruleRadius = clampNumber(lab.ruleRadius, 0, 40, 0);
   const rule = lab.chapterRule ?? "none";
-  if (rule === "top") out.push(`section.chapter > h1, h1.chapter { border:none !important; border-top:${ruleWidth}px solid ${ruleColor} !important; padding:.65em .4em .2em !important; }`);
-  else if (rule === "bottom") out.push(`section.chapter > h1, h1.chapter { border:none !important; border-bottom:${ruleWidth}px solid ${ruleColor} !important; padding:.2em .4em .65em !important; }`);
-  else if (rule === "left") out.push(`section.chapter > h1, h1.chapter { border:none !important; border-left:${ruleWidth}px solid ${ruleColor} !important; padding:.25em .4em .25em .7em !important; }`);
-  else if (rule === "box") out.push(`section.chapter > h1, h1.chapter { border:${ruleWidth}px solid ${ruleColor} !important; padding:.65em .8em !important; }`);
-  else out.push(`section.chapter > h1, h1.chapter { border:none !important; }`);
+  const headingSelector = "section.chapter > h1, h1.chapter";
+  const line = ruleWidth + "px solid " + ruleColor;
+  const pushRule = (decls: string) => out.push(headingSelector + " { " + decls + " }");
+  pushRule("border:none !important;outline:none !important;box-shadow:none !important;background-image:none !important;border-radius:" + ruleRadius + "px !important;width:" + ruleLength + "% !important;max-width:100% !important;margin-left:auto !important;margin-right:auto !important;padding:0 !important;");
+  if (rule === "top") pushRule("border-top:" + line + " !important;padding:" + rulePadding + "em .4em 0 !important;");
+  else if (rule === "bottom") pushRule("border-bottom:" + line + " !important;padding:0 .4em " + rulePadding + "em !important;");
+  else if (rule === "top-bottom") pushRule("border-top:" + line + " !important;border-bottom:" + line + " !important;padding:" + rulePadding + "em .4em !important;");
+  else if (rule === "left") pushRule("border-left:" + line + " !important;padding:.25em .4em .25em " + rulePadding + "em !important;");
+  else if (rule === "right") pushRule("border-right:" + line + " !important;padding:.25em " + rulePadding + "em .25em .4em !important;");
+  else if (["box", "double", "dashed", "dotted", "shadow"].includes(rule)) {
+    const style = rule === "double" ? "double" : rule === "dashed" ? "dashed" : rule === "dotted" ? "dotted" : "solid";
+    const thickness = rule === "double" ? Math.max(3, ruleWidth) : ruleWidth;
+    const shadow = rule === "shadow" ? "box-shadow:5px 5px 0 rgba(0,0,0,.12) !important;" : "";
+    pushRule("border:" + thickness + "px " + style + " " + ruleColor + " !important;padding:" + rulePadding + "em !important;" + shadow);
+  } else if (rule === "corners") {
+    const corner = "linear-gradient(" + ruleColor + "," + ruleColor + ")";
+    pushRule("padding:" + rulePadding + "em !important;background-image:" + [corner,corner,corner,corner].join(",") + " !important;background-repeat:no-repeat !important;background-position:left top,right top,left bottom,right bottom !important;background-size:20% " + ruleWidth + "px,20% " + ruleWidth + "px,20% " + ruleWidth + "px,20% " + ruleWidth + "px !important;");
+  }
 
   const labelVisible = lab.labelVisible !== false;
   if (!labelVisible) {
