@@ -189,7 +189,28 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     if (intersectsInk) intersectedInkLines = line + 1;
     else if (row.top >= capInkBottom - .5) break;
   }
-  const seatLines = Math.max(2, Math.min(6, intersectedInkLines || 2));
+
+  // Native rows are already displaced by the float we are calibrating, so
+  // using them alone can create a feedback loop: a stale third wrapped row
+  // makes the cap "need" three rows and therefore preserves that same third
+  // row forever. Also project the undisturbed paragraph line grid from the
+  // first body row and resolved line-height, then take the conservative
+  // intersection count. This measures painted cap ink against the baseline
+  // prose rhythm rather than against geometry produced by the old seating.
+  let projectedInkLines = 0;
+  const firstRowHeight = firstBodyRect.height || Math.max(1, bodyLineHeight * .8);
+  for (let line = 0; line < 7; line++) {
+    const top = firstBodyRect.top + line * bodyLineHeight;
+    const bottom = top + firstRowHeight;
+    const intersectsInk = capInkBottom > top + .5 && capInkTop < bottom - .5;
+    if (intersectsInk) projectedInkLines = line + 1;
+    else if (top >= capInkBottom - .5) break;
+  }
+  const measuredInkLines = Math.min(
+    intersectedInkLines || projectedInkLines || 2,
+    projectedInkLines || intersectedInkLines || 2,
+  );
+  const seatLines = Math.max(2, Math.min(6, measuredInkLines));
 
   const paraRect = para.getBoundingClientRect();
   const contentLeft =
