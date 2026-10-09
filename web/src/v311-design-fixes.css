@@ -1,0 +1,82 @@
+/* 3.1 Design modal repair: full-screen backdrop and contained heading actions. */
+.folio-shell .style-overlay,
+.folio-shell[data-ui-tone="ivory"] .style-overlay,
+.folio-shell[data-ui-tone="midnight"] .style-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 180 !important;
+  box-sizing: border-box !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 36px 22px 28px !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(31,33,48,.28) !important;
+  backdrop-filter: blur(17px) saturate(115%) !important;
+  -webkit-backdrop-filter: blur(17px) saturate(115%) !important;
+}
+.folio-shell[data-ui-tone="midnight"] .style-overlay{background:rgba(4,5,10,.61)!important}
+.folio-shell .style-library{min-width:0!important;max-width:calc(100vw - 44px)!important;max-height:calc(100vh - 64px)!important}
+.folio-shell .style-library-header {
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:20px!important;
+  min-width:0!important;
+  min-height:64px!important;
+  padding:10px 20px!important;
+}
+.folio-shell .style-library-header>div:first-child{flex:1 1 auto;min-width:0}
+.folio-shell .style-library-header h2{margin:0!important}
+.folio-shell .style-library-header p{margin:4px 0 0!important;max-width:650px;line-height:1.4!important}
+.folio-shell .style-library-header-actions{display:flex!important;flex:0 0 auto!important;align-items:center!important;gap:9px!important;width:auto!important;min-width:0!important}
+.folio-shell .style-library-header .style-open-theme-lab {
+  appearance:none!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:126px!important;
+  max-width:none!important;
+  height:35px!important;
+  padding:0 15px!important;
+  border-radius:9px!important;
+  border:1px solid rgba(99,98,212,.24)!important;
+  background:linear-gradient(135deg,#716fe1,#8261d8)!important;
+  box-shadow:0 3px 10px rgba(95,86,194,.18)!important;
+  color:#fff!important;
+  text-align:center!important;
+  font:700 11px "Source Sans 3",sans-serif!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  word-break:normal!important;
+  overflow:visible!important;
+  cursor:pointer!important;
+}
+.folio-shell .style-library-header .style-open-theme-lab:hover{filter:brightness(1.08)}
+.folio-shell .style-library-header .style-library-close{
+  flex:0 0 32px!important;
+  width:32px!important;
+  min-width:32px!important;
+  max-width:32px!important;
+  height:32px!important;
+  border-radius:8px!important;
+  background:transparent!important;
+  color:var(--folio-text,#686779)!important;
+  font-size:19px!important;
+  line-height:30px!important;
+}
+.folio-shell .style-library-header .style-library-close:hover{background:rgba(125,125,155,.10)!important}
+.folio-shell .customize-font-row{align-items:start;min-height:76px}
+.folio-shell .customize-font-row > span:first-child{padding-top:9px}
+.folio-shell .customize-font-row .folio-font-picker{min-width:0}
+.theme-lab-font-row{align-items:start!important;min-height:79px!important;padding-top:5px;padding-bottom:7px}
+.theme-lab-font-row>span:first-child{padding-top:11px}
+.theme-lab-font-row .folio-font-picker{min-width:0}
+@media(max-width:760px) {
+  .folio-shell .style-library-header{gap:8px!important;padding:8px!important}
+  .folio-shell .style-library-header .style-open-theme-lab{min-width:100px!important;padding:0 8px!important}
+  .folio-shell .style-library-header p{display:none!important}
+}
