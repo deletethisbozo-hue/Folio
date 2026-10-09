@@ -52,6 +52,24 @@ function safeDropcapFamily(value: string | undefined): string {
   return value && safeDropcapFamilies.has(value) ? value : "Libre Baskerville";
 }
 
+
+// Normalize CSS fallback stacks to the actual bundled family before showing it
+// in a single-family picker. Unknown names never masquerade as the first option.
+const bundledFamilies = new Set<string>(fontOptions.map(([family]) => family));
+function fontFamilyFromStack(value: string | undefined, fallback: string): string {
+  if (!value) return fallback;
+  const names = value.match(/"[^"]+"|'[^']+'|[^,]+/g)?.map((piece) => piece.trim().replace(/^["']|["']$/g, "")) ?? [];
+  const aliases: Record<string, string> = {
+    Georgia: "Gelasio", Garamond: "EB Garamond", Baskerville: "Libre Baskerville",
+    "Palatino Linotype": "Vollkorn", "Times New Roman": "Source Serif 4",
+  };
+  for (const item of names) {
+    const resolved = aliases[item] ?? item.replace(/^Folio /, "");
+    if (bundledFamilies.has(resolved)) return resolved;
+  }
+  return fallback;
+}
+
 function numberValue(value: unknown, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -63,7 +81,14 @@ function selectedTheme(themes: Theme[], name: string): Theme | undefined {
 
 function defaultConfig(theme: Theme | undefined, typography: Typography): ThemeLabConfig {
   if (typography.themeLab?.enabled) {
-    return { ...typography.themeLab, dropcapFont: safeDropcapFamily(typography.themeLab.dropcapFont), enabled: true };
+    return {
+      ...typography.themeLab,
+      bodyFont: fontFamilyFromStack(typography.themeLab.bodyFont, "EB Garamond"),
+      headingFont: fontFamilyFromStack(typography.themeLab.headingFont, "Libre Baskerville"),
+      titlePageFont: fontFamilyFromStack(typography.themeLab.titlePageFont, "Libre Baskerville"),
+      dropcapFont: safeDropcapFamily(typography.themeLab.dropcapFont),
+      enabled: true,
+    };
   }
   return {
     enabled: true,
@@ -71,13 +96,13 @@ function defaultConfig(theme: Theme | undefined, typography: Typography): ThemeL
     paper: theme?.previewPaper ?? "#fbfaf6",
     ink: "#242527",
     accent: theme?.previewAccent ?? "#856744",
-    bodyFont: typography.bodyFont ?? theme?.previewFont ?? "EB Garamond",
+    bodyFont: fontFamilyFromStack(typography.bodyFont ?? theme?.previewFont, "EB Garamond"),
     bodySize: numberValue(String(typography.fontSize ?? "1").replace("em", ""), 1),
     lineHeight: numberValue(typography.lineHeight, 1.5),
     bodyAlign: typography.bodyAlign ?? "justify",
     paragraphIndent: numberValue(String(typography.paragraphIndent ?? "1.25").replace("em", ""), 1.25),
     paragraphSpacing: numberValue(String(typography.paragraphSpacing ?? "0").replace("em", ""), 0),
-    headingFont: typography.headingFont ?? theme?.previewHeadingFont ?? "Libre Baskerville",
+    headingFont: fontFamilyFromStack(typography.headingFont ?? theme?.previewHeadingFont, "Libre Baskerville"),
     headingColor: "#242527",
     headingSize: numberValue(String(typography.chapterTitle?.size ?? "1.8").replace("em", ""), 1.8),
     headingWeight: 600,
@@ -106,7 +131,7 @@ function defaultConfig(theme: Theme | undefined, typography: Typography): ThemeL
     chapterRule: "none",
     ruleWidth: 1,
     ruleColor: theme?.previewAccent ?? "#856744",
-    titlePageFont: typography.titlePageFont ?? typography.headingFont ?? theme?.previewHeadingFont ?? "Libre Baskerville",
+    titlePageFont: fontFamilyFromStack(typography.titlePageFont ?? typography.headingFont ?? theme?.previewHeadingFont, "Libre Baskerville"),
     titlePageAlign: "center",
     titlePageSize: 2.4,
   };
@@ -394,6 +419,9 @@ export default function ThemeLab(props: {
       setBaseTheme(theme.name);
       const imported = { ...defaultConfig(theme, {}), ...parsed.config, enabled: true };
       imported.dropcapFont = safeDropcapFamily(imported.dropcapFont);
+      imported.bodyFont = fontFamilyFromStack(imported.bodyFont, "EB Garamond");
+      imported.headingFont = fontFamilyFromStack(imported.headingFont, "Libre Baskerville");
+      imported.titlePageFont = fontFamilyFromStack(imported.titlePageFont, "Libre Baskerville");
       setLab(imported);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
