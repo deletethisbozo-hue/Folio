@@ -1,3 +1,5 @@
+const pendingFontLoads = new WeakMap<HTMLElement, string>();
+
 /**
  * Optically seat drop caps against the real resolved glyph metrics while
  * preserving the size selected by the theme/user. Print uses the same rule in
@@ -33,6 +35,22 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     }).catch(() => undefined);
     return;
   }
+
+  const initialStyle = view.getComputedStyle(cap);
+  const initialGlyph = cap.textContent?.trim() || "H";
+  const fontProbe = `${initialStyle.fontStyle} ${initialStyle.fontWeight} ${initialStyle.fontSize} ${initialStyle.fontFamily}`;
+  if (!doc.fonts.check(fontProbe, initialGlyph)) {
+    if (pendingFontLoads.get(cap) === fontProbe) return;
+    pendingFontLoads.set(cap, fontProbe);
+    void doc.fonts.load(fontProbe, initialGlyph).then(() => {
+      pendingFontLoads.delete(cap);
+      if (cap.isConnected && cap.ownerDocument === doc) seatPreviewDropCap(cap);
+    }).catch(() => {
+      pendingFontLoads.delete(cap);
+    });
+    return;
+  }
+  pendingFontLoads.delete(cap);
 
   const canvas = doc.createElement("canvas").getContext("2d");
   if (!canvas) return;
