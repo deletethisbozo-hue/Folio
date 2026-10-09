@@ -69,7 +69,7 @@ try {
   if (themeCount !== 13) throw new Error(`Expected 13 curated themes, found ${themeCount}.`);
 
   await page.evaluate(() => {
-    const button = [...document.querySelectorAll(".style-library button")].find((item) => item.textContent?.trim() === "Theme Lab");
+    const button = [...document.querySelectorAll(".style-library button")].find((item) => item.textContent?.includes("Theme Lab"));
     if (!button) throw new Error("Theme Lab button is missing.");
     button.click();
   });
