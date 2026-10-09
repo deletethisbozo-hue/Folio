@@ -617,6 +617,19 @@ function chooseBreaks(
           && !spacingFit
           && natural <= available + 0.75
           && naturalFill >= 0.875;
+        // When the release hyphen ceiling is active, a nearly full clean line
+        // is preferable to another discretionary hyphen. Treat this as normal
+        // composition rather than emergency output. At 88.5%+ fill the rag is
+        // visually quiet, and it gives the optimiser a legitimate path to stay
+        // below the section-wide 0.45 hyphen-rate ceiling.
+        const hyphenBudgetRelief = enforceHyphenCeiling
+          && !last
+          && !hyphenBreak
+          && !fit
+          && !continuityFit
+          && !spacingFit
+          && natural <= available + 0.75
+          && naturalFill >= 0.885;
         const emergencyRescue = allowNaturalRescue
           && !last
           && !fit
@@ -628,7 +641,7 @@ function chooseBreaks(
           // could otherwise choose lines such as a lone “Umierali,” merely to
           // improve the paragraph-wide hyphen budget.
           && naturalFill >= 0.72;
-        const rescueNatural = emergencyRescue || hyphenStreakRelief;
+        const rescueNatural = emergencyRescue || hyphenStreakRelief || hyphenBudgetRelief;
         const fitOptions: Array<LineFit | null> = [];
         if (fit) fitOptions.push(fit);
         if (continuityFit && !fitOptions.some((candidate) =>
@@ -706,11 +719,16 @@ function chooseBreaks(
             // relief line is intentionally expensive, but still preferable to
             // a third hyphen or an emergency line.
             ? 7200 + 12000 * Math.pow(Math.max(0, 0.92 - fill) / 0.12, 2)
-            : emergencyRescue
-              // Natural emergency rescue remains the final cross-platform
-              // escape hatch for genuinely hard measures.
-              ? 4200 + 18000 * Math.pow(Math.max(0, 0.90 - fill) / 0.18, 2)
-              : 0;
+            : hyphenBudgetRelief
+              // This path exists only while enforcing the release hyphen
+              // ceiling. Keep it expensive enough that fully justified clean
+              // composition wins whenever it is available.
+              ? 9000 + 14000 * Math.pow(Math.max(0, 0.93 - fill) / 0.10, 2)
+              : emergencyRescue
+                // Natural emergency rescue remains the final cross-platform
+                // escape hatch for genuinely hard measures.
+                ? 4200 + 18000 * Math.pow(Math.max(0, 0.90 - fill) / 0.18, 2)
+                : 0;
         const relaxedPenalty = relaxedFit
           ? Math.max(220, 420 - previousHyphenCount * 100)
           : 0;
