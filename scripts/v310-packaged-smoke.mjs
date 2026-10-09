@@ -408,6 +408,44 @@ try {
     name: "QA Imported Theme", bodyFont: "Vollkorn",
     paper: "#f3ede2", baseTheme: imported.baseTheme,
   });
+
+  // Copy this edited book into a genuine .folio container, close it and reopen it
+  // from disk. A green in-memory preview is not proof that the book was saved.
+  const savedFolioPath = path.join(os.tmpdir(), `folio-theme-lab-roundtrip-${process.pid}.folio`);
+  await fs.rm(savedFolioPath, { force: true });
+  const folioCopy = await page.evaluate(async ({ folder, projectPath }) => {
+    const response = await fetch("/api/projects/import-folder", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder, path: projectPath }),
+    });
+    if (!response.ok) throw new Error("Could not create round-trip .folio: " + await response.text());
+    return response.json();
+  }, { folder: importedBook.folder, projectPath: savedFolioPath });
+  await page.evaluate(async (id) => {
+    const flushed = await fetch(`/api/projects/${id}/flush`, { method: "POST" });
+    if (!flushed.ok) throw new Error("Could not flush .folio.");
+    const closed = await fetch(`/api/projects/${id}/close`, { method: "POST" });
+    if (!closed.ok) throw new Error("Could not close .folio.");
+  }, folioCopy.projectId);
+  const reopenedBook = await page.evaluate(async (projectPath) => {
+    const response = await fetch("/api/projects/open-file", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: projectPath }),
+    });
+    if (!response.ok) throw new Error("Could not reopen saved .folio: " + await response.text());
+    return response.json();
+  }, savedFolioPath);
+  const onDiskLab = reopenedBook.typography?.themeLab;
+  if (onDiskLab?.name !== "QA Imported Theme" || onDiskLab.bodyFont !== "Vollkorn"
+    || onDiskLab.paper !== "#f3ede2" || reopenedBook.meta.theme !== imported.baseTheme) {
+    throw new Error("Imported theme was not preserved inside the .folio file.");
+  }
+  await page.evaluate(async (id) => {
+    const response = await fetch(`/api/projects/${id}/close`, { method: "POST" });
+    if (!response.ok) throw new Error("Could not close round-trip project.");
+  }, reopenedBook.projectId);
+  await fs.rm(savedFolioPath, { force: true });
+
   await reopenThemeLab();
   await clickLabPanel(page, "Body");
   await page.waitForFunction(() =>
