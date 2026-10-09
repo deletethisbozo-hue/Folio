@@ -1,4 +1,4 @@
-import { seatPreviewDropCaps } from "./dropcap-seat";
+import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
 import FontPicker, { BUNDLED_FONT_FAMILIES } from "./components/FontPicker";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
@@ -170,7 +170,18 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
   if (!paragraph) return;
   const existingCap = paragraph.querySelector<HTMLElement>(".dropcap");
   if (existingCap) {
+    // Size/font changes must invalidate the previous optical calibration
+    // synchronously. Otherwise the live preview can expose a stale
+    // folioDropcapLines/seated result from Theme default while CSS has already
+    // switched to Small/Large, and consumers can observe the old float depth.
+    for (const property of ["font-size", "line-height", "padding-right", "margin-top", "margin-right", "margin-bottom"]) {
+      existingCap.style.removeProperty(property);
+    }
+    delete existingCap.dataset.folioDropcapLines;
+    delete existingCap.dataset.folioDropcapWrappedLines;
+    delete existingCap.dataset.folioDropcapSeated;
     existingCap.style.fontFamily = font ?? "";
+    seatPreviewDropCap(existingCap);
     return;
   }
   const walker = paragraph.ownerDocument.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
@@ -190,6 +201,7 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
     // opening <em>/<strong> creates a separate inline formatting context and
     // can destabilize the first justified lines in Chromium and EPUB readers.
     paragraph.insertBefore(span, paragraph.firstChild);
+    seatPreviewDropCap(span);
     return;
   }
 }
