@@ -90,6 +90,21 @@ export async function seatPreviewDropCaps(frame: HTMLIFrameElement): Promise<voi
     const padding = bodySize * .10;
     const rightMargin = Math.max(-fontPx*.20, Math.min(0, desiredGap - sideBearing - padding));
     cap.style.setProperty("margin-right", rightMargin.toFixed(2) + "px", "important");
+    // Check the *painted* right edge against live text after removing its
+    // first-line indent. Decorative fonts may overshoot their advance box
+    // (notably Kings), so side-bearing heuristics alone can cause collisions.
+    // Correct the actual measured gap rather than biasing every font equally.
+    let adjustedRightMargin = rightMargin;
+    for (let pass = 0; pass < 3; pass++) {
+      const textRect = bodyRange.getClientRects()[0];
+      if (!textRect) break;
+      const paintedRight = cap.getBoundingClientRect().left + metrics.actualBoundingBoxRight;
+      const currentGap = textRect.left - paintedRight;
+      if (!Number.isFinite(currentGap) || Math.abs(currentGap - desiredGap) < .25) break;
+      const delta = Math.max(-fontPx * .20, Math.min(fontPx * .20, desiredGap - currentGap));
+      adjustedRightMargin = Math.max(-fontPx * .25, Math.min(fontPx * .25, adjustedRightMargin + delta));
+      cap.style.setProperty("margin-right", adjustedRightMargin.toFixed(2) + "px", "important");
+    }
 
     const seatedRect = cap.getBoundingClientRect();
     const desiredFloatEnd = firstRect.top + (seatLines - .15) * leading;
