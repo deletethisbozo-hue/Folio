@@ -184,7 +184,7 @@ function themeLabCss(book: Book): string {
     const dc = lab.dropcapSize === "large" ? 4.35 : 3.05;
     out.push(`:root { --folio-dropcap-user-size:${dc}em; }`);
     out.push(`.folio-native-dropcap { text-indent:0 !important; overflow:visible !important; }`);
-    out.push(`.folio-native-dropcap .dropcap, .dropcap { float:left !important; display:block !important; position:relative !important; box-sizing:border-box !important; max-width:38% !important; font-family:${dropcapFont} !important; color:${accent} !important; font-size:var(--folio-dropcap-user-size) !important; line-height:1 !important; padding:0 .11em 0 0 !important; margin:-.04em 0 -.08em 0 !important; transform:none !important; white-space:nowrap !important; overflow:visible !important; }`);
+    out.push(`.folio-native-dropcap .dropcap, .dropcap { float:left !important; display:block !important; position:relative !important; box-sizing:border-box !important; max-width:38% !important; font-family:${dropcapFont} !important; color:${accent} !important; font-size:var(--folio-dropcap-user-size) !important; line-height:1 !important; padding:0 .13em 0 0 !important; margin:0 .06em 0 0 !important; transform:none !important; white-space:nowrap !important; overflow:visible !important; }`);
   }
 
   const sceneSize = clampNumber(lab.sceneSize, .5, 3, 1.1);
