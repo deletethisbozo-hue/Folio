@@ -663,8 +663,13 @@ function chooseBreaks(
         const hyphenDensityPenalty = hyphenBreak && projectedLineCount >= 4 && projectedHyphenRate > 0.42
           ? 2600 * Math.pow((projectedHyphenRate - 0.42) / 0.18, 2)
           : 0;
+        const consecutiveHyphenPenalty = previousHyphenStreak === 1
+          ? 12000
+          : previousHyphenStreak > 1
+            ? 30000
+            : 0;
         const hyphenPenalty = hyphenBreak
-          ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty + hyphenDensityPenalty
+          ? 240 + consecutiveHyphenPenalty + cumulativeHyphenPenalty + shortHyphenFragmentPenalty + hyphenDensityPenalty
           : 0;
         const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
         const lineEndLexeme = (words[end].node.textContent ?? "")
