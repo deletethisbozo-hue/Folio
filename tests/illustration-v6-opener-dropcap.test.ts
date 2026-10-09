@@ -88,6 +88,20 @@ try {
     return cap ? parseFloat(getComputedStyle(cap).fontSize) : null;
   });
 
+  const waitForPreviewDropcapFont = async () => page.evaluate(async () => {
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+    if (!doc || !cap) throw new Error("Preview drop cap unavailable while waiting for fonts");
+    await doc.fonts.ready;
+    const style = getComputedStyle(cap);
+    await doc.fonts.load(`${style.fontSize} ${style.fontFamily}`, cap.textContent || "T");
+    await new Promise<void>((resolve) => {
+      const view = doc.defaultView;
+      if (!view) { resolve(); return; }
+      view.requestAnimationFrame(() => view.requestAnimationFrame(() => resolve()));
+    });
+  });
+
   await openFirstParagraphSettings();
   const pickerState = await page.evaluate(() => {
     const rows = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")];
@@ -448,6 +462,7 @@ try {
     };
   });
 
+  await waitForPreviewDropcapFont();
   const baseline = await measureDropcap();
   if (!baseline) throw new Error("Baseline drop cap geometry unavailable");
   const smallCollision = await measureCapLineCollisions();
@@ -591,6 +606,7 @@ try {
     return Boolean(cap && para?.classList.contains("folio-native-dropcap") && getComputedStyle(cap).float === "left");
   });
 
+  await waitForPreviewDropcapFont();
   const after = await measureDropcap();
   if (!after) throw new Error("Drop cap geometry after opener unavailable");
   const invariant =
