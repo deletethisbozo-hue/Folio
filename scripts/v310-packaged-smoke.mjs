@@ -46,7 +46,26 @@ try {
   await page.click('[data-command="design"]');
   await page.waitForSelector(".style-library", { timeout: 10000 });
 
-  const themeCount = await page.$$eval(".theme-sample", (items) => items.length);
+  const overlayGeometry = await page.evaluate(() => {
+    const layer = document.querySelector(".style-overlay");
+    const launcher = document.querySelector(".style-open-theme-lab");
+    const r = layer?.getBoundingClientRect();
+    const b = launcher?.getBoundingClientRect();
+    return {x:r?.left,y:r?.top,width:r?.width,height:r?.height,
+      viewportWidth:innerWidth,viewportHeight:innerHeight,buttonWidth:b?.width,
+      buttonHeight:b?.height,blur:getComputedStyle(layer).backdropFilter};
+  });
+  if (Math.abs(overlayGeometry.x) > 1 || Math.abs(overlayGeometry.y) > 1
+    || Math.abs(overlayGeometry.width - overlayGeometry.viewportWidth) > 2
+    || Math.abs(overlayGeometry.height - overlayGeometry.viewportHeight) > 2) {
+    throw new Error("Design blur does not cover entire viewport: " + JSON.stringify(overlayGeometry));
+  }
+  if (overlayGeometry.buttonWidth < 110 || overlayGeometry.buttonHeight < 30
+    || !overlayGeometry.blur.includes("blur(")) {
+    throw new Error("Theme Lab launcher/backdrop layout is invalid: " + JSON.stringify(overlayGeometry));
+  }
+
+  const themeCount = await page.$eval(".theme-sample", (items) => items.length);
   if (themeCount !== 13) throw new Error(`Expected 13 curated themes, found ${themeCount}.`);
 
   await page.evaluate(() => {
