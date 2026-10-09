@@ -480,6 +480,7 @@ function chooseBreaks(
   allowNaturalRescue = emergency,
   language = "en",
   sectionStats: SectionHyphenStats = { justifiedLines: 0, hyphenatedLines: 0 },
+  enforceHyphenCeiling = false,
 ): Break[] | null {
   const count = words.length;
   lastBreakFailure = null;
@@ -698,11 +699,15 @@ function chooseBreaks(
         const completedJustifiedLines = last ? Math.max(1, sectionStats.justifiedLines + line) : 0;
         const completedHyphenCount = last ? sectionStats.hyphenatedLines + previousHyphenCount : 0;
         const completedHyphenRate = last ? completedHyphenCount / completedJustifiedLines : 0;
-        // The release gate is section-level. A hard per-paragraph 0.45 cut made
-        // short paragraphs mathematically impossible to compose: 2 hyphens over
-        // 4 justified lines is 0.50 even when the whole section is well below 0.45.
-        // Keep a very strong density cost, but preserve the fully-justified path.
-        const finalHyphenDensityPenalty = last && completedJustifiedLines >= 4 && completedHyphenRate > 0.45
+        const exceedsHyphenCeiling = last
+          && completedJustifiedLines >= 4
+          && completedHyphenRate > 0.45 + 1e-9;
+        // Prefer a genuinely compliant section whenever one exists. This is
+        // attempted before the uncapped fallback, so a short mathematically
+        // impossible paragraph can still compose and let later paragraphs bring
+        // the section-wide rate back under the release ceiling.
+        if (enforceHyphenCeiling && exceedsHyphenCeiling) continue;
+        const finalHyphenDensityPenalty = exceedsHyphenCeiling
           ? 80000 * Math.pow((completedHyphenRate - 0.45) / 0.15, 2)
           : 0;
         const currentFitness = lineFit?.fitness ?? previousFitness;
@@ -977,9 +982,12 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
     return;
   }
 
-  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, paragraphLanguage, sectionStats);
+  let breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, false, paragraphLanguage, sectionStats, true);
   const strictFailure = breaks ? null : lastBreakFailure;
-  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, paragraphLanguage, sectionStats);
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, paragraphLanguage, sectionStats, true);
+  // If no section-rate-compliant route exists, preserve the compositor's
+  // established emergency behavior rather than dropping to an unsafe layout.
+  if (!breaks) breaks = chooseBreaks(words, geometry, spaceWidth, hyphenWidth, fontSize, true, true, paragraphLanguage, sectionStats, false);
   if (strictFailure) paragraph.dataset.folioStrictFailure = JSON.stringify(strictFailure);
   if (!breaks) {
     restore(paragraph);
