@@ -111,7 +111,7 @@ function themeLabCss(book: Book): string {
 
   out.push(`body { background:${paper}; color:${ink} !important; font-family:${bodyFont} !important; font-size:${bodySize}em !important; line-height:${lineHeight} !important; }`);
   out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li, section.backmatter > p:not(.scene-break), section.backmatter li { color:${ink}; }`);
-  out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.backmatter > p:not(.scene-break) { text-indent:${paragraphIndent}em !important; margin-bottom:${paragraphSpacing}em !important; } .folio-native-dropcap { text-indent:0 !important; }`);
+  out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.backmatter > p:not(.scene-break) { text-indent:${paragraphIndent}em !important; margin-bottom:${paragraphSpacing}em !important; } section.chapter > p.folio-native-dropcap, section.chapter > p:has(.dropcap), .folio-native-dropcap { text-indent:0 !important; }`);
   if (lab.bodyAlign === "left") {
     out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li, section.backmatter > p:not(.scene-break), section.backmatter li { text-align:left !important; text-align-last:left !important; -webkit-hyphens:none; hyphens:none; }`);
   } else {
