@@ -290,7 +290,10 @@ function ArtworkControl(props: {
       {props.placement && <SelectControl label="Placement" value={image.placement ?? "below"} onChange={(value) => props.onChange({ ...image, placement: value as "above" | "below" })}><option value="above">Above chapter title</option><option value="below">Below chapter title</option></SelectControl>}
       <RangeControl label="Width" value={image.width ?? 34} min={6} max={100} step={1} suffix="%" onChange={(value) => props.onChange({ ...image, width: value })}/>
       <RangeControl label="Height" value={image.height ?? 3.2} min={.6} max={12} step={.1} suffix="em" onChange={(value) => props.onChange({ ...image, height: value })}/>
-      <RangeControl label="Gap" value={image.gap ?? .7} min={0} max={5} step={.1} suffix="em" onChange={(value) => props.onChange({ ...image, gap: value })}/>
+      <RangeControl label="Gap to text" value={image.gap ?? .7} min={0} max={6} step={.1} suffix="em" onChange={(value) => props.onChange({ ...image, gap: value })}/>
+      <SelectControl label="Horizontal align" value={image.align ?? "center"} onChange={(value) => props.onChange({ ...image, align: value as "left" | "center" | "right" })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></SelectControl>
+      <RangeControl label="Move horizontally" value={image.offsetX ?? 0} min={-100} max={100} step={2} suffix="px" onChange={(value) => props.onChange({ ...image, offsetX: value })}/>
+      <RangeControl label="Move vertically" value={image.offsetY ?? 0} min={-60} max={60} step={2} suffix="px" onChange={(value) => props.onChange({ ...image, offsetY: value })}/>
       <RangeControl label="Opacity" value={image.opacity ?? 1} min={.1} max={1} step={.05} onChange={(value) => props.onChange({ ...image, opacity: value })}/>
     </div>}
   </section>;
@@ -516,9 +519,17 @@ export default function ThemeLab(props: {
             <SelectControl label="Subtitle style" value={lab.subtitleStyle ?? "italic"} onChange={(value) => patch({ subtitleStyle: value as "normal" | "italic" })}><option value="normal">Roman</option><option value="italic">Italic</option></SelectControl>
 
             <div className="theme-lab-subsection"><h4>Rule / frame</h4></div>
-            <SelectControl label="Treatment" value={lab.chapterRule ?? "none"} onChange={(value) => patch({ chapterRule: value as ThemeLabConfig["chapterRule"] })}><option value="none">None</option><option value="top">Top rule</option><option value="bottom">Bottom rule</option><option value="left">Left rule</option><option value="box">Box</option></SelectControl>
+            <SelectControl label="Treatment" value={lab.chapterRule ?? "none"} onChange={(value) => patch({ chapterRule: value as ThemeLabConfig["chapterRule"] })}>
+              <option value="none">None</option><option value="top">Top rule</option><option value="bottom">Bottom rule</option><option value="top-bottom">Top and bottom</option>
+              <option value="left">Left accent</option><option value="right">Right accent</option><option value="box">Full frame</option>
+              <option value="double">Double frame</option><option value="dashed">Dashed frame</option><option value="dotted">Dotted frame</option>
+              <option value="shadow">Shadow frame</option><option value="corners">Corner marks</option>
+            </SelectControl>
             <ColorControl label="Rule color" value={lab.ruleColor ?? lab.accent ?? "#856744"} onChange={(value) => patch({ ruleColor: value })}/>
-            <RangeControl label="Rule width" value={lab.ruleWidth ?? 1} min={.5} max={8} step={.5} suffix="px" onChange={(value) => patch({ ruleWidth: value })}/>
+            <RangeControl label="Line thickness" value={lab.ruleWidth ?? 1} min={.5} max={8} step={.5} suffix="px" onChange={(value) => patch({ ruleWidth: value })}/>
+            <RangeControl label="Frame length" value={lab.ruleLength ?? 100} min={35} max={100} step={1} suffix="%" onChange={(value) => patch({ ruleLength: value })}/>
+            <RangeControl label="Inner padding" value={lab.rulePadding ?? .65} min={0} max={3} step={.05} suffix="em" onChange={(value) => patch({ rulePadding: value })}/>
+            <RangeControl label="Corner radius" value={lab.ruleRadius ?? 0} min={0} max={40} step={1} suffix="px" onChange={(value) => patch({ ruleRadius: value })}/>
 
             <div className="theme-lab-subsection"><h4>Drop cap</h4></div>
             {row("Use drop cap", <input type="checkbox" checked={lab.dropcap !== false} onChange={(event) => patch({ dropcap: event.target.checked })}/>)}
