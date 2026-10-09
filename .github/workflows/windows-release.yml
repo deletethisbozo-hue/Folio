@@ -92,6 +92,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Drop cap preview smoke
+        shell: pwsh
+        run: |
+          npm run build:web
+          node --import tsx tests/illustration-v6-opener-dropcap.test.ts
+
       - name: Full formatter and UI suite on Windows
         shell: pwsh
         run: |

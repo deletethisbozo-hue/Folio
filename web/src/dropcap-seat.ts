@@ -299,6 +299,10 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     }
   }
 
+  cap.dataset.folioDropcapSeatSource = "final-native-rows-v2";
+  cap.dataset.folioDropcapInitialInkLines = String(intersectedInkLines);
+  cap.dataset.folioDropcapProjectedInkLines = String(projectedInkLines);
+  cap.dataset.folioDropcapFinalInkLines = String(finalSeatLines);
   cap.dataset.folioDropcapLines = String(finalSeatLines);
   cap.dataset.folioDropcapWrappedLines = String(wrappedLines);
   cap.dataset.folioDropcapSeated = wrappedLines === finalSeatLines ? "true" : "partial";

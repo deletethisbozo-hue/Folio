@@ -282,6 +282,10 @@ try {
       capClass: cap.className,
       capPosition: capStyle.position,
       capFloat: capStyle.float,
+      seatSource: cap.dataset.folioDropcapSeatSource ?? "",
+      initialInkLines: Number(cap.dataset.folioDropcapInitialInkLines ?? 0),
+      projectedInkLines: Number(cap.dataset.folioDropcapProjectedInkLines ?? 0),
+      finalInkLines: Number(cap.dataset.folioDropcapFinalInkLines ?? 0),
     };
   });
 
