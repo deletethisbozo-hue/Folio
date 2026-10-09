@@ -1,4 +1,5 @@
 const pendingFontLoads = new WeakMap<HTMLElement, string>();
+const seatingGeneration = new WeakMap<HTMLElement, number>();
 
 /**
  * Optically seat drop caps against the real resolved glyph metrics while
@@ -51,6 +52,8 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     return;
   }
   pendingFontLoads.delete(cap);
+  const generation = (seatingGeneration.get(cap) ?? 0) + 1;
+  seatingGeneration.set(cap, generation);
 
   const canvas = doc.createElement("canvas").getContext("2d");
   if (!canvas) return;
@@ -299,11 +302,78 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     }
   }
 
-  cap.dataset.folioDropcapSeatSource = "final-native-rows-v2";
+  cap.dataset.folioDropcapSeatSource = "raf-stable-native-rows-v3";
   cap.dataset.folioDropcapInitialInkLines = String(intersectedInkLines);
   cap.dataset.folioDropcapProjectedInkLines = String(projectedInkLines);
   cap.dataset.folioDropcapFinalInkLines = String(finalSeatLines);
   cap.dataset.folioDropcapLines = String(finalSeatLines);
   cap.dataset.folioDropcapWrappedLines = String(wrappedLines);
-  cap.dataset.folioDropcapSeated = wrappedLines === finalSeatLines ? "true" : "partial";
+  // Do not expose a "seated" state until layout/font/preview mutations have
+  // crossed two animation-frame boundaries. The V6 regression demonstrated
+  // that Chromium can still move the third prose row after synchronous
+  // geometry reads have stabilised.
+  cap.dataset.folioDropcapSeated = "pending";
+
+  view.requestAnimationFrame(() => view.requestAnimationFrame(() => {
+    if (!cap.isConnected || cap.ownerDocument !== doc || seatingGeneration.get(cap) !== generation) return;
+
+    const liveStyle = view.getComputedStyle(cap);
+    const liveRect = cap.getBoundingClientRect();
+    canvas.font = `${liveStyle.fontStyle} ${liveStyle.fontWeight} ${liveStyle.fontSize} ${liveStyle.fontFamily}`;
+    const liveMetrics = canvas.measureText(glyph);
+    const liveFontSize = Number.parseFloat(liveStyle.fontSize) || capFontSize;
+    const liveAsc = liveMetrics.fontBoundingBoxAscent || liveMetrics.actualBoundingBoxAscent || liveFontSize * .8;
+    const liveDesc = liveMetrics.fontBoundingBoxDescent || liveMetrics.actualBoundingBoxDescent || liveFontSize * .2;
+    const liveLineHeight = liveStyle.lineHeight === "normal"
+      ? liveAsc + liveDesc
+      : Number.parseFloat(liveStyle.lineHeight) || liveAsc + liveDesc;
+    const liveBaseline =
+      liveRect.top +
+      Number.parseFloat(liveStyle.paddingTop || "0") +
+      (liveLineHeight - (liveAsc + liveDesc)) / 2 +
+      liveAsc;
+    const liveInkTop = liveBaseline - (liveMetrics.actualBoundingBoxAscent || liveAsc);
+    const liveInkBottom = liveBaseline + (liveMetrics.actualBoundingBoxDescent || liveDesc);
+
+    const stableInkLineCount = () => {
+      const rows = new Map<number, { top: number; bottom: number }>();
+      const stableWalker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+      while (stableWalker.nextNode()) {
+        const node = stableWalker.currentNode as Text;
+        if (cap.contains(node) || !node.data.trim()) continue;
+        const range = doc.createRange();
+        range.selectNodeContents(node);
+        for (const rect of Array.from(range.getClientRects())) {
+          if (rect.width <= 1 || rect.height <= 1) continue;
+          const key = Math.round(rect.top * 2) / 2;
+          const previous = rows.get(key);
+          rows.set(key, previous
+            ? { top: Math.min(previous.top, rect.top), bottom: Math.max(previous.bottom, rect.bottom) }
+            : { top: rect.top, bottom: rect.bottom });
+        }
+      }
+      let count = 0;
+      for (const row of [...rows.values()].sort((a, b) => a.top - b.top)) {
+        const intersects = row.bottom > liveInkTop + .5 && row.top < liveInkBottom - .5;
+        if (intersects) count++;
+        else if (row.top >= liveInkBottom - .5) break;
+      }
+      return Math.max(2, Math.min(6, count || 2));
+    };
+
+    let stableTarget = stableInkLineCount();
+    let stableWrapped = wrappedLineCount();
+    for (let pass = 0; pass < 28 && stableWrapped !== stableTarget; pass++) {
+      marginBottom += stableWrapped > stableTarget ? -step : step;
+      cap.style.setProperty("margin-bottom", `${marginBottom}px`, "important");
+      void para.offsetHeight;
+      stableWrapped = wrappedLineCount();
+      stableTarget = stableInkLineCount();
+    }
+
+    cap.dataset.folioDropcapFinalInkLines = String(stableTarget);
+    cap.dataset.folioDropcapLines = String(stableTarget);
+    cap.dataset.folioDropcapWrappedLines = String(stableWrapped);
+    cap.dataset.folioDropcapSeated = stableWrapped === stableTarget ? "true" : "partial";
+  }));
 }
