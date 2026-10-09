@@ -1,3 +1,4 @@
+import { seatPreviewDropCaps } from "./dropcap-seat";
 import FontPicker, { BUNDLED_FONT_FAMILIES } from "./components/FontPicker";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
@@ -1836,6 +1837,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
     doc.head.appendChild(style);
     const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
+    if (previewMode !== "print") void seatPreviewDropCaps(frame);
     if (pendingPreviewDraftRef.current) {
       livePreviewDraftRef.current = pendingPreviewDraftRef.current;
       pendingPreviewDraftRef.current = "";
