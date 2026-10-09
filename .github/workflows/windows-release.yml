@@ -6,9 +6,6 @@ on:
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Midnight Visual QA"]
-    types: [completed]
 
 permissions:
   contents: write
@@ -19,7 +16,6 @@ concurrency:
 
 jobs:
   windows:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: windows-2025
     timeout-minutes: 75
     env:
