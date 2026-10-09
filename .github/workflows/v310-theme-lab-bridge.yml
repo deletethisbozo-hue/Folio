@@ -1,0 +1,135 @@
+name: Folio 3.1 Theme Lab bridge build
+
+on:
+  workflow_run:
+    workflows: ["Folio 3.1 Theme Lab candidate"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-3.1-theme-lab-bridge
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
+      PANDOC_BIN: ${{ github.workspace }}\build\pandoc\pandoc.exe
+
+    steps:
+      - name: Check out Theme Lab branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feature/folio-3.1-theme-lab
+
+      - name: Record exact source commit
+        shell: pwsh
+        run: |
+          $sha = (git rev-parse HEAD).Trim()
+          New-Item -ItemType Directory -Force release | Out-Null
+          $sha | Set-Content -Encoding ascii release\source-commit.txt
+          Write-Host "Building source commit: $sha"
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify candidate version
+        shell: pwsh
+        run: |
+          $version = (node -p "require('./package.json').version").Trim()
+          if ($version -ne "3.1.0-beta.1") { throw "Expected 3.1.0-beta.1, found $version." }
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
+          if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
+          "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Download pinned Pandoc 3.11
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\pandoc | Out-Null
+          New-Item -ItemType Directory -Force build\pandoc-unpack | Out-Null
+          $url = "https://github.com/jgm/pandoc/releases/download/3.11/pandoc-3.11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile build\pandoc.zip
+          $actual = (Get-FileHash build\pandoc.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "2ab72baf2399450e148ddf7a2a8689806c42e1bba71862b57e220fd9b8456d3d") { throw "Pandoc checksum mismatch: $actual" }
+          Expand-Archive build\pandoc.zip build\pandoc-unpack -Force
+          $exe = Get-ChildItem build\pandoc-unpack -Filter pandoc.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "Pandoc executable was not found after extraction." }
+          Copy-Item $exe.FullName build\pandoc\pandoc.exe
+
+      - name: Download pinned Chromium runtime
+        shell: pwsh
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Candidate regression suite
+        run: npm test -- typesetting-language ui-coherence v206-ui-regression folio-runtime web-export v300-second-draft
+
+      - name: Build web and server
+        run: npm run build
+
+      - name: Stage approved Folio icon
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          & .\scripts\generate-windows-icon.ps1
+
+      - name: Build portable Windows candidate
+        run: npx electron-builder --win portable --x64 --publish never
+
+      - name: Hash portable candidate
+        shell: pwsh
+        run: |
+          $file = "release\Folio-$env:FOLIO_VERSION-portable.exe"
+          if (-not (Test-Path $file)) { throw "Missing portable candidate." }
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $file -Leaf)" | Set-Content -Encoding ascii release\sha256.txt
+          Get-Content release\sha256.txt
+
+      - name: Smoke-test packaged Folio
+        shell: pwsh
+        run: |
+          $env:FOLIO_E2E_PORT = "43127"
+          $env:FOLIO_E2E_DEBUG_PORT = "43128"
+          $exe = Resolve-Path "release\Folio-$env:FOLIO_VERSION-portable.exe"
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            $base = "http://127.0.0.1:43127"
+            $health = $null
+            for ($i = 0; $i -lt 120; $i++) {
+              try { $health = Invoke-RestMethod "$base/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health -or -not $health.ok -or -not $health.pandoc.ok) { throw "Packaged app did not become ready." }
+            node scripts\v310-packaged-smoke.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Packaged Theme Lab smoke failed." }
+          }
+          finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Upload Theme Lab candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-3.1.0-beta.1-Theme-Lab-Windows-current
+          path: |
+            release/Folio-3.1.0-beta.1-portable.exe
+            release/sha256.txt
+            release/source-commit.txt
+          if-no-files-found: error
+          retention-days: 14
