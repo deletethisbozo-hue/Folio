@@ -9,7 +9,7 @@ export const BUNDLED_FONT_FAMILIES = [
   "CAT Altenglisch", "Slavkappen",
 ] as const;
 
-export const FONT_TEST_SENTENCE = "The quick brown fox · Aa Bb 123";
+export const FONT_TEST_SENTENCE = "Write. Format. Publish.";
 
 export function fontStackPrimary(value?: string): string {
   if (!value) return "";
@@ -85,7 +85,7 @@ export default function FontPicker(props: {
           className={"folio-font-picker-option" + (!current ? " selected" : "")}
           onClick={() => { props.onChange(""); setOpen(false); }}>
           <strong>Theme default</strong>
-          <span style={{ fontFamily: `"${defaults.replace(/"/g, "")}", serif` }}>{defaults}</span>
+          <span lang="en" style={{ fontFamily: `"${defaults.replace(/"/g, "")}", serif` }}>{FONT_TEST_SENTENCE}</span>
         </button>}
         {filtered.map((family) => <button type="button" key={family} role="option"
           aria-selected={active === family} className={"folio-font-picker-option" + (active === family ? " selected" : "")}
@@ -96,9 +96,5 @@ export default function FontPicker(props: {
         {filtered.length === 0 && <div className="folio-font-picker-empty">No matching bundled fonts.</div>}
       </div>
     </div>, document.body)}
-    <div className="folio-font-picker-sample" lang="pl"
-      style={{ fontFamily: `"${shown.replace(/"/g, "")}", serif` }}>
-      {FONT_TEST_SENTENCE}
-    </div>
   </div>;
 }

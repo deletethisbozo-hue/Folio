@@ -32,10 +32,9 @@
 .folio-shell .style-library-header-actions{display:flex!important;flex:0 0 auto!important;align-items:center!important;gap:9px!important;width:auto!important;min-width:0!important}
 .folio-shell .style-library-header .style-open-theme-lab {
   appearance:none!important;
-  display:inline-flex!important;
+  display:flex!important;
   align-items:center!important;
   justify-content:center!important;
-  gap:7px!important;
   flex:0 0 auto!important;
   width:auto!important;
   min-width:126px!important;
@@ -69,11 +68,11 @@
   line-height:30px!important;
 }
 .folio-shell .style-library-header .style-library-close:hover{background:rgba(125,125,155,.10)!important}
-.folio-shell .customize-font-row{align-items:start;min-height:76px}
-.folio-shell .customize-font-row > span:first-child{padding-top:9px}
+.folio-shell .customize-font-row{align-items:center;min-height:51px}
+.folio-shell .customize-font-row > span:first-child{padding-top:0}
 .folio-shell .customize-font-row .folio-font-picker{min-width:0}
-.theme-lab-font-row{align-items:start!important;min-height:79px!important;padding-top:5px;padding-bottom:7px}
-.theme-lab-font-row>span:first-child{padding-top:11px}
+.theme-lab-font-row{align-items:center!important;min-height:54px!important;padding-top:5px;padding-bottom:5px}
+.theme-lab-font-row>span:first-child{padding-top:0}
 .theme-lab-font-row .folio-font-picker{min-width:0}
 @media(max-width:760px) {
   .folio-shell .style-library-header{gap:8px!important;padding:8px!important}

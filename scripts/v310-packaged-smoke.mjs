@@ -64,6 +64,19 @@ try {
     || !overlayGeometry.blur.includes("blur(")) {
     throw new Error("Theme Lab launcher/backdrop layout is invalid: " + JSON.stringify(overlayGeometry));
   }
+  const launcherLabel = await page.$eval(".style-open-theme-lab", (button) => {
+    const bounds = button.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(button);
+    const textBounds = range.getBoundingClientRect();
+    return {
+      text: button.textContent?.trim(), iconCount: button.querySelectorAll("span,svg").length,
+      centerError: Math.abs((textBounds.left + textBounds.right) / 2 - (bounds.left + bounds.right) / 2),
+    };
+  });
+  if (launcherLabel.text !== "Theme Lab" || launcherLabel.iconCount !== 0 || launcherLabel.centerError > 3) {
+    throw new Error("Theme Lab launcher label or centering regressed: " + JSON.stringify(launcherLabel));
+  }
 
   const themeCount = await page.evaluate(() => document.querySelectorAll(".theme-sample").length);
   if (themeCount !== 13) throw new Error(`Expected 13 curated themes, found ${themeCount}.`);
@@ -112,6 +125,15 @@ try {
     if (!fontNames.includes(required)) throw new Error("Theme Lab font gallery is missing " + required);
   }
   if (fontNames.includes("Georgia")) throw new Error("Legacy Georgia leaked into font gallery.");
+  const specimenCheck = await page.evaluate(() => ({
+    inlineSamples: document.querySelectorAll(".folio-font-picker-sample").length,
+    optionTexts: [...document.querySelectorAll(".folio-font-picker-panel .folio-font-picker-option span")]
+      .map((node) => node.textContent?.trim()),
+  }));
+  if (specimenCheck.inlineSamples !== 0 || !specimenCheck.optionTexts.length
+    || specimenCheck.optionTexts.some((item) => item !== "Write. Format. Publish.")) {
+    throw new Error("Font examples must exist only in the dropdown: " + JSON.stringify(specimenCheck));
+  }
   await page.evaluate(() => {
     const option = [...document.querySelectorAll(".folio-font-picker-panel .folio-font-picker-option")]
       .find((item) => item.querySelector("strong")?.textContent?.trim() === "Gelasio");
@@ -315,7 +337,84 @@ try {
     return String(after).includes("data:image/png") || String(sectionBefore).includes("data:image/png");
   }, { timeout: 15000 });
 
-  console.log("Folio 3.1 Theme Lab packaged smoke passed: stable layout, canonical fonts, safe drop-cap geometry, normal PNG upload, bounded artwork UI, and artwork render in live preview.");
+  // Regression: Apply to Book must survive the server round-trip, .folio flush,
+  // a subsequent reload and reopening the modal. Old adopt() kept stale React state.
+  const saveResponse = page.waitForResponse((response) =>
+    /\/api\/projects\/[^/]+\/typography$/.test(new URL(response.url()).pathname)
+      && response.request().method() === "POST", { timeout: 30000 });
+  await page.click(".theme-lab-footer .theme-lab-button.primary");
+  const applied = await (await saveResponse).json();
+  await page.waitForFunction(() => !document.querySelector(".theme-lab-window"), { timeout: 30000 });
+  if (applied.typography?.themeLab?.bodyFont !== "Gelasio"
+    || applied.typography.themeLab.sceneImage?.dataUrl?.startsWith("data:image/png") !== true
+    || !applied.typography.themeLab.enabled) {
+    throw new Error("Applied Theme Lab typography/artwork did not persist in the returned book: "
+      + JSON.stringify(applied.typography?.themeLab).slice(0, 600));
+  }
+  async function assertSavedBook(id, expected) {
+    const saved = await page.evaluate(async (projectId) => {
+      const response = await fetch(`/api/projects/${projectId}/reload`, { method: "POST" });
+      if (!response.ok) throw new Error("Book reload failed: " + response.status);
+      return response.json();
+    }, id);
+    const lab = saved.typography?.themeLab;
+    if (lab?.name !== expected.name || lab?.bodyFont !== expected.bodyFont
+      || lab?.paper !== expected.paper || saved.meta.theme !== expected.baseTheme) {
+      throw new Error("Theme was lost during project reload: " + JSON.stringify({
+        actual: { name: lab?.name, bodyFont: lab?.bodyFont, paper: lab?.paper, baseTheme: saved.meta.theme },
+        expected,
+      }));
+    }
+  }
+  await assertSavedBook(applied.projectId, {
+    name: applied.typography.themeLab.name, bodyFont: "Gelasio",
+    paper: applied.typography.themeLab.paper, baseTheme: applied.meta.theme,
+  });
+
+  async function reopenThemeLab() {
+    await page.click('[data-command="design"]');
+    await page.waitForSelector(".style-library");
+    await page.click(".style-open-theme-lab");
+    await page.waitForSelector(".theme-lab-window");
+  }
+  await reopenThemeLab();
+  await clickLabPanel(page, "Body");
+  await page.waitForFunction(() => document.querySelector(".theme-lab-font-row .folio-font-picker-selected")?.textContent?.trim() === "Gelasio");
+
+  // Imported theme packages must also replace the active book configuration.
+  const imported = {
+    format: "folio-theme", version: 1, baseTheme: applied.meta.theme,
+    config: {
+      enabled: true, name: "QA Imported Theme", paper: "#f3ede2", ink: "#292929",
+      accent: "#8e6246", bodyFont: "Vollkorn", headingFont: "EB Garamond",
+      titlePageFont: "EB Garamond", dropcapFont: "Gelasio",
+      dropcap: true, dropcapSize: "small", bodySize: 1.06, lineHeight: 1.55,
+    },
+  };
+  const importPath = path.join(os.tmpdir(), "folio-theme-lab-import-smoke.folio-theme.json");
+  await fs.writeFile(importPath, JSON.stringify(imported), "utf8");
+  const importInput = await page.$(".theme-lab-hidden-input");
+  if (!importInput) throw new Error("Import Theme file control is missing.");
+  await importInput.uploadFile(importPath);
+  await page.waitForFunction(() =>
+    document.querySelector(".theme-lab-window input[maxlength='64']")?.value === "QA Imported Theme");
+  const importedResponse = page.waitForResponse((response) =>
+    /\/api\/projects\/[^/]+\/typography$/.test(new URL(response.url()).pathname)
+      && response.request().method() === "POST", { timeout: 30000 });
+  await page.click(".theme-lab-footer .theme-lab-button.primary");
+  const importedBook = await (await importedResponse).json();
+  await page.waitForFunction(() => !document.querySelector(".theme-lab-window"), { timeout: 30000 });
+  await assertSavedBook(importedBook.projectId, {
+    name: "QA Imported Theme", bodyFont: "Vollkorn",
+    paper: "#f3ede2", baseTheme: imported.baseTheme,
+  });
+  await reopenThemeLab();
+  await clickLabPanel(page, "Body");
+  await page.waitForFunction(() =>
+    document.querySelector(".theme-lab-font-row .folio-font-picker-selected")?.textContent?.trim() === "Vollkorn");
+  await page.click(".theme-lab-close");
+
+  console.log("Folio 3.1 Theme Lab packaged smoke passed: launcher centering, dropdown-only font specimens, drop-cap matrix, artwork preview, Apply to Book persistence, reload, and imported theme round-trip.");
 } finally {
   browser.disconnect();
 }

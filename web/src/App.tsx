@@ -833,10 +833,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [workspaceMode, previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
-  function adopt(summary: ProjectSummary, preferredId?: string) {
+  function adopt(summary: ProjectSummary, preferredId?: string, preferSavedAppearance = false) {
     const sameProject = summary.projectId === project?.projectId;
-    const liveMeta = sameProject && meta ? meta : summary.meta;
-    const liveTypography = sameProject ? typography : (summary.typography ?? {});
+    // While editing, keep unsaved appearance changes; after an explicit Apply,
+    // the server-returned values are authoritative (never resurrect old React state).
+    const liveMeta = sameProject && meta && !preferSavedAppearance ? meta : summary.meta;
+    const liveTypography = sameProject && !preferSavedAppearance ? typography : (summary.typography ?? {});
     const displayedSummary = sameProject ? { ...summary, meta: liveMeta, typography: liveTypography } : summary;
     const preferred = preferredId ? summary.sections.find((s) => s.id === preferredId) : null;
     const first = preferred ?? summary.sections.find((s) => s.kind === "chapter") ?? summary.sections[0] ?? null;
@@ -1253,12 +1255,28 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   async function applyThemeLab(nextMeta: BookMeta, nextTypography: Typography): Promise<void> {
-    if (!project || !(await saveCurrent())) return;
+    if (!project) throw new Error("No open book to apply the theme to.");
+    if (!(await saveCurrent())) throw new Error("Save the current chapter before applying this theme.");
     setSaveState("saving");
-    const summary = await persistAppearance(project.projectId, nextMeta, nextTypography);
-    setTypography(nextTypography);
-    adopt(summary, selectedId ?? undefined);
-    setSaveState("saved");
+    try {
+      const summary = await persistAppearance(project.projectId, nextMeta, nextTypography);
+      const requestedLab = nextTypography.themeLab;
+      const savedLab = summary.typography?.themeLab;
+      if (summary.meta.theme !== nextMeta.theme || !savedLab?.enabled
+        || savedLab.name !== requestedLab?.name
+        || savedLab.bodyFont !== requestedLab?.bodyFont
+        || savedLab.paper !== requestedLab?.paper) {
+        throw new Error("Theme Lab changes were not confirmed by the book. Nothing was applied.");
+      }
+      // Flush the .folio container before closing the Theme Lab. Do not allow
+      // a success state if the project could not be written to disk.
+      await api.flushProject(project.projectId);
+      adopt(summary, selectedId ?? undefined, true);
+      setSaveState("saved");
+    } catch (reason) {
+      setSaveState("error");
+      throw reason;
+    }
   }
 
   async function saveBookDetails() {
@@ -2694,7 +2712,7 @@ function StyleLibrary(props: {
   };
   return <div className="style-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
     <section className="style-library" role="dialog" aria-modal="true" aria-label="Book style library">
-      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}><span aria-hidden="true">✦</span> Theme Lab</button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
+      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}>Theme Lab</button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
         <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">{themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => setMeta({ ...meta, theme: theme.name })}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}</div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selected?.dropcap ?? false}/>}</div>
