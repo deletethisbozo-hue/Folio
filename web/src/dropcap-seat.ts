@@ -129,7 +129,7 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     Number.parseFloat(capStyle.paddingTop || "0") +
     (capLineHeight - (capAsc + capDesc)) / 2 +
     capAsc;
-  const capInkTop0 = capBaseline0 - (capMetrics.actualBoundingBoxAscent || capAsc);
+  const capInkTop0 = capBaseline0 - (Number.isFinite(capMetrics.actualBoundingBoxAscent) ? capMetrics.actualBoundingBoxAscent : capAsc);
   const topDelta = capInkTop0 - bodyInkTop;
   if (Math.abs(topDelta) > .25) {
     const initialTop = Number.parseFloat(capStyle.marginTop || "0") || 0;
@@ -171,8 +171,8 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     Number.parseFloat(capStyle.paddingTop || "0") +
     (seatedLineHeight - (seatedAsc + seatedDesc)) / 2 +
     seatedAsc;
-  const capInkTop = capBaseline - (seatedMetrics.actualBoundingBoxAscent || seatedAsc);
-  const capInkBottom = capBaseline + (seatedMetrics.actualBoundingBoxDescent || seatedDesc);
+  const capInkTop = capBaseline - (Number.isFinite(seatedMetrics.actualBoundingBoxAscent) ? seatedMetrics.actualBoundingBoxAscent : seatedAsc);
+  const capInkBottom = capBaseline + (Number.isFinite(seatedMetrics.actualBoundingBoxDescent) ? seatedMetrics.actualBoundingBoxDescent : seatedDesc);
 
   const nativeRows = new Map<number, { top: number; bottom: number }>();
   const rowWalker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
@@ -337,8 +337,8 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
       Number.parseFloat(liveStyle.paddingTop || "0") +
       (liveLineHeight - (liveAsc + liveDesc)) / 2 +
       liveAsc;
-    const liveInkTop = liveBaseline - (liveMetrics.actualBoundingBoxAscent || liveAsc);
-    const liveInkBottom = liveBaseline + (liveMetrics.actualBoundingBoxDescent || liveDesc);
+    const liveInkTop = liveBaseline - (Number.isFinite(liveMetrics.actualBoundingBoxAscent) ? liveMetrics.actualBoundingBoxAscent : liveAsc);
+    const liveInkBottom = liveBaseline + (Number.isFinite(liveMetrics.actualBoundingBoxDescent) ? liveMetrics.actualBoundingBoxDescent : liveDesc);
 
     const rows = new Map<number, { top: number; bottom: number }>();
     const stableWalker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
