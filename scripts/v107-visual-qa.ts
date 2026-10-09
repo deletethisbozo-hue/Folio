@@ -236,7 +236,7 @@ try {
       {},
       enabled,
     );
-    await page.click(".style-library-header button");
+    await page.click(".style-library-close");
     await page.waitForFunction(() => !document.querySelector(".style-library"));
     await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter > p.folio-composed")));
   };
