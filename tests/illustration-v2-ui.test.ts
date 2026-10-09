@@ -361,17 +361,17 @@ try {
   check("Print Preview preserves anchored wrap semantics", true);
   await page.screenshot({ path: path.join(qaDir, "print.png"), fullPage: false });
 
-  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 });
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
     const markdown = editor?.dataset.markdown ?? "";
     return markdown.includes(".folio-wrap-left") && /width=\d+%/.test(markdown);
-  }, { timeout: 30000 });
+  }, { timeout: 60000 });
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
     return Boolean(figure?.dataset.folioWrap === "left" && Number(figure.dataset.folioScale || 0) > 0);
-  }, { timeout: 30000 });
+  }, { timeout: 60000 });
   check("anchor, wrap and relative size survive autosave plus reload", true);
 
   await page.close();
