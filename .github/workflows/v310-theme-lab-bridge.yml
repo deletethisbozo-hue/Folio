@@ -2,7 +2,7 @@ name: Folio 3.1 Theme Lab bridge build
 
 on:
   workflow_run:
-    workflows: ["Folio 3.1 Theme Lab candidate"]
+    workflows: ["Extract Folio 3.0 portable"]
     types: [completed]
 
 permissions:
