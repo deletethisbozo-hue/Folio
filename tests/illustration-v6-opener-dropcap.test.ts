@@ -603,7 +603,12 @@ try {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
     const para = cap?.closest<HTMLElement>("p");
-    return Boolean(cap && para?.classList.contains("folio-native-dropcap") && getComputedStyle(cap).float === "left");
+    return Boolean(
+      cap &&
+      para?.classList.contains("folio-native-dropcap") &&
+      cap.dataset.folioDropcapSeated === "true" &&
+      getComputedStyle(cap).float === "left"
+    );
   });
 
   await waitForPreviewDropcapFont();
