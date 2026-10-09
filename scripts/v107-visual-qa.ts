@@ -198,11 +198,32 @@ try {
       const button = [...document.querySelectorAll(".style-category-list button")].find((node) => node.textContent === "First Paragraph");
       (button as HTMLButtonElement | undefined)?.click();
     });
-    await page.waitForSelector('.customize-row input[type="checkbox"]');
-    const checked = await page.$eval('.customize-row input[type="checkbox"]', (node) => (node as HTMLInputElement).checked);
-    if (checked !== enabled) await page.click('.customize-row input[type="checkbox"]');
     await page.waitForFunction(
-      (want) => (document.querySelector('.customize-row input[type="checkbox"]') as HTMLInputElement | null)?.checked === want,
+      () => document.querySelector(".customize-heading h3")?.textContent?.trim() === "First Paragraph",
+    );
+    const readDropcapChecked = () => page.evaluate(() => {
+      const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+        .find((item) => item.querySelector(":scope > span")?.textContent?.trim() === "Drop cap");
+      const input = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      if (!input) throw new Error("Drop cap checkbox missing in First Paragraph panel");
+      return input.checked;
+    });
+    const checked = await readDropcapChecked();
+    if (checked !== enabled) {
+      await page.evaluate(() => {
+        const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+          .find((item) => item.querySelector(":scope > span")?.textContent?.trim() === "Drop cap");
+        const input = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+        if (!input) throw new Error("Drop cap checkbox missing in First Paragraph panel");
+        input.click();
+      });
+    }
+    await page.waitForFunction(
+      (want) => {
+        const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
+          .find((item) => item.querySelector(":scope > span")?.textContent?.trim() === "Drop cap");
+        return row?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked === want;
+      },
       {},
       enabled,
     );
