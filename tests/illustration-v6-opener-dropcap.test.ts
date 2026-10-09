@@ -956,7 +956,7 @@ try {
       doc &&
       doc.fonts.status === "loaded" &&
       heading &&
-      /Folio Jena Gotisch/i.test(getComputedStyle(heading).fontFamily)
+      /Jena Gotisch/i.test(getComputedStyle(heading).fontFamily)
     );
   });
 
@@ -976,7 +976,7 @@ try {
     };
   });
   const jenaNormalized = Boolean(jenaHeading &&
-    /Folio Jena Gotisch/i.test(jenaHeading.fontFamily) &&
+    /Jena Gotisch/i.test(jenaHeading.fontFamily) &&
     Number(jenaHeading.fontWeight) <= 400 &&
     jenaHeading.lineHeight >= jenaHeading.fontSize * 1.14 &&
     jenaHeading.letterSpacing >= jenaHeading.fontSize * 0.045 &&
@@ -1001,7 +1001,7 @@ try {
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
-    return Boolean(heading && !/Folio Jena Gotisch/i.test(getComputedStyle(heading).fontFamily));
+    return Boolean(heading && !/Jena Gotisch/i.test(getComputedStyle(heading).fontFamily));
   });
   const restoredHeadingFamily = await page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
