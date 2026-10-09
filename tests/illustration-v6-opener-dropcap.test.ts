@@ -110,7 +110,7 @@ try {
   if (!hasSeparateThemeAndSmall) throw new Error("Drop cap size picker still aliases theme default to Small");
 
   await page.waitForSelector(".folio-font-picker-panel");
-  const fontOptions = await page.$eval(".folio-font-picker-panel .folio-font-picker-option strong",
+  const fontOptions = await page.$$eval(".folio-font-picker-panel .folio-font-picker-option strong",
     (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
   const requestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"];
   const hasRequestedFonts = requestedFonts.every((name) => fontOptions.includes(name));
