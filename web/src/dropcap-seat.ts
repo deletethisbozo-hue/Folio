@@ -257,7 +257,49 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     wrappedLines = wrappedLineCount();
   }
 
-  cap.dataset.folioDropcapLines = String(seatLines);
+  // Validate against the FINAL native rows after the float has settled. This
+  // second measurement is authoritative: the initial rows can still carry a
+  // stale wrap depth from the previous Theme default / Small / Large state.
+  // The final target must equal the number of prose rows that the painted glyph
+  // actually intersects, which is also what the visual QA verifies.
+  const finalInkLineCount = () => {
+    const rows = new Map<number, { top: number; bottom: number }>();
+    const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const range = doc.createRange();
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        const key = Math.round(rect.top * 2) / 2;
+        const previous = rows.get(key);
+        rows.set(key, previous
+          ? { top: Math.min(previous.top, rect.top), bottom: Math.max(previous.bottom, rect.bottom) }
+          : { top: rect.top, bottom: rect.bottom });
+      }
+    }
+    let count = 0;
+    for (const row of [...rows.values()].sort((a, b) => a.top - b.top)) {
+      const intersects = row.bottom > capInkTop + .5 && row.top < capInkBottom - .5;
+      if (intersects) count++;
+      else if (row.top >= capInkBottom - .5) break;
+    }
+    return Math.max(2, Math.min(6, count || 2));
+  };
+
+  let finalSeatLines = finalInkLineCount();
+  if (wrappedLines !== finalSeatLines) {
+    for (let pass = 0; pass < 24 && wrappedLines !== finalSeatLines; pass++) {
+      marginBottom += wrappedLines > finalSeatLines ? -step : step;
+      cap.style.setProperty("margin-bottom", `${marginBottom}px`, "important");
+      void para.offsetHeight;
+      wrappedLines = wrappedLineCount();
+      finalSeatLines = finalInkLineCount();
+    }
+  }
+
+  cap.dataset.folioDropcapLines = String(finalSeatLines);
   cap.dataset.folioDropcapWrappedLines = String(wrappedLines);
-  cap.dataset.folioDropcapSeated = wrappedLines === seatLines ? "true" : "partial";
+  cap.dataset.folioDropcapSeated = wrappedLines === finalSeatLines ? "true" : "partial";
 }
