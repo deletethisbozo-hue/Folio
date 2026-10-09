@@ -17,6 +17,8 @@ export async function seatPreviewDropCaps(frame: HTMLIFrameElement): Promise<voi
     if (!cap.isConnected) continue;
     const para = cap.closest<HTMLElement>("p");
     if (!para || doc.defaultView.getComputedStyle(cap).float === "none") continue;
+    para.classList.add("folio-native-dropcap");
+    para.style.setProperty("text-indent", "0px", "important");
     const walker = doc.createTreeWalker(para, NodeFilter.SHOW_TEXT);
     let bodyNode: Text | null = null;
     while (walker.nextNode()) {
