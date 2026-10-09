@@ -82,6 +82,40 @@ try {
     await page.waitForFunction(() => [...document.querySelectorAll(".customize-row > span")].some((node) => node.textContent?.trim() === "Drop cap"));
   };
 
+  const chooseFontPicker = async (label: string, family: string) => {
+    await page.evaluate((targetLabel) => {
+      const row = [...document.querySelectorAll<HTMLElement>(".customize-font-row")]
+        .find((item) => item.querySelector(":scope > span")?.textContent?.trim() === targetLabel);
+      const trigger = row?.querySelector<HTMLButtonElement>(".folio-font-picker-trigger");
+      if (!trigger) throw new Error(`${targetLabel} FontPicker trigger missing`);
+      trigger.click();
+    }, label);
+    await page.waitForSelector(".folio-font-picker-panel");
+    await page.evaluate((targetFamily) => {
+      const option = [...document.querySelectorAll<HTMLButtonElement>(".folio-font-picker-panel .folio-font-picker-option")]
+        .find((button) => button.querySelector("strong")?.textContent?.trim() === targetFamily);
+      if (!option) throw new Error(`FontPicker option missing: ${targetFamily}`);
+      option.click();
+    }, family);
+    await page.waitForFunction(() => !document.querySelector(".folio-font-picker-panel"));
+  };
+
+  const readFontPickerOptions = async (label: string) => {
+    await page.evaluate((targetLabel) => {
+      const row = [...document.querySelectorAll<HTMLElement>(".customize-font-row")]
+        .find((item) => item.querySelector(":scope > span")?.textContent?.trim() === targetLabel);
+      const trigger = row?.querySelector<HTMLButtonElement>(".folio-font-picker-trigger");
+      if (!trigger) throw new Error(`${targetLabel} FontPicker trigger missing`);
+      trigger.click();
+    }, label);
+    await page.waitForSelector(".folio-font-picker-panel");
+    const options = await page.$eval(".folio-font-picker-panel .folio-font-picker-option strong",
+      (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector(".folio-font-picker-panel"));
+    return options;
+  };
+
   const measureDropcapFontSize = async () => page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
@@ -847,13 +881,8 @@ try {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 }).catch(() => null);
+  await chooseFontPicker("Drop cap typeface", "Jena Gotisch");
   await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Drop cap typeface");
-    const select = row?.querySelector<HTMLSelectElement>("select");
-    if (!select) throw new Error("Drop cap typeface selector missing");
-    select.value = "Folio Jena Gotisch";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
       .find((button) => button.textContent?.trim() === "Done");
     done?.click();
@@ -895,12 +924,7 @@ try {
     if (!button) throw new Error("Chapter Heading category missing");
     button.click();
   });
-  const chapterFontOptions = await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
-    return [...(row?.querySelector<HTMLSelectElement>("select")?.options ?? [])]
-      .map((option) => option.textContent?.trim());
-  });
+  const chapterFontOptions = await readFontPickerOptions("Typeface");
   const chapterHasRequestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"]
     .every((name) => chapterFontOptions.includes(name));
   check("Chapter Heading picker exposes all requested licensed fonts", chapterHasRequestedFonts, JSON.stringify(chapterFontOptions));
@@ -913,28 +937,14 @@ try {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 });
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
-    const select = row?.querySelector<HTMLSelectElement>("select");
-    if (!select) throw new Error("Chapter heading typeface selector missing");
-    select.value = "";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  await chooseFontPicker("Typeface", "Theme default");
   await headingDefaultPreview;
 
   const jenaPreview = page.waitForResponse((response) => {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 });
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
-    const select = row?.querySelector<HTMLSelectElement>("select");
-    if (!select) throw new Error("Chapter heading typeface selector missing");
-    select.value = "Folio Jena Gotisch";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  await chooseFontPicker("Typeface", "Jena Gotisch");
   await jenaPreview;
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
@@ -983,14 +993,7 @@ try {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 }).catch(() => null);
-  await page.evaluate(() => {
-    const row = [...document.querySelectorAll<HTMLLabelElement>(".customize-row")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Typeface");
-    const select = row?.querySelector<HTMLSelectElement>("select");
-    if (!select) throw new Error("Chapter heading typeface selector missing");
-    select.value = "";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  await chooseFontPicker("Typeface", "Theme default");
   await defaultHeadingPreview;
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
