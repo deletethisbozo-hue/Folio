@@ -1,6 +1,7 @@
 import express from "express";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
+import type { Page } from "puppeteer";
 import { registerApi } from "../server/api.ts";
 import { registerEditorApi } from "../server/editor-api.ts";
 import { closeBrowser, getBrowser } from "../server/pipeline/render-pdf.ts";
@@ -16,7 +17,7 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 
-const findButton = async (page: Awaited<ReturnType<typeof getBrowser>> extends infer _ ? any : never, text: string) => {
+const findButton = async (page: Page, text: string) => {
   await page.evaluate((label: string) => {
     const button = [...document.querySelectorAll<HTMLButtonElement>("button")]
       .find((item) => item.textContent?.trim() === label || item.textContent?.includes(label));
