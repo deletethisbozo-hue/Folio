@@ -299,6 +299,7 @@ export default function ThemeLab(props: {
   previewDraft?: string;
   onClose: () => void;
   onApply: (meta: BookMeta, typography: Typography) => Promise<void>;
+  onSaveToLibrary: (baseTheme: string, config: ThemeLabConfig) => Promise<void> | void;
 }) {
   const initialTheme = selectedTheme(props.themes, props.meta.theme);
   const [panel, setPanel] = useState<LabPanel>("Foundation");
@@ -435,13 +436,26 @@ export default function ThemeLab(props: {
     }
   }
 
+  async function saveToLibrary() {
+    setBusy(true);
+    setError(null);
+    try {
+      const name = (lab.name ?? "").trim() || "My Theme";
+      await props.onSaveToLibrary(baseTheme, { ...lab, name, enabled: true });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const row = (label: string, control: React.ReactNode) => <label className="theme-lab-row"><span>{label}</span>{control}</label>;
   const alignOptions = <><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></>;
 
   return <div className="theme-lab-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) props.onClose(); }}>
     <section className="theme-lab-window" role="dialog" aria-modal="true" aria-label="Theme Lab">
       <header className="theme-lab-header">
-        <div><span className="theme-lab-eyebrow">Folio 3.1</span><h2>Theme Lab</h2><p>Build a complete book style, preview it on the manuscript, then keep it in the .folio file or export it as a portable theme package.</p></div>
+        <div className="theme-lab-title-block"><h2>Theme Lab</h2><p>Build a complete book style, preview it on the manuscript, save it to your theme library, or export it as a portable theme package.</p></div>
         <div className="theme-lab-header-actions">
           <button type="button" className="theme-lab-button" onClick={() => importRef.current?.click()}>Import Theme</button>
           <input ref={importRef} className="theme-lab-hidden-input" type="file" accept=".json,.folio-theme.json,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importPackage(file); event.currentTarget.value = ""; }}/>
@@ -567,6 +581,7 @@ export default function ThemeLab(props: {
         <div>{error ? <span className="theme-lab-error">{error}</span> : <span>Theme Lab uses Folio's bundled font library so preview, PDF and EPUB stay portable and deterministic across devices.</span>}</div>
         <div className="theme-lab-footer-actions">
           <button type="button" className="theme-lab-button" disabled={busy} onClick={props.onClose}>Cancel</button>
+          <button type="button" className="theme-lab-button" disabled={busy} onClick={() => void saveToLibrary()}>{busy ? "Saving…" : "Save to Library"}</button>
           <button type="button" className="theme-lab-button primary" disabled={busy} onClick={() => void apply()}>{busy ? "Saving…" : "Apply to Book"}</button>
         </div>
       </footer>
