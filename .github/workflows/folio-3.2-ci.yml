@@ -50,6 +50,9 @@ jobs:
       - name: Runtime regression with full stack
         run: node --import tsx tests/folio-runtime.test.ts
 
+      - name: Folio 3.2 feature regressions
+        run: node --import tsx --test tests/v320-design-preview.test.ts
+
       - name: Focused UI regressions
         run: npm test -- ui-coherence v206-ui-regression v300-second-draft
 
