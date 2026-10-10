@@ -16,13 +16,14 @@ export function registerImagePageApi(app: Express): void {
     try {
       const file = req.file as Express.Multer.File | undefined;
       if (!file) throw new Error("No image uploaded.");
-      if (!/^image\/(?:png|jpeg)$/i.test(file.mimetype)) throw new Error("Full-page images must be PNG or JPEG.");
+      if (!/^image\/(?:png|jpeg|svg\+xml)$/i.test(file.mimetype)) throw new Error("Full-page images must be PNG, JPEG or SVG.");
 
       const { book } = await loadProject(req.params.id);
       const dir = await writableBookDir(req.params.id);
       const result = await addFullPageImage(dir, book.meta, {
         filename: file.originalname,
         buffer: file.buffer,
+        mime: file.mimetype,
         title: typeof req.body?.title === "string" ? req.body.title : undefined,
         alt: typeof req.body?.alt === "string" ? req.body.alt : undefined,
         fit: "contain",
