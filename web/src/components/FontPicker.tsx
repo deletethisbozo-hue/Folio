@@ -6,10 +6,14 @@ export const BODY_FONT_FAMILIES = [
   "Newsreader", "Gelasio", "Vollkorn", "Roboto Slab", "Source Sans 3",
 ] as const;
 
-export const DISPLAY_FONT_FAMILIES = [
+export const DROPCAP_FONT_FAMILIES = [
   ...BODY_FONT_FAMILIES,
   "Barlow Condensed", "Bodoni Moda", "Cinzel", "Grenze Gotisch",
   "Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen",
+] as const;
+
+export const DISPLAY_FONT_FAMILIES = [
+  ...DROPCAP_FONT_FAMILIES,
   "MedievalSharp", "Pirata One", "Almendra", "Almendra Display",
   "Metamorphous", "Eagle Lake", "New Rocker", "Germania One", "Metal Mania",
   "Fondamento", "Cormorant Unicase", "Berkshire Swash", "Texturina", "Caudex",
