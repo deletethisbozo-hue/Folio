@@ -36,26 +36,73 @@ type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Par
 
 
 const THEME_LIBRARY_KEY = "folio-theme-library-v1";
+const THEME_LIBRARY_DB = "folio-theme-library";
+const THEME_LIBRARY_STORE = "state";
 
-function loadThemeLibrary(): ThemeLibraryEntry[] {
+function validThemeLibraryEntries(value: unknown): ThemeLibraryEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is ThemeLibraryEntry => Boolean(
+    item && typeof item === "object"
+    && typeof (item as ThemeLibraryEntry).id === "string"
+    && typeof (item as ThemeLibraryEntry).label === "string"
+    && typeof (item as ThemeLibraryEntry).baseTheme === "string"
+    && (item as ThemeLibraryEntry).config
+    && typeof (item as ThemeLibraryEntry).config === "object",
+  ));
+}
+
+function loadThemeLibraryFallback(): ThemeLibraryEntry[] {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(THEME_LIBRARY_KEY) ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is ThemeLibraryEntry => Boolean(
-      item && typeof item === "object"
-      && typeof (item as ThemeLibraryEntry).id === "string"
-      && typeof (item as ThemeLibraryEntry).label === "string"
-      && typeof (item as ThemeLibraryEntry).baseTheme === "string"
-      && (item as ThemeLibraryEntry).config
-      && typeof (item as ThemeLibraryEntry).config === "object",
-    ));
+    return validThemeLibraryEntries(JSON.parse(window.localStorage.getItem(THEME_LIBRARY_KEY) ?? "[]"));
   } catch {
     return [];
   }
 }
 
-function persistThemeLibrary(items: ThemeLibraryEntry[]): void {
-  window.localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(items));
+function openThemeLibraryDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(THEME_LIBRARY_DB, 1);
+    request.onerror = () => reject(request.error ?? new Error("Could not open the theme library."));
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(THEME_LIBRARY_STORE)) request.result.createObjectStore(THEME_LIBRARY_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+async function loadThemeLibraryFromDb(): Promise<ThemeLibraryEntry[]> {
+  try {
+    const db = await openThemeLibraryDb();
+    const result = await new Promise<unknown>((resolve, reject) => {
+      const tx = db.transaction(THEME_LIBRARY_STORE, "readonly");
+      const request = tx.objectStore(THEME_LIBRARY_STORE).get("themes");
+      request.onerror = () => reject(request.error ?? new Error("Could not read the theme library."));
+      request.onsuccess = () => resolve(request.result);
+    });
+    db.close();
+    return validThemeLibraryEntries(result);
+  } catch {
+    return [];
+  }
+}
+
+async function persistThemeLibrary(items: ThemeLibraryEntry[]): Promise<void> {
+  let db: IDBDatabase | null = null;
+  try {
+    db = await openThemeLibraryDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db!.transaction(THEME_LIBRARY_STORE, "readwrite");
+      tx.onerror = () => reject(tx.error ?? new Error("Could not save the theme library."));
+      tx.oncomplete = () => resolve();
+      tx.objectStore(THEME_LIBRARY_STORE).put(items, "themes");
+    });
+  } finally {
+    db?.close();
+  }
+  // Keep a lightweight compatibility copy when the browser quota allows it.
+  // Large Theme Lab artwork can exceed localStorage, which is why IndexedDB is
+  // authoritative.
+  try { window.localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(items)); } catch {}
 }
 
 function themeLibrarySlug(value: string): string {
@@ -258,7 +305,7 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
 export default function App({ initialProject = null, onDashboard }: { initialProject?: ProjectSummary | null; onDashboard?: () => void } = {}) {
   const initialSection = initialProject?.sections.find((section) => section.kind === "chapter") ?? initialProject?.sections[0] ?? null;
   const [themes, setThemes] = useState<Theme[]>([]);
-  const [savedThemes, setSavedThemes] = useState<ThemeLibraryEntry[]>(() => loadThemeLibrary());
+  const [savedThemes, setSavedThemes] = useState<ThemeLibraryEntry[]>(() => loadThemeLibraryFallback());
   const [matterTypes, setMatterTypes] = useState<MatterType[]>([]);
   const [project, setProject] = useState<ProjectSummary | null>(initialProject);
   const [meta, setMeta] = useState<BookMeta | null>(initialProject?.meta ?? null);
@@ -508,6 +555,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     editor.dataset.markdown = draft;
     editor.dataset.ornament = ornament;
   }, [document?.id, draft, typography.sceneOrnament, meta?.theme, themes, project?.projectId]);
+  useEffect(() => {
+    let cancelled = false;
+    void loadThemeLibraryFromDb().then((items) => {
+      if (!cancelled && items.length) setSavedThemes(items);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     Promise.all([api.themes(), api.matterTypes()])
       .then(([loadedThemes, loadedMatter]) => { setThemes(loadedThemes); setMatterTypes(loadedMatter); })
@@ -1352,20 +1407,18 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       throw new Error("Choose a valid base theme before saving.");
     }
     const now = Date.now();
-    setSavedThemes((current) => {
-      const existing = current.find((item) => item.label.localeCompare(label, undefined, { sensitivity: "accent" }) === 0);
-      const entry: ThemeLibraryEntry = {
-        id: existing?.id ?? ("custom-" + themeLibrarySlug(label) + "-" + now.toString(36)),
-        label,
-        baseTheme,
-        config: { ...config, name: label, enabled: true },
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      };
-      const next = [entry, ...current.filter((item) => item.id !== entry.id)];
-      persistThemeLibrary(next);
-      return next;
-    });
+    const existing = savedThemes.find((item) => item.label.localeCompare(label, undefined, { sensitivity: "accent" }) === 0);
+    const entry: ThemeLibraryEntry = {
+      id: existing?.id ?? ("custom-" + themeLibrarySlug(label) + "-" + now.toString(36)),
+      label,
+      baseTheme,
+      config: { ...config, name: label, enabled: true },
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    const next = [entry, ...savedThemes.filter((item) => item.id !== entry.id)];
+    await persistThemeLibrary(next);
+    setSavedThemes(next);
   }
 
   function selectBuiltInTheme(theme: Theme): void {
@@ -1384,11 +1437,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function removeSavedTheme(themeId: string): void {
-    setSavedThemes((current) => {
-      const next = current.filter((item) => item.id !== themeId);
-      persistThemeLibrary(next);
-      return next;
-    });
+    const next = savedThemes.filter((item) => item.id !== themeId);
+    setSavedThemes(next);
+    void persistThemeLibrary(next);
   }
 
   async function saveBookDetails() {
