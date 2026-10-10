@@ -322,7 +322,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-6-8");
   const [previewZoom, setPreviewZoom] = useState(() => {
-    const stored = Number(window.localStorage.getItem("folio-preview-zoom"));
+    const raw = window.localStorage.getItem("folio-preview-zoom");
+    if (raw === null) return 1;
+    const stored = Number(raw);
     return Number.isFinite(stored) ? Math.max(0.5, Math.min(1.6, stored)) : 1;
   });
   const [previewDraft, setPreviewDraft] = useState("");
