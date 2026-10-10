@@ -10,6 +10,7 @@ const fontPicker = fs.readFileSync(path.join(root, "web/src/components/FontPicke
 const fontCss = fs.readFileSync(path.join(root, "web/src/theme-fonts.css"), "utf8");
 const fontFetcher = fs.readFileSync(path.join(root, "scripts/fetch-theme-fonts.mjs"), "utf8");
 const runtimeFonts = fs.readFileSync(path.join(root, "server/pipeline/theme-fonts.ts"), "utf8");
+const globalLibrary = fs.readFileSync(path.join(root, "server/global-library.ts"), "utf8");
 const api = fs.readFileSync(path.join(root, "server/api.ts"), "utf8");
 const css = fs.readFileSync(path.join(root, "web/src/v320-design-preview.css"), "utf8");
 const main = fs.readFileSync(path.join(root, "web/src/main.tsx"), "utf8");
@@ -22,12 +23,17 @@ test("Theme Lab can save reusable styles without carrying a 3.1 badge", () => {
   assert.doesNotMatch(themeLab, />Folio 3\.1</);
 });
 
-test("saved Theme Lab styles are first-class Book Style cards with live previews", () => {
+test("saved Theme Lab styles are first-class Book Style cards with persistent disk storage", () => {
   assert.match(app, /data-custom-theme=/);
   assert.match(app, /previewSavedTheme/);
   assert.match(app, /onSelectSavedTheme/);
   assert.match(app, /themeLabTypography/);
-  assert.match(app, /indexedDB\.open\(THEME_LIBRARY_DB/);
+  assert.match(app, /api\.themeLibrary\(\)/);
+  assert.match(app, /api\.saveThemeLibrary/);
+  assert.doesNotMatch(app, /indexedDB|THEME_LIBRARY_DB/);
+  assert.match(globalLibrary, /FOLIO_WRITABLE_ROOT/);
+  assert.match(globalLibrary, /themes\.json/);
+  assert.match(api, /\/api\/library\/themes/);
 });
 
 test("built-in themes can escape Theme Lab ownership and Design remains editable", () => {
@@ -61,9 +67,12 @@ test("3.2 polish removes masthead seams and loads after 3.1 design fixes", () =>
   assert.ok(main.indexOf('import "./v320-design-preview.css"') > main.indexOf('import "./v311-design-fixes.css"'));
 });
 
-test("3.2.1 keeps Theme Lab text mathematically centered and preview paging clickable", () => {
-  assert.match(css, /style-open-theme-lab\{position:relative!important\}/);
-  assert.match(css, /style-open-theme-lab>span\{position:absolute!important;inset:0!important/);
+test("3.2.3 centers the Theme Lab label directly and gives Format subtitle its own row", () => {
+  assert.match(app, /className="style-open-theme-lab"[^>]*>Theme Lab<\/button>/);
+  assert.doesNotMatch(app, /style-open-theme-lab"[^>]*><span>Theme Lab<\/span>/);
+  assert.match(css, /style-open-theme-lab\{[\s\S]*display:inline-flex!important;[\s\S]*align-items:center!important;[\s\S]*justify-content:center!important/);
+  assert.match(css, /section-title-wrap\{[\s\S]*grid-template-rows:21px 14px!important/);
+  assert.match(css, /section-subtitle-button,[\s\S]*section-subtitle-input\{[\s\S]*grid-row:2!important/);
   assert.match(css, /device-toolbar\{grid-template-columns:minmax\(0,1fr\) auto auto!important/);
   assert.match(css, /device-nav\{grid-column:3!important;grid-row:1!important/);
 });
@@ -116,3 +125,28 @@ test("saved custom theme cards keep their names clear and preview embedded ornam
   assert.match(app, /sample-scene-art/);
   assert.match(css, /theme-sample\.theme-custom \.theme-name\{right:34px!important/);
 });
+
+test("3.2.3 uses Folio preview copy as one block everywhere", () => {
+  assert.match(fontPicker, /FONT_TEST_SENTENCE = "Write\. Format\. Publish\."/);
+  assert.ok((app.match(/<span className="sample-copy">Write\. Format\. Publish\.<\/span>/g) ?? []).length >= 2);
+  assert.doesNotMatch(app, /room had fallen quiet/);
+  assert.doesNotMatch(fontPicker, /Sphinx of black quartz/);
+});
+
+test("3.2.3 custom Chapter fonts persist and travel with exported theme packages", () => {
+  assert.match(themeLab, /onInstallCustomFont/);
+  assert.match(themeLab, /Add custom font/);
+  assert.match(themeLab, /accept="\.ttf,\.otf/);
+  assert.match(themeLab, /version: 2/);
+  assert.match(themeLab, /customFonts: customFonts\.length \? customFonts : undefined/);
+  assert.match(themeLab, /api\.customFontUrl/);
+  assert.match(app, /api\.customFonts\(\)/);
+  assert.match(app, /folio-custom-font-faces/);
+  assert.match(api, /\/api\/library\/fonts/);
+  assert.match(globalLibrary, /fonts\.json/);
+  assert.match(globalLibrary, /installCustomFont/);
+  assert.match(runtimeFonts, /customFontByFamily/);
+  assert.match(runtimeFonts, /customFontFaceCss/);
+  assert.match(runtimeFonts, /customFonts\.map\(\(font\) => customFontPath\(font\)\)/);
+});
+
