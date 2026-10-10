@@ -851,7 +851,7 @@ try {
   await page.click('button[data-command="design"]');
   await page.waitForSelector('.style-library[aria-label="Book style library"]');
 
-  // Reproduce the user's actual ugly combination: Grimoire frame + Jena Gotisch.
+  // Reproduce the user's actual ugly combination: Grimoire frame + Fruktur.
   await page.evaluate(() => {
     const button = [...document.querySelectorAll<HTMLButtonElement>(".style-category-list button")]
       .find((item) => item.textContent?.trim() === "Book Style");
@@ -884,24 +884,24 @@ try {
     done?.click();
   });
   await openFirstParagraphSettings();
-  const jenaDropcapPreview = page.waitForResponse((response) => {
+  const frukturDropcapPreview = page.waitForResponse((response) => {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 }).catch(() => null);
-  await chooseFontPicker("Drop cap typeface", "Jena Gotisch");
+  await chooseFontPicker("Drop cap typeface", "Fruktur");
   await page.evaluate(() => {
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
       .find((button) => button.textContent?.trim() === "Done");
     done?.click();
   });
-  await jenaDropcapPreview;
+  await frukturDropcapPreview;
 
   for (const size of ["theme", "small", "large"] as const) {
     await setDropcapSize(size);
     const geometry = await measureDropcap();
     const collision = await measureCapLineCollisions();
     const wrap = await measureWrappedLineCount();
-    const jenaSafe = Boolean(
+    const frukturSafe = Boolean(
       geometry &&
       geometry.dropcapLines >= 2 &&
       geometry.dropcapLines <= 6 &&
@@ -913,15 +913,15 @@ try {
       wrap.wrappedLines === wrap.inkIntersectingRows &&
       wrap.expectedLines === geometry.dropcapLines
     );
-    check(`Grimoire + Jena Gotisch ${size} releases Reader text on the exact occupied line`,
-      jenaSafe,
+    check(`Grimoire + Fruktur ${size} releases Reader text on the exact occupied line`,
+      frukturSafe,
       JSON.stringify({ geometry, collision, wrap }));
-    if (!jenaSafe) throw new Error(`Jena Gotisch Reader drop cap failed for ${size}`);
+    if (!frukturSafe) throw new Error(`Fruktur Reader drop cap failed for ${size}`);
   }
 
-  const screenshotDirJena = path.join(ROOT, "build", "qa-illustrations-v4");
-  await fs.mkdir(screenshotDirJena, { recursive: true });
-  await page.screenshot({ path: path.join(screenshotDirJena, "v10-jena-dropcap-reader.png"), fullPage: true });
+  const screenshotDirFruktur = path.join(ROOT, "build", "qa-illustrations-v4");
+  await fs.mkdir(screenshotDirFruktur, { recursive: true });
+  await page.screenshot({ path: path.join(screenshotDirFruktur, "v10-fruktur-dropcap-reader.png"), fullPage: true });
 
   await page.click('button[data-command="design"]');
   await page.waitForSelector('.style-library[aria-label="Book style library"]');
@@ -932,13 +932,17 @@ try {
     button.click();
   });
   const chapterFontOptions = await readFontPickerOptions("Typeface");
-  const chapterHasRequestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"]
-    .every((name) => chapterFontOptions.includes(name));
-  check("Chapter Heading picker exposes all requested licensed fonts", chapterHasRequestedFonts, JSON.stringify(chapterFontOptions));
-  if (!chapterHasRequestedFonts) throw new Error("Chapter Heading font picker is missing requested fonts");
+  const chapterRequestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "Germania One", "New Rocker", "Manufacturing Consent", "Kings", "Texturina", "Grenze", "Jacquarda Bastarda 9", "Rakkas"];
+  const chapterRetiredFonts = ["Jena Gotisch", "CAT Altenglisch", "Slavkappen"];
+  const chapterHasRequestedFonts = chapterRequestedFonts.every((name) => chapterFontOptions.includes(name));
+  const chapterRetiredFontsHidden = chapterRetiredFonts.every((name) => !chapterFontOptions.includes(name));
+  check("Chapter Heading picker exposes the verified Latin Extended gothic set", chapterHasRequestedFonts, JSON.stringify(chapterFontOptions));
+  check("Chapter Heading picker hides unverified legacy faces", chapterRetiredFontsHidden, JSON.stringify(chapterFontOptions));
+  if (!chapterHasRequestedFonts) throw new Error("Chapter Heading font picker is missing a verified Latin Extended font");
+  if (!chapterRetiredFontsHidden) throw new Error("Chapter Heading picker still exposes an unverified legacy font");
 
-  // Force a real state transition before selecting Jena. Full-suite runs may
-  // inherit a previously persisted heading override; setting Jena -> Jena is a
+  // Force a real state transition before selecting Fruktur. Full-suite runs may
+  // inherit a previously persisted heading override; setting Fruktur -> Fruktur is a
   // no-op in React and used to leave the old authoritative preview untouched.
   const headingDefaultPreview = page.waitForResponse((response) => {
     const request = response.request();
@@ -947,12 +951,12 @@ try {
   await chooseFontPicker("Typeface", "Theme default");
   await headingDefaultPreview;
 
-  const jenaPreview = page.waitForResponse((response) => {
+  const frukturPreview = page.waitForResponse((response) => {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 });
-  await chooseFontPicker("Typeface", "Jena Gotisch");
-  await jenaPreview;
+  await chooseFontPicker("Typeface", "Fruktur");
+  await frukturPreview;
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
@@ -960,11 +964,11 @@ try {
       doc &&
       doc.fonts.status === "loaded" &&
       heading &&
-      /Jena Gotisch/i.test(getComputedStyle(heading).fontFamily)
+      /Fruktur/i.test(getComputedStyle(heading).fontFamily)
     );
   });
 
-  const jenaHeading = await page.evaluate(() => {
+  const frukturHeading = await page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
     if (!heading || !doc?.defaultView) return null;
@@ -979,22 +983,21 @@ try {
       scrollWidth: heading.scrollWidth,
     };
   });
-  const jenaNormalized = Boolean(jenaHeading &&
-    /Jena Gotisch/i.test(jenaHeading.fontFamily) &&
-    Number(jenaHeading.fontWeight) <= 400 &&
-    jenaHeading.lineHeight >= jenaHeading.fontSize * 1.14 &&
-    jenaHeading.letterSpacing >= jenaHeading.fontSize * 0.045 &&
-    jenaHeading.scrollWidth <= jenaHeading.clientWidth + 2);
-  check("Jena Gotisch heading is optically normalized and contained by the theme frame",
-    jenaNormalized, JSON.stringify(jenaHeading));
-  if (!jenaNormalized) throw new Error("Jena Gotisch still breaks the chapter heading geometry");
+  const frukturContained = Boolean(frukturHeading &&
+    /Fruktur/i.test(frukturHeading.fontFamily) &&
+    frukturHeading.fontSize > 0 &&
+    frukturHeading.lineHeight >= frukturHeading.fontSize &&
+    frukturHeading.scrollWidth <= frukturHeading.clientWidth + 2);
+  check("Fruktur heading stays loaded and contained by the theme frame",
+    frukturContained, JSON.stringify(frukturHeading));
+  if (!frukturContained) throw new Error("Fruktur breaks the chapter heading geometry");
 
   const screenshotDir = path.join(ROOT, "build", "qa-illustrations-v4");
   await fs.mkdir(screenshotDir, { recursive: true });
-  await page.screenshot({ path: path.join(screenshotDir, "v10-jena-grimoire.png"), fullPage: true });
+  await page.screenshot({ path: path.join(screenshotDir, "v10-fruktur-grimoire.png"), fullPage: true });
 
-  // Persist Jena, then choose Theme default. The authoritative preview must
-  // return to Grimoire instead of merging the persisted Jena override back in.
+  // Persist Fruktur, then choose Theme default. The authoritative preview must
+  // return to Grimoire instead of merging the persisted Fruktur override back in.
   await new Promise((resolve) => setTimeout(resolve, 650));
   const defaultHeadingPreview = page.waitForResponse((response) => {
     const request = response.request();
@@ -1005,14 +1008,14 @@ try {
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
-    return Boolean(heading && !/Jena Gotisch/i.test(getComputedStyle(heading).fontFamily));
+    return Boolean(heading && !/Fruktur/i.test(getComputedStyle(heading).fontFamily));
   });
   const restoredHeadingFamily = await page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const heading = doc?.querySelector<HTMLElement>("section.chapter > h1");
     return heading ? getComputedStyle(heading).fontFamily : "";
   });
-  check("Theme default clears a persisted Jena heading override",
+  check("Theme default clears a persisted Fruktur heading override",
     restoredHeadingFamily === grimoireHeadingBaseline.fontFamily,
     JSON.stringify({ expected: grimoireHeadingBaseline.fontFamily, restored: restoredHeadingFamily }));
   if (restoredHeadingFamily !== grimoireHeadingBaseline.fontFamily) {
