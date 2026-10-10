@@ -2892,7 +2892,43 @@ function StyleLibrary(props: {
 }
 
 function CustomizePanel(props: { category: StyleCategory; typography: Typography; setTypography: (ty: Typography) => void; printOptions: PrintOptions; setPrintOptions: (opts: PrintOptions) => void; themeDropcap: boolean }) {
-  const { category, typography: ty, setTypography: setTy, printOptions, setPrintOptions } = props;
+  const { category, typography: ty, setTypography: setRawTy, printOptions, setPrintOptions } = props;
+  const setTy = (next: Typography) => {
+    if (!ty.themeLab?.enabled) {
+      setRawTy(next);
+      return;
+    }
+    const lab: ThemeLabConfig = { ...ty.themeLab, enabled: true };
+    const emNumber = (value: string | undefined) => {
+      if (!value) return undefined;
+      const parsed = Number.parseFloat(value.replace("em", ""));
+      return Number.isFinite(parsed) ? parsed : undefined;
+    };
+    if (next.bodyFont !== ty.bodyFont && next.bodyFont) lab.bodyFont = next.bodyFont;
+    if (next.fontSize !== ty.fontSize && next.fontSize) lab.bodySize = emNumber(next.fontSize) ?? lab.bodySize;
+    if (next.lineHeight !== ty.lineHeight && next.lineHeight !== undefined) {
+      const value = Number(next.lineHeight);
+      if (Number.isFinite(value)) lab.lineHeight = value;
+    }
+    if (next.bodyAlign !== ty.bodyAlign && next.bodyAlign) lab.bodyAlign = next.bodyAlign;
+    if (next.paragraphIndent !== ty.paragraphIndent && next.paragraphIndent !== undefined) lab.paragraphIndent = emNumber(next.paragraphIndent) ?? lab.paragraphIndent;
+    if (next.paragraphSpacing !== ty.paragraphSpacing && next.paragraphSpacing !== undefined) lab.paragraphSpacing = emNumber(next.paragraphSpacing) ?? lab.paragraphSpacing;
+    if (next.headingFont !== ty.headingFont && next.headingFont) lab.headingFont = next.headingFont;
+    if (next.chapterTitle !== ty.chapterTitle && next.chapterTitle) {
+      if (next.chapterTitle.size !== ty.chapterTitle?.size && next.chapterTitle.size) lab.headingSize = emNumber(next.chapterTitle.size) ?? lab.headingSize;
+      if (next.chapterTitle.align !== ty.chapterTitle?.align && next.chapterTitle.align) lab.headingAlign = next.chapterTitle.align;
+      if (next.chapterTitle.case !== ty.chapterTitle?.case && next.chapterTitle.case) lab.headingCase = next.chapterTitle.case;
+      if (next.chapterTitle.style !== ty.chapterTitle?.style && next.chapterTitle.style) lab.headingStyle = next.chapterTitle.style;
+      if (next.chapterTitle.showLabel !== ty.chapterTitle?.showLabel && next.chapterTitle.showLabel !== undefined) lab.labelVisible = next.chapterTitle.showLabel;
+      if (next.chapterTitle.labelText !== ty.chapterTitle?.labelText && next.chapterTitle.labelText !== undefined) lab.labelText = next.chapterTitle.labelText;
+    }
+    if (next.dropcap !== ty.dropcap && next.dropcap !== undefined) lab.dropcap = next.dropcap;
+    if (next.dropcapSize !== ty.dropcapSize && next.dropcapSize) lab.dropcapSize = next.dropcapSize;
+    if (next.dropcapFont !== ty.dropcapFont && next.dropcapFont) lab.dropcapFont = next.dropcapFont;
+    if (next.sceneOrnament !== ty.sceneOrnament && next.sceneOrnament !== undefined) lab.sceneOrnament = next.sceneOrnament;
+    if (next.titlePageFont !== ty.titlePageFont && next.titlePageFont) lab.titlePageFont = next.titlePageFont;
+    setRawTy({ ...next, themeLab: lab });
+  };
   const row = (label: string, control: React.ReactNode) => <label className="customize-row"><span>{label}</span>{control}</label>;
   const fontRow = (label: string, current: string | undefined, onChange:(value:string)=>void, options:readonly string[]=BUNDLED_FONT_FAMILIES, disabled=false) =>
     <div className="customize-row customize-font-row"><span>{label}</span><FontPicker label={label} value={current} allowDefault disabled={disabled} families={options} onChange={onChange}/></div>;
