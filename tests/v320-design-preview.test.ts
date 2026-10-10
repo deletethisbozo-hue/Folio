@@ -63,7 +63,7 @@ test("3.2 polish removes masthead seams and loads after 3.1 design fixes", () =>
   assert.match(css, /command-wordmark\{border-right-color:transparent!important\}/);
   assert.match(css, /tone-toggle\{border-left-color:transparent!important\}/);
   assert.match(css, /data-workspace-mode="format"\] \.section-titlebar/);
-  assert.ok(css.includes(".section-title-input{font-size:15px!important"));
+  assert.match(css, /section-title-input\{\s*grid-column:2!important;[\s\S]{0,420}font-size:15px!important/);
   assert.ok(main.indexOf('import "./v320-design-preview.css"') > main.indexOf('import "./v311-design-fixes.css"'));
 });
 
