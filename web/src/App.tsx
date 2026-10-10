@@ -1,5 +1,5 @@
 import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
-import FontPicker, { BUNDLED_FONT_FAMILIES } from "./components/FontPicker";
+import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
@@ -2991,9 +2991,10 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     setRawTy({ ...next, themeLab: lab });
   };
   const row = (label: string, control: React.ReactNode) => <label className="customize-row"><span>{label}</span>{control}</label>;
-  const fontRow = (label: string, current: string | undefined, onChange:(value:string)=>void, options:readonly string[]=BUNDLED_FONT_FAMILIES, disabled=false) =>
+  const fontRow = (label: string, current: string | undefined, onChange:(value:string)=>void, options:readonly string[]=BODY_FONT_FAMILIES, disabled=false) =>
     <div className="customize-row customize-font-row"><span>{label}</span><FontPicker label={label} value={current} allowDefault disabled={disabled} families={options} onChange={onChange}/></div>;
-  const displayFamilies = BUNDLED_FONT_FAMILIES;
+  const displayFamilies = DISPLAY_FONT_FAMILIES;
+  const dropcapFamilies = DROPCAP_FONT_FAMILIES;
   const clearTypographyKeys = (...keys: Array<keyof Typography>) => {
     const next = { ...ty };
     for (const key of keys) delete next[key];
@@ -3048,11 +3049,11 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     {category === "First Paragraph" && <>
       {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
       {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small</option><option value="large">Large</option></select>)}
-      {fontRow("Drop cap typeface", ty.dropcapFont, (value) => setTy({ ...ty, dropcapFont: value || undefined }), displayFamilies, !(ty.dropcap ?? props.themeDropcap))}
+      {fontRow("Drop cap typeface", ty.dropcapFont, (value) => setTy({ ...ty, dropcapFont: value || undefined }), dropcapFamilies, !(ty.dropcap ?? props.themeDropcap))}
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
     {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
-    {category === "Title Page" && fontRow("Title typeface", ty.titlePageFont, (value) => setTy({ ...ty, titlePageFont: value || undefined }))}
+    {category === "Title Page" && fontRow("Title typeface", ty.titlePageFont, (value) => setTy({ ...ty, titlePageFont: value || undefined }), displayFamilies)}
   </div>;
 }
