@@ -9,6 +9,8 @@ import type {
   ProjectSummary,
   SectionDocument,
   Theme,
+  ThemeLibraryEntry,
+  CustomFontRecord,
   Trim,
   Typography,
 } from "./types";
@@ -36,6 +38,20 @@ function isTransientPreviewConnectionError(error: unknown): boolean {
 export const api = {
   health: () => fetch("/api/health").then((r) => json<{ ok: boolean; name: string; version: string }>(r)),
   themes: () => fetch("/api/themes").then((r) => json<Theme[]>(r)),
+  themeLibrary: () => fetch("/api/library/themes").then((r) => json<ThemeLibraryEntry[]>(r)),
+  saveThemeLibrary: (themes: ThemeLibraryEntry[]) =>
+    fetch("/api/library/themes", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ themes }),
+    }).then((r) => json<ThemeLibraryEntry[]>(r)),
+  customFonts: () => fetch("/api/library/fonts").then((r) => json<CustomFontRecord[]>(r)),
+  installCustomFont: (file: File) => {
+    const form = new FormData();
+    form.append("font", file, file.name);
+    return fetch("/api/library/fonts", { method: "POST", body: form }).then((r) => json<CustomFontRecord>(r));
+  },
+  customFontUrl: (id: string) => `/api/library/fonts/${encodeURIComponent(id)}/file`,
   presets: () => fetch("/api/presets").then((r) => json<Preset[]>(r)),
   matterTypes: () => fetch("/api/matter-types").then((r) => json<MatterType[]>(r)),
   trims: () => fetch("/api/trims").then((r) => json<Trim[]>(r)),
