@@ -32,7 +32,7 @@ export const DROPCAP_FONT_FAMILIES = [
 export const DISPLAY_FONT_FAMILIES = DROPCAP_FONT_FAMILIES;
 export const BUNDLED_FONT_FAMILIES = DISPLAY_FONT_FAMILIES;
 
-export const FONT_TEST_SENTENCE = "Sphinx of black quartz, judge my vow.";
+export const FONT_TEST_SENTENCE = "Write. Format. Publish.";
 
 export function fontStackPrimary(value?: string): string {
   if (!value) return "";
