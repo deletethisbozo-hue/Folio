@@ -23,9 +23,9 @@ import WritingSplitPane from "./WritingSplitPane";
 import SecondDraftPane from "./SecondDraftPane";
 import WriteStudioDrawer from "./WriteStudioDrawer";
 import WritingProgressHalo from "./WritingProgressHalo";
-import ThemeLab from "./ThemeLab";
+import ThemeLab, { themeLabTypography } from "./ThemeLab";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
-import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, Typography } from "./types";
+import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, ThemeLabConfig, ThemeLibraryEntry, Typography } from "./types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type WordCountScope = "book" | "chapter";
@@ -33,6 +33,54 @@ type UiTone = "ivory" | "midnight";
 type WorkspaceMode = "write" | "format";
 type EditorSurface = "auto" | "light" | "dark";
 type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Paragraph After Break" | "Body" | "Scene Break" | "Header & Footer" | "Title Page";
+
+
+const THEME_LIBRARY_KEY = "folio-theme-library-v1";
+
+function loadThemeLibrary(): ThemeLibraryEntry[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(THEME_LIBRARY_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is ThemeLibraryEntry => Boolean(
+      item && typeof item === "object"
+      && typeof (item as ThemeLibraryEntry).id === "string"
+      && typeof (item as ThemeLibraryEntry).label === "string"
+      && typeof (item as ThemeLibraryEntry).baseTheme === "string"
+      && (item as ThemeLibraryEntry).config
+      && typeof (item as ThemeLibraryEntry).config === "object",
+    ));
+  } catch {
+    return [];
+  }
+}
+
+function persistThemeLibrary(items: ThemeLibraryEntry[]): void {
+  window.localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(items));
+}
+
+function themeLibrarySlug(value: string): string {
+  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 42) || "theme";
+}
+
+function stripThemeLabOwnedTypography(current: Typography): Typography {
+  const next = { ...current };
+  delete next.themeLab;
+  delete next.bodyFont;
+  delete next.fontSize;
+  delete next.lineHeight;
+  delete next.bodyAlign;
+  delete next.paragraphIndent;
+  delete next.paragraphSpacing;
+  delete next.headingFont;
+  delete next.dropcap;
+  delete next.dropcapSize;
+  delete next.dropcapFont;
+  delete next.sceneOrnament;
+  delete next.titlePageFont;
+  delete next.chapterTitle;
+  return next;
+}
 
 const styleCategories: StyleCategory[] = [
   "Book Style", "Chapter Heading", "First Paragraph", "Paragraph After Break",
@@ -52,7 +100,7 @@ const sceneOrnaments = [
   "𓆩 ◆ 𓆪", "— ☾ —", "❖ ❖ ❖", "⸻ ✠ ⸻",
 ];
 
-type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "draft" | "focus" | "typewriter" | "sidebar" | "previous" | "next" | "tools" | "moon" | "sun";
+type UiIconName = "drag" | "open" | "reload" | "up" | "down" | "undo" | "redo" | "search" | "split" | "draft" | "focus" | "typewriter" | "sidebar" | "previous" | "next" | "tools" | "moon" | "sun" | "zoom";
 
 function UiIcon({ name }: { name: UiIconName }) {
   const paths: Record<UiIconName, React.ReactNode> = {
@@ -74,6 +122,7 @@ function UiIcon({ name }: { name: UiIconName }) {
     tools: <><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></>,
     moon: <path d="M20 15.2A8 8 0 1 1 8.8 4 6.5 6.5 0 0 0 20 15.2Z"/>,
     sun: <><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></>,
+    zoom: <><circle cx="10.5" cy="10.5" r="6.2"/><path d="m15.2 15.2 4.4 4.4M10.5 7.8v5.4M7.8 10.5h5.4"/></>,
   };
   return <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }
