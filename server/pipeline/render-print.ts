@@ -669,6 +669,6 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions): Pr
       t.h,
     );
     return page.content();
-  }, "preview");;
+  }, "preview");
   return { html: result, meta };
 }
