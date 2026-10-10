@@ -2017,11 +2017,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     style.id = "folio-device-profile";
     if (previewMode === "print") {
       doc.getElementById("folio-device-calibration")?.remove();
-      const page = doc.querySelector(".pagedjs_page") as HTMLElement | null;
-      const width = Math.max(1, page?.getBoundingClientRect().width || 576);
-      const available = Math.max(320, frame.clientWidth || previewStageRef.current?.clientWidth || 576);
-      const scale = Math.max(.35, Math.min(1, (available - 28) / width));
-      style.textContent = `html,body{background:#e9edf2!important}.pagedjs_pages{zoom:${scale};transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 0 24px!important}.pagedjs_page{margin:10px auto!important}`;
+      // Preserve the selected trim's physical size. Older builds auto-fit every
+      // page to the iframe width, making 5×8 and 8.5×11 look identical. Folio
+      // 3.2 zooms the whole preview shell instead, so trim changes remain visible.
+      style.textContent = "html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:1!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 14px 24px!important}.pagedjs_page{margin:10px auto!important}";
     } else {
       const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li,body.book-formatter main.book section.backmatter>p:not(.scene-break),body.book-formatter main.book section.backmatter li";
       const proseComposition = typography.bodyAlign === "left"
