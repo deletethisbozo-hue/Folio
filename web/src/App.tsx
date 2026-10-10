@@ -25,7 +25,7 @@ import WriteStudioDrawer from "./WriteStudioDrawer";
 import WritingProgressHalo from "./WritingProgressHalo";
 import ThemeLab, { themeLabTypography } from "./ThemeLab";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
-import type { BookMeta, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, ThemeLabConfig, ThemeLibraryEntry, Typography } from "./types";
+import type { BookMeta, CustomFontRecord, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, ThemeLabConfig, ThemeLibraryEntry, Typography } from "./types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type WordCountScope = "book" | "chapter";
@@ -36,8 +36,6 @@ type StyleCategory = "Book Style" | "Chapter Heading" | "First Paragraph" | "Par
 
 
 const THEME_LIBRARY_KEY = "folio-theme-library-v1";
-const THEME_LIBRARY_DB = "folio-theme-library";
-const THEME_LIBRARY_STORE = "state";
 
 function validThemeLibraryEntries(value: unknown): ThemeLibraryEntry[] {
   if (!Array.isArray(value)) return [];
@@ -59,50 +57,22 @@ function loadThemeLibraryFallback(): ThemeLibraryEntry[] {
   }
 }
 
-function openThemeLibraryDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open(THEME_LIBRARY_DB, 1);
-    request.onerror = () => reject(request.error ?? new Error("Could not open the theme library."));
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(THEME_LIBRARY_STORE)) request.result.createObjectStore(THEME_LIBRARY_STORE);
-    };
-    request.onsuccess = () => resolve(request.result);
-  });
+async function loadPersistentThemeLibrary(): Promise<ThemeLibraryEntry[]> {
+  const disk = validThemeLibraryEntries(await api.themeLibrary());
+  if (disk.length) return disk;
+  // One-time migration path for a library saved by an older build on the
+  // current browser origin. The disk library becomes authoritative immediately.
+  const legacy = loadThemeLibraryFallback();
+  if (!legacy.length) return [];
+  return validThemeLibraryEntries(await api.saveThemeLibrary(legacy));
 }
 
-async function loadThemeLibraryFromDb(): Promise<ThemeLibraryEntry[]> {
-  try {
-    const db = await openThemeLibraryDb();
-    const result = await new Promise<unknown>((resolve, reject) => {
-      const tx = db.transaction(THEME_LIBRARY_STORE, "readonly");
-      const request = tx.objectStore(THEME_LIBRARY_STORE).get("themes");
-      request.onerror = () => reject(request.error ?? new Error("Could not read the theme library."));
-      request.onsuccess = () => resolve(request.result);
-    });
-    db.close();
-    return validThemeLibraryEntries(result);
-  } catch {
-    return [];
-  }
-}
-
-async function persistThemeLibrary(items: ThemeLibraryEntry[]): Promise<void> {
-  let db: IDBDatabase | null = null;
-  try {
-    db = await openThemeLibraryDb();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db!.transaction(THEME_LIBRARY_STORE, "readwrite");
-      tx.onerror = () => reject(tx.error ?? new Error("Could not save the theme library."));
-      tx.oncomplete = () => resolve();
-      tx.objectStore(THEME_LIBRARY_STORE).put(items, "themes");
-    });
-  } finally {
-    db?.close();
-  }
-  // Keep a lightweight compatibility copy when the browser quota allows it.
-  // Large Theme Lab artwork can exceed localStorage, which is why IndexedDB is
-  // authoritative.
-  try { window.localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(items)); } catch {}
+async function persistThemeLibrary(items: ThemeLibraryEntry[]): Promise<ThemeLibraryEntry[]> {
+  const saved = validThemeLibraryEntries(await api.saveThemeLibrary(items));
+  // Compatibility copy only. Random Electron ports make browser storage
+  // unsuitable as the authoritative store.
+  try { window.localStorage.setItem(THEME_LIBRARY_KEY, JSON.stringify(saved)); } catch {}
+  return saved;
 }
 
 function themeLibrarySlug(value: string): string {
@@ -306,6 +276,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const initialSection = initialProject?.sections.find((section) => section.kind === "chapter") ?? initialProject?.sections[0] ?? null;
   const [themes, setThemes] = useState<Theme[]>([]);
   const [savedThemes, setSavedThemes] = useState<ThemeLibraryEntry[]>(() => loadThemeLibraryFallback());
+  const [customFonts, setCustomFonts] = useState<CustomFontRecord[]>([]);
   const [matterTypes, setMatterTypes] = useState<MatterType[]>([]);
   const [project, setProject] = useState<ProjectSummary | null>(initialProject);
   const [meta, setMeta] = useState<BookMeta | null>(initialProject?.meta ?? null);
@@ -559,11 +530,29 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [document?.id, draft, typography.sceneOrnament, meta?.theme, themes, project?.projectId]);
   useEffect(() => {
     let cancelled = false;
-    void loadThemeLibraryFromDb().then((items) => {
-      if (!cancelled && items.length) setSavedThemes(items);
-    });
+    void Promise.all([loadPersistentThemeLibrary(), api.customFonts()])
+      .then(([items, fonts]) => {
+        if (cancelled) return;
+        setSavedThemes(items);
+        setCustomFonts(fonts);
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+      });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let style = document.getElementById("folio-custom-font-faces") as HTMLStyleElement | null;
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "folio-custom-font-faces";
+      document.head.appendChild(style);
+    }
+    style.textContent = customFonts.map((font) =>
+      `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(api.customFontUrl(font.id))}) format('${font.format}');font-weight:100 900;font-style:normal;font-display:swap}`
+    ).join("\n");
+  }, [customFonts]);
 
   useEffect(() => {
     Promise.all([api.themes(), api.matterTypes()])
@@ -1419,8 +1408,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       updatedAt: now,
     };
     const next = [entry, ...savedThemes.filter((item) => item.id !== entry.id)];
-    await persistThemeLibrary(next);
-    setSavedThemes(next);
+    setSavedThemes(await persistThemeLibrary(next));
+  }
+
+  async function installCustomFont(file: File): Promise<CustomFontRecord> {
+    const installed = await api.installCustomFont(file);
+    const fonts = await api.customFonts();
+    setCustomFonts(fonts);
+    return fonts.find((font) => font.id === installed.id) ?? installed;
   }
 
   function selectBuiltInTheme(theme: Theme): void {
@@ -1439,9 +1434,15 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function removeSavedTheme(themeId: string): void {
+    const previous = savedThemes;
     const next = savedThemes.filter((item) => item.id !== themeId);
     setSavedThemes(next);
-    void persistThemeLibrary(next);
+    void persistThemeLibrary(next)
+      .then(setSavedThemes)
+      .catch((reason) => {
+        setSavedThemes(previous);
+        setError(reason instanceof Error ? reason.message : String(reason));
+      });
   }
 
   async function saveBookDetails() {
@@ -2712,6 +2713,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           chapterPreviewId={stylePreviewSectionId}
           titlePagePreviewId={titlePagePreviewId}
           previewDraft={stylePreviewDraft}
+          customFonts={customFonts}
+          onInstallCustomFont={installCustomFont}
           onClose={() => setShowThemeLab(false)}
           onApply={applyThemeLab}
           onSaveToLibrary={saveThemeToLibrary}
@@ -2920,7 +2923,7 @@ function StyleLibrary(props: {
   };
   return <div className="style-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
     <section className="style-library" role="dialog" aria-modal="true" aria-label="Book style library">
-      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}><span>Theme Lab</span></button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
+      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}>Theme Lab</button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
         <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">
@@ -2937,11 +2940,11 @@ function StyleLibrary(props: {
               <span className="sample-title" style={{ fontFamily: theme.config.headingFont ?? base?.previewHeadingFont, color: theme.config.headingColor }}>The Visitor</span>
               {chapterArt?.dataUrl && chapterArt.placement !== "above" && <span className="sample-chapter-art" style={{ justifyContent: artJustify(chapterArt.align) }}><img src={chapterArt.dataUrl} alt="" style={{ width: Math.max(12, Math.min(100, chapterArt.width ?? 34)) + "%", opacity: chapterArt.opacity ?? 1 }}/></span>}
               {sceneArt?.dataUrl ? <span className="sample-scene-art" style={{ justifyContent: artJustify(sceneArt.align) }}><img src={sceneArt.dataUrl} alt="" style={{ width: Math.max(10, Math.min(80, sceneArt.width ?? 18)) + "%", opacity: sceneArt.opacity ?? 1 }}/></span> : <span className="sample-ornament">{theme.config.sceneOrnament ?? base?.sceneOrnament ?? "⁂"}</span>}
-              <span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span>
+              <span className="sample-copy">Write. Format. Publish.</span>
               <span role="button" tabIndex={0} className="theme-custom-remove" title="Remove from theme library" aria-label={"Remove " + theme.label + " from theme library"} onClick={(event) => { event.stopPropagation(); props.onRemoveSavedTheme(theme.id); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); props.onRemoveSavedTheme(theme.id); } }}>×</span>
             </button>;
           })}
-          {themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (!selectedCustom && meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectBuiltInTheme(theme)}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}
+          {themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (!selectedCustom && meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectBuiltInTheme(theme)}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy">Write. Format. Publish.</span></button>)}
         </div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selectedCustom?.config.dropcap ?? selected?.dropcap ?? false}/>}</div>
       </div>
       <footer className="style-library-footer"><div><strong>{selectedCustom?.label ?? selected?.label ?? meta.theme}</strong><span>{selectedCustom ? "Custom Theme Lab style · saved in your theme library" : selected?.description}</span></div><button className="native-button" onClick={props.onClose}>Done</button><button className="native-button primary" onClick={props.onSave}>Save to Book</button></footer>
