@@ -73,6 +73,63 @@ const FONTS = {
   slavkappen: { family: "Slavkappen", faces: [
     { file: "slavkappen.ttf", weight: "400", style: "normal" },
   ] },
+  medievalSharp: { family: "MedievalSharp", faces: [
+    { file: "medievalsharp.ttf", weight: "400", style: "normal" },
+  ] },
+  pirataOne: { family: "Pirata One", faces: [
+    { file: "pirata-one.ttf", weight: "400", style: "normal" },
+  ] },
+  almendra: { family: "Almendra", faces: [
+    { file: "almendra.ttf", weight: "400", style: "normal" },
+    { file: "almendra-bold.ttf", weight: "700", style: "normal" },
+  ] },
+  almendraDisplay: { family: "Almendra Display", faces: [
+    { file: "almendra-display.ttf", weight: "400", style: "normal" },
+  ] },
+  metamorphous: { family: "Metamorphous", faces: [
+    { file: "metamorphous.ttf", weight: "400", style: "normal" },
+  ] },
+  eagleLake: { family: "Eagle Lake", faces: [
+    { file: "eagle-lake.ttf", weight: "400", style: "normal" },
+  ] },
+  newRocker: { family: "New Rocker", faces: [
+    { file: "new-rocker.ttf", weight: "400", style: "normal" },
+  ] },
+  germaniaOne: { family: "Germania One", faces: [
+    { file: "germania-one.ttf", weight: "400", style: "normal" },
+  ] },
+  metalMania: { family: "Metal Mania", faces: [
+    { file: "metal-mania.ttf", weight: "400", style: "normal" },
+  ] },
+  fondamento: { family: "Fondamento", faces: [
+    { file: "fondamento.ttf", weight: "400", style: "normal" },
+    { file: "fondamento-italic.ttf", weight: "400", style: "italic" },
+  ] },
+  cormorantUnicase: { family: "Cormorant Unicase", faces: [
+    { file: "cormorant-unicase.ttf", weight: "400", style: "normal" },
+    { file: "cormorant-unicase-bold.ttf", weight: "700", style: "normal" },
+  ] },
+  berkshireSwash: { family: "Berkshire Swash", faces: [
+    { file: "berkshire-swash.ttf", weight: "400", style: "normal" },
+  ] },
+  texturina: { family: "Texturina", faces: [
+    { file: "texturina.ttf", weight: "100 900", style: "normal" },
+    { file: "texturina-italic.ttf", weight: "100 900", style: "italic" },
+  ] },
+  caudex: { family: "Caudex", faces: [
+    { file: "caudex.ttf", weight: "400", style: "normal" },
+    { file: "caudex-bold.ttf", weight: "700", style: "normal" },
+    { file: "caudex-italic.ttf", weight: "400", style: "italic" },
+  ] },
+  rye: { family: "Rye", faces: [
+    { file: "rye.ttf", weight: "400", style: "normal" },
+  ] },
+  sancreek: { family: "Sancreek", faces: [
+    { file: "sancreek.ttf", weight: "400", style: "normal" },
+  ] },
+  novaCut: { family: "Nova Cut", faces: [
+    { file: "nova-cut.ttf", weight: "400", style: "normal" },
+  ] },
 } satisfies Record<string, FontSpec>;
 
 type FontKey = keyof typeof FONTS;
@@ -98,6 +155,14 @@ const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
   ["Vollkorn", "vollkorn"], ["Barlow Condensed", "condensed"],
   ["Bodoni Moda", "bodoni"], ["Cinzel", "cinzel"],
   ["Grenze Gotisch", "gothic"], ["Roboto Slab", "slab"],
+  ["MedievalSharp", "medievalSharp"], ["Pirata One", "pirataOne"],
+  ["Almendra", "almendra"], ["Almendra Display", "almendraDisplay"],
+  ["Metamorphous", "metamorphous"], ["Eagle Lake", "eagleLake"],
+  ["New Rocker", "newRocker"], ["Germania One", "germaniaOne"],
+  ["Metal Mania", "metalMania"], ["Fondamento", "fondamento"],
+  ["Cormorant Unicase", "cormorantUnicase"], ["Berkshire Swash", "berkshireSwash"],
+  ["Texturina", "texturina"], ["Caudex", "caudex"], ["Rye", "rye"],
+  ["Sancreek", "sancreek"], ["Nova Cut", "novaCut"],
 
   ["Libre Caslon Text", "caslon"], ["Libre Baskerville", "baskerville"],
   ["EB Garamond", "garamond"], ["Newsreader", "newsreader"], ["Vollkorn", "vollkorn"],
