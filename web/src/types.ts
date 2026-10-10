@@ -118,6 +118,15 @@ export interface ThemeLibraryEntry {
   updatedAt: number;
 }
 
+export interface CustomFontRecord {
+  id: string;
+  family: string;
+  originalName: string;
+  filename: string;
+  format: "truetype" | "opentype";
+  createdAt: number;
+}
+
 export interface Typography {
   themeLab?: ThemeLabConfig;
   bodyFont?: string;
