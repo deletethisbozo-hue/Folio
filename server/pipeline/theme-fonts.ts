@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { ThemeName } from "./types.ts";
 import { THEME_FONTS_DIR, themeCss } from "./paths.ts";
+import { customFontByFamily, customFontPath, type CustomFontRecord } from "../global-library.ts";
 
 type FontTarget = "html" | "print" | "epub";
 type FontFace = { file: string; weight: string; style: "normal" | "italic" };
@@ -320,6 +321,19 @@ async function fontFaceCss(spec: FontSpec, target: FontTarget): Promise<string> 
   return rules.join("\n");
 }
 
+async function customFaceSource(font: CustomFontRecord, target: FontTarget): Promise<string> {
+  if (target === "html") return `url('/api/library/fonts/${encodeURIComponent(font.id)}/file') format('${font.format}')`;
+  if (target === "epub") return `url('../fonts/${font.filename}') format('${font.format}')`;
+  const data = await fs.readFile(customFontPath(font));
+  const mime = font.format === "opentype" ? "font/otf" : "font/ttf";
+  return `url('data:${mime};base64,${data.toString("base64")}') format('${font.format}')`;
+}
+
+async function customFontFaceCss(font: CustomFontRecord, target: FontTarget): Promise<string> {
+  const src = await customFaceSource(font, target);
+  return `@font-face{font-family:${JSON.stringify(font.family)};src:${src};font-weight:100 900;font-style:normal;font-display:block;}`;
+}
+
 export async function buildThemeRuntimeCss(
   theme: ThemeName,
   target: FontTarget,
@@ -328,23 +342,35 @@ export async function buildThemeRuntimeCss(
   const source = await fs.readFile(themeCss(theme), "utf8");
   const normalized = normalizeThemeFontFamilies(source);
   const requested = new Set<FontKey>();
+  const customFonts: CustomFontRecord[] = [];
   for (const family of requestedFamilies) {
     const direct = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
       .find(([, spec]) => spec.family === family)?.[0];
     const legacy = LEGACY_TO_BUILTIN.find(([name]) => name === family)?.[1];
     const key = direct ?? legacy;
-    if (key) requested.add(key);
+    if (key) {
+      requested.add(key);
+      continue;
+    }
+    const custom = await customFontByFamily(family);
+    if (custom && !customFonts.some((font) => font.id === custom.id)) customFonts.push(custom);
   }
   const keys = [...new Set<FontKey>([...normalized.used, ...requested])];
-  const faces = await Promise.all(keys.map((key) => fontFaceCss(FONTS[key], target)));
+  const faces = await Promise.all([
+    ...keys.map((key) => fontFaceCss(FONTS[key], target)),
+    ...customFonts.map((font) => customFontFaceCss(font, target)),
+  ]);
   const fontCss = faces.join("\n");
-  const fontFiles = [...new Set(keys.flatMap((key) => FONTS[key].faces.map((face) => path.join(THEME_FONTS_DIR, face.file))))];
+  const fontFiles = [...new Set([
+    ...keys.flatMap((key) => FONTS[key].faces.map((face) => path.join(THEME_FONTS_DIR, face.file))),
+    ...customFonts.map((font) => customFontPath(font)),
+  ])];
   return {
     css: `${fontCss}\n${normalized.css}`,
     themeCss: normalized.css,
     fontCss,
     fontFiles,
-    families: keys.map((key) => FONTS[key].family),
+    families: [...keys.map((key) => FONTS[key].family), ...customFonts.map((font) => font.family)],
   };
 }
 
