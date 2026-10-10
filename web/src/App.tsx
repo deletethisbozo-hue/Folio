@@ -2927,12 +2927,16 @@ function StyleLibrary(props: {
           {savedThemes.map((theme) => {
             const base = themes.find((item) => item.name === theme.baseTheme);
             const active = selectedCustom?.id === theme.id;
+            const chapterArt = theme.config.chapterOrnament;
+            const sceneArt = theme.config.sceneImage;
+            const artJustify = (align?: "left" | "center" | "right") => align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
             return <button key={theme.id} data-custom-theme={theme.id} className={"theme-sample theme-custom" + (active ? " selected" : "")} style={{ background: theme.config.paper ?? base?.previewPaper, color: theme.config.accent ?? base?.previewAccent, fontFamily: theme.config.bodyFont ?? base?.previewFont }} onMouseEnter={() => previewSavedTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewSavedTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectSavedTheme(theme)}>
-              <span className="theme-custom-badge">Custom</span>
               <span className="theme-name">{theme.label}</span>
               <span className="sample-chapter" style={{ fontFamily: theme.config.headingFont ?? base?.previewHeadingFont }}>{theme.config.labelVisible === false ? "\u00a0" : theme.config.labelText ?? base?.chapterLabel ?? "CHAPTER"}</span>
+              {chapterArt?.dataUrl && chapterArt.placement === "above" && <span className="sample-chapter-art" style={{ justifyContent: artJustify(chapterArt.align) }}><img src={chapterArt.dataUrl} alt="" style={{ width: Math.max(12, Math.min(100, chapterArt.width ?? 34)) + "%", opacity: chapterArt.opacity ?? 1 }}/></span>}
               <span className="sample-title" style={{ fontFamily: theme.config.headingFont ?? base?.previewHeadingFont, color: theme.config.headingColor }}>The Visitor</span>
-              <span className="sample-ornament">{theme.config.sceneOrnament ?? base?.sceneOrnament ?? "⁂"}</span>
+              {chapterArt?.dataUrl && chapterArt.placement !== "above" && <span className="sample-chapter-art" style={{ justifyContent: artJustify(chapterArt.align) }}><img src={chapterArt.dataUrl} alt="" style={{ width: Math.max(12, Math.min(100, chapterArt.width ?? 34)) + "%", opacity: chapterArt.opacity ?? 1 }}/></span>}
+              {sceneArt?.dataUrl ? <span className="sample-scene-art" style={{ justifyContent: artJustify(sceneArt.align) }}><img src={sceneArt.dataUrl} alt="" style={{ width: Math.max(10, Math.min(80, sceneArt.width ?? 18)) + "%", opacity: sceneArt.opacity ?? 1 }}/></span> : <span className="sample-ornament">{theme.config.sceneOrnament ?? base?.sceneOrnament ?? "⁂"}</span>}
               <span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span>
               <span role="button" tabIndex={0} className="theme-custom-remove" title="Remove from theme library" aria-label={"Remove " + theme.label + " from theme library"} onClick={(event) => { event.stopPropagation(); props.onRemoveSavedTheme(theme.id); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); props.onRemoveSavedTheme(theme.id); } }}>×</span>
             </button>;

@@ -14,6 +14,8 @@ const QUALIFIED_DISPLAY_SOURCES = [
   "medievalsharp", "pirataone", "almendra", "almendradisplay", "metamorphous",
   "eaglelake", "newrocker", "germaniaone", "metalmania", "fondamento",
   "cormorantunicase", "berkshireswash", "texturina", "caudex", "rye", "sancreek", "novacut",
+  "barlowcondensed", "bodonimoda", "cinzel", "grenzegotisch", "manufacturingconsent", "kings",
+  "fruktur", "grenze", "jacquardabastarda9", "rakkas",
 ];
 
 
@@ -42,6 +44,10 @@ const assets = [
   ["bodoni-moda-italic.ttf", "ofl/bodonimoda/BodoniModa-Italic[opsz,wght].ttf"],
   ["cinzel.ttf", "ofl/cinzel/Cinzel[wght].ttf"],
   ["grenze-gotisch.ttf", "ofl/grenzegotisch/GrenzeGotisch[wght].ttf"],
+  ["fruktur.ttf", "ofl/fruktur/Fruktur-Regular.ttf"],
+  ["grenze.ttf", "ofl/grenze/Grenze[wght].ttf"],
+  ["jacquarda-bastarda-9.ttf", "ofl/jacquardabastarda9/JacquardaBastarda9-Regular.ttf"],
+  ["rakkas.ttf", "ofl/rakkas/Rakkas-Regular.ttf"],
   ["roboto-slab.ttf", "apache/robotoslab/RobotoSlab[wght].ttf"],
   ["medievalsharp.ttf", "ofl/medievalsharp/MedievalSharp.ttf"],
   ["pirata-one.ttf", "ofl/pirataone/PirataOne-Regular.ttf"],
@@ -136,6 +142,10 @@ const licenses = [
   ["Rye-OFL.txt", "ofl/rye/OFL.txt"],
   ["Sancreek-OFL.txt", "ofl/sancreek/OFL.txt"],
   ["Nova-Cut-OFL.txt", "ofl/novacut/OFL.txt"],
+  ["Fruktur-OFL.txt", "ofl/fruktur/OFL.txt"],
+  ["Grenze-OFL.txt", "ofl/grenze/OFL.txt"],
+  ["Jacquarda-Bastarda-9-OFL.txt", "ofl/jacquardabastarda9/OFL.txt"],
+  ["Rakkas-OFL.txt", "ofl/rakkas/OFL.txt"],
 ];
 
 function encodeRepoPath(value) {
@@ -327,7 +337,7 @@ await fs.writeFile(
     "Manufacturing Consent — Google Fonts distribution",
     "Embedded font pack SHA-256: 6a1a2103dcc00916662e0ede34606f303cbae32d84e2ddcc3cf05132dfd349be",
     "Folio 3.2 display additions are taken only from the pinned Google Fonts snapshot and require OFL + latin-ext metadata:",
-    "MedievalSharp, Pirata One, Almendra, Almendra Display, Metamorphous, Eagle Lake, New Rocker, Germania One, Metal Mania, Fondamento, Cormorant Unicase, Berkshire Swash, Texturina, Caudex, Rye, Sancreek, Nova Cut.",
+    "MedievalSharp, Pirata One, Almendra, Almendra Display, Metamorphous, Eagle Lake, New Rocker, Germania One, Metal Mania, Fondamento, Cormorant Unicase, Berkshire Swash, Texturina, Caudex, Rye, Sancreek, Nova Cut, Fruktur, Grenze, Jacquarda Bastarda 9, Rakkas.",
     "Scarbes is intentionally NOT bundled because redistribution terms were not clear enough.",
     "See licenses/ for the original license texts extracted from the supplied archives.",
     "",
