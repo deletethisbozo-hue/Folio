@@ -31,6 +31,6 @@
 .preview-zoom-controls .preview-zoom-readout{width:58px;min-width:58px;gap:4px;font-size:8.5px}
 .preview-zoom-readout .ui-icon{width:13px;height:13px}
 .preview-stage{overflow:auto!important;scrollbar-gutter:stable both-edges}
-.preview-stage .reader-device{transform:scale(var(--folio-preview-zoom,1));transform-origin:center top;transition:transform .14s ease}
+.preview-stage .reader-device{transform:scale(var(--folio-preview-zoom,1));transform-origin:center top;transition:none!important}
 .preview-stage.print-stage{place-items:start center!important}
 .preview-stage.print-stage .reader-device.device-print{transform-origin:center top}
