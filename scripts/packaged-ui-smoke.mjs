@@ -177,9 +177,21 @@ try {
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Packaged Renamed Chapter"), { timeout: 15000 });
   await page.waitForFunction(() => document.querySelector(".rich-editor")?.dataset.markdown?.includes("PACKAGED WHOLE BOOK MARKER"), { timeout: 15000 });
+  // Rename updates the visible title optimistically, while the large-manuscript
+  // save/re-ingest can still keep structural actions busy for a moment. Do not
+  // mistake a disabled Delete button for a failed delete operation.
+  await page.waitForFunction(() => {
+    const button = document.querySelector(".section-delete");
+    return button instanceof HTMLButtonElement && !button.disabled;
+  }, { timeout: 60000 });
   page.once("dialog", (dialog) => void dialog.accept());
-  await page.click(".section-delete");
-  await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 15000 });
+  await page.$eval(".section-delete", (button) => {
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      throw new Error("Section delete control did not become enabled after packaged rename.");
+    }
+    button.click();
+  });
+  await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 30000 });
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
   console.log("Packaged Folio 2.0.3 UI passed: startup screen, live-draft Print Preview, unsaved Print Preview API draft, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
 } finally {
