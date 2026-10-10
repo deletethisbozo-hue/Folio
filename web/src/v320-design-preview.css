@@ -2,20 +2,89 @@
 .folio-shell[data-ui-tone] button.command-wordmark{border-right-color:transparent!important}
 .folio-shell[data-ui-tone] .folio-commandbar .tone-toggle{border-left-color:transparent!important}
 
-.folio-shell .style-library-header .style-open-theme-lab{position:relative!important}
-.folio-shell .style-library-header .style-open-theme-lab>span{position:absolute!important;inset:0!important;width:auto!important;height:auto!important;margin:0!important;padding:0!important;display:grid!important;place-items:center!important;transform:none!important;line-height:1!important;text-align:center!important;pointer-events:none}
+.folio-shell .style-library-header .style-open-theme-lab{
+  box-sizing:border-box!important;
+  width:128px!important;
+  min-width:128px!important;
+  height:36px!important;
+  min-height:36px!important;
+  padding:0 16px!important;
+  margin:0!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+  line-height:1!important;
+}
 .theme-lab-title-block{min-width:0;display:grid;align-content:center}
 .theme-lab-title-block h2{margin:0 0 4px!important;line-height:1!important}
 .theme-lab-title-block p{margin:0!important}
 
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{height:40px!important;min-height:40px!important;padding-inline:18px 16px!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{min-height:30px!important;align-items:center!important;align-content:center!important;row-gap:0!important;column-gap:5px!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-index{align-self:center!important;line-height:1.15!important}
+/* Format title header: explicit title and subtitle rows. Never let the subtitle
+   share the title's line box or get clipped by the compact toolbar. */
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{
+  height:48px!important;
+  min-height:48px!important;
+  padding-inline:18px 16px!important;
+  align-items:center!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{
+  flex:1 1 auto!important;
+  min-width:0!important;
+  min-height:36px!important;
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr)!important;
+  grid-template-rows:21px 14px!important;
+  align-items:center!important;
+  align-content:center!important;
+  row-gap:1px!important;
+  column-gap:5px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-index{
+  grid-column:1!important;
+  grid-row:1!important;
+  align-self:center!important;
+  line-height:1!important;
+}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title,
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button,
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-input{font-size:15px!important;font-weight:650!important;line-height:1.12!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button{min-height:22px!important;padding:0!important;display:flex!important;align-items:center!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button{margin-top:0!important;line-height:1.12!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-input{
+  grid-column:2!important;
+  grid-row:1!important;
+  align-self:center!important;
+  font-size:15px!important;
+  font-weight:650!important;
+  line-height:19px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button{
+  min-height:20px!important;
+  height:20px!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-input{
+  height:21px!important;
+  min-height:21px!important;
+  padding-block:0!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-input{
+  grid-column:2!important;
+  grid-row:2!important;
+  align-self:center!important;
+  margin:0!important;
+  min-height:14px!important;
+  height:14px!important;
+  padding:0!important;
+  font-size:9.5px!important;
+  line-height:14px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-input{
+  height:17px!important;
+  min-height:17px!important;
+  padding-inline:4px!important;
+}
 
 .theme-sample.theme-custom{border-style:solid}
 .theme-sample.theme-custom .theme-name{right:34px!important;max-width:calc(100% - 44px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -46,3 +115,19 @@
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label .trim-select{flex:0 1 auto!important;max-width:84px!important;padding-inline:5px!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .preview-zoom-controls{grid-column:2!important;grid-row:1!important;min-width:102px!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-nav{grid-column:3!important;grid-row:1!important;min-width:64px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;white-space:nowrap!important;position:static!important;transform:none!important}
+
+/* Persistent user fonts inside Theme Lab Chapter. */
+.theme-lab-custom-font-row{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:8px 12px;
+  padding:9px 0 13px;
+  border-bottom:1px solid color-mix(in srgb,var(--folio-border,#d8d7df) 78%,transparent);
+}
+.theme-lab-custom-font-row .theme-lab-button{justify-self:start}
+.theme-lab-custom-font-row>span{
+  min-width:0;
+  color:var(--folio-muted,#777681);
+  font:500 11px/1.35 var(--folio-ui-font,"Source Sans 3",sans-serif);
+}
