@@ -15,7 +15,9 @@ concurrency:
 jobs:
   verify:
     runs-on: windows-2025
-    timeout-minutes: 25
+    timeout-minutes: 40
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}\build\puppeteer-cache
     steps:
       - name: Check out Folio
         uses: actions/checkout@v4
@@ -61,3 +63,9 @@ jobs:
 
       - name: Build server
         run: npm run build:server
+
+      - name: Install Chromium for 3.2 UI smoke
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Folio 3.2 end-to-end UI smoke
+        run: node --import tsx scripts/v320-ui-smoke.ts
