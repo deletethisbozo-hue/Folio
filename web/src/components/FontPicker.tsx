@@ -1,15 +1,24 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export const BUNDLED_FONT_FAMILIES = [
-  "Source Serif 4", "Source Sans 3", "EB Garamond", "Libre Caslon Text",
-  "Libre Baskerville", "Newsreader", "Gelasio", "Vollkorn",
-  "Barlow Condensed", "Bodoni Moda", "Cinzel", "Grenze Gotisch",
-  "Roboto Slab", "Jena Gotisch", "Manufacturing Consent", "Kings",
-  "CAT Altenglisch", "Slavkappen",
+export const BODY_FONT_FAMILIES = [
+  "Source Serif 4", "EB Garamond", "Libre Caslon Text", "Libre Baskerville",
+  "Newsreader", "Gelasio", "Vollkorn", "Roboto Slab", "Source Sans 3",
 ] as const;
 
-export const FONT_TEST_SENTENCE = "Write. Format. Publish.";
+export const DISPLAY_FONT_FAMILIES = [
+  ...BODY_FONT_FAMILIES,
+  "Barlow Condensed", "Bodoni Moda", "Cinzel", "Grenze Gotisch",
+  "Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen",
+  "MedievalSharp", "Pirata One", "Almendra", "Almendra Display",
+  "Metamorphous", "Eagle Lake", "New Rocker", "Germania One", "Metal Mania",
+  "Fondamento", "Cormorant Unicase", "Berkshire Swash", "Texturina", "Caudex",
+  "Rye", "Sancreek", "Nova Cut",
+] as const;
+
+export const BUNDLED_FONT_FAMILIES = DISPLAY_FONT_FAMILIES;
+
+export const FONT_TEST_SENTENCE = "Zażółć gęślą jaźń · Write. Format. Publish.";
 
 export function fontStackPrimary(value?: string): string {
   if (!value) return "";
