@@ -161,8 +161,17 @@ try {
   await page.waitForFunction(() => document.querySelector("iframe")?.contentDocument?.body?.textContent?.replace(/\u00ad/g, "").includes("RESPONSIVE TYPING MARKER"), { timeout: 8000 });
   if (Date.now() - typingStarted > 8000) throw new Error("Whole-book typing/preview response exceeded 8 seconds.");
 
-  await page.click(".section-title-button");
-  await page.waitForSelector(".section-title-input");
+  await page.waitForFunction(() => {
+    const button = document.querySelector(".section-title-button");
+    return button instanceof HTMLButtonElement && !button.disabled;
+  }, { timeout: 60000 });
+  await page.$eval(".section-title-button", (button) => {
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      throw new Error("Chapter rename button is not enabled after packaged large-manuscript editing.");
+    }
+    button.click();
+  });
+  await page.waitForSelector(".section-title-input", { timeout: 15000 });
   await page.$eval(".section-title-input", (element) => element.select());
   await page.keyboard.type("Packaged Renamed Chapter");
   await page.keyboard.press("Enter");
