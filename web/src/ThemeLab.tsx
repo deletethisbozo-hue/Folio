@@ -1,7 +1,7 @@
 import { seatPreviewDropCaps } from "./dropcap-seat";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
-import FontPicker from "./components/FontPicker";
+import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
 import type { BookMeta, Theme, ThemeLabConfig, ThemeLabImage, Typography } from "./types";
 
 type LabPanel = "Foundation" | "Body" | "Chapter" | "Ornaments" | "Title Page";
@@ -14,31 +14,13 @@ type ThemePackage = {
 
 const panels: LabPanel[] = ["Foundation", "Body", "Chapter", "Ornaments", "Title Page"];
 
-const fontOptions = [
-  ["EB Garamond", "EB Garamond"],
-  ["Libre Caslon Text", "Libre Caslon Text"],
-  ["Libre Baskerville", "Libre Baskerville"],
-  ["Newsreader", "Newsreader"],
-  ["Gelasio", "Gelasio"],
-  ["Vollkorn", "Vollkorn"],
-  ["Source Serif 4", "Source Serif 4"],
-  ["Source Sans 3", "Source Sans 3"],
-  ["Barlow Condensed", "Barlow Condensed"],
-  ["Bodoni Moda", "Bodoni Moda"],
-  ["Cinzel", "Cinzel"],
-  ["Grenze Gotisch", "Grenze Gotisch"],
-  ["Roboto Slab", "Roboto Slab"],
-  ["Jena Gotisch", "Jena Gotisch"],
-  ["Manufacturing Consent", "Manufacturing Consent"],
-  ["Kings", "Kings"],
-  ["CAT Altenglisch", "CAT Altenglisch"],
-  ["Slavkappen", "Slavkappen"],
-] as const;
-
-const dropcapFontOptions = fontOptions;
+const bodyFontOptions = BODY_FONT_FAMILIES;
+const displayFontOptions = DISPLAY_FONT_FAMILIES;
+const dropcapFontOptions = DROPCAP_FONT_FAMILIES;
 
 
-const safeDropcapFamilies: Set<string> = new Set(dropcapFontOptions.map(([value]) => value));
+
+const safeDropcapFamilies: Set<string> = new Set(dropcapFontOptions);
 function safeDropcapFamily(value: string | undefined): string {
   return value && safeDropcapFamilies.has(value) ? value : "Libre Baskerville";
 }
@@ -46,7 +28,7 @@ function safeDropcapFamily(value: string | undefined): string {
 
 // Normalize CSS fallback stacks to the actual bundled family before showing it
 // in a single-family picker. Unknown names never masquerade as the first option.
-const bundledFamilies = new Set<string>(fontOptions.map(([family]) => family));
+const bundledFamilies = new Set<string>(DISPLAY_FONT_FAMILIES);
 function fontFamilyFromStack(value: string | undefined, fallback: string): string {
   if (!value) return fallback;
   const names = value.match(/"[^"]+"|'[^']+'|[^,]+/g)?.map((piece) => piece.trim().replace(/^["']|["']$/g, "")) ?? [];
@@ -228,10 +210,10 @@ function ColorControl(props: { label: string; value: string; onChange: (value: s
   return <label className="theme-lab-row color-row"><span>{props.label}</span><span className="theme-lab-color"><input type="color" value={props.value} onChange={(event) => props.onChange(event.target.value)}/><input value={props.value} maxLength={9} onChange={(event) => props.onChange(event.target.value)}/></span></label>;
 }
 
-function FontControl(props: {label:string; value:string; onChange:(value:string)=>void; options?:readonly (readonly [string,string])[]}) {
+function FontControl(props: {label:string; value:string; onChange:(value:string)=>void; options?:readonly string[]}) {
   return <div className="theme-lab-row theme-lab-font-row">
     <span>{props.label}</span>
-    <FontPicker label={props.label} value={props.value} onChange={props.onChange} families={(props.options ?? fontOptions).map(([value]) => value)}/>
+    <FontPicker label={props.label} value={props.value} onChange={props.onChange} families={props.options ?? displayFontOptions}/>
   </div>;
 }
 
@@ -491,7 +473,7 @@ export default function ThemeLab(props: {
 
           {panel === "Body" && <>
             <div className="theme-lab-section-heading"><h3>Body</h3><p>Reading face, density and paragraph rhythm.</p></div>
-            <FontControl label="Body typeface" value={lab.bodyFont ?? "EB Garamond"} onChange={(value) => patch({ bodyFont: value })}/>
+            <FontControl label="Body typeface" value={lab.bodyFont ?? "EB Garamond"} options={bodyFontOptions} onChange={(value) => patch({ bodyFont: value })}/>
             <RangeControl label="Type size" value={lab.bodySize ?? 1} min={.72} max={1.5} step={.02} suffix="em" onChange={(value) => patch({ bodySize: value })}/>
             <RangeControl label="Line height" value={lab.lineHeight ?? 1.5} min={1.2} max={2.1} step={.02} onChange={(value) => patch({ lineHeight: value })}/>
             <SelectControl label="Alignment" value={lab.bodyAlign ?? "justify"} onChange={(value) => patch({ bodyAlign: value as "left" | "justify" })}><option value="justify">Justified</option><option value="left">Ragged right</option></SelectControl>
@@ -501,7 +483,7 @@ export default function ThemeLab(props: {
 
           {panel === "Chapter" && <>
             <div className="theme-lab-section-heading"><h3>Chapter opening</h3><p>Build the hierarchy instead of inheriting whatever the base theme happened to like that morning.</p></div>
-            <FontControl label="Heading typeface" value={lab.headingFont ?? "Libre Baskerville"} onChange={(value) => patch({ headingFont: value })}/>
+            <FontControl label="Heading typeface" value={lab.headingFont ?? "Libre Baskerville"} options={displayFontOptions} onChange={(value) => patch({ headingFont: value })}/>
             <ColorControl label="Heading color" value={lab.headingColor ?? "#242527"} onChange={(value) => patch({ headingColor: value })}/>
             <RangeControl label="Heading size" value={lab.headingSize ?? 1.8} min={.8} max={4.5} step={.05} suffix="em" onChange={(value) => patch({ headingSize: value })}/>
             <RangeControl label="Tracking" value={lab.headingTracking ?? 0} min={-.08} max={.5} step={.01} suffix="em" onChange={(value) => patch({ headingTracking: value })}/>
@@ -557,7 +539,7 @@ export default function ThemeLab(props: {
 
           {panel === "Title Page" && <>
             <div className="theme-lab-section-heading"><h3>Title page</h3><p>The title page inherits your palette but can use its own display face and composition.</p></div>
-            <FontControl label="Title typeface" value={lab.titlePageFont ?? lab.headingFont ?? "Libre Baskerville"} onChange={(value) => patch({ titlePageFont: value })}/>
+            <FontControl label="Title typeface" value={lab.titlePageFont ?? lab.headingFont ?? "Libre Baskerville"} options={displayFontOptions} onChange={(value) => patch({ titlePageFont: value })}/>
             <RangeControl label="Title size" value={lab.titlePageSize ?? 2.4} min={1} max={5} step={.05} suffix="em" onChange={(value) => patch({ titlePageSize: value })}/>
             <SelectControl label="Alignment" value={lab.titlePageAlign ?? "center"} onChange={(value) => patch({ titlePageAlign: value as "left" | "center" | "right" })}>{alignOptions}</SelectControl>
             {!props.titlePagePreviewId && <div className="theme-lab-note"><strong>No title page in this book</strong><span>The settings are still saved and will apply when a title page exists.</span></div>}
