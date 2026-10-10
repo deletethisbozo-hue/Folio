@@ -543,11 +543,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, []);
 
   useEffect(() => {
-    let style = document.getElementById("folio-custom-font-faces") as HTMLStyleElement | null;
+    let style = window.document.getElementById("folio-custom-font-faces") as HTMLStyleElement | null;
     if (!style) {
-      style = document.createElement("style");
+      style = window.document.createElement("style");
       style.id = "folio-custom-font-faces";
-      document.head.appendChild(style);
+      window.document.head.appendChild(style);
     }
     style.textContent = customFonts.map((font) =>
       `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(api.customFontUrl(font.id))}) format('${font.format}');font-weight:100 900;font-style:normal;font-display:swap}`
