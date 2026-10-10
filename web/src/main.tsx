@@ -49,6 +49,7 @@ import "./v300-second-draft.css";
 import "./v310-theme-lab.css";
 import "./font-picker.css";
 import "./v311-design-fixes.css";
+import "./v320-design-preview.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
