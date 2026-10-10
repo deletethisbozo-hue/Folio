@@ -1,4 +1,4 @@
-# Folio 3.1 release workflow
+# Folio 3.2 release workflow
 name: Build and Release Folio for Windows
 
 on:
@@ -38,11 +38,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.1.0 version consistency
+      - name: Verify Folio 3.2.0 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.1.0") { throw "Windows release is scoped to Folio 3.1.0, found $version." }
+          if ($version -ne "3.2.0") { throw "Windows release is scoped to Folio 3.2.0, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -288,4 +288,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.1 finalizes Theme Lab for real book use. Apply to Book now persists the selected theme and typography instead of snapping back to stale appearance state; imported themes survive reloads and a real .folio close/reopen cycle. Font pickers now keep previews inside dropdown options only and use the exact sample Write. Format. Publish. The Theme Lab launcher is centered and star-free. Light and Midnight use the new supplied glyphs with protected left-edge breathing room, and Windows packaging, the app window, file association and favicon now use NEUE.ico consistently. The release remains gated by typecheck, the full formatter/UI suite with retries, Writing Studio and Second Draft QA, Windows visual/typesetting QA, the Print PDF matrix, packaged-app smoke tests, export checks and SHA-256 hashing."
+            --notes "Folio 3.2 turns Theme Lab into a reusable design system instead of a one-off editor. Custom themes can be saved into the Theme Library with their preview and reused, the Theme Lab launcher is correctly centered, Format chapter titles use the corrected layout, and stale Folio 3.1 labeling is removed. Theme Lab now separates reading and fantasy display font libraries, supports bundled Latin Extended fantasy faces, accepts sanitized SVG artwork for illustrations and full-page images, and keeps preview zoom and Print trim sizing physically meaningful. The release is gated by the dedicated Folio 3.2 Windows CI plus the full release test, packaged-app, export and SHA-256 checks."
