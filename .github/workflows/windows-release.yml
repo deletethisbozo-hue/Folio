@@ -1,9 +1,9 @@
-# Folio 3.2.2 font-library hotfix release workflow
+# Folio 3.2.3 Theme Lab persistence hotfix release workflow
 name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5, feature/folio-3.0-second-draft]
+    branches: [main, fix/3.2.3-persistent-theme-lab, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5, feature/folio-3.0-second-draft]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -38,11 +38,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.2.2 version consistency
+      - name: Verify Folio 3.2.3 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.2.2") { throw "Windows release is scoped to Folio 3.2.2, found $version." }
+          if ($version -ne "3.2.3") { throw "Windows release is scoped to Folio 3.2.3, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -288,4 +288,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.2.2 finishes the 3.2 typography hotfix instead of shipping a cosmetic font picker. The built-in display library is now grouped into Blackletter/Gothic, Medieval/Historical and Book/General sections, and every visible display face is verified against the actual font cmap for the complete Polish set ĄĆĘŁŃÓŚŹŻąćęłńóśźż. The Blackletter/Gothic group now includes twenty Polish-capable faces, with pinned upstream sources beyond Google Fonts such as GL-StellaMystica, GL-StarTaker, Newspaper Text, KJV1611, Gothic GumDrop, Blaka, Blaka Hollow, Blaka Ink, GL-GermanCursive and GL-Morris. Jena Gotisch, CAT Altenglisch, Slavkappen, Germania One, Metal Mania, Almendra Display and Rye are removed because they fail the Polish glyph gate. The obsolete embedded font pack is removed completely; Kings and Manufacturing Consent now come from pinned Google Fonts sources. Preview, Print and EPUB share the same font registry, including OTF support. The Theme Lab centering, custom-theme card artwork/name fixes and one-row preview paging/zoom/Print toolbar fixes from 3.2.1 remain included. Full Windows tests, packaged smoke, export checks and SHA-256 generation remain release gates."
+            --notes "Folio 3.2.3 fixes the Format chapter header so Add subtitle occupies its own stable row, centers the Theme Lab launcher using the button's real flex layout, and restores Write. Format. Publish. as the single preview sample. Theme Library persistence moves from random-port browser storage to Folio's durable userData library, so saved themes survive application restarts. Theme Lab Chapter now supports persistent user TTF/OTF uploads; custom heading fonts are stored globally, rendered in live Preview and Print, embedded in EPUB, retained after restart, and bundled into exported Folio Theme Lab packages for portable theme sharing. The verified Polish-capable Gothic library from 3.2.2 remains intact. Full Windows tests, persistent-library regression coverage, packaged smoke, Print matrix and SHA-256 generation remain release gates."
