@@ -37,6 +37,7 @@ const ORDER = [
   "dropcap-filter-regression.test.ts",
   "recent-projects.test.ts",
   "recent-persistence.test.ts",
+  "global-library-persistence.test.ts",
   "image-page.test.ts",
   "illustration-ui.test.ts",
   "print-preview-ui.test.ts",
