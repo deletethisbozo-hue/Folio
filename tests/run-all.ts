@@ -59,13 +59,31 @@ const suites = [...ORDER.filter((f) => present.includes(f)), ...unknown].filter(
   (f) => filter.length === 0 || filter.some((q) => f.includes(q)),
 );
 
-function run(file: string): Promise<{ code: number; out: string }> {
+const SUITE_TIMEOUT_MS = 90_000;
+
+function run(file: string): Promise<{ code: number; out: string; timedOut: boolean }> {
   return new Promise((resolve) => {
     const child = spawn("node", ["--import", "tsx", path.join(HERE, file)], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
+    let settled = false;
+    const finish = (code: number, timedOut: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ code, out, timedOut });
+    };
+    const timer = setTimeout(() => {
+      out += `\n✗ suite timeout — ${file} exceeded ${Math.round(SUITE_TIMEOUT_MS / 1000)}s\n`;
+      child.kill("SIGKILL");
+      finish(124, true);
+    }, SUITE_TIMEOUT_MS);
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
-    child.on("close", (code) => resolve({ code: code ?? 0, out }));
+    child.on("close", (code) => finish(code ?? 0, false));
+    child.on("error", (error) => {
+      out += `\nError starting ${file}: ${error instanceof Error ? error.message : String(error)}\n`;
+      finish(1, false);
+    });
   });
 }
 
@@ -75,7 +93,7 @@ const failed: string[] = [];
 
 for (const file of suites) {
   const started = Date.now();
-  const { code, out } = await run(file);
+  const { code, out, timedOut } = await run(file);
   const m = out.match(/(\d+) passed, (\d+) failed/);
   const passed = m ? Number(m[1]) : 0;
   const failedN = m ? Number(m[2]) : code === 0 ? 0 : 1;
@@ -86,6 +104,7 @@ for (const file of suites) {
   console.log(`${status} ${file.replace(".test.ts", "").padEnd(16)} ${String(passed).padStart(3)} passed  ${String(failedN).padStart(2)} failed  ${secs.padStart(3)}s`);
   if (failedN > 0 || code !== 0) {
     failed.push(file);
+    if (timedOut) console.log(`      ✗ ${file} exceeded the 90s per-suite watchdog`);
     // Only the failing lines — the full output is long and mostly ticks.
     out
       .split("\n")
