@@ -2641,7 +2641,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       <footer className="folio-statusbar"><span>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Autosave on"}</span>{workspaceMode === "write" && <button className="write-session-chip" onClick={() => openWriteStudio("session")}>{sessionNet >= 0 ? "+" : ""}{sessionNet.toLocaleString()} words · {Math.max(0, Math.floor(sessionStats.activeMs / 60000))} active min{writeStudioState?.targets.session ? ` · ${Math.max(0, sessionNet).toLocaleString()} / ${writeStudioState.targets.session.toLocaleString()}` : ""}</button>}<span>{workspaceMode === "write" ? `${splitView ? "Write · Split" : "Write"} · ${Math.round(writeZoom * 100)}%` : "Format"}</span><span>{meta.language || "en"}</span><span>{themes.find((theme) => theme.name === meta.theme)?.label ?? meta.theme}</span><span>{previewProfiles.find((profile) => profile.value === previewMode)?.label}</span></footer>
 
       {showStyle && (
-        <StyleLibrary themes={themes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()} onOpenThemeLab={() => { setShowStyle(false); setShowThemeLab(true); }}/>
+        <StyleLibrary themes={themes} savedThemes={savedThemes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()} onOpenThemeLab={() => { setShowStyle(false); setShowThemeLab(true); }} onSelectBuiltInTheme={selectBuiltInTheme} onSelectSavedTheme={selectSavedTheme} onRemoveSavedTheme={removeSavedTheme}/>
       )}
       {showThemeLab && (
         <ThemeLab
@@ -2654,6 +2654,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           previewDraft={stylePreviewDraft}
           onClose={() => setShowThemeLab(false)}
           onApply={applyThemeLab}
+          onSaveToLibrary={saveThemeToLibrary}
         />
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onAddImagePage={(file) => void addImagePage(file)} onClose={() => setShowContent(false)}/>}
@@ -2803,15 +2804,21 @@ function ContentDialog(props: { matterTypes: MatterType[]; title: string; setTit
 }
 
 function StyleLibrary(props: {
-  themes: Theme[]; meta: BookMeta; setMeta: (meta: BookMeta) => void;
+  themes: Theme[]; savedThemes: ThemeLibraryEntry[]; meta: BookMeta; setMeta: (meta: BookMeta) => void;
   typography: Typography; setTypography: (ty: Typography) => void;
   category: StyleCategory; setCategory: (category: StyleCategory) => void;
   printOptions: PrintOptions; setPrintOptions: (options: PrintOptions) => void;
   projectId: string; previewSectionId?: string; previewDraft?: string;
   onClose: () => void; onSave: () => void; onOpenThemeLab: () => void;
+  onSelectBuiltInTheme: (theme: Theme) => void;
+  onSelectSavedTheme: (theme: ThemeLibraryEntry) => void;
+  onRemoveSavedTheme: (themeId: string) => void;
 }) {
-  const { themes, meta, setMeta, typography, setTypography, category, setCategory, printOptions, setPrintOptions, projectId, previewSectionId, previewDraft } = props;
-  const selected = themes.find((theme) => theme.name === meta.theme);
+  const { themes, savedThemes, meta, typography, setTypography, category, setCategory, printOptions, setPrintOptions, projectId, previewSectionId, previewDraft } = props;
+  const selectedCustom = typography.themeLab?.enabled
+    ? savedThemes.find((theme) => theme.baseTheme === meta.theme && theme.label === typography.themeLab?.name)
+    : undefined;
+  const selected = selectedCustom ? undefined : themes.find((theme) => theme.name === meta.theme);
   const [hoverPreview, setHoverPreview] = useState<{ theme: string; label: string; html: string; loading: boolean; error?: string } | null>(null);
   const hoverAbortRef = useRef<AbortController | null>(null);
   useEffect(() => () => hoverAbortRef.current?.abort(), []);
@@ -2819,13 +2826,31 @@ function StyleLibrary(props: {
     hoverAbortRef.current?.abort();
     const controller = new AbortController();
     hoverAbortRef.current = controller;
+    const cleanTypography = stripThemeLabOwnedTypography(typography);
     setHoverPreview({ theme: theme.name, label: theme.label, html: "", loading: true });
-    void api.preview(projectId, meta, theme.name, typography, previewSectionId, previewDraft, controller.signal)
+    void api.preview(projectId, { ...meta, theme: theme.name }, theme.name, cleanTypography, previewSectionId, previewDraft, controller.signal)
       .then(({ html }) => {
         if (!controller.signal.aborted) setHoverPreview({ theme: theme.name, label: theme.label, html, loading: false });
       })
       .catch((error) => {
         if (!controller.signal.aborted) setHoverPreview({ theme: theme.name, label: theme.label, html: "", loading: false, error: error instanceof Error ? error.message : String(error) });
+      });
+  };
+  const previewSavedTheme = (theme: ThemeLibraryEntry) => {
+    hoverAbortRef.current?.abort();
+    const controller = new AbortController();
+    hoverAbortRef.current = controller;
+    const previewTypography = themeLabTypography(
+      stripThemeLabOwnedTypography(typography),
+      { ...theme.config, name: theme.label, enabled: true },
+    );
+    setHoverPreview({ theme: theme.id, label: theme.label, html: "", loading: true });
+    void api.preview(projectId, { ...meta, theme: theme.baseTheme }, theme.baseTheme, previewTypography, previewSectionId, previewDraft, controller.signal)
+      .then(({ html }) => {
+        if (!controller.signal.aborted) setHoverPreview({ theme: theme.id, label: theme.label, html, loading: false });
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setHoverPreview({ theme: theme.id, label: theme.label, html: "", loading: false, error: error instanceof Error ? error.message : String(error) });
       });
   };
   const clearThemePreview = () => {
@@ -2835,12 +2860,27 @@ function StyleLibrary(props: {
   };
   return <div className="style-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
     <section className="style-library" role="dialog" aria-modal="true" aria-label="Book style library">
-      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}>Theme Lab</button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
+      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}><span>Theme Lab</span></button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
-        <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">{themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => setMeta({ ...meta, theme: theme.name })}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}</div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selected?.dropcap ?? false}/>}</div>
+        <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">
+          {savedThemes.map((theme) => {
+            const base = themes.find((item) => item.name === theme.baseTheme);
+            const active = selectedCustom?.id === theme.id;
+            return <button key={theme.id} data-custom-theme={theme.id} className={"theme-sample theme-custom" + (active ? " selected" : "")} style={{ background: theme.config.paper ?? base?.previewPaper, color: theme.config.accent ?? base?.previewAccent, fontFamily: theme.config.bodyFont ?? base?.previewFont }} onMouseEnter={() => previewSavedTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewSavedTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectSavedTheme(theme)}>
+              <span className="theme-custom-badge">Custom</span>
+              <span className="theme-name">{theme.label}</span>
+              <span className="sample-chapter" style={{ fontFamily: theme.config.headingFont ?? base?.previewHeadingFont }}>{theme.config.labelVisible === false ? "\u00a0" : theme.config.labelText ?? base?.chapterLabel ?? "CHAPTER"}</span>
+              <span className="sample-title" style={{ fontFamily: theme.config.headingFont ?? base?.previewHeadingFont, color: theme.config.headingColor }}>The Visitor</span>
+              <span className="sample-ornament">{theme.config.sceneOrnament ?? base?.sceneOrnament ?? "⁂"}</span>
+              <span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span>
+              <span role="button" tabIndex={0} className="theme-custom-remove" title="Remove from theme library" aria-label={"Remove " + theme.label + " from theme library"} onClick={(event) => { event.stopPropagation(); props.onRemoveSavedTheme(theme.id); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); props.onRemoveSavedTheme(theme.id); } }}>×</span>
+            </button>;
+          })}
+          {themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (!selectedCustom && meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectBuiltInTheme(theme)}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span><span className="sample-copy"><b>The</b> room had fallen quiet before anyone noticed the letter beneath the door.</span></button>)}
+        </div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selectedCustom?.config.dropcap ?? selected?.dropcap ?? false}/>}</div>
       </div>
-      <footer className="style-library-footer"><div><strong>{selected?.label ?? meta.theme}</strong><span>{selected?.description}</span></div><button className="native-button" onClick={props.onClose}>Done</button><button className="native-button primary" onClick={props.onSave}>Save to Book</button></footer>
+      <footer className="style-library-footer"><div><strong>{selectedCustom?.label ?? selected?.label ?? meta.theme}</strong><span>{selectedCustom ? "Custom Theme Lab style · saved in your theme library" : selected?.description}</span></div><button className="native-button" onClick={props.onClose}>Done</button><button className="native-button primary" onClick={props.onSave}>Save to Book</button></footer>
       {hoverPreview && <aside className="theme-hover-preview" aria-live="polite">
         <div className="theme-hover-preview-head"><span>Live chapter preview</span><strong>{hoverPreview.label}</strong></div>
         <div className="theme-hover-preview-stage">
