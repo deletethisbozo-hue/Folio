@@ -32,6 +32,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Focused regression suite
+        run: npm test -- ui-coherence v206-ui-regression folio-runtime v300-second-draft
+
       - name: Build web
         run: npm run build:web
 
