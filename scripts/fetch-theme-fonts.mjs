@@ -10,6 +10,13 @@ const licenseDir = path.join(fontDir, "licenses");
 const GOOGLE_FONTS_COMMIT = "809e4d8b8d7e9364a914909bb777679606c178b8";
 const RAW = `https://raw.githubusercontent.com/google/fonts/${GOOGLE_FONTS_COMMIT}`;
 
+const QUALIFIED_DISPLAY_SOURCES = [
+  "medievalsharp", "pirataone", "almendra", "almendradisplay", "metamorphous",
+  "eaglelake", "newrocker", "germaniaone", "metalmania", "fondamento",
+  "cormorantunicase", "berkshireswash", "texturina", "caudex", "rye", "sancreek", "novacut",
+];
+
+
 const assets = [
   ["eb-garamond.ttf", "ofl/ebgaramond/EBGaramond[wght].ttf"],
   ["eb-garamond-italic.ttf", "ofl/ebgaramond/EBGaramond-Italic[wght].ttf"],
@@ -158,6 +165,19 @@ async function fetchWithRetry(relativePath, attempts = 4) {
   return fetchUrlWithRetry(`${RAW}/${encodeRepoPath(relativePath)}`, attempts);
 }
 
+async function assertQualifiedDisplaySources() {
+  for (const directory of QUALIFIED_DISPLAY_SOURCES) {
+    const response = await fetchWithRetry(`ofl/${directory}/METADATA.pb`);
+    const metadata = await response.text();
+    if (!/license:\s*"OFL"/.test(metadata)) {
+      throw new Error(`Display font ${directory} is not OFL in pinned Google Fonts metadata.`);
+    }
+    if (!/subsets:\s*"latin-ext"/.test(metadata)) {
+      throw new Error(`Display font ${directory} does not advertise latin-ext / Polish coverage.`);
+    }
+  }
+}
+
 function assertFontBuffer(data, label, minBytes = 30_000) {
   if (data.length < minBytes) throw new Error(`Downloaded font is unexpectedly small: ${label}`);
   const signature = data.subarray(0, 4).toString("hex");
@@ -284,6 +304,7 @@ async function download(relativePath, destination, font = false) {
 
 await fs.mkdir(fontDir, { recursive: true });
 await fs.mkdir(licenseDir, { recursive: true });
+await assertQualifiedDisplaySources();
 let fetched = 0;
 for (const [name, remotePath] of assets) {
   if (await download(remotePath, path.join(fontDir, name), true)) fetched++;
