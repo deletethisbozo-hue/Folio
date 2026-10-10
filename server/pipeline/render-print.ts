@@ -319,6 +319,7 @@ async function withPaginated<T>(
   book: Book,
   opts: PrintOptions,
   fn: (page: Page) => Promise<T>,
+  qualityMode: "strict" | "preview" = "strict",
 ): Promise<{ result: T; meta: PrintMeta }> {
   const gutter = resolveGutter(book, opts);
   // The paginated print gets a printed TOC (with page numbers filled in below);
@@ -603,7 +604,18 @@ async function withPaginated<T>(
       };
     });
     if (overflow.violations > 0 || overflow.gapViolations > 0 || overflow.minimumScale < 0.98 - 0.00001) {
-      throw new Error(`Print layout quality failure after final page calibration: ${JSON.stringify(overflow)}`);
+      if (qualityMode === "strict") {
+        throw new Error(`Print layout quality failure after final page calibration: ${JSON.stringify(overflow)}`);
+      }
+      // Preview is an interactive inspection surface, not the final export gate.
+      // Keep the selected trim visible even if a rare line still needs export-time
+      // correction. The actual Print PDF path remains strict and will still block
+      // a file that violates the physical layout contract.
+      console.warn("Print preview calibration retained a recoverable layout warning.", overflow);
+      await page.evaluate((details) => {
+        document.documentElement.dataset.folioPrintPreviewQuality = "recoverable";
+        document.documentElement.dataset.folioPrintPreviewDiagnostics = JSON.stringify(details);
+      }, overflow);
     }
 
     const pages = await page.evaluate(() => document.querySelectorAll(".pagedjs_page").length);
@@ -657,6 +669,6 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions): Pr
       t.h,
     );
     return page.content();
-  });
+  }, "preview");;
   return { html: result, meta };
 }
