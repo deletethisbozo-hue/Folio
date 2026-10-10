@@ -311,6 +311,7 @@ export default function ThemeLab(props: {
   const [previewTarget, setPreviewTarget] = useState<"chapter" | "title">("chapter");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [librarySaved, setLibrarySaved] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -439,9 +440,12 @@ export default function ThemeLab(props: {
   async function saveToLibrary() {
     setBusy(true);
     setError(null);
+    setLibrarySaved(false);
     try {
       const name = (lab.name ?? "").trim() || "My Theme";
       await props.onSaveToLibrary(baseTheme, { ...lab, name, enabled: true });
+      setLibrarySaved(true);
+      window.setTimeout(() => setLibrarySaved(false), 1800);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -581,7 +585,7 @@ export default function ThemeLab(props: {
         <div>{error ? <span className="theme-lab-error">{error}</span> : <span>Theme Lab uses Folio's bundled font library so preview, PDF and EPUB stay portable and deterministic across devices.</span>}</div>
         <div className="theme-lab-footer-actions">
           <button type="button" className="theme-lab-button" disabled={busy} onClick={props.onClose}>Cancel</button>
-          <button type="button" className="theme-lab-button" disabled={busy} onClick={() => void saveToLibrary()}>{busy ? "Saving…" : "Save to Library"}</button>
+          <button type="button" className="theme-lab-button" disabled={busy} onClick={() => void saveToLibrary()}>{busy ? "Saving…" : librarySaved ? "Saved ✓" : "Save to Library"}</button>
           <button type="button" className="theme-lab-button primary" disabled={busy} onClick={() => void apply()}>{busy ? "Saving…" : "Apply to Book"}</button>
         </div>
       </footer>
