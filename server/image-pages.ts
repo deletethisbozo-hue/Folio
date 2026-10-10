@@ -5,22 +5,17 @@ import yaml from "js-yaml";
 import type { BookMeta } from "./pipeline/types.ts";
 import { addMatter, readConfig } from "./matter.ts";
 import { atomicWriteUtf8 } from "./atomic-write.ts";
+import { normalizeImageUpload } from "./svg-images.ts";
 
 export type ImagePageFit = "contain" | "cover";
 
 export interface AddImagePageOptions {
   filename: string;
   buffer: Buffer;
+  mime?: string;
   title?: string;
   alt?: string;
   fit?: ImagePageFit;
-}
-
-function safeExt(filename: string): string {
-  const ext = path.extname(filename).toLowerCase();
-  if (ext === ".png") return ".png";
-  if (ext === ".jpg" || ext === ".jpeg") return ".jpg";
-  throw new Error("Full-page images must be PNG or JPEG.");
 }
 
 function slug(value: string): string {
@@ -89,7 +84,8 @@ export async function addFullPageImage(
   meta: BookMeta,
   options: AddImagePageOptions,
 ): Promise<{ entry: string; asset: string }> {
-  const ext = safeExt(options.filename);
+  const normalized = normalizeImageUpload(options.filename, options.mime ?? "", options.buffer, "Full-page images");
+  const ext = normalized.ext;
   const requestedTitle = "Full-page Image";
   const title = await uniqueImagePageTitle(bookDir, requestedTitle);
   const alt = options.alt?.trim() || "Full-page illustration";
@@ -99,7 +95,7 @@ export async function addFullPageImage(
   const assetFile = `${slug(title)}-${crypto.randomUUID().slice(0, 8)}${ext}`;
   const asset = path.posix.join("assets", assetFile);
   const assetPath = path.join(assetsDir, assetFile);
-  await fs.writeFile(assetPath, options.buffer);
+  await fs.writeFile(assetPath, normalized.buffer);
 
   try {
     const { entry } = await addMatter(bookDir, meta, {
