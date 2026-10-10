@@ -91,11 +91,20 @@ const FONTS = {
   blaka: { family: "Blaka", faces: [
     { file: "blaka.ttf", weight: "400", style: "normal" },
   ] },
+  blakaHollow: { family: "Blaka Hollow", faces: [
+    { file: "blaka-hollow.ttf", weight: "400", style: "normal" },
+  ] },
+  blakaInk: { family: "Blaka Ink", faces: [
+    { file: "blaka-ink.ttf", weight: "400", style: "normal" },
+  ] },
   gothicGumDrop: { family: "Gothic GumDrop", faces: [
     { file: "gothic-gumdrop.ttf", weight: "400", style: "normal" },
   ] },
   germanCursive: { family: "GL-GermanCursive", faces: [
     { file: "gl-german-cursive.ttf", weight: "400", style: "normal" },
+  ] },
+  morris: { family: "GL-Morris", faces: [
+    { file: "gl-morris.ttf", weight: "400", style: "normal" },
   ] },
   kjv1611: { family: "KJV1611", faces: [
     { file: "kjv1611.otf", weight: "400", style: "normal" },
@@ -119,9 +128,6 @@ const FONTS = {
     { file: "almendra.ttf", weight: "400", style: "normal" },
     { file: "almendra-bold.ttf", weight: "700", style: "normal" },
   ] },
-  almendraDisplay: { family: "Almendra Display", faces: [
-    { file: "almendra-display.ttf", weight: "400", style: "normal" },
-  ] },
   metamorphous: { family: "Metamorphous", faces: [
     { file: "metamorphous.ttf", weight: "400", style: "normal" },
   ] },
@@ -130,12 +136,6 @@ const FONTS = {
   ] },
   newRocker: { family: "New Rocker", faces: [
     { file: "new-rocker.ttf", weight: "400", style: "normal" },
-  ] },
-  germaniaOne: { family: "Germania One", faces: [
-    { file: "germania-one.ttf", weight: "400", style: "normal" },
-  ] },
-  metalMania: { family: "Metal Mania", faces: [
-    { file: "metal-mania.ttf", weight: "400", style: "normal" },
   ] },
   fondamento: { family: "Fondamento", faces: [
     { file: "fondamento.ttf", weight: "400", style: "normal" },
@@ -156,9 +156,6 @@ const FONTS = {
     { file: "caudex.ttf", weight: "400", style: "normal" },
     { file: "caudex-bold.ttf", weight: "700", style: "normal" },
     { file: "caudex-italic.ttf", weight: "400", style: "italic" },
-  ] },
-  rye: { family: "Rye", faces: [
-    { file: "rye.ttf", weight: "400", style: "normal" },
   ] },
   sancreek: { family: "Sancreek", faces: [
     { file: "sancreek.ttf", weight: "400", style: "normal" },
@@ -194,21 +191,23 @@ const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
   ["Rakkas", "rakkas"], ["Jaini Purva", "jainiPurva"], ["Jaini", "jaini"],
   ["Jim Nightshade", "jimNightshade"], ["Risque", "risque"],
   ["GL-StellaMystica", "stellaMystica"], ["GL-StarTaker", "starTaker"],
-  ["Newspaper Text", "newspaperText"], ["Blaka", "blaka"], ["Gothic GumDrop", "gothicGumDrop"],
-  ["GL-GermanCursive", "germanCursive"], ["KJV1611", "kjv1611"],
+  ["Newspaper Text", "newspaperText"], ["Blaka", "blaka"], ["Blaka Hollow", "blakaHollow"],
+  ["Blaka Ink", "blakaInk"], ["Gothic GumDrop", "gothicGumDrop"],
+  ["GL-GermanCursive", "germanCursive"], ["GL-Morris", "morris"], ["KJV1611", "kjv1611"],
   ["Folio Fruktur", "fruktur"], ["Folio Grenze", "grenze"], ["Folio Jacquarda Bastarda 9", "jacquardaBastarda9"],
   ["Folio Rakkas", "rakkas"], ["Folio Jaini Purva", "jainiPurva"], ["Folio Jaini", "jaini"],
   ["Folio Jim Nightshade", "jimNightshade"], ["Folio Risque", "risque"],
   ["Folio GL-StellaMystica", "stellaMystica"], ["Folio GL-StarTaker", "starTaker"],
-  ["Folio Newspaper Text", "newspaperText"], ["Folio Blaka", "blaka"], ["Folio Gothic GumDrop", "gothicGumDrop"],
-  ["Folio GL-GermanCursive", "germanCursive"], ["Folio KJV1611", "kjv1611"],
+  ["Folio Newspaper Text", "newspaperText"], ["Folio Blaka", "blaka"], ["Folio Blaka Hollow", "blakaHollow"],
+  ["Folio Blaka Ink", "blakaInk"], ["Folio Gothic GumDrop", "gothicGumDrop"],
+  ["Folio GL-GermanCursive", "germanCursive"], ["Folio GL-Morris", "morris"], ["Folio KJV1611", "kjv1611"],
   ["MedievalSharp", "medievalSharp"], ["Pirata One", "pirataOne"],
-  ["Almendra", "almendra"], ["Almendra Display", "almendraDisplay"],
+  ["Almendra", "almendra"],
   ["Metamorphous", "metamorphous"], ["Eagle Lake", "eagleLake"],
-  ["New Rocker", "newRocker"], ["Germania One", "germaniaOne"],
-  ["Metal Mania", "metalMania"], ["Fondamento", "fondamento"],
+  ["New Rocker", "newRocker"],
+  ["Fondamento", "fondamento"],
   ["Cormorant Unicase", "cormorantUnicase"], ["Berkshire Swash", "berkshireSwash"],
-  ["Texturina", "texturina"], ["Caudex", "caudex"], ["Rye", "rye"],
+  ["Texturina", "texturina"], ["Caudex", "caudex"],
   ["Sancreek", "sancreek"], ["Nova Cut", "novaCut"],
 
   ["Libre Caslon Text", "caslon"], ["Libre Baskerville", "baskerville"],

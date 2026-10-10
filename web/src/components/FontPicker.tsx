@@ -9,13 +9,13 @@ export const BODY_FONT_FAMILIES = [
 export const GOTHIC_DISPLAY_FONT_FAMILIES = [
   "Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9",
   "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent",
-  "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka",
+  "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop",
+  "Blaka", "Blaka Hollow", "Blaka Ink", "GL-GermanCursive", "GL-Morris",
 ] as const;
 
 export const MEDIEVAL_DISPLAY_FONT_FAMILIES = [
   "MedievalSharp", "Almendra", "Metamorphous", "Eagle Lake", "Fondamento",
-  "Caudex", "Cormorant Unicase", "Berkshire Swash", "Risque", "Kings",
-  "Grenze", "GL-GermanCursive",
+  "Caudex", "Cormorant Unicase", "Berkshire Swash", "Risque", "Kings", "Grenze",
 ] as const;
 
 export const GENERAL_DISPLAY_FONT_FAMILIES = [

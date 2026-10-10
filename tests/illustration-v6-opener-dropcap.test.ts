@@ -163,7 +163,7 @@ try {
   await page.waitForSelector(".folio-font-picker-panel");
   const fontOptions = await page.$$eval(".folio-font-picker-panel .folio-font-picker-option strong",
     (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
-  const requestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9", "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent", "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka"];
+  const requestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9", "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent", "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka", "Blaka Hollow", "Blaka Ink", "GL-GermanCursive", "GL-Morris"];
   const retiredFonts = ["Jena Gotisch", "CAT Altenglisch", "Slavkappen", "Germania One", "Metal Mania", "Almendra Display", "Rye"];
   const hasRequestedFonts = requestedFonts.every((name) => fontOptions.includes(name));
   const retiredFontsHidden = retiredFonts.every((name) => !fontOptions.includes(name));
@@ -932,7 +932,7 @@ try {
     button.click();
   });
   const chapterFontOptions = await readFontPickerOptions("Typeface");
-  const chapterRequestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9", "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent", "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka"];
+  const chapterRequestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9", "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent", "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka", "Blaka Hollow", "Blaka Ink", "GL-GermanCursive", "GL-Morris"];
   const chapterRetiredFonts = ["Jena Gotisch", "CAT Altenglisch", "Slavkappen", "Germania One", "Metal Mania", "Almendra Display", "Rye"];
   const chapterHasRequestedFonts = chapterRequestedFonts.every((name) => chapterFontOptions.includes(name));
   const chapterRetiredFontsHidden = chapterRetiredFonts.every((name) => !chapterFontOptions.includes(name));

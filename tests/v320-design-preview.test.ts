@@ -68,7 +68,7 @@ test("3.2.1 keeps Theme Lab text mathematically centered and preview paging clic
   assert.match(css, /device-nav\{grid-column:3!important;grid-row:1!important/);
 });
 
-test("3.2.1 font library is grouped, Polish-capable and wired through preview/export", () => {
+test("3.2.2 font library is grouped, Polish-capable and wired through preview/export", () => {
   assert.match(fontPicker, /FONT_TEST_SENTENCE = "Sphinx of black quartz, judge my vow\."/);
   assert.match(fontPicker, /Blackletter \/ Gothic/);
   assert.match(fontPicker, /Medieval \/ Historical/);
@@ -77,7 +77,8 @@ test("3.2.1 font library is grouped, Polish-capable and wired through preview/ex
   const gothicFamilies = [
     "Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9",
     "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent",
-    "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka",
+    "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop",
+    "Blaka", "Blaka Hollow", "Blaka Ink", "GL-GermanCursive", "GL-Morris",
   ];
   const externalFamilies = [
     ["Newspaper Text", "newspaper-text.ttf"],
@@ -86,7 +87,10 @@ test("3.2.1 font library is grouped, Polish-capable and wired through preview/ex
     ["GL-StarTaker", "gl-startaker.ttf"],
     ["Gothic GumDrop", "gothic-gumdrop.ttf"],
     ["Blaka", "blaka.ttf"],
+    ["Blaka Hollow", "blaka-hollow.ttf"],
+    ["Blaka Ink", "blaka-ink.ttf"],
     ["GL-GermanCursive", "gl-german-cursive.ttf"],
+    ["GL-Morris", "gl-morris.ttf"],
   ];
   for (const family of gothicFamilies) assert.ok(fontPicker.includes(`"${family}"`), family + " picker");
   for (const [family, file] of externalFamilies) {
@@ -98,8 +102,10 @@ test("3.2.1 font library is grouped, Polish-capable and wired through preview/ex
   assert.match(fontFetcher, /assertPolishDisplayCoverage/);
   assert.match(fontFetcher, /raw\.githubusercontent\.com\/Gutenberg-Labo\/GL-StellaMystica/);
   assert.match(fontFetcher, /raw\.githubusercontent\.com\/ctrlcctrlv\/kjv1611/);
+  assert.match(fontFetcher, /raw\.githubusercontent\.com\/Gutenberg-Labo\/GL-Morris/);
+  assert.doesNotMatch(fontFetcher, /PACK_PARTS|folio-v10-font-pack/);
   assert.match(api, /\(\?:ttf\|otf\)/);
-  assert.doesNotMatch(runtimeFonts, /Jena Gotisch|CAT Altenglisch|Slavkappen/);
+  assert.doesNotMatch(runtimeFonts, /Jena Gotisch|CAT Altenglisch|Slavkappen|Germania One|Metal Mania|Almendra Display|family: "Rye"/);
 });
 
 test("saved custom theme cards keep their names clear and preview embedded ornaments", () => {

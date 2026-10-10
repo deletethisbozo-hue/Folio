@@ -1,8 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import yauzl from "yauzl";
-import { createHash } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fontDir = path.join(root, "themes", "fonts");
@@ -52,17 +50,16 @@ const assets = [
   ["jaini.ttf", "ofl/jaini/Jaini-Regular.ttf"],
   ["jim-nightshade.ttf", "ofl/jimnightshade/JimNightshade-Regular.ttf"],
   ["risque.ttf", "ofl/risque/Risque-Regular.ttf"],
+  ["manufacturing-consent.ttf", "ofl/manufacturingconsent/ManufacturingConsent-Regular.ttf"],
+  ["kings.ttf", "ofl/kings/Kings-Regular.ttf"],
   ["roboto-slab.ttf", "apache/robotoslab/RobotoSlab[wght].ttf"],
   ["medievalsharp.ttf", "ofl/medievalsharp/MedievalSharp.ttf"],
   ["pirata-one.ttf", "ofl/pirataone/PirataOne-Regular.ttf"],
   ["almendra.ttf", "ofl/almendra/Almendra-Regular.ttf"],
   ["almendra-bold.ttf", "ofl/almendra/Almendra-Bold.ttf"],
-  ["almendra-display.ttf", "ofl/almendradisplay/AlmendraDisplay-Regular.ttf"],
   ["metamorphous.ttf", "ofl/metamorphous/Metamorphous-Regular.ttf"],
   ["eagle-lake.ttf", "ofl/eaglelake/EagleLake-Regular.ttf"],
   ["new-rocker.ttf", "ofl/newrocker/NewRocker-Regular.ttf"],
-  ["germania-one.ttf", "ofl/germaniaone/GermaniaOne-Regular.ttf"],
-  ["metal-mania.ttf", "ofl/metalmania/MetalMania-Regular.ttf"],
   ["fondamento.ttf", "ofl/fondamento/Fondamento-Regular.ttf"],
   ["fondamento-italic.ttf", "ofl/fondamento/Fondamento-Italic.ttf"],
   ["cormorant-unicase.ttf", "ofl/cormorantunicase/CormorantUnicase-Regular.ttf"],
@@ -73,7 +70,6 @@ const assets = [
   ["caudex.ttf", "ofl/caudex/Caudex-Regular.ttf"],
   ["caudex-bold.ttf", "ofl/caudex/Caudex-Bold.ttf"],
   ["caudex-italic.ttf", "ofl/caudex/Caudex-Italic.ttf"],
-  ["rye.ttf", "ofl/rye/Rye-Regular.ttf"],
   ["sancreek.ttf", "ofl/sancreek/Sancreek-Regular.ttf"],
   ["nova-cut.ttf", "ofl/novacut/NovaCut.ttf"],
 ];
@@ -83,9 +79,12 @@ const externalFontAssets = [
   ["gl-startaker.ttf", "https://raw.githubusercontent.com/Gutenberg-Labo/GL-StarTaker/3128f5d5ad7b6242af5c8cac05a5207fcc90a6e3/fonts/ttf/GL-StarTaker.ttf", 30_000],
   ["newspaper-text.ttf", "https://raw.githubusercontent.com/eliheuer/news-textura/ec7d172cab56a69a42c3793b3676b18a47ef877c/fonts/ttf/NewspaperText-Regular.ttf", 30_000],
   ["blaka.ttf", "https://raw.githubusercontent.com/Gue3bara/Blaka/7f264eee862d3e94c2cb6a728c6429c2f3b9adc3/fonts/regular/ttf/Blaka-Regular.ttf", 30_000],
+  ["blaka-hollow.ttf", "https://raw.githubusercontent.com/Gue3bara/Blaka/7f264eee862d3e94c2cb6a728c6429c2f3b9adc3/fonts/hollow/ttf/BlakaHollow-Regular.ttf", 30_000],
+  ["blaka-ink.ttf", "https://raw.githubusercontent.com/Gue3bara/Blaka/7f264eee862d3e94c2cb6a728c6429c2f3b9adc3/fonts/ink/ttf/BlakaInk-Regular.ttf", 30_000],
   ["gothic-gumdrop.ttf", "https://raw.githubusercontent.com/mixfont/gothic-gumdrop/3e2f431556fd3f99138eade90d864ff51a80e33c/fonts/OpenType-TT/GothicGumDrop-Regular.ttf", 30_000],
   ["gl-german-cursive.ttf", "https://raw.githubusercontent.com/Gutenberg-Labo/GL-GermanCursive/0979e6154714bf6a283fe49d0108dea010162a76/fonts/ttf/GL-GermanCursive.ttf", 30_000],
   ["kjv1611.otf", "https://raw.githubusercontent.com/ctrlcctrlv/kjv1611/f957694f8eef31f997ae3ff17880c76292441774/KJV1611.otf", 30_000],
+  ["gl-morris.ttf", "https://raw.githubusercontent.com/Gutenberg-Labo/GL-Morris/f21c6a9bcde267d7ad900b13c6c815b36570deaa/fonts/ttf/GL-Morris.ttf", 30_000],
 ];
 
 const externalLicenseAssets = [
@@ -96,27 +95,7 @@ const externalLicenseAssets = [
   ["Gothic-GumDrop-OFL.txt", "https://raw.githubusercontent.com/mixfont/gothic-gumdrop/3e2f431556fd3f99138eade90d864ff51a80e33c/OFL.txt"],
   ["GL-GermanCursive-LICENSE.txt", "https://raw.githubusercontent.com/Gutenberg-Labo/GL-GermanCursive/0979e6154714bf6a283fe49d0108dea010162a76/LICENSE.txt"],
   ["KJV1611-OFL.txt", "https://raw.githubusercontent.com/ctrlcctrlv/kjv1611/f957694f8eef31f997ae3ff17880c76292441774/LICENSE.txt"],
-];
-
-const PACK_PARTS = [
-  "folio-v10-font-pack.b64.001",
-  "folio-v10-font-pack.b64.002a",
-  "folio-v10-font-pack.b64.002b",
-  "folio-v10-font-pack.b64.002c",
-  "folio-v10-font-pack.b64.002d",
-  "folio-v10-font-pack.b64.003",
-  "folio-v10-font-pack.b64.004",
-  "folio-v10-font-pack.b64.005",
-  "folio-v10-font-pack.b64.006",
-  "folio-v10-font-pack.b64.007",
-  "folio-v10-font-pack.b64.008",
-];
-
-const PACK_FILES = [
-  ["kings/fonts/ttf/Kings-Regular.ttf", path.join(fontDir, "kings.ttf"), true],
-  ["manufacturing/fonts/ttf/ManufacturingConsent-Regular.ttf", path.join(fontDir, "manufacturing-consent.ttf"), true],
-  ["kings/OFL.txt", path.join(licenseDir, "Kings-OFL.txt"), false],
-  ["manufacturing/OFL.txt", path.join(licenseDir, "Manufacturing-Consent-OFL.txt"), false],
+  ["GL-Morris-LICENSE.txt", "https://raw.githubusercontent.com/Gutenberg-Labo/GL-Morris/f21c6a9bcde267d7ad900b13c6c815b36570deaa/LICENSE.txt"],
 ];
 
 const licenses = [
@@ -137,18 +116,14 @@ const licenses = [
   ["MedievalSharp-OFL.txt", "ofl/medievalsharp/OFL.txt"],
   ["Pirata-One-OFL.txt", "ofl/pirataone/OFL.txt"],
   ["Almendra-OFL.txt", "ofl/almendra/OFL.txt"],
-  ["Almendra-Display-OFL.txt", "ofl/almendradisplay/OFL.txt"],
   ["Metamorphous-OFL.txt", "ofl/metamorphous/OFL.txt"],
   ["Eagle-Lake-OFL.txt", "ofl/eaglelake/OFL.txt"],
   ["New-Rocker-OFL.txt", "ofl/newrocker/OFL.txt"],
-  ["Germania-One-OFL.txt", "ofl/germaniaone/OFL.txt"],
-  ["Metal-Mania-OFL.txt", "ofl/metalmania/OFL.txt"],
   ["Fondamento-OFL.txt", "ofl/fondamento/OFL.txt"],
   ["Cormorant-Unicase-OFL.txt", "ofl/cormorantunicase/OFL.txt"],
   ["Berkshire-Swash-OFL.txt", "ofl/berkshireswash/OFL.txt"],
   ["Texturina-OFL.txt", "ofl/texturina/OFL.txt"],
   ["Caudex-OFL.txt", "ofl/caudex/OFL.txt"],
-  ["Rye-OFL.txt", "ofl/rye/OFL.txt"],
   ["Sancreek-OFL.txt", "ofl/sancreek/OFL.txt"],
   ["Nova-Cut-OFL.txt", "ofl/novacut/OFL.txt"],
   ["Fruktur-OFL.txt", "ofl/fruktur/OFL.txt"],
@@ -159,6 +134,8 @@ const licenses = [
   ["Jaini-OFL.txt", "ofl/jaini/OFL.txt"],
   ["Jim-Nightshade-OFL.txt", "ofl/jimnightshade/OFL.txt"],
   ["Risque-OFL.txt", "ofl/risque/OFL.txt"],
+  ["Manufacturing-Consent-OFL.txt", "ofl/manufacturingconsent/OFL.txt"],
+  ["Kings-OFL.txt", "ofl/kings/OFL.txt"],
 ];
 
 function encodeRepoPath(value) {
@@ -239,91 +216,6 @@ async function downloadTextUrl(url, destination) {
   return true;
 }
 
-function extractZipEntry(buffer, entryName) {
-  return new Promise((resolve, reject) => {
-    yauzl.fromBuffer(buffer, { lazyEntries: true }, (error, zip) => {
-      if (error || !zip) return reject(error ?? new Error("Unable to open font archive"));
-      let settled = false;
-      zip.readEntry();
-      zip.on("entry", (entry) => {
-        const normalized = entry.fileName.replace(/\\/g, "/").toLowerCase();
-        const wanted = entryName.replace(/\\/g, "/").toLowerCase();
-        const base = path.basename(entry.fileName).toLowerCase();
-        const wantedBase = path.basename(entryName).toLowerCase();
-        if (normalized !== wanted && base !== wantedBase) {
-          zip.readEntry();
-          return;
-        }
-        zip.openReadStream(entry, (streamError, stream) => {
-          if (streamError || !stream) return reject(streamError ?? new Error(`Unable to read ${entryName}`));
-          const chunks = [];
-          stream.on("data", (chunk) => chunks.push(chunk));
-          stream.on("error", reject);
-          stream.on("end", () => {
-            settled = true;
-            zip.close();
-            resolve(Buffer.concat(chunks));
-          });
-        });
-      });
-      zip.on("end", () => {
-        if (!settled) reject(new Error(`Font archive does not contain ${entryName}`));
-      });
-      zip.on("error", reject);
-    });
-  });
-}
-
-async function downloadArchiveFont(url, entryName, destination) {
-  try {
-    const existing = await fs.readFile(destination);
-    if (existing.length > 30_000) return false;
-  } catch {
-    // Missing file: fetch it below.
-  }
-  const response = await fetchUrlWithRetry(url);
-  const archive = Buffer.from(await response.arrayBuffer());
-  const data = await extractZipEntry(archive, entryName);
-  assertFontBuffer(data, `${url}#${entryName}`, 15_000);
-  await fs.mkdir(path.dirname(destination), { recursive: true });
-  await fs.writeFile(destination, data);
-  return true;
-}
-
-async function loadEmbeddedFontPack() {
-  const assetDir = path.join(root, "assets", "font-packs");
-  const chunks = await Promise.all(
-    PACK_PARTS.map((name) => fs.readFile(path.join(assetDir, name), "utf8"))
-  );
-  return Buffer.from(chunks.join("").replace(/\s+/g, ""), "base64");
-}
-
-async function extractEmbeddedFontPack() {
-  const archive = await loadEmbeddedFontPack();
-  const digest = createHash("sha256").update(archive).digest("hex");
-  const expectedDigest = "6a1a2103dcc00916662e0ede34606f303cbae32d84e2ddcc3cf05132dfd349be";
-  if (digest !== expectedDigest) {
-    throw new Error(`Embedded V10 font pack checksum mismatch: expected ${expectedDigest}, got ${digest}`);
-  }
-  let count = 0;
-  for (const [entryName, destination, font] of PACK_FILES) {
-    let exists = false;
-    try {
-      const current = await fs.readFile(destination);
-      exists = font ? current.length > 15_000 : current.length > 100;
-    } catch {
-      exists = false;
-    }
-    if (exists) continue;
-    const data = await extractZipEntry(archive, entryName);
-    if (font) assertFontBuffer(data, entryName, 15_000);
-    await fs.mkdir(path.dirname(destination), { recursive: true });
-    await fs.writeFile(destination, data);
-    count++;
-  }
-  return count;
-}
-
 async function download(relativePath, destination, font = false) {
   try {
     const existing = await fs.readFile(destination);
@@ -362,6 +254,9 @@ const POLISH_DISPLAY_FONT_FILES = [
   ["GL-StarTaker", "gl-startaker.ttf"],
   ["Gothic GumDrop", "gothic-gumdrop.ttf"],
   ["Blaka", "blaka.ttf"],
+  ["Blaka Hollow", "blaka-hollow.ttf"],
+  ["Blaka Ink", "blaka-ink.ttf"],
+  ["GL-Morris", "gl-morris.ttf"],
   ["MedievalSharp", "medievalsharp.ttf"],
   ["Almendra", "almendra.ttf"],
   ["Metamorphous", "metamorphous.ttf"],
@@ -444,8 +339,14 @@ async function assertPolishDisplayCoverage() {
   }
 }
 
-const RETIRED_FONT_FILES = ["jena-gotisch.ttf", "cat-altenglisch.ttf", "slavkappen.ttf"];
-const RETIRED_LICENSE_FILES = ["Jena-Gotisch-OFL.txt", "CAT-Altenglisch-OFL.txt", "Slavkappen-OFL.txt"];
+const RETIRED_FONT_FILES = [
+  "jena-gotisch.ttf", "cat-altenglisch.ttf", "slavkappen.ttf",
+  "almendra-display.ttf", "germania-one.ttf", "metal-mania.ttf", "rye.ttf",
+];
+const RETIRED_LICENSE_FILES = [
+  "Jena-Gotisch-OFL.txt", "CAT-Altenglisch-OFL.txt", "Slavkappen-OFL.txt",
+  "Almendra-Display-OFL.txt", "Germania-One-OFL.txt", "Metal-Mania-OFL.txt", "Rye-OFL.txt",
+];
 
 await fs.mkdir(fontDir, { recursive: true });
 await fs.mkdir(licenseDir, { recursive: true });
@@ -460,7 +361,6 @@ for (const [name, remotePath] of assets) {
 for (const [name, url, minBytes] of externalFontAssets) {
   if (await downloadUrl(url, path.join(fontDir, name), minBytes)) fetched++;
 }
-fetched += await extractEmbeddedFontPack();
 for (const [name, remotePath] of licenses) {
   if (await download(remotePath, path.join(licenseDir, name), false)) fetched++;
 }
@@ -476,8 +376,8 @@ await fs.writeFile(
     `Primary source: google/fonts commit ${GOOGLE_FONTS_COMMIT}`,
     "All typefaces exposed by Folio's display-font library are gated against the actual font cmap for: ĄĆĘŁŃÓŚŹŻąćęłńóśźż.",
     "Google Fonts sources are pinned to the commit above and require OFL metadata plus the cmap gate.",
-    "Additional pinned upstream blackletter sources: GL-StellaMystica 9571be83, GL-StarTaker 3128f5d5, News Textura ec7d172c, Blaka 7f264eee, Gothic GumDrop 3e2f4315, GL-GermanCursive 0979e615, KJV1611 f957694f.",
-    "Jena Gotisch, CAT Altenglisch and Slavkappen are retired and deleted from the built font directory because they do not provide the required Polish glyph set.",
+    "Additional pinned upstream blackletter sources: GL-StellaMystica 9571be83, GL-StarTaker 3128f5d5, News Textura ec7d172c, Blaka/Blaka Hollow/Blaka Ink 7f264eee, Gothic GumDrop 3e2f4315, GL-GermanCursive 0979e615, KJV1611 f957694f, GL-Morris f21c6a9b.",
+    "Jena Gotisch, CAT Altenglisch, Slavkappen, Germania One, Metal Mania, Almendra Display and Rye are retired and deleted from the built font directory because they do not provide the required Polish glyph set.",
     "See licenses/ for the exact bundled font licenses.",
     "",
   ].join("\n"),

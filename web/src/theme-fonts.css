@@ -32,12 +32,9 @@
 @font-face{font-family:"Pirata One";src:url("/theme-fonts/pirata-one.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Almendra";src:url("/theme-fonts/almendra.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Almendra";src:url("/theme-fonts/almendra-bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:swap}
-@font-face{font-family:"Almendra Display";src:url("/theme-fonts/almendra-display.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Metamorphous";src:url("/theme-fonts/metamorphous.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Eagle Lake";src:url("/theme-fonts/eagle-lake.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"New Rocker";src:url("/theme-fonts/new-rocker.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"Germania One";src:url("/theme-fonts/germania-one.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"Metal Mania";src:url("/theme-fonts/metal-mania.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Fondamento";src:url("/theme-fonts/fondamento.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Fondamento";src:url("/theme-fonts/fondamento-italic.ttf") format("truetype");font-weight:400;font-style:italic;font-display:swap}
 @font-face{font-family:"Cormorant Unicase";src:url("/theme-fonts/cormorant-unicase.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
@@ -48,7 +45,6 @@
 @font-face{font-family:"Caudex";src:url("/theme-fonts/caudex.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Caudex";src:url("/theme-fonts/caudex-bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:"Caudex";src:url("/theme-fonts/caudex-italic.ttf") format("truetype");font-weight:400;font-style:italic;font-display:swap}
-@font-face{font-family:"Rye";src:url("/theme-fonts/rye.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Sancreek";src:url("/theme-fonts/sancreek.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Nova Cut";src:url("/theme-fonts/nova-cut.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Fruktur";src:url("/theme-fonts/fruktur.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
@@ -63,6 +59,9 @@
 @font-face{font-family:"GL-StarTaker";src:url("/theme-fonts/gl-startaker.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Newspaper Text";src:url("/theme-fonts/newspaper-text.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Blaka";src:url("/theme-fonts/blaka.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Blaka Hollow";src:url("/theme-fonts/blaka-hollow.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Blaka Ink";src:url("/theme-fonts/blaka-ink.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Gothic GumDrop";src:url("/theme-fonts/gothic-gumdrop.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"GL-GermanCursive";src:url("/theme-fonts/gl-german-cursive.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"GL-Morris";src:url("/theme-fonts/gl-morris.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"KJV1611";src:url("/theme-fonts/kjv1611.otf") format("opentype");font-weight:400;font-style:normal;font-display:swap}

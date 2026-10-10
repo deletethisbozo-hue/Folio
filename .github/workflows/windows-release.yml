@@ -1,4 +1,4 @@
-# Folio 3.2.1 hotfix release workflow
+# Folio 3.2.2 font-library hotfix release workflow
 name: Build and Release Folio for Windows
 
 on:
@@ -38,11 +38,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.2.1 version consistency
+      - name: Verify Folio 3.2.2 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.2.1") { throw "Windows release is scoped to Folio 3.2.1, found $version." }
+          if ($version -ne "3.2.2") { throw "Windows release is scoped to Folio 3.2.2, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -288,4 +288,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.2.1 is a UI and typography hotfix for 3.2.0. Preview page navigation, zoom and Print trim controls stay in one clickable toolbar row; the Theme Lab launcher is geometrically centered; custom theme cards no longer cover their names and now preview saved chapter/scene artwork. The display-font library is rebuilt around verified Polish-capable faces: a dedicated Blackletter/Gothic group plus Medieval/Historical and general display groups. Folio now bundles pinned upstream open-source blackletter faces including GL-StellaMystica, GL-StarTaker, Newspaper Text, Blaka, Gothic GumDrop, GL-GermanCursive and KJV1611, while every visible display font is checked against the actual font cmap for all Polish letters. Jena Gotisch, CAT Altenglisch and Slavkappen are removed from the built font directory. Preview, Print and EPUB use the same runtime font registry, including OTF support. Full Windows tests, packaged smoke, export checks and SHA-256 generation remain release gates."
+            --notes "Folio 3.2.2 finishes the 3.2 typography hotfix instead of shipping a cosmetic font picker. The built-in display library is now grouped into Blackletter/Gothic, Medieval/Historical and Book/General sections, and every visible display face is verified against the actual font cmap for the complete Polish set ĄĆĘŁŃÓŚŹŻąćęłńóśźż. The Blackletter/Gothic group now includes twenty Polish-capable faces, with pinned upstream sources beyond Google Fonts such as GL-StellaMystica, GL-StarTaker, Newspaper Text, KJV1611, Gothic GumDrop, Blaka, Blaka Hollow, Blaka Ink, GL-GermanCursive and GL-Morris. Jena Gotisch, CAT Altenglisch, Slavkappen, Germania One, Metal Mania, Almendra Display and Rye are removed because they fail the Polish glyph gate. The obsolete embedded font pack is removed completely; Kings and Manufacturing Consent now come from pinned Google Fonts sources. Preview, Print and EPUB share the same font registry, including OTF support. The Theme Lab centering, custom-theme card artwork/name fixes and one-row preview paging/zoom/Print toolbar fixes from 3.2.1 remain included. Full Windows tests, packaged smoke, export checks and SHA-256 generation remain release gates."
