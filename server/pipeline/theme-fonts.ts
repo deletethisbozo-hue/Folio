@@ -55,23 +55,59 @@ const FONTS = {
   gothic: { family: "Grenze Gotisch", faces: [
     { file: "grenze-gotisch.ttf", weight: "100 900", style: "normal" },
   ] },
+  fruktur: { family: "Fruktur", faces: [
+    { file: "fruktur.ttf", weight: "400", style: "normal" },
+  ] },
+  grenze: { family: "Grenze", faces: [
+    { file: "grenze.ttf", weight: "100 900", style: "normal" },
+  ] },
+  jacquardaBastarda9: { family: "Jacquarda Bastarda 9", faces: [
+    { file: "jacquarda-bastarda-9.ttf", weight: "400", style: "normal" },
+  ] },
+  rakkas: { family: "Rakkas", faces: [
+    { file: "rakkas.ttf", weight: "400", style: "normal" },
+  ] },
+  jainiPurva: { family: "Jaini Purva", faces: [
+    { file: "jaini-purva.ttf", weight: "400", style: "normal" },
+  ] },
+  jaini: { family: "Jaini", faces: [
+    { file: "jaini.ttf", weight: "400", style: "normal" },
+  ] },
+  jimNightshade: { family: "Jim Nightshade", faces: [
+    { file: "jim-nightshade.ttf", weight: "400", style: "normal" },
+  ] },
+  risque: { family: "Risque", faces: [
+    { file: "risque.ttf", weight: "400", style: "normal" },
+  ] },
+  stellaMystica: { family: "GL-StellaMystica", faces: [
+    { file: "gl-stella-mystica.ttf", weight: "400", style: "normal" },
+  ] },
+  starTaker: { family: "GL-StarTaker", faces: [
+    { file: "gl-startaker.ttf", weight: "400", style: "normal" },
+  ] },
+  newspaperText: { family: "Newspaper Text", faces: [
+    { file: "newspaper-text.ttf", weight: "400", style: "normal" },
+  ] },
+  blaka: { family: "Blaka", faces: [
+    { file: "blaka.ttf", weight: "400", style: "normal" },
+  ] },
+  gothicGumDrop: { family: "Gothic GumDrop", faces: [
+    { file: "gothic-gumdrop.ttf", weight: "400", style: "normal" },
+  ] },
+  germanCursive: { family: "GL-GermanCursive", faces: [
+    { file: "gl-german-cursive.ttf", weight: "400", style: "normal" },
+  ] },
+  kjv1611: { family: "KJV1611", faces: [
+    { file: "kjv1611.otf", weight: "400", style: "normal" },
+  ] },
   slab: { family: "Roboto Slab", faces: [
     { file: "roboto-slab.ttf", weight: "100 900", style: "normal" },
-  ] },
-  jenaGotisch: { family: "Jena Gotisch", faces: [
-    { file: "jena-gotisch.ttf", weight: "400", style: "normal" },
   ] },
   manufacturingConsent: { family: "Manufacturing Consent", faces: [
     { file: "manufacturing-consent.ttf", weight: "400", style: "normal" },
   ] },
   kings: { family: "Kings", faces: [
     { file: "kings.ttf", weight: "400", style: "normal" },
-  ] },
-  altenglisch: { family: "CAT Altenglisch", faces: [
-    { file: "cat-altenglisch.ttf", weight: "400", style: "normal" },
-  ] },
-  slavkappen: { family: "Slavkappen", faces: [
-    { file: "slavkappen.ttf", weight: "400", style: "normal" },
   ] },
   medievalSharp: { family: "MedievalSharp", faces: [
     { file: "medievalsharp.ttf", weight: "400", style: "normal" },
@@ -147,14 +183,25 @@ const LEGACY_TO_BUILTIN: Array<[string, FontKey]> = [
   ["Folio Vollkorn", "vollkorn"], ["Folio Barlow Condensed", "condensed"],
   ["Folio Bodoni Moda", "bodoni"], ["Folio Cinzel", "cinzel"],
   ["Folio Grenze Gotisch", "gothic"], ["Folio Roboto Slab", "slab"],
-  ["Folio Jena Gotisch", "jenaGotisch"], ["Folio Manufacturing Consent", "manufacturingConsent"],
-  ["Folio Kings", "kings"], ["Folio CAT Altenglisch", "altenglisch"], ["Folio Slavkappen", "slavkappen"],
+  ["Folio Manufacturing Consent", "manufacturingConsent"], ["Folio Kings", "kings"],
   ["Source Serif 4", "sourceSerif"], ["Source Sans 3", "sourceSans"],
   ["EB Garamond", "garamond"], ["Libre Caslon Text", "caslon"],
   ["Libre Baskerville", "baskerville"], ["Newsreader", "newsreader"], ["Gelasio", "gelasio"],
   ["Vollkorn", "vollkorn"], ["Barlow Condensed", "condensed"],
   ["Bodoni Moda", "bodoni"], ["Cinzel", "cinzel"],
   ["Grenze Gotisch", "gothic"], ["Roboto Slab", "slab"],
+  ["Fruktur", "fruktur"], ["Grenze", "grenze"], ["Jacquarda Bastarda 9", "jacquardaBastarda9"],
+  ["Rakkas", "rakkas"], ["Jaini Purva", "jainiPurva"], ["Jaini", "jaini"],
+  ["Jim Nightshade", "jimNightshade"], ["Risque", "risque"],
+  ["GL-StellaMystica", "stellaMystica"], ["GL-StarTaker", "starTaker"],
+  ["Newspaper Text", "newspaperText"], ["Blaka", "blaka"], ["Gothic GumDrop", "gothicGumDrop"],
+  ["GL-GermanCursive", "germanCursive"], ["KJV1611", "kjv1611"],
+  ["Folio Fruktur", "fruktur"], ["Folio Grenze", "grenze"], ["Folio Jacquarda Bastarda 9", "jacquardaBastarda9"],
+  ["Folio Rakkas", "rakkas"], ["Folio Jaini Purva", "jainiPurva"], ["Folio Jaini", "jaini"],
+  ["Folio Jim Nightshade", "jimNightshade"], ["Folio Risque", "risque"],
+  ["Folio GL-StellaMystica", "stellaMystica"], ["Folio GL-StarTaker", "starTaker"],
+  ["Folio Newspaper Text", "newspaperText"], ["Folio Blaka", "blaka"], ["Folio Gothic GumDrop", "gothicGumDrop"],
+  ["Folio GL-GermanCursive", "germanCursive"], ["Folio KJV1611", "kjv1611"],
   ["MedievalSharp", "medievalSharp"], ["Pirata One", "pirataOne"],
   ["Almendra", "almendra"], ["Almendra Display", "almendraDisplay"],
   ["Metamorphous", "metamorphous"], ["Eagle Lake", "eagleLake"],
@@ -243,11 +290,16 @@ function fontMime(file: string): string {
   return file.endsWith(".otf") ? "font/otf" : "font/ttf";
 }
 
+function fontFormat(file: string): "opentype" | "truetype" {
+  return file.toLowerCase().endsWith(".otf") ? "opentype" : "truetype";
+}
+
 async function faceSource(file: string, target: FontTarget): Promise<string> {
-  if (target === "html") return `url('/theme-fonts/${file}') format('truetype')`;
-  if (target === "epub") return `url('../fonts/${file}') format('truetype')`;
+  const format = fontFormat(file);
+  if (target === "html") return `url('/theme-fonts/${file}') format('${format}')`;
+  if (target === "epub") return `url('../fonts/${file}') format('${format}')`;
   const data = await fs.readFile(path.join(THEME_FONTS_DIR, file));
-  return `url('data:${fontMime(file)};base64,${data.toString("base64")}') format('truetype')`;
+  return `url('data:${fontMime(file)};base64,${data.toString("base64")}') format('${format}')`;
 }
 
 async function fontFaceCss(spec: FontSpec, target: FontTarget): Promise<string> {

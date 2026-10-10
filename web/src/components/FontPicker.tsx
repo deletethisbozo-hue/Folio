@@ -7,23 +7,29 @@ export const BODY_FONT_FAMILIES = [
 ] as const;
 
 export const GOTHIC_DISPLAY_FONT_FAMILIES = [
-  "Grenze Gotisch", "Fruktur", "Pirata One", "Germania One", "New Rocker",
-  "Manufacturing Consent", "Kings", "Texturina", "Grenze", "Jacquarda Bastarda 9", "Rakkas",
+  "Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9",
+  "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent",
+  "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka",
+] as const;
+
+export const MEDIEVAL_DISPLAY_FONT_FAMILIES = [
+  "MedievalSharp", "Almendra", "Metamorphous", "Eagle Lake", "Fondamento",
+  "Caudex", "Cormorant Unicase", "Berkshire Swash", "Risque", "Kings",
+  "Grenze", "GL-GermanCursive",
+] as const;
+
+export const GENERAL_DISPLAY_FONT_FAMILIES = [
+  "Barlow Condensed", "Bodoni Moda", "Cinzel", "Rakkas", "Sancreek", "Nova Cut",
 ] as const;
 
 export const DROPCAP_FONT_FAMILIES = [
   ...BODY_FONT_FAMILIES,
-  "Barlow Condensed", "Bodoni Moda", "Cinzel",
   ...GOTHIC_DISPLAY_FONT_FAMILIES,
-  "MedievalSharp", "Almendra", "Almendra Display", "Metamorphous", "Eagle Lake",
-  "Metal Mania", "Fondamento", "Cormorant Unicase", "Berkshire Swash", "Caudex",
+  ...MEDIEVAL_DISPLAY_FONT_FAMILIES,
+  ...GENERAL_DISPLAY_FONT_FAMILIES,
 ] as const;
 
-export const DISPLAY_FONT_FAMILIES = [
-  ...DROPCAP_FONT_FAMILIES,
-  "Rye", "Sancreek", "Nova Cut",
-] as const;
-
+export const DISPLAY_FONT_FAMILIES = DROPCAP_FONT_FAMILIES;
 export const BUNDLED_FONT_FAMILIES = DISPLAY_FONT_FAMILIES;
 
 export const FONT_TEST_SENTENCE = "Sphinx of black quartz, judge my vow.";
@@ -58,6 +64,18 @@ export default function FontPicker(props: {
   const defaults = fontStackPrimary(props.defaultFont) || "base theme";
   const shown = active || (current || defaults);
   const filtered = families.filter((family) => family.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const hasDisplayFamilies = families.some((family) =>
+    GOTHIC_DISPLAY_FONT_FAMILIES.includes(family as (typeof GOTHIC_DISPLAY_FONT_FAMILIES)[number])
+    || MEDIEVAL_DISPLAY_FONT_FAMILIES.includes(family as (typeof MEDIEVAL_DISPLAY_FONT_FAMILIES)[number])
+  );
+  const grouped = (hasDisplayFamilies ? [
+    { label: "Blackletter / Gothic", families: GOTHIC_DISPLAY_FONT_FAMILIES.filter((family) => filtered.includes(family)) },
+    { label: "Medieval / Historical", families: MEDIEVAL_DISPLAY_FONT_FAMILIES.filter((family) => filtered.includes(family)) },
+    { label: "Book / General", families: filtered.filter((family) =>
+      !GOTHIC_DISPLAY_FONT_FAMILIES.includes(family as (typeof GOTHIC_DISPLAY_FONT_FAMILIES)[number])
+      && !MEDIEVAL_DISPLAY_FONT_FAMILIES.includes(family as (typeof MEDIEVAL_DISPLAY_FONT_FAMILIES)[number])
+    ) },
+  ] : [{ label: "Book typefaces", families: filtered }]).filter((group) => group.families.length > 0);
 
   useEffect(() => {
     if (!open) return;
@@ -104,12 +122,15 @@ export default function FontPicker(props: {
           <strong>Theme default</strong>
           <span lang="en" style={{ fontFamily: `"${defaults.replace(/"/g, "")}", serif` }}>{FONT_TEST_SENTENCE}</span>
         </button>}
-        {filtered.map((family) => <button type="button" key={family} role="option"
-          aria-selected={active === family} className={"folio-font-picker-option" + (active === family ? " selected" : "")}
-          onClick={() => { props.onChange(family); setOpen(false); }}>
-          <strong>{family}</strong>
-          <span lang="en" style={{ fontFamily: `"${family}", serif` }}>{FONT_TEST_SENTENCE}</span>
-        </button>)}
+        {grouped.map((group) => <div key={group.label} className="folio-font-picker-group" role="group" aria-label={group.label}>
+          <div className="folio-font-picker-group-label">{group.label}</div>
+          {group.families.map((family) => <button type="button" key={family} role="option"
+            aria-selected={active === family} className={"folio-font-picker-option" + (active === family ? " selected" : "")}
+            onClick={() => { props.onChange(family); setOpen(false); }}>
+            <strong>{family}</strong>
+            <span lang="en" style={{ fontFamily: `"${family}", serif` }}>{FONT_TEST_SENTENCE}</span>
+          </button>)}
+        </div>)}
         {filtered.length === 0 && <div className="folio-font-picker-empty">No matching bundled fonts.</div>}
       </div>
     </div>, document.body)}

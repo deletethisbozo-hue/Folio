@@ -162,12 +162,12 @@ export function registerApi(app: Express): void {
   app.get("/theme-fonts/:file", (req, res) =>
     wrap(res, async () => {
       const name = String(req.params.file ?? "");
-      if (!/^[a-z0-9][a-z0-9.-]*\.ttf$/i.test(name)) {
+      if (!/^[a-z0-9][a-z0-9.-]*\.(?:ttf|otf)$/i.test(name)) {
         res.status(404).end();
         return;
       }
       const file = path.join(THEME_FONTS_DIR, name);
-      res.setHeader("Content-Type", "font/ttf");
+      res.setHeader("Content-Type", name.toLowerCase().endsWith(".otf") ? "font/otf" : "font/ttf");
       res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       res.send(await fs.readFile(file));
     }),
