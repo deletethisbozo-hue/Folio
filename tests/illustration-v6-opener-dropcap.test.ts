@@ -163,10 +163,14 @@ try {
   await page.waitForSelector(".folio-font-picker-panel");
   const fontOptions = await page.$$eval(".folio-font-picker-panel .folio-font-picker-option strong",
     (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
-  const requestedFonts = ["Jena Gotisch", "Manufacturing Consent", "Kings", "CAT Altenglisch", "Slavkappen"];
+  const requestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "Germania One", "New Rocker", "Manufacturing Consent", "Kings", "Texturina", "Grenze", "Jacquarda Bastarda 9", "Rakkas"];
+  const retiredFonts = ["Jena Gotisch", "CAT Altenglisch", "Slavkappen"];
   const hasRequestedFonts = requestedFonts.every((name) => fontOptions.includes(name));
-  check("Drop cap font picker exposes all requested licensed fonts", hasRequestedFonts, JSON.stringify(fontOptions));
-  if (!hasRequestedFonts) throw new Error("Drop cap font picker is missing requested fonts");
+  const retiredFontsHidden = retiredFonts.every((name) => !fontOptions.includes(name));
+  check("Drop cap font picker exposes the verified Latin Extended gothic set", hasRequestedFonts, JSON.stringify(fontOptions));
+  check("Drop cap font picker hides unverified legacy faces", retiredFontsHidden, JSON.stringify(fontOptions));
+  if (!hasRequestedFonts) throw new Error("Drop cap font picker is missing a verified Latin Extended font");
+  if (!retiredFontsHidden) throw new Error("Drop cap font picker still exposes an unverified legacy font");
   await page.keyboard.press("Escape");
 
   const bookStylesFont = await page.$eval(".style-library-header h2", (node) => getComputedStyle(node).fontFamily);
