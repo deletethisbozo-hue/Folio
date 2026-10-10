@@ -7,13 +7,13 @@
 .theme-lab-title-block h2{margin:0 0 4px!important;line-height:1!important}
 .theme-lab-title-block p{margin:0!important}
 
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{height:50px!important;min-height:50px!important;padding-inline:18px!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{min-height:34px!important;align-items:center!important;align-content:center!important;row-gap:1px!important;column-gap:5px!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{height:40px!important;min-height:40px!important;padding-inline:18px 16px!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{min-height:30px!important;align-items:center!important;align-content:center!important;row-gap:0!important;column-gap:5px!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-index{align-self:center!important;line-height:1.15!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title,
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button,
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-input{font-size:17px!important;font-weight:650!important;line-height:1.18!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button{min-height:26px!important;padding:3px 4px!important;display:flex!important;align-items:center!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-input{font-size:15px!important;font-weight:650!important;line-height:1.12!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button{min-height:22px!important;padding:0!important;display:flex!important;align-items:center!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button{margin-top:0!important;line-height:1.12!important}
 
 .theme-sample.theme-custom{border-style:solid}
