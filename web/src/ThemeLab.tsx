@@ -150,12 +150,12 @@ function readBlobAsDataUrl(blob: Blob): Promise<string> {
 async function imageFileToSafeDataUrl(file: File): Promise<string> {
   if (file.size > 12 * 1024 * 1024) throw new Error("Image must be 12 MB or smaller.");
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const mime = file.type || (
+  const mime = (file.type || (
     extension === "png" ? "image/png" :
     extension === "jpg" || extension === "jpeg" ? "image/jpeg" :
     extension === "webp" ? "image/webp" :
     extension === "svg" ? "image/svg+xml" : ""
-  );
+  )).split(";")[0].trim().toLowerCase();
   if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(mime)) {
     throw new Error("Use PNG, JPG/JPEG, WebP or SVG.");
   }
