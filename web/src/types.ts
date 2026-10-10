@@ -109,6 +109,15 @@ export interface ThemeLabConfig {
   sceneImage?: ThemeLabImage;
 }
 
+export interface ThemeLibraryEntry {
+  id: string;
+  label: string;
+  baseTheme: string;
+  config: ThemeLabConfig;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Typography {
   themeLab?: ThemeLabConfig;
   bodyFont?: string;
