@@ -78,7 +78,7 @@ test("3.2.3 centers the Theme Lab label directly and gives Format subtitle its o
 });
 
 test("3.2.2 font library is grouped, Polish-capable and wired through preview/export", () => {
-  assert.match(fontPicker, /FONT_TEST_SENTENCE = "Sphinx of black quartz, judge my vow\."/);
+  assert.match(fontPicker, /FONT_TEST_SENTENCE = "Write\. Format\. Publish\."/);
   assert.match(fontPicker, /Blackletter \/ Gothic/);
   assert.match(fontPicker, /Medieval \/ Historical/);
   assert.doesNotMatch(fontPicker, /Zażółć|Jena Gotisch|CAT Altenglisch|Slavkappen|Germania One|Metal Mania|Almendra Display|"Rye"/);

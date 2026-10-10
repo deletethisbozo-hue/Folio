@@ -35,7 +35,13 @@ try {
   page.setDefaultTimeout(120_000);
   page.setDefaultNavigationTimeout(120_000);
   await page.setViewport({ width: 1440, height: 900 });
-  await page.goto(base, { waitUntil: "networkidle0" });
+  // Folio now loads persistent theme/font library state during startup. UI
+  // readiness must not depend on the browser reaching absolute network idle.
+  await page.goto(base, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  await page.waitForFunction(
+    () => [...document.querySelectorAll("button")].some((item) => item.textContent?.includes("Open Sample")),
+    { timeout: 30_000 },
+  );
   await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Open Sample"));
     if (!button) throw new Error("Open Sample button is missing");
