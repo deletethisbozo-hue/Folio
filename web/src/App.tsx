@@ -258,6 +258,7 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
 export default function App({ initialProject = null, onDashboard }: { initialProject?: ProjectSummary | null; onDashboard?: () => void } = {}) {
   const initialSection = initialProject?.sections.find((section) => section.kind === "chapter") ?? initialProject?.sections[0] ?? null;
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [savedThemes, setSavedThemes] = useState<ThemeLibraryEntry[]>(() => loadThemeLibrary());
   const [matterTypes, setMatterTypes] = useState<MatterType[]>([]);
   const [project, setProject] = useState<ProjectSummary | null>(initialProject);
   const [meta, setMeta] = useState<BookMeta | null>(initialProject?.meta ?? null);
@@ -273,6 +274,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-6-8");
+  const [previewZoom, setPreviewZoom] = useState(() => {
+    const stored = Number(window.localStorage.getItem("folio-preview-zoom"));
+    return Number.isFinite(stored) ? Math.max(0.5, Math.min(1.6, stored)) : 1;
+  });
   const [previewDraft, setPreviewDraft] = useState("");
   const [pastePreparing, setPastePreparing] = useState(false);
   const [uiTone, setUiTone] = useState<UiTone>(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory");
@@ -1340,6 +1345,52 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
   }
 
+
+  async function saveThemeToLibrary(baseTheme: string, config: ThemeLabConfig): Promise<void> {
+    const label = (config.name ?? "").trim() || "My Theme";
+    if (!themes.some((theme) => theme.name === baseTheme)) {
+      throw new Error("Choose a valid base theme before saving.");
+    }
+    const now = Date.now();
+    setSavedThemes((current) => {
+      const existing = current.find((item) => item.label.localeCompare(label, undefined, { sensitivity: "accent" }) === 0);
+      const entry: ThemeLibraryEntry = {
+        id: existing?.id ?? ("custom-" + themeLibrarySlug(label) + "-" + now.toString(36)),
+        label,
+        baseTheme,
+        config: { ...config, name: label, enabled: true },
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+      const next = [entry, ...current.filter((item) => item.id !== entry.id)];
+      persistThemeLibrary(next);
+      return next;
+    });
+  }
+
+  function selectBuiltInTheme(theme: Theme): void {
+    if (!meta) return;
+    setMeta({ ...meta, theme: theme.name });
+    setTypography((current) => stripThemeLabOwnedTypography(current));
+  }
+
+  function selectSavedTheme(theme: ThemeLibraryEntry): void {
+    if (!meta) return;
+    setMeta({ ...meta, theme: theme.baseTheme });
+    setTypography((current) => themeLabTypography(
+      stripThemeLabOwnedTypography(current),
+      { ...theme.config, name: theme.label, enabled: true },
+    ));
+  }
+
+  function removeSavedTheme(themeId: string): void {
+    setSavedThemes((current) => {
+      const next = current.filter((item) => item.id !== themeId);
+      persistThemeLibrary(next);
+      return next;
+    });
+  }
+
   async function saveBookDetails() {
     if (!project || !meta || !(await saveCurrent())) return;
     setSaveState("saving");
@@ -1362,6 +1413,17 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         ? 1
         : Math.max(0.7, Math.min(2, Math.round((current + delta) * 10) / 10));
       window.localStorage.setItem("folio-write-zoom", String(next));
+      return next;
+    });
+  }
+
+
+  function changePreviewZoom(delta: number | "reset") {
+    setPreviewZoom((current) => {
+      const next = delta === "reset"
+        ? 1
+        : Math.max(0.5, Math.min(1.6, Math.round((current + delta) * 10) / 10));
+      window.localStorage.setItem("folio-preview-zoom", String(next));
       return next;
     });
   }
