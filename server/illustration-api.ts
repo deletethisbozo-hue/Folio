@@ -15,9 +15,9 @@ export function registerIllustrationApi(app: Express): void {
     try {
       const file = req.file as Express.Multer.File | undefined;
       if (!file) throw new Error("No illustration uploaded.");
-      if (!/^image\/(?:png|jpeg)$/i.test(file.mimetype)) throw new Error("Illustrations must be PNG or JPEG.");
+      if (!/^image\/(?:png|jpeg|svg\+xml)$/i.test(file.mimetype)) throw new Error("Illustrations must be PNG, JPEG or SVG.");
       const dir = await writableBookDir(req.params.id);
-      const stored = await storeIllustration(dir, file.originalname, file.buffer);
+      const stored = await storeIllustration(dir, file.originalname, file.mimetype, file.buffer);
       res.json({ ok: true, asset: stored.asset, url: `/api/projects/${encodeURIComponent(req.params.id)}/asset?path=${encodeURIComponent(stored.asset)}` });
     } catch (error) {
       console.error(error);
@@ -31,7 +31,7 @@ export function registerIllustrationApi(app: Express): void {
       const dir = await writableBookDir(req.params.id);
       const file = resolveIllustrationAsset(dir, asset);
       const ext = path.extname(file).toLowerCase();
-      res.setHeader("Content-Type", ext === ".png" ? "image/png" : "image/jpeg");
+      res.setHeader("Content-Type", ext === ".png" ? "image/png" : ext === ".svg" ? "image/svg+xml" : "image/jpeg");
       res.setHeader("Cache-Control", "no-store");
       res.send(await fs.readFile(file));
     } catch (error) {
