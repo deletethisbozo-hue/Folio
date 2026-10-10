@@ -56,6 +56,7 @@ import { normalizeThemeFontStack } from "./pipeline/theme-fonts.ts";
 import { registerImagePageApi } from "./image-page-api.ts";
 import { registerIllustrationApi } from "./illustration-api.ts";
 import { forgetRecentProject, readRecentProjects, rememberRecentProject } from "./recent-projects.ts";
+import { customFontById, customFontPath, installCustomFont, readCustomFonts, readThemeLibrary, writeThemeLibrary } from "./global-library.ts";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -172,6 +173,35 @@ export function registerApi(app: Express): void {
       res.send(await fs.readFile(file));
     }),
   );
+  app.get("/api/library/themes", (_req, res) =>
+    wrap(res, async () => { res.json(await readThemeLibrary()); }),
+  );
+  app.put("/api/library/themes", (req: Request, res: Response) =>
+    wrap(res, async () => { res.json(await writeThemeLibrary(req.body?.themes ?? req.body)); }),
+  );
+  app.get("/api/library/fonts", (_req, res) =>
+    wrap(res, async () => { res.json(await readCustomFonts()); }),
+  );
+  app.post("/api/library/fonts", upload.single("font"), (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const file = req.file;
+      if (!file) throw new Error("Choose a TTF or OTF font file.");
+      res.json(await installCustomFont(file.originalname, file.buffer));
+    }),
+  );
+  app.get("/api/library/fonts/:id/file", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const font = await customFontById(String(req.params.id ?? ""));
+      if (!font) {
+        res.status(404).end();
+        return;
+      }
+      res.setHeader("Content-Type", font.format === "opentype" ? "font/otf" : "font/ttf");
+      res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+      res.send(await fs.readFile(customFontPath(font)));
+    }),
+  );
+
   app.get("/api/health", (_req, res) =>
     wrap(res, async () => {
       res.json({ ok: true, name: APP_NAME, version: APP_VERSION, pandoc: await checkPandoc() });
