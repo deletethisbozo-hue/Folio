@@ -107,7 +107,7 @@
 .preview-stage{overflow:auto!important;scrollbar-gutter:stable both-edges}
 .preview-stage .reader-device{transform:scale(var(--folio-preview-zoom,1));transform-origin:center top;transition:none!important}
 .preview-stage.print-stage{place-items:start center!important}
-.preview-stage.print-stage .reader-device.device-print{transform-origin:center top}
+.preview-stage.print-stage .reader-device.device-print{transform:none!important;transform-origin:center top}
 /* 3.2.1: device, zoom and paging are three separate groups in one clickable row. */
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-toolbar{grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:1fr!important;column-gap:4px!important;align-items:center!important;overflow:visible!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label{grid-column:1!important;grid-row:1!important;min-width:0!important;overflow:hidden!important;gap:4px!important}
