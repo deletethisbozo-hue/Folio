@@ -38,6 +38,7 @@
   flex:1 1 auto!important;
   min-width:0!important;
   min-height:30px!important;
+  padding:0!important;
   display:grid!important;
   grid-template-columns:auto minmax(0,1fr)!important;
   grid-template-rows:auto auto!important;
