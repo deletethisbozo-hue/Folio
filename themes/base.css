@@ -106,9 +106,7 @@ p {
 }
 section.chapter > p:not(.scene-break),
 section.chapter > blockquote p,
-section.chapter li,
-section.backmatter > p:not(.scene-break),
-section.backmatter li {
+section.chapter li {
   text-align: justify;
   text-align-last: left;
   text-justify: inter-word;
