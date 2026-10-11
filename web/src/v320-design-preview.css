@@ -198,6 +198,7 @@
   gap:10px!important;
 }
 .folio-shell .theme-gallery>.theme-sample{
+  box-sizing:border-box!important;
   flex:0 0 calc((100% - 40px)/5)!important;
   width:calc((100% - 40px)/5)!important;
   max-width:calc((100% - 40px)/5)!important;
