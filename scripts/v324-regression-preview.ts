@@ -69,6 +69,22 @@ try {
   await page.click('[data-command="design"]');
   await page.waitForSelector(".style-library");
   await settle(250);
+  const libraryGeometry = await page.evaluate(() => {
+    const dialog = document.querySelector<HTMLElement>(".style-library");
+    const cards = [...document.querySelectorAll<HTMLElement>(".theme-sample")];
+    const footer = document.querySelector<HTMLElement>(".style-library-footer");
+    const lastBottom = cards.length ? Math.max(...cards.map((card) => card.getBoundingClientRect().bottom)) : 0;
+    const footerTop = footer?.getBoundingClientRect().top ?? 9999;
+    return {
+      width: dialog?.getBoundingClientRect().width ?? 0,
+      height: dialog?.getBoundingClientRect().height ?? 0,
+      trailingGap: footerTop - lastBottom,
+      count: cards.length,
+    };
+  });
+  if (libraryGeometry.count < 13 || libraryGeometry.width > 935 || libraryGeometry.height > 690 || libraryGeometry.trailingGap > 38) {
+    throw new Error("Theme Library still has sparse/oversized geometry: " + JSON.stringify(libraryGeometry));
+  }
   const themeButton = await page.$eval(".style-open-theme-lab", (node) => {
     const el = node as HTMLElement;
     const rect = el.getBoundingClientRect();
