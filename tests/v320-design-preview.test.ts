@@ -158,12 +158,15 @@ test("3.2.3 custom Chapter fonts persist and travel with exported theme packages
 });
 
 
-test("matter alignment is not overwritten by chapter body alignment", () => {
+test("matter alignment and paragraph geometry are isolated from chapter typography", () => {
   assert.match(docCss, /text-align: \$\{s\.align\} !important; text-align-last: \$\{s\.align\} !important/);
   const justifyBlock = docCss.match(/if \(ty\.bodyAlign === "justify"\)[\s\S]*?\}\);/)?.[0] ?? "";
   const leftBlock = docCss.match(/else if \(ty\.bodyAlign === "left"\)[\s\S]*?\}\);/)?.[0] ?? "";
   assert.doesNotMatch(justifyBlock, /section\.backmatter/);
   assert.doesNotMatch(leftBlock, /section\.backmatter/);
+  assert.doesNotMatch(docCss, /p \{ text-indent: \$\{ty\.paragraphIndent\}/);
+  assert.doesNotMatch(docCss, /p \{ margin-bottom: \$\{ty\.paragraphSpacing\}/);
+  assert.match(docCss, /section\.chapter > p:not\(\.scene-break\), section\.chapter > blockquote p \{ text-indent: \$\{ty\.paragraphIndent\}/);
 });
 
 test("packaged Folio warms Chromium without blocking the UI", () => {
