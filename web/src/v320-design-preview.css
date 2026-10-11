@@ -29,22 +29,21 @@
 
 /* Format title header: keep both rows optically centered without fixed baselines. */
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{
-  height:52px!important;
-  min-height:52px!important;
+  height:40px!important;
+  min-height:40px!important;
   padding-inline:18px 16px!important;
   align-items:center!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{
   flex:1 1 auto!important;
   min-width:0!important;
-  min-height:36px!important;
+  min-height:30px!important;
   display:grid!important;
   grid-template-columns:auto minmax(0,1fr)!important;
   grid-template-rows:auto auto!important;
   align-items:center!important;
   align-content:center!important;
-  row-gap:2px!important;
-  transform:translateY(-2px)!important;
+  row-gap:1px!important;
   column-gap:5px!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-index{
@@ -126,7 +125,6 @@
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select:first-child{flex:0 0 124px!important;width:124px!important;min-width:124px!important;max-width:124px!important;padding-inline:6px!important;text-align:center!important;text-align-last:center!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select:first-child option,
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select:first-child optgroup{text-align:center!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label option,.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label optgroup{text-align:center!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label .trim-select{flex:0 1 auto!important;max-width:84px!important;padding-inline:5px!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .preview-zoom-controls{grid-column:2!important;grid-row:1!important;min-width:102px!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-nav{grid-column:3!important;grid-row:1!important;min-width:64px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;white-space:nowrap!important;position:static!important;transform:none!important}
