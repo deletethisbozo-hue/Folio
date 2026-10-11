@@ -74,6 +74,7 @@ try {
   await page.click(".style-library-close");
   const devices = await page.$eval('select[aria-label="Preview device"] option', (items) => items.length);
   if (devices < 6) throw new Error("Packaged preview contains only " + devices + " device modes.");
+  const printStartedAt = Date.now();
   await page.select('select[aria-label="Preview device"]', "print");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe");
@@ -81,6 +82,8 @@ try {
     const rect = printed?.getBoundingClientRect();
     return Boolean(rect && rect.width > 120 && rect.height > 160);
   }, { timeout: 45000 });
+  const printOpenMs = Date.now() - printStartedAt;
+  if (printOpenMs > 18000) throw new Error("Packaged Print preview took too long to open: " + printOpenMs + "ms");
   const fittedPrint = await page.evaluate(() => {
     const frame = document.querySelector("iframe");
     const printed = frame?.contentDocument?.querySelector(".pagedjs_page");
