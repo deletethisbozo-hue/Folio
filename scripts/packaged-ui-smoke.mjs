@@ -37,7 +37,7 @@ try {
     id: "qa-custom-theme",
     label: "QA Custom Theme",
     baseTheme: "decorative",
-    config: { enabled: true, name: "QA Custom Theme", paper: "#fbfaf6", accent: "#856744", headingFont: "Libre Baskerville", bodyFont: "EB Garamond", headingAlign: "center", labelText: "CHAPTER" },
+    config: { enabled: true, name: "QA Custom Theme", paper: "#fbfaf6", accent: "#856744", headingFont: "Libre Baskerville", bodyFont: "EB Garamond", bodyAlign: "justify", paragraphIndent: 1.25, paragraphSpacing: 0.3, headingAlign: "center", labelText: "CHAPTER" },
     createdAt: 1,
     updatedAt: 2,
   }];
@@ -117,9 +117,44 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 150));
   await page.screenshot({ path: path.join(qaDir, "02-theme-library-and-theme-lab-button.png") });
   await page.click(".style-category-list button:nth-child(6)");
-  const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
+  const ornaments = await page.$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
+  await page.click('.theme-sample[data-custom-theme="qa-custom-theme"]');
   await page.click(".style-library-close");
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll(".contents-row")].find((node) => node.textContent?.trim() === "Dedication");
+    if (!(row instanceof HTMLButtonElement)) throw new Error("Bundled sample Dedication row is missing.");
+    row.click();
+  });
+  await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.dedication")), { timeout: 15000 });
+  const dedicationLayout = await page.evaluate(() => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const section = doc?.querySelector("section.dedication");
+    const paragraph = section?.querySelector("p");
+    if (!(section instanceof HTMLElement) || !(paragraph instanceof HTMLElement)) return null;
+    const sectionStyle = getComputedStyle(section);
+    const paragraphStyle = getComputedStyle(paragraph);
+    return {
+      sectionAlign: sectionStyle.textAlign,
+      paragraphAlign: paragraphStyle.textAlign,
+      paragraphLastAlign: paragraphStyle.textAlignLast,
+      paragraphIndent: paragraphStyle.textIndent,
+    };
+  });
+  if (!dedicationLayout
+    || dedicationLayout.sectionAlign !== "center"
+    || dedicationLayout.paragraphAlign !== "center"
+    || dedicationLayout.paragraphLastAlign !== "center"
+    || parseFloat(dedicationLayout.paragraphIndent) !== 0) {
+    throw new Error("Theme Lab still overrides centered front matter: " + JSON.stringify(dedicationLayout));
+  }
+  await page.screenshot({ path: path.join(qaDir, "05-theme-lab-frontmatter-centered.png") });
+  await page.evaluate(() => {
+    const row = document.querySelector(".contents-row.chapter-row");
+    if (!(row instanceof HTMLButtonElement)) throw new Error("First chapter row is missing after frontmatter QA.");
+    row.click();
+  });
+  await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter")), { timeout: 15000 });
   const devices = await page.$eval('select[aria-label="Preview device"] option', (items) => items.length);
   if (devices < 6) throw new Error("Packaged preview contains only " + devices + " device modes.");
   const deviceSelectStyle = await page.$eval('select[aria-label="Preview device"]', (select) => {
