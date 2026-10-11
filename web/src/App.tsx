@@ -293,7 +293,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-6-8");
   const [previewZoom, setPreviewZoom] = useState(() => {
-    const raw = window.localStorage.getItem("folio-preview-zoom");
+    const raw = window.localStorage.getItem("folio-preview-zoom-reader") ?? window.localStorage.getItem("folio-preview-zoom");
     if (raw === null) return 1;
     const stored = Number(raw);
     return Number.isFinite(stored) ? Math.max(0.25, Math.min(1.6, stored)) : 1;
@@ -945,9 +945,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [workspaceMode, previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
   useEffect(() => {
     if (previewMode !== "print") return;
-    const doc = previewRef.current?.contentDocument;
+    const frame = previewRef.current;
+    const doc = frame?.contentDocument;
     const pages = doc?.querySelector<HTMLElement>(".pagedjs_pages");
-    if (pages) pages.style.setProperty("zoom", String(previewZoom), "important");
+    if (!frame || !pages) return;
+    const fit = Number(frame.dataset.folioPrintFitZoom || "1");
+    pages.style.setProperty("zoom", String(fit * previewZoom), "important");
   }, [previewMode, previewZoom, previewHtml]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
@@ -1483,10 +1486,17 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       const next = delta === "reset"
         ? 1
         : Math.max(0.25, Math.min(1.6, Math.round((current + delta) * 20) / 20));
-      window.localStorage.setItem("folio-preview-zoom", String(next));
+      const key = previewMode === "print" ? "folio-preview-zoom-print" : "folio-preview-zoom-reader";
+      window.localStorage.setItem(key, String(next));
       return next;
     });
   }
+
+  useEffect(() => {
+    const key = previewMode === "print" ? "folio-preview-zoom-print" : "folio-preview-zoom-reader";
+    const stored = Number(window.localStorage.getItem(key));
+    setPreviewZoom(Number.isFinite(stored) ? Math.max(0.25, Math.min(1.6, stored)) : 1);
+  }, [previewMode]);
 
   useEffect(() => {
     if (workspaceMode !== "write") return;
@@ -2024,10 +2034,16 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     style.id = "folio-device-profile";
     if (previewMode === "print") {
       doc.getElementById("folio-device-calibration")?.remove();
-      // Preserve the selected trim's physical size. Older builds auto-fit every
-      // page to the iframe width, making 5×8 and 8.5×11 look identical. Folio
-      // 3.2 zooms the whole preview shell instead, so trim changes remain visible.
-      style.textContent = `html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:${previewZoom}!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 14px 24px!important}.pagedjs_page{margin:10px auto!important}`;
+      // Fit the physical print page to the preview pane first, then apply the
+      // user's Print-only zoom as a multiplier. 100% therefore means "fit",
+      // not an oversized 1 CSS-inch = 1 physical-inch rendering.
+      const page = doc.querySelector<HTMLElement>(".pagedjs_page");
+      const pageWidth = Math.max(1, page?.getBoundingClientRect().width || 576);
+      const available = Math.max(280, frame.clientWidth || previewStageRef.current?.clientWidth || 576);
+      const fitScale = Math.max(.28, Math.min(1, (available - 28) / pageWidth));
+      frame.dataset.folioPrintFitZoom = String(fitScale);
+      const effectiveZoom = fitScale * previewZoom;
+      style.textContent = `html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:${effectiveZoom}!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 0 24px!important}.pagedjs_page{margin:10px auto!important}`;
     } else {
       const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li";
       const proseComposition = typography.bodyAlign === "left"
