@@ -191,8 +191,16 @@
   padding:14px!important;
 }
 .folio-shell .theme-gallery{
-  grid-template-columns:repeat(auto-fill,minmax(132px,1fr))!important;
+  display:flex!important;
+  flex-wrap:wrap!important;
+  justify-content:center!important;
+  align-content:flex-start!important;
   gap:10px!important;
+}
+.folio-shell .theme-gallery>.theme-sample{
+  flex:0 0 calc((100% - 40px)/5)!important;
+  width:calc((100% - 40px)/5)!important;
+  max-width:calc((100% - 40px)/5)!important;
 }
 .folio-shell .theme-sample{
   min-height:166px!important;
