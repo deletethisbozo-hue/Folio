@@ -30,10 +30,9 @@ try {
   page.setDefaultTimeout(45_000);
   await page.setViewport({ width: 1536, height: 980, deviceScaleFactor: 1 });
 
-  await page.evaluateOnNewDocument(() => {
-    localStorage.removeItem("folio-ui-tone");
-  });
   await page.goto(base, { waitUntil: "networkidle0" });
+  await page.evaluate(() => localStorage.removeItem("folio-ui-tone"));
+  await page.reload({ waitUntil: "networkidle0" });
   await page.waitForSelector('.start-shell[data-ui-tone="ivory"]');
   await settle(350);
   await page.screenshot({ path: path.join(qa, "01-dashboard-light.png") });
