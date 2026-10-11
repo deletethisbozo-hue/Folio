@@ -53,6 +53,18 @@ try {
   });
   check("switching Reader → Print displays physical paginated pages", printPages > 0, `${printPages} pages`);
   check("print page is visibly sized, not merely present in hidden DOM", printRect.width > 120 && printRect.height > 160, `${printRect.width.toFixed(1)}×${printRect.height.toFixed(1)}`);
+  const printViewport = await page.$eval("iframe", (frame) => ({ width: frame.clientWidth, height: frame.clientHeight }));
+  check("Print opens fitted to the preview pane instead of oversized", printRect.width <= printViewport.width - 12, `${printRect.width.toFixed(1)}px in ${printViewport.width}px iframe`);
+
+  await page.click('button[aria-label="Zoom preview out"]');
+  await page.waitForFunction((before) => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    const printed = frame?.contentDocument?.querySelector(".pagedjs_page") as HTMLElement | null;
+    return Boolean(printed && printed.getBoundingClientRect().width < before - 8);
+  }, {}, printRect.width);
+  const zoomedOutWidth = await page.$eval("iframe", (frame) => (frame.contentDocument?.querySelector(".pagedjs_page") as HTMLElement | null)?.getBoundingClientRect().width ?? 0);
+  check("Print zoom-out actually makes the physical page smaller", zoomedOutWidth > 0 && zoomedOutWidth < printRect.width, `${printRect.width.toFixed(1)} → ${zoomedOutWidth.toFixed(1)}px`);
+  await page.click(".preview-zoom-readout");
 
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");
   await page.waitForFunction(() => {
