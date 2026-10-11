@@ -115,6 +115,20 @@ try {
     throw new Error("Theme Library geometry/alignment regression remains: " + JSON.stringify(designGeometry));
   }
   await new Promise((resolve) => setTimeout(resolve, 150));
+  await page.hover('.theme-sample[data-custom-theme="qa-custom-theme"]');
+  await page.waitForFunction(() => {
+    const remove = document.querySelector('.theme-sample[data-custom-theme="qa-custom-theme"] .theme-custom-remove');
+    return remove instanceof HTMLElement && Number.parseFloat(getComputedStyle(remove).opacity) > .9;
+  });
+  await page.click('.theme-sample[data-custom-theme="qa-custom-theme"] .theme-custom-remove');
+  await page.waitForSelector(".theme-delete-confirm");
+  const deleteWarning = await page.$eval(".theme-delete-confirm", (node) => node.textContent || "");
+  if (!deleteWarning.includes("Delete custom theme?") || !deleteWarning.includes("permanently remove it from your Theme Library") || !deleteWarning.includes("cannot be undone")) {
+    throw new Error("Custom-theme delete warning copy is missing or incomplete: " + deleteWarning);
+  }
+  await page.click(".theme-delete-confirm-actions .native-button");
+  await page.waitForFunction(() => !document.querySelector(".theme-delete-confirm"));
+  if (!(await page.$('.theme-sample[data-custom-theme="qa-custom-theme"]'))) throw new Error("Cancel removed the custom theme.");
   await page.screenshot({ path: path.join(qaDir, "02-theme-library-and-theme-lab-button.png") });
   await page.click('.theme-sample[data-custom-theme="qa-custom-theme"]');
   await page.waitForFunction(() => document.querySelector('.theme-sample[data-custom-theme="qa-custom-theme"]')?.classList.contains("selected"));
@@ -316,6 +330,19 @@ try {
     button.click();
   });
   await page.waitForFunction(() => ![...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Packaged Renamed Chapter")), { timeout: 30000 });
+
+  await page.click('[data-command="design"]');
+  await page.waitForSelector('.theme-sample[data-custom-theme="qa-custom-theme"]');
+  await page.hover('.theme-sample[data-custom-theme="qa-custom-theme"]');
+  await page.click('.theme-sample[data-custom-theme="qa-custom-theme"] .theme-custom-remove');
+  await page.waitForSelector(".theme-delete-confirm");
+  await page.click(".theme-delete-confirm-danger");
+  await page.waitForFunction(() => !document.querySelector('.theme-sample[data-custom-theme="qa-custom-theme"]'));
+  const libraryAfterDelete = await fetch(`${apiBase}/api/library/themes`).then((response) => response.json());
+  if ((libraryAfterDelete.themes || []).some((theme) => theme.id === "qa-custom-theme")) {
+    throw new Error("Deleted custom theme returned from persistent Theme Library.");
+  }
+
   if (errors.length) throw new Error("Packaged browser errors: " + errors.join("; "));
   console.log("Packaged Folio 2.0.3 UI passed: startup screen, live-draft Print Preview, unsaved Print Preview API draft, responsive 100,000-word editing, rich-text sample, persistent preview, body-safe rename, 20+ ornaments, 13 curated themes, and grouped device profiles.");
 } finally {
