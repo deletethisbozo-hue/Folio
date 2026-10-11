@@ -296,7 +296,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const raw = window.localStorage.getItem("folio-preview-zoom");
     if (raw === null) return 1;
     const stored = Number(raw);
-    return Number.isFinite(stored) ? Math.max(0.5, Math.min(1.6, stored)) : 1;
+    return Number.isFinite(stored) ? Math.max(0.25, Math.min(1.6, stored)) : 1;
   });
   const [previewDraft, setPreviewDraft] = useState("");
   const [pastePreparing, setPastePreparing] = useState(false);
@@ -1476,7 +1476,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     setPreviewZoom((current) => {
       const next = delta === "reset"
         ? 1
-        : Math.max(0.5, Math.min(1.6, Math.round((current + delta) * 10) / 10));
+        : Math.max(0.25, Math.min(1.6, Math.round((current + delta) * 20) / 20));
       window.localStorage.setItem("folio-preview-zoom", String(next));
       return next;
     });
@@ -2690,7 +2690,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div className="device-toolbar">
           <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
-            <button type="button" aria-label="Zoom preview out" title="Zoom out" disabled={previewZoom <= 0.5} onClick={() => changePreviewZoom(-0.1)}>−</button>
+            <button type="button" aria-label="Zoom preview out" title="Zoom out" disabled={previewZoom <= 0.25} onClick={() => changePreviewZoom(-0.1)}>−</button>
             <button type="button" className="preview-zoom-readout" aria-label={"Reset preview zoom, currently " + Math.round(previewZoom * 100) + "%"} title="Reset preview zoom" onClick={() => changePreviewZoom("reset")}><UiIcon name="zoom"/><span>{Math.round(previewZoom * 100)}%</span></button>
             <button type="button" aria-label="Zoom preview in" title="Zoom in" disabled={previewZoom >= 1.6} onClick={() => changePreviewZoom(0.1)}>+</button>
           </div>
@@ -2940,7 +2940,6 @@ function StyleLibrary(props: {
               <span className="sample-title" style={{ fontFamily: theme.config.headingFont ?? base?.previewHeadingFont, color: theme.config.headingColor }}>The Visitor</span>
               {chapterArt?.dataUrl && chapterArt.placement !== "above" && <span className="sample-chapter-art" style={{ justifyContent: artJustify(chapterArt.align) }}><img src={chapterArt.dataUrl} alt="" style={{ width: Math.max(12, Math.min(100, chapterArt.width ?? 34)) + "%", opacity: chapterArt.opacity ?? 1 }}/></span>}
               {sceneArt?.dataUrl ? <span className="sample-scene-art" style={{ justifyContent: artJustify(sceneArt.align) }}><img src={sceneArt.dataUrl} alt="" style={{ width: Math.max(10, Math.min(80, sceneArt.width ?? 18)) + "%", opacity: sceneArt.opacity ?? 1 }}/></span> : <span className="sample-ornament">{theme.config.sceneOrnament ?? base?.sceneOrnament ?? "⁂"}</span>}
-              <span className="sample-copy">Write. Format. Publish.</span>
               <span role="button" tabIndex={0} className="theme-custom-remove" title="Remove from theme library" aria-label={"Remove " + theme.label + " from theme library"} onClick={(event) => { event.stopPropagation(); props.onRemoveSavedTheme(theme.id); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); props.onRemoveSavedTheme(theme.id); } }}>×</span>
             </button>;
           })}
