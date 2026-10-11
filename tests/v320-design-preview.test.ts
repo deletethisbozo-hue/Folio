@@ -15,6 +15,8 @@ const api = fs.readFileSync(path.join(root, "server/api.ts"), "utf8");
 const css = fs.readFileSync(path.join(root, "web/src/v320-design-preview.css"), "utf8");
 const main = fs.readFileSync(path.join(root, "web/src/main.tsx"), "utf8");
 const print = fs.readFileSync(path.join(root, "server/pipeline/render-print.ts"), "utf8");
+const docCss = fs.readFileSync(path.join(root, "server/pipeline/doc-css.ts"), "utf8");
+const serverIndex = fs.readFileSync(path.join(root, "server/index.ts"), "utf8");
 
 test("Theme Lab can save reusable styles without carrying a 3.1 badge", () => {
   assert.match(themeLab, /onSaveToLibrary/);
@@ -43,12 +45,16 @@ test("built-in themes can escape Theme Lab ownership and Design remains editable
   assert.match(app, /const lab: ThemeLabConfig = \{ \.\.\.ty\.themeLab, enabled: true \}/);
 });
 
-test("every preview mode exposes whole-shell zoom rather than text-only zoom", () => {
+test("reader shell zoom and Print page zoom are separated", () => {
   assert.match(app, /aria-label="Preview zoom"/);
   assert.match(app, /--folio-preview-zoom/);
   assert.match(app, /changePreviewZoom/);
+  assert.match(app, /folio-preview-zoom-reader/);
+  assert.match(app, /folio-preview-zoom-print/);
+  assert.match(app, /folioPrintFitZoom/);
+  assert.match(app, /fitScale = Math\.max\(\.28, Math\.min\(1,/);
   assert.match(css, /\.preview-stage \.reader-device\{transform:scale\(var\(--folio-preview-zoom,1\)\)/);
-  assert.match(css, /\.preview-stage\.print-stage/);
+  assert.match(css, /\.preview-stage\.print-stage \.reader-device\.device-print\{transform:none!important/);
 });
 
 test("Print preview never throws export diagnostics at the user while export stays strict", () => {
@@ -67,14 +73,14 @@ test("3.2 polish removes masthead seams and loads after 3.1 design fixes", () =>
   assert.ok(main.indexOf('import "./v320-design-preview.css"') > main.indexOf('import "./v311-design-fixes.css"'));
 });
 
-test("3.2.3 centers the Theme Lab label directly and gives Format subtitle its own row", () => {
+test("Theme Lab button, Format header and device menu use stable geometry", () => {
   assert.match(app, /className="style-open-theme-lab"[^>]*>Theme Lab<\/button>/);
-  assert.doesNotMatch(app, /style-open-theme-lab"[^>]*><span>Theme Lab<\/span>/);
-  assert.match(css, /style-open-theme-lab\{[\s\S]*display:inline-flex!important;[\s\S]*align-items:center!important;[\s\S]*justify-content:center!important/);
-  assert.match(css, /section-title-wrap\{[\s\S]*grid-template-rows:21px 14px!important/);
+  assert.match(css, /style-open-theme-lab\{[\s\S]*display:grid!important;[\s\S]*place-items:center!important;[\s\S]*width:104px!important;[\s\S]*height:32px!important/);
+  assert.match(css, /section-title-wrap\{[\s\S]*grid-template-rows:auto auto!important/);
+  assert.doesNotMatch(css, /grid-template-rows:21px 14px!important/);
   assert.match(css, /section-subtitle-button,[\s\S]*section-subtitle-input\{[\s\S]*grid-row:2!important/);
-  assert.match(css, /device-toolbar\{grid-template-columns:minmax\(0,1fr\) auto auto!important/);
-  assert.match(css, /device-nav\{grid-column:3!important;grid-row:1!important/);
+  assert.match(css, /device-label\{[\s\S]*overflow:visible!important/);
+  assert.match(css, /device-label>select:first-child\{[\s\S]*width:116px!important;[\s\S]*text-align-last:center!important/);
 });
 
 test("3.2.2 font library is grouped, Polish-capable and wired through preview/export", () => {
@@ -123,14 +129,13 @@ test("saved custom theme cards keep their names clear and preview embedded ornam
   assert.match(app, /theme\.config\.sceneImage/);
   assert.match(app, /sample-chapter-art/);
   assert.match(app, /sample-scene-art/);
-  assert.match(css, /theme-sample\.theme-custom \.theme-name\{right:34px!important/);
+  assert.match(css, /theme-sample\.theme-custom \.theme-name\{left:9px!important;right:34px!important;[\s\S]*text-align:left!important/);
 });
 
-test("3.2.3 uses Folio preview copy as one block everywhere", () => {
+test("Theme library cards do not contain promotional filler copy", () => {
   assert.match(fontPicker, /FONT_TEST_SENTENCE = "Write\. Format\. Publish\."/);
-  assert.ok((app.match(/<span className="sample-copy">Write\. Format\. Publish\.<\/span>/g) ?? []).length >= 2);
+  assert.doesNotMatch(app, /<span className="sample-copy">Write\. Format\. Publish\.<\/span>/);
   assert.doesNotMatch(app, /room had fallen quiet/);
-  assert.doesNotMatch(fontPicker, /Sphinx of black quartz/);
 });
 
 test("3.2.3 custom Chapter fonts persist and travel with exported theme packages", () => {
@@ -145,8 +150,20 @@ test("3.2.3 custom Chapter fonts persist and travel with exported theme packages
   assert.match(api, /\/api\/library\/fonts/);
   assert.match(globalLibrary, /fonts\.json/);
   assert.match(globalLibrary, /installCustomFont/);
-  assert.match(runtimeFonts, /customFontByFamily/);
+  assert.match(runtimeFonts, /readCustomFonts/);
   assert.match(runtimeFonts, /customFontFaceCss/);
   assert.match(runtimeFonts, /customFonts\.map\(\(font\) => customFontPath\(font\)\)/);
 });
 
+
+test("matter alignment is not overwritten by chapter body alignment", () => {
+  assert.match(docCss, /text-align: \$\{s\.align\} !important; text-align-last: \$\{s\.align\} !important/);
+  const justifyBlock = docCss.match(/if \(ty\.bodyAlign === "justify"\)[\s\S]*?\}\);/)?.[0] ?? "";
+  const leftBlock = docCss.match(/else if \(ty\.bodyAlign === "left"\)[\s\S]*?\}\);/)?.[0] ?? "";
+  assert.doesNotMatch(justifyBlock, /section\.backmatter/);
+  assert.doesNotMatch(leftBlock, /section\.backmatter/);
+});
+
+test("packaged Folio warms Chromium without blocking the UI", () => {
+  assert.match(serverIndex, /if \(!isDev\) \{[\s\S]*setTimeout\([\s\S]*getBrowser\(\)/);
+});
