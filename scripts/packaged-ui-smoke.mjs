@@ -111,7 +111,7 @@ try {
     const nameStyle = getComputedStyle(customName);
     return { buttonWidth: button.width, buttonHeight: button.height, nameAlign: nameStyle.textAlign, customName: customName.textContent?.trim() ?? "" };
   });
-  if (!designGeometry || designGeometry.buttonWidth < 68 || designGeometry.buttonWidth > 92 || Math.abs(designGeometry.buttonHeight - 28) > 2 || designGeometry.nameAlign !== "left" || designGeometry.customName !== "QA Custom Theme") {
+  if (!designGeometry || Math.abs(designGeometry.buttonWidth - 86) > 2 || Math.abs(designGeometry.buttonHeight - 30) > 2 || designGeometry.nameAlign !== "left" || designGeometry.customName !== "QA Custom Theme") {
     throw new Error("Theme Library geometry/alignment regression remains: " + JSON.stringify(designGeometry));
   }
   await new Promise((resolve) => setTimeout(resolve, 150));
