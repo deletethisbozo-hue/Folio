@@ -27,7 +27,7 @@
 .theme-lab-title-block h2{margin:0 0 4px!important;line-height:1!important}
 .theme-lab-title-block p{margin:0!important}
 
-/* Format title header: keep both rows optically centered without fixed baselines. */
+/* Format chapter header deliberately mirrors Write geometry. */
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{
   height:40px!important;
   min-height:40px!important;
@@ -37,14 +37,13 @@
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{
   flex:1 1 auto!important;
   min-width:0!important;
-  min-height:30px!important;
   padding:0!important;
   display:grid!important;
   grid-template-columns:auto minmax(0,1fr)!important;
   grid-template-rows:auto auto!important;
   align-items:center!important;
   align-content:center!important;
-  row-gap:1px!important;
+  row-gap:0!important;
   column-gap:5px!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-index{
@@ -61,26 +60,34 @@
   align-self:center!important;
   font-size:15px!important;
   font-weight:650!important;
-  line-height:1.15!important;
+  line-height:1.12!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button{
-  min-height:22px!important;
   height:auto!important;
-  padding:0!important;
+  min-height:0!important;
+  padding-block:0!important;
   display:flex!important;
   align-items:center!important;
 }
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button{
+  grid-column:2!important;
+  grid-row:2!important;
+  align-self:center!important;
+  height:auto!important;
+  min-height:0!important;
+  margin-top:1px!important;
+  padding:0!important;
+  font-size:9.5px!important;
+  line-height:1.05!important;
+}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-input{
   grid-column:2!important;
   grid-row:2!important;
   align-self:center!important;
   margin:0!important;
-  min-height:14px!important;
-  height:auto!important;
-  padding:0!important;
-  font-size:9.5px!important;
-  line-height:1.2!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-actions{
+  gap:2px!important;
 }
 
 /* Format uses the same compact chrome rhythm as Write.
