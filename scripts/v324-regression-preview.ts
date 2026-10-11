@@ -22,6 +22,21 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
+const seededTheme = [{
+  id: "qa-custom-theme",
+  label: "QA Custom Theme",
+  baseTheme: "decorative",
+  config: { enabled: true, name: "QA Custom Theme", paper: "#fbfaf6", accent: "#856744", headingFont: "Libre Baskerville", bodyFont: "EB Garamond", bodyAlign: "justify", paragraphIndent: 1.25, paragraphSpacing: 0.3, headingAlign: "left", labelText: "CHAPTER" },
+  createdAt: 1,
+  updatedAt: 2,
+}];
+const seedThemeResponse = await fetch(`${base}/api/library/themes`, {
+  method: "PUT",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ themes: seededTheme }),
+});
+if (!seedThemeResponse.ok) throw new Error("Could not seed visual custom theme fixture.");
+
 const settle = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 
 try {
@@ -111,6 +126,17 @@ try {
   const filler = await page.$$eval(".theme-sample .sample-copy", (nodes) => nodes.map((n) => n.textContent?.trim()).filter(Boolean));
   if (filler.some((value) => value === "Write. Format. Publish.")) throw new Error("Theme cards still contain filler copy.");
   await page.screenshot({ path: path.join(qa, "02-theme-library.png") });
+  await page.hover('.theme-sample[data-custom-theme="qa-custom-theme"]');
+  await page.waitForFunction(() => {
+    const remove = document.querySelector('.theme-sample[data-custom-theme="qa-custom-theme"] .theme-custom-remove');
+    return remove instanceof HTMLElement && Number.parseFloat(getComputedStyle(remove).opacity) > .9;
+  });
+  await page.screenshot({ path: path.join(qa, "02b-custom-theme-hover-delete.png") });
+  await page.click('.theme-sample[data-custom-theme="qa-custom-theme"] .theme-custom-remove');
+  await page.waitForSelector(".theme-delete-confirm");
+  await page.screenshot({ path: path.join(qa, "02c-custom-theme-delete-warning.png") });
+  await page.click(".theme-delete-confirm-actions .native-button");
+  await page.waitForFunction(() => !document.querySelector(".theme-delete-confirm"));
   await page.click(".style-library-close");
   await page.waitForFunction(() => !document.querySelector(".style-library"));
 
