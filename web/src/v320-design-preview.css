@@ -265,13 +265,15 @@
   gap:8px;
   margin-top:16px;
 }
-.theme-delete-confirm-danger{
-  border-color:rgba(182,60,60,.32)!important;
+.folio-shell[data-ui-tone] .theme-delete-confirm .theme-delete-confirm-danger{
+  border-color:#a43a3a!important;
   background:#b33f3f!important;
   color:#fff!important;
 }
-.theme-delete-confirm-danger:hover{
+.folio-shell[data-ui-tone] .theme-delete-confirm .theme-delete-confirm-danger:hover{
+  border-color:#913030!important;
   background:#9f3434!important;
+  color:#fff!important;
 }
 .folio-shell[data-ui-tone="midnight"] .theme-delete-confirm{
   background:#232631;
