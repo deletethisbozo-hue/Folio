@@ -44,7 +44,9 @@ app.listen(PORT, HOST, () => {
   if (!isDev && process.env.BOOK_FORMATTER_NO_OPEN !== "1") {
     open(url).catch(() => {});
   }
-  setTimeout(() => {
-    void getBrowser().catch(() => undefined);
-  }, 1200);
+  if (!isDev) {
+    setTimeout(() => {
+      void getBrowser().catch(() => undefined);
+    }, 1200);
+  }
 });
