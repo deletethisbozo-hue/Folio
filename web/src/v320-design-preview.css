@@ -45,7 +45,7 @@
   margin:0!important;
   padding:0!important;
   line-height:1!important;
-  transform:translate(-1px,1px)!important;
+  transform:translate(-0.5px,1px)!important;
   pointer-events:none!important;
 }
 .folio-shell .style-library-header .style-open-theme-lab:hover{
