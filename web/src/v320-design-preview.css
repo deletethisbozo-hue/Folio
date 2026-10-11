@@ -192,8 +192,7 @@
 }
 .folio-shell .theme-gallery{
   display:grid!important;
-  grid-template-columns:repeat(10,minmax(0,1fr))!important;
-  grid-auto-flow:row!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
   gap:10px!important;
 }
 .folio-shell .theme-gallery>.theme-sample{
@@ -201,13 +200,7 @@
   min-width:0!important;
   width:auto!important;
   max-width:none!important;
-  grid-column:span 2!important;
 }
-/* Center an incomplete final row while keeping five cards on complete rows. */
-.folio-shell .theme-gallery>.theme-sample:nth-last-child(1):nth-child(5n+1){grid-column:5 / span 2!important}
-.folio-shell .theme-gallery>.theme-sample:nth-last-child(2):nth-child(5n+1){grid-column:4 / span 2!important}
-.folio-shell .theme-gallery>.theme-sample:nth-last-child(3):nth-child(5n+1){grid-column:3 / span 2!important}
-.folio-shell .theme-gallery>.theme-sample:nth-last-child(4):nth-child(5n+1){grid-column:2 / span 2!important}
 
 .folio-shell .theme-sample{
   min-height:166px!important;
@@ -227,24 +220,7 @@
 .folio-shell .sample-ornament{
   margin:4px 0 0!important;
 }
-.folio-shell .theme-sample::after{
-  content:""!important;
-  display:block!important;
-  align-self:flex-start!important;
-  width:82%!important;
-  height:31px!important;
-  flex:0 0 31px!important;
-  margin-top:9px!important;
-  margin-bottom:0!important;
-  opacity:.105!important;
-  background:
-    linear-gradient(currentColor,currentColor) 0 0/100% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 6px/91% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 12px/97% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 18px/84% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 24px/94% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 30px/58% 1px no-repeat!important;
-}
+
 .theme-sample.theme-custom{border-style:solid}
 .theme-sample.theme-custom .theme-name{left:9px!important;right:34px!important;max-width:calc(100% - 46px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left!important}
 .sample-chapter-art,.sample-scene-art{width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;flex:0 0 auto}
