@@ -1,0 +1,267 @@
+/* Folio 3.2.4 icon-palette experiment.
+ * Paint only. No geometry, compositor, preview, export, or editor behavior changes.
+ * Safe rollback: remove this file/import or discard the experiment branch.
+ */
+
+:root{
+  --folio-brand-ink:#25223E;
+  --folio-brand-accent:#5B5CE2;
+  --folio-brand-lavender:#DDD6FF;
+  --folio-brand-bg:#F6F4FA;
+  --folio-brand-surface:#FCFBFF;
+}
+
+/* LIGHT DASHBOARD ----------------------------------------------------- */
+.start-shell[data-ui-tone="ivory"]{
+  --start-bg:#F6F4FA!important;
+  --start-panel:#FCFBFF!important;
+  --start-line:#DED8EC!important;
+  --start-line-strong:#CBC3DF!important;
+  --start-text:#25223E!important;
+  --start-muted:#716B80!important;
+  --start-soft:#9690A7!important;
+  --start-accent:#5B5CE2!important;
+  background:
+    radial-gradient(820px 520px at 10% -10%,rgba(221,214,255,.66),transparent 66%),
+    radial-gradient(760px 520px at 92% 2%,rgba(91,92,226,.10),transparent 68%),
+    linear-gradient(180deg,#F8F6FB 0%,#F4F2F8 52%,#F1EFF6 100%)!important;
+}
+
+.start-shell[data-ui-tone="ivory"] .start-windowbar{
+  border-bottom-color:rgba(221,214,255,.18)!important;
+  background:linear-gradient(105deg,#25223E 0%,#2D294B 54%,#36305B 100%)!important;
+  box-shadow:0 10px 30px rgba(37,34,62,.14),inset 0 1px 0 rgba(255,255,255,.045)!important;
+}
+.start-shell[data-ui-tone="ivory"] .start-version{color:rgba(221,214,255,.74)!important}
+
+.start-shell[data-ui-tone="ivory"] .start-intro,
+.start-shell[data-ui-tone="ivory"] .recent-section{
+  border-color:rgba(70,62,104,.12)!important;
+  background:linear-gradient(180deg,rgba(252,251,255,.91),rgba(247,244,252,.83))!important;
+  box-shadow:0 20px 54px rgba(37,34,62,.09),inset 0 1px 0 rgba(255,255,255,.92)!important;
+}
+.start-shell[data-ui-tone="ivory"] .start-intro h1,
+.start-shell[data-ui-tone="ivory"] .recent-heading h2,
+.start-shell[data-ui-tone="ivory"] .recent-meta strong{color:#25223E!important}
+.start-shell[data-ui-tone="ivory"] .start-button{
+  border-color:#D8D1E7!important;
+  background:rgba(252,251,255,.82)!important;
+  color:#35304E!important;
+}
+.start-shell[data-ui-tone="ivory"] .start-button:hover:not(:disabled){
+  border-color:rgba(91,92,226,.28)!important;
+  background:#fff!important;
+}
+.start-shell[data-ui-tone="ivory"] .start-button.primary{
+  border-color:#5152D2!important;
+  background:linear-gradient(180deg,#696AE9,#5557D7)!important;
+  color:#fff!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 8px 20px rgba(91,92,226,.22)!important;
+}
+.start-shell[data-ui-tone="ivory"] .recent-heading{border-bottom-color:rgba(70,62,104,.10)!important}
+.start-shell[data-ui-tone="ivory"] .recent-row:hover{
+  border-color:rgba(91,92,226,.12)!important;
+  background:rgba(221,214,255,.20)!important;
+}
+.start-shell[data-ui-tone="ivory"] .recent-cover{
+  border-color:#D7D0E6!important;
+  background:linear-gradient(155deg,#fff,#F0ECFA)!important;
+  box-shadow:0 8px 18px rgba(37,34,62,.09)!important;
+}
+.start-shell[data-ui-tone="ivory"] .start-modal{
+  border-color:#D7D0E6!important;
+  background:linear-gradient(180deg,#FCFBFF,#F5F2FA)!important;
+  box-shadow:0 34px 90px rgba(37,34,62,.20),inset 0 1px 0 #fff!important;
+}
+.start-shell[data-ui-tone="ivory"] .start-folder-summary,
+.start-shell[data-ui-tone="ivory"] .start-field input{
+  border-color:#D9D3E8!important;
+  background:rgba(255,255,255,.72)!important;
+}
+
+/* LIGHT WORKSPACE ----------------------------------------------------- */
+.folio-shell[data-ui-tone="ivory"]{
+  --folio-bg:#F6F4FA;
+  --folio-panel:#F0EDF7;
+  --folio-surface:#FCFBFF;
+  --folio-text:#25223E;
+  --folio-muted:#746E85;
+  --folio-accent:#5B5CE2;
+  --folio-border:#D9D3E7;
+  --folio-hover:#EEEAF8;
+  --folio-selected:#E4DFFF;
+
+  --glass-accent:#5B5CE2;
+  --glass-accent-2:#7B72E8;
+  --glass-ink:#25223E;
+  --glass-muted:#746E85;
+  --glass-line:rgba(70,62,104,.13);
+  --glass-panel:rgba(246,244,250,.78);
+  --glass-panel-strong:rgba(252,251,255,.91);
+}
+.folio-shell[data-ui-tone="ivory"][data-workspace-mode="write"]{
+  background:
+    radial-gradient(860px 500px at 8% -10%,rgba(221,214,255,.52),transparent 66%),
+    radial-gradient(760px 500px at 94% 4%,rgba(91,92,226,.08),transparent 66%),
+    linear-gradient(180deg,#F7F5FA,#F1EFF6)!important;
+}
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar{
+  border-bottom-color:rgba(221,214,255,.15)!important;
+  background:linear-gradient(105deg,#25223E 0%,#2D294B 56%,#36305B 100%)!important;
+  box-shadow:0 8px 24px rgba(37,34,62,.16),inset 0 1px 0 rgba(255,255,255,.04)!important;
+}
+.folio-shell[data-ui-tone="ivory"] button.command-wordmark{
+  border-right-color:rgba(221,214,255,.14)!important;
+}
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav>button,
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle{color:rgba(242,238,255,.87)!important}
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav>button:hover,
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar .tone-toggle:hover{
+  color:#fff!important;
+  background:rgba(221,214,255,.10)!important;
+  border-color:rgba(221,214,255,.10)!important;
+}
+.folio-shell[data-ui-tone="ivory"] .workspace-mode-switch{
+  border-color:rgba(221,214,255,.14)!important;
+  background:rgba(10,8,24,.18)!important;
+}
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button{color:rgba(242,238,255,.70)!important}
+.folio-shell[data-ui-tone="ivory"] .folio-commandbar nav .workspace-mode-switch button.active{
+  background:#F4F1FF!important;
+  color:#4E4FC7!important;
+  box-shadow:0 1px 7px rgba(12,10,32,.18),inset 0 1px 0 #fff!important;
+}
+.folio-shell[data-ui-tone="ivory"] .book-title{color:#3A3654!important}
+.folio-shell[data-ui-tone="ivory"] .contents-row.selected{
+  background:#E6E1FF!important;
+  box-shadow:inset 3px 0 0 #5B5CE2!important;
+}
+.folio-shell[data-ui-tone="ivory"] .contents-row:hover{background:#F0ECFA!important}
+.folio-shell[data-ui-tone="ivory"] .generate-button{
+  border-color:#5152D2!important;
+  background:#5B5CE2!important;
+}
+.folio-shell[data-ui-tone="ivory"] .generate-button:hover{
+  border-color:#4748BE!important;
+  background:#4D4FCD!important;
+}
+
+/* MIDNIGHT DASHBOARD -------------------------------------------------- */
+.start-shell[data-ui-tone="midnight"]{
+  --start-bg:#171522!important;
+  --start-panel:#211E31!important;
+  --start-line:#3A3550!important;
+  --start-line-strong:#4B4564!important;
+  --start-text:#F2EEFF!important;
+  --start-muted:#B0A9C2!important;
+  --start-soft:#8D86A2!important;
+  --start-accent:#A79FFF!important;
+  background:
+    radial-gradient(820px 520px at 10% -8%,rgba(91,92,226,.16),transparent 66%),
+    radial-gradient(760px 520px at 92% 0%,rgba(221,214,255,.08),transparent 68%),
+    linear-gradient(180deg,#181622 0%,#1D1A2B 48%,#16141F 100%)!important;
+}
+.start-shell[data-ui-tone="midnight"] .start-windowbar{
+  border-bottom-color:rgba(221,214,255,.09)!important;
+  background:linear-gradient(105deg,#201D34 0%,#25223E 58%,#2E294D 100%)!important;
+  box-shadow:0 10px 30px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.035)!important;
+}
+.start-shell[data-ui-tone="midnight"] .start-intro,
+.start-shell[data-ui-tone="midnight"] .recent-section{
+  border-color:rgba(221,214,255,.09)!important;
+  background:linear-gradient(180deg,rgba(37,34,62,.86),rgba(28,25,44,.82))!important;
+  box-shadow:0 22px 58px rgba(0,0,0,.27),inset 0 1px 0 rgba(255,255,255,.035)!important;
+}
+.start-shell[data-ui-tone="midnight"] .start-button{
+  border-color:rgba(221,214,255,.11)!important;
+  background:rgba(221,214,255,.045)!important;
+  color:#E9E4F7!important;
+}
+.start-shell[data-ui-tone="midnight"] .start-button:hover:not(:disabled){
+  border-color:rgba(167,159,255,.25)!important;
+  background:rgba(221,214,255,.075)!important;
+}
+.start-shell[data-ui-tone="midnight"] .start-button.primary{
+  border-color:#7770E2!important;
+  background:linear-gradient(180deg,#9088F4,#7069DA)!important;
+  color:#fff!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 8px 20px rgba(56,50,137,.30)!important;
+}
+.start-shell[data-ui-tone="midnight"] .recent-row:hover{background:rgba(221,214,255,.04)!important}
+.start-shell[data-ui-tone="midnight"] .recent-cover{
+  border-color:rgba(221,214,255,.11)!important;
+  background:linear-gradient(160deg,#312D49,#211E33)!important;
+}
+
+/* MIDNIGHT WORKSPACE -------------------------------------------------- */
+.folio-shell[data-ui-tone="midnight"]{
+  --folio-bg:#171522;
+  --folio-panel:#211E31;
+  --folio-surface:#2A263D;
+  --folio-text:#F2EEFF;
+  --folio-muted:#AFA8C1;
+  --folio-accent:#A79FFF;
+  --folio-border:#403A58;
+  --folio-hover:#332F49;
+  --folio-selected:#3B3655;
+
+  --mockup-app:#171522;
+  --mockup-chrome:#201D31;
+  --mockup-sidebar:#211E31;
+  --mockup-paper:#29253B;
+  --mockup-canvas:#191725;
+  --mockup-preview:#16141F;
+  --mockup-rule:#3D3854;
+  --mockup-rule-strong:#50496A;
+  --mockup-ink:#F2EEFF;
+  --mockup-muted:#B2ABC4;
+  --mockup-faint:#88819D;
+  --mockup-accent:#A79FFF;
+  --mockup-accent-soft:#373250;
+  --mockup-control:#29253B;
+
+  --studio-bg:#171522;
+  --studio-chrome:#201D31;
+  --studio-sidebar:#211E31;
+  --studio-surface:#2A263D;
+  --studio-paper:#29253B;
+  --studio-editor-canvas:#191725;
+  --studio-preview:#16141F;
+  --studio-preview-chrome:#201D31;
+  --studio-preview-ink:#ECE8F8;
+  --studio-preview-muted:#B0A9C1;
+  --studio-preview-rule:#3D3854;
+  --studio-preview-control:#29253B;
+  --studio-preview-hover:#332F49;
+  --studio-preview-scrollbar:#5A5372;
+  --studio-ink:#F2EEFF;
+  --studio-muted:#B2ABC4;
+  --studio-faint:#88819D;
+  --studio-rule:#3D3854;
+  --studio-rule-strong:#50496A;
+  --studio-accent:#A79FFF;
+  --studio-accent-soft:#373250;
+  --studio-control:#29253B;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar{
+  border-bottom-color:rgba(221,214,255,.08)!important;
+  background:linear-gradient(105deg,#201D34 0%,#25223E 58%,#2E294D 100%)!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.035)!important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav>button,
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar .tone-toggle{color:rgba(242,238,255,.82)!important}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav>button:hover,
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar .tone-toggle:hover{
+  color:#fff!important;
+  background:rgba(221,214,255,.07)!important;
+}
+.folio-shell[data-ui-tone="midnight"] .workspace-mode-switch{
+  border-color:rgba(221,214,255,.10)!important;
+  background:rgba(5,4,14,.19)!important;
+}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav .workspace-mode-switch button{color:rgba(242,238,255,.64)!important}
+.folio-shell[data-ui-tone="midnight"] .folio-commandbar nav .workspace-mode-switch button.active{
+  background:rgba(221,214,255,.92)!important;
+  color:#342F5B!important;
+  box-shadow:0 1px 8px rgba(0,0,0,.24)!important;
+}
