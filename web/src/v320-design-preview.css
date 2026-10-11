@@ -173,12 +173,13 @@
   padding:14px!important;
 }
 .folio-shell .theme-gallery{
+  grid-template-columns:repeat(auto-fill,minmax(132px,1fr))!important;
   gap:10px!important;
 }
 .folio-shell .theme-sample{
-  min-height:142px!important;
-  height:142px!important;
-  padding:10px 14px 8px!important;
+  min-height:166px!important;
+  height:166px!important;
+  padding:11px 13px 9px!important;
   border-radius:6px!important;
 }
 .folio-shell .theme-name{
@@ -197,18 +198,19 @@
   content:""!important;
   display:block!important;
   align-self:flex-start!important;
-  width:78%!important;
-  height:25px!important;
-  flex:0 0 25px!important;
-  margin-top:7px!important;
+  width:82%!important;
+  height:31px!important;
+  flex:0 0 31px!important;
+  margin-top:9px!important;
   margin-bottom:0!important;
   opacity:.105!important;
   background:
     linear-gradient(currentColor,currentColor) 0 0/100% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 6px/94% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 12px/98% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 18px/87% 1px no-repeat,
-    linear-gradient(currentColor,currentColor) 0 24px/62% 1px no-repeat!important;
+    linear-gradient(currentColor,currentColor) 0 6px/91% 1px no-repeat,
+    linear-gradient(currentColor,currentColor) 0 12px/97% 1px no-repeat,
+    linear-gradient(currentColor,currentColor) 0 18px/84% 1px no-repeat,
+    linear-gradient(currentColor,currentColor) 0 24px/94% 1px no-repeat,
+    linear-gradient(currentColor,currentColor) 0 30px/58% 1px no-repeat!important;
 }
 .theme-sample.theme-custom{border-style:solid}
 .theme-sample.theme-custom .theme-name{left:9px!important;right:34px!important;max-width:calc(100% - 46px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left!important}
