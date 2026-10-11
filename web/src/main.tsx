@@ -50,6 +50,7 @@ import "./v310-theme-lab.css";
 import "./font-picker.css";
 import "./v311-design-fixes.css";
 import "./v320-design-preview.css";
+import "./v324-icon-palette.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
