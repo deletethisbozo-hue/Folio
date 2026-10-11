@@ -58,11 +58,24 @@ try {
   const formatHeaderGeometry = await page.evaluate(() => {
     const bar = document.querySelector(".section-titlebar")?.getBoundingClientRect();
     const wrap = document.querySelector(".section-title-wrap")?.getBoundingClientRect();
-    if (!bar || !wrap) return null;
-    return { barHeight: bar.height, topGap: wrap.top - bar.top, bottomGap: bar.bottom - wrap.bottom };
+    const toolbar = document.querySelector(".format-toolbar")?.getBoundingClientRect();
+    const paper = document.querySelector(".editor-paper")?.getBoundingClientRect();
+    if (!bar || !wrap || !toolbar || !paper) return null;
+    return {
+      barHeight: bar.height,
+      toolbarHeight: toolbar.height,
+      topGap: wrap.top - bar.top,
+      bottomGap: bar.bottom - wrap.bottom,
+      toolbarPaperGap: paper.top - toolbar.bottom,
+    };
   });
-  if (!formatHeaderGeometry || formatHeaderGeometry.barHeight < 50 || formatHeaderGeometry.bottomGap < 7) {
-    throw new Error("Format chapter heading is still cramped against the lower divider: " + JSON.stringify(formatHeaderGeometry));
+  if (!formatHeaderGeometry
+    || Math.abs(formatHeaderGeometry.barHeight - 40) > 1
+    || Math.abs(formatHeaderGeometry.toolbarHeight - 36) > 1
+    || formatHeaderGeometry.topGap < 2
+    || formatHeaderGeometry.bottomGap < 2
+    || Math.abs(formatHeaderGeometry.toolbarPaperGap) > 1) {
+    throw new Error("Format chrome is cramped or the white toolbar seam returned: " + JSON.stringify(formatHeaderGeometry));
   }
   await page.screenshot({ path: path.join(qaDir, "01-format-header-and-preview.png") });
   await page.$eval(".rich-editor", (element) => {
