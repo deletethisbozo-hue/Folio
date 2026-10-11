@@ -116,10 +116,10 @@ try {
   }
   await new Promise((resolve) => setTimeout(resolve, 150));
   await page.screenshot({ path: path.join(qaDir, "02-theme-library-and-theme-lab-button.png") });
+  await page.click('.theme-sample[data-custom-theme="qa-custom-theme"]');
   await page.click(".style-category-list button:nth-child(6)");
   const ornaments = await page.$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
-  await page.click('.theme-sample[data-custom-theme="qa-custom-theme"]');
   await page.click(".style-library-close");
   await page.evaluate(() => {
     const row = [...document.querySelectorAll(".contents-row")].find((node) => node.textContent?.trim() === "Dedication");
