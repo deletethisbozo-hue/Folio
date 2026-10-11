@@ -131,3 +131,63 @@
   color:var(--folio-muted,#777681);
   font:500 11px/1.35 var(--folio-ui-font,"Source Sans 3",sans-serif);
 }
+
+
+/* 3.2.4: one sizing contract instead of competing button and label rules. */
+.folio-shell .style-library-header .style-open-theme-lab{
+  display:inline-grid!important;
+  place-items:center!important;
+  flex:0 0 128px!important;
+  width:128px!important;
+  min-width:128px!important;
+  max-width:128px!important;
+  height:36px!important;
+  min-height:36px!important;
+  padding:0 12px!important;
+  font-family:var(--folio-ui-font,"Source Sans 3",sans-serif)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:normal!important;
+  letter-spacing:0!important;
+  text-indent:0!important;
+  white-space:nowrap!important;
+  box-sizing:border-box!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{
+  grid-template-rows:minmax(22px,auto) minmax(16px,auto)!important;
+  row-gap:0!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title{
+  line-height:22px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button{
+  display:flex!important;
+  align-items:center!important;
+  line-height:16px!important;
+  min-height:16px!important;
+  height:16px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label select{
+  appearance:auto!important;
+  text-align:center!important;
+  text-align-last:center!important;
+  padding-inline:2px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label option,
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label optgroup{
+  text-align:center!important;
+}
+.theme-sample.theme-custom{
+  align-items:center!important;
+  text-align:center!important;
+}
+.theme-sample.theme-custom .sample-chapter,
+.theme-sample.theme-custom .sample-title,
+.theme-sample.theme-custom .sample-ornament{
+  align-self:center!important;
+  width:100%;
+  text-align:center!important;
+}
+.theme-sample.theme-custom .sample-chapter-art,
+.theme-sample.theme-custom .sample-scene-art{justify-content:center}
