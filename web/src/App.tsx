@@ -943,6 +943,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const frame = window.requestAnimationFrame(() => onPreviewLoad(undefined, true));
     return () => window.cancelAnimationFrame(frame);
   }, [workspaceMode, previewMode, previewHtml, printOptions.trim, typography.bodyAlign, typography.chapterTitle?.showLabel, typography.chapterTitle?.labelText, chapterIndex, selectedId]);
+  useEffect(() => {
+    if (previewMode !== "print") return;
+    const doc = previewRef.current?.contentDocument;
+    const pages = doc?.querySelector<HTMLElement>(".pagedjs_pages");
+    if (pages) pages.style.setProperty("zoom", String(previewZoom), "important");
+  }, [previewMode, previewZoom, previewHtml]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
 
   function adopt(summary: ProjectSummary, preferredId?: string, preferSavedAppearance = false) {
@@ -2021,7 +2027,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       // Preserve the selected trim's physical size. Older builds auto-fit every
       // page to the iframe width, making 5×8 and 8.5×11 look identical. Folio
       // 3.2 zooms the whole preview shell instead, so trim changes remain visible.
-      style.textContent = "html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:1!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 14px 24px!important}.pagedjs_page{margin:10px auto!important}";
+      style.textContent = `html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:${previewZoom}!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 14px 24px!important}.pagedjs_page{margin:10px auto!important}`;
     } else {
       const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li";
       const proseComposition = typography.bodyAlign === "left"
