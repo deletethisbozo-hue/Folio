@@ -81,6 +81,8 @@ test("Theme Lab button, Format header and device menu use stable geometry", () =
   assert.match(css, /section-subtitle-button,[\s\S]*section-subtitle-input\{[\s\S]*grid-row:2!important/);
   assert.match(css, /device-label\{[\s\S]*overflow:visible!important/);
   assert.match(css, /device-label>select:first-child\{[\s\S]*width:116px!important;[\s\S]*text-align-last:center!important/);
+  assert.match(css, /data-workspace-mode="format"\] \.format-toolbar\{[\s\S]*height:36px!important;[\s\S]*margin:0 16px!important/);
+  assert.match(css, /data-workspace-mode="format"\] \.editor-paper\{[\s\S]*border-top:0!important/);
 });
 
 test("3.2.2 font library is grouped, Polish-capable and wired through preview/export", () => {
