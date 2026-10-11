@@ -113,9 +113,9 @@ function themeLabCss(book: Book): string {
   out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li, section.backmatter > p:not(.scene-break), section.backmatter li { color:${ink}; }`);
   out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.backmatter > p:not(.scene-break) { text-indent:${paragraphIndent}em !important; margin-bottom:${paragraphSpacing}em !important; } section.chapter > p.folio-native-dropcap, section.chapter > p:has(.dropcap), .folio-native-dropcap { text-indent:0 !important; }`);
   if (lab.bodyAlign === "left") {
-    out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li, section.backmatter > p:not(.scene-break), section.backmatter li { text-align:left !important; text-align-last:left !important; -webkit-hyphens:none; hyphens:none; }`);
+    out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li { text-align:left !important; text-align-last:left !important; -webkit-hyphens:none; hyphens:none; }`);
   } else {
-    out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li, section.backmatter > p:not(.scene-break), section.backmatter li { text-align:justify !important; text-align-last:left !important; }`);
+    out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li { text-align:justify !important; text-align-last:left !important; }`);
   }
 
   const headingSize = clampNumber(lab.headingSize, .8, 4.5, 1.8);
