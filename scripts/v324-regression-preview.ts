@@ -114,13 +114,21 @@ try {
   const print = await page.evaluate(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
     const printed = frame?.contentDocument?.querySelector(".pagedjs_page") as HTMLElement | null;
+    const pages = frame?.contentDocument?.querySelector(".pagedjs_pages") as HTMLElement | null;
     const rect = printed?.getBoundingClientRect();
-    return { pageWidth: rect?.width ?? 0, pageHeight: rect?.height ?? 0, frameWidth: frame?.clientWidth ?? 0 };
+    return {
+      pageWidth: rect?.width ?? 0,
+      pageHeight: rect?.height ?? 0,
+      frameWidth: frame?.clientWidth ?? 0,
+      fitScale: frame?.dataset.folioPrintFitZoom ?? "",
+      pagesZoom: pages ? getComputedStyle(pages).zoom : "",
+      readout: document.querySelector(".preview-zoom-readout")?.textContent?.trim() ?? "",
+    };
   });
+  await page.screenshot({ path: path.join(qa, "04-print-fit.png") });
   if (printOpenMs > 18_000 || print.pageWidth <= 120 || print.pageWidth > print.frameWidth - 12) {
     throw new Error("Print fit/latency failed: " + JSON.stringify({ printOpenMs, ...print }));
   }
-  await page.screenshot({ path: path.join(qa, "04-print-fit.png") });
 
   const before = print.pageWidth;
   await page.click('button[aria-label="Zoom preview out"]');
