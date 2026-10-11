@@ -1494,7 +1494,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
   useEffect(() => {
     const key = previewMode === "print" ? "folio-preview-zoom-print" : "folio-preview-zoom-reader";
-    const stored = Number(window.localStorage.getItem(key));
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) {
+      setPreviewZoom(1);
+      return;
+    }
+    const stored = Number(raw);
     setPreviewZoom(Number.isFinite(stored) ? Math.max(0.25, Math.min(1.6, stored)) : 1);
   }, [previewMode]);
 
