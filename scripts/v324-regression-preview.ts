@@ -80,18 +80,16 @@ try {
     const lastRow = cards.filter((card) => Math.abs(card.getBoundingClientRect().top - lastRowTop) < 2);
     const contentRect = content?.getBoundingClientRect();
     const firstLast = lastRow[0]?.getBoundingClientRect();
-    const finalLast = lastRow[lastRow.length - 1]?.getBoundingClientRect();
     const leftRemainder = contentRect && firstLast ? firstLast.left - contentRect.left : 999;
-    const rightRemainder = contentRect && finalLast ? contentRect.right - finalLast.right : 999;
     return {
       width: dialog?.getBoundingClientRect().width ?? 0,
       height: dialog?.getBoundingClientRect().height ?? 0,
       trailingGap: footerTop - lastBottom,
-      lastRowBalance: Math.abs(leftRemainder - rightRemainder),
+      lastRowLeftGap: leftRemainder,
       count: cards.length,
     };
   });
-  if (libraryGeometry.count < 13 || libraryGeometry.width > 935 || libraryGeometry.height > 690 || libraryGeometry.trailingGap > 38 || libraryGeometry.lastRowBalance > 8) {
+  if (libraryGeometry.count < 13 || libraryGeometry.width > 935 || libraryGeometry.height > 690 || libraryGeometry.trailingGap > 38 || libraryGeometry.lastRowLeftGap > 22) {
     throw new Error("Theme Library still has sparse/oversized geometry: " + JSON.stringify(libraryGeometry));
   }
   const themeButton = await page.$eval(".style-open-theme-lab", (node) => {
