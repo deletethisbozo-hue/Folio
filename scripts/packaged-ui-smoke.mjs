@@ -1,4 +1,9 @@
 import puppeteer from "puppeteer";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
+const qaDir = path.resolve("build", "qa-v324-regression");
+await fs.mkdir(qaDir, { recursive: true });
 
 const port = process.env.FOLIO_E2E_DEBUG_PORT || "43128";
 const appPort = process.env.FOLIO_E2E_PORT || "43127";
@@ -34,6 +39,9 @@ try {
     button.click();
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 15000 });
+  await page.waitForFunction(() => !document.querySelector(".preview-loading"), { timeout: 15000 }).catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await page.screenshot({ path: path.join(qaDir, "01-format-header-and-preview.png") });
   await page.$eval(".rich-editor", (element) => {
     element.focus();
     const range = document.createRange();
@@ -56,12 +64,14 @@ try {
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break")), { timeout: 15000 });
   await page.click('[data-command="design"]');
   await page.waitForSelector(".theme-sample");
-  const themes = await page.$$eval(".theme-sample", (items) => items.length);
+  const themes = await page.$eval(".theme-sample", (items) => items.length);
   if (themes !== 13) throw new Error("Packaged Folio 2.0 style browser expected exactly 13 curated themes, found " + themes + ".");
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  await page.screenshot({ path: path.join(qaDir, "02-theme-library-and-theme-lab-button.png") });
   await page.click(".style-category-list button:nth-child(6)");
   const ornaments = await page.$$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
-  await page.click(".style-library-header button");
+  await page.click(".style-library-close");
   const devices = await page.$eval('select[aria-label="Preview device"] option', (items) => items.length);
   if (devices < 6) throw new Error("Packaged preview contains only " + devices + " device modes.");
   await page.select('select[aria-label="Preview device"]', "print");
@@ -71,6 +81,25 @@ try {
     const rect = printed?.getBoundingClientRect();
     return Boolean(rect && rect.width > 120 && rect.height > 160);
   }, { timeout: 45000 });
+  const fittedPrint = await page.evaluate(() => {
+    const frame = document.querySelector("iframe");
+    const printed = frame?.contentDocument?.querySelector(".pagedjs_page");
+    const rect = printed?.getBoundingClientRect();
+    return { pageWidth: rect?.width ?? 0, frameWidth: frame?.clientWidth ?? 0 };
+  });
+  if (!(fittedPrint.pageWidth > 120 && fittedPrint.pageWidth <= fittedPrint.frameWidth - 12)) {
+    throw new Error("Packaged Print preview did not open fitted to the preview pane: " + JSON.stringify(fittedPrint));
+  }
+  await page.screenshot({ path: path.join(qaDir, "03-print-fit-100.png") });
+  const beforeZoomOut = fittedPrint.pageWidth;
+  await page.click('button[aria-label="Zoom preview out"]');
+  await page.waitForFunction((before) => {
+    const frame = document.querySelector("iframe");
+    const printed = frame?.contentDocument?.querySelector(".pagedjs_page");
+    return Boolean(printed && printed.getBoundingClientRect().width < before - 8);
+  }, { timeout: 5000 }, beforeZoomOut);
+  await page.screenshot({ path: path.join(qaDir, "04-print-zoomed-out.png") });
+  await page.click(".preview-zoom-readout");
   // The paginated mode must show the editor's current section, not merely any
   // successfully-paginated copy from disk. This is the user-visible contract
   // that a raw serialized-HTML regex cannot reliably test after the compositor
