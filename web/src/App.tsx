@@ -760,7 +760,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
-    }, previewDraft.length > 250_000 ? 1100 : previewDraft.length > 100_000 ? 850 : 520);
+    }, previewDraft.length > 250_000 ? 650 : previewDraft.length > 100_000 ? 400 : 150);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
   }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
 
