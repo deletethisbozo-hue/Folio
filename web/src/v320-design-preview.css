@@ -2,26 +2,66 @@
 .folio-shell[data-ui-tone] button.command-wordmark{border-right-color:transparent!important}
 .folio-shell[data-ui-tone] .folio-commandbar .tone-toggle{border-left-color:transparent!important}
 
+.folio-shell .style-library-header-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+  flex:0 0 auto!important;
+  margin-left:18px!important;
+}
 .folio-shell .style-library-header .style-open-theme-lab{
   appearance:none!important;
   box-sizing:border-box!important;
-  display:grid!important;
-  place-items:center!important;
-  flex:0 0 104px!important;
-  width:104px!important;
-  min-width:104px!important;
-  max-width:104px!important;
-  height:32px!important;
-  min-height:32px!important;
-  max-height:32px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
   margin:0!important;
   padding:0 12px!important;
-  border-radius:8px!important;
+  border:1px solid color-mix(in srgb,var(--folio-accent,#6467df) 38%,var(--folio-border,#d8d9e3))!important;
+  border-radius:7px!important;
+  background:color-mix(in srgb,var(--folio-surface,#fff) 84%,var(--folio-accent,#6467df) 16%)!important;
+  color:var(--folio-accent,#5f62da)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.72)!important;
   text-align:center!important;
-  font:700 11px/1 var(--folio-ui-font,"Source Sans 3",sans-serif)!important;
+  font:700 10.5px/1 var(--folio-ui-font,"Source Sans 3",sans-serif)!important;
   letter-spacing:0!important;
   text-indent:0!important;
   white-space:nowrap!important;
+}
+.folio-shell .style-library-header .style-open-theme-lab>span{
+  display:block!important;
+  line-height:1!important;
+  transform:translateY(.5px)!important;
+}
+.folio-shell .style-library-header .style-open-theme-lab:hover{
+  border-color:color-mix(in srgb,var(--folio-accent,#6467df) 58%,var(--folio-border,#d8d9e3))!important;
+  background:color-mix(in srgb,var(--folio-surface,#fff) 76%,var(--folio-accent,#6467df) 24%)!important;
+}
+.folio-shell .style-library-header .style-library-close{
+  box-sizing:border-box!important;
+  display:grid!important;
+  place-items:center!important;
+  width:28px!important;
+  min-width:28px!important;
+  max-width:28px!important;
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  margin:0!important;
+  padding:0!important;
+  border-radius:7px!important;
+  font:500 17px/1 var(--folio-ui-font,"Source Sans 3",sans-serif)!important;
+}
+.folio-shell .style-library-header .style-library-close:hover{
+  background:color-mix(in srgb,var(--folio-text,#292c3d) 7%,transparent)!important;
 }
 .theme-lab-title-block{min-width:0;display:grid;align-content:center}
 .theme-lab-title-block h2{margin:0 0 4px!important;line-height:1!important}
@@ -105,6 +145,66 @@
   border-top:0!important;
 }
 
+/* Theme Library: denser miniature book pages, not empty title cards. */
+.folio-shell .style-library-body{
+  grid-template-columns:156px minmax(0,1fr)!important;
+}
+.folio-shell .style-category-list{
+  padding:11px 8px!important;
+}
+.folio-shell .style-content{
+  padding:14px!important;
+}
+.folio-shell .theme-gallery{
+  gap:10px!important;
+}
+.folio-shell .theme-sample{
+  min-height:176px!important;
+  padding:13px 15px 12px!important;
+  border-radius:11px!important;
+}
+.folio-shell .theme-name{
+  top:8px!important;
+}
+.folio-shell .sample-chapter{
+  margin-top:21px!important;
+}
+.folio-shell .sample-title{
+  margin-top:6px!important;
+}
+.folio-shell .sample-ornament{
+  margin:7px 0 4px!important;
+}
+.folio-shell .theme-sample::after{
+  content:""!important;
+  display:block!important;
+  align-self:center!important;
+  width:72%!important;
+  height:18px!important;
+  flex:0 0 18px!important;
+  margin-top:auto!important;
+  margin-bottom:3px!important;
+  opacity:.11!important;
+  background:
+    linear-gradient(currentColor,currentColor) 0 0/100% 1px no-repeat,
+    linear-gradient(currentColor,currentColor) 0 8px/91% 1px no-repeat,
+    linear-gradient(currentColor,currentColor) 0 16px/66% 1px no-repeat!important;
+}
+.folio-shell .theme-modern::after,
+.folio-shell .theme-editorial::after,
+.folio-shell .theme-scholar::after,
+.folio-shell .theme-literary::after,
+.folio-shell .theme-parchment::after,
+.folio-shell .theme-atlas::after,
+.folio-shell .theme-ember::after,
+.folio-shell .theme-cinder::after,
+.folio-shell .theme-timber::after,
+.folio-shell .theme-necropolis::after,
+.folio-shell .theme-wyrmwood::after,
+.folio-shell .theme-runestone::after,
+.folio-shell .theme-ironbound::after{
+  align-self:flex-start!important;
+}
 .theme-sample.theme-custom{border-style:solid}
 .theme-sample.theme-custom .theme-name{left:9px!important;right:34px!important;max-width:calc(100% - 46px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left!important}
 .sample-chapter-art,.sample-scene-art{width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;flex:0 0 auto}
