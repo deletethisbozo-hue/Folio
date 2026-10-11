@@ -33,6 +33,20 @@ try {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.waitForSelector(".start-actions", { timeout: 15000 });
+  const seededTheme = [{
+    id: "qa-custom-theme",
+    label: "QA Custom Theme",
+    baseTheme: "decorative",
+    config: { enabled: true, name: "QA Custom Theme", paper: "#fbfaf6", accent: "#856744", headingFont: "Libre Baskerville", bodyFont: "EB Garamond", headingAlign: "center", labelText: "CHAPTER" },
+    createdAt: 1,
+    updatedAt: 2,
+  }];
+  const seedThemeResponse = await fetch(`${apiBase}/api/library/themes`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ themes: seededTheme }),
+  });
+  if (!seedThemeResponse.ok) throw new Error("Could not seed packaged custom theme QA fixture.");
   await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Open Sample"));
     if (!button) throw new Error("Open Sample button is missing from packaged Folio.");
@@ -41,6 +55,15 @@ try {
   await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 15000 });
   await page.waitForFunction(() => !document.querySelector(".preview-loading"), { timeout: 15000 }).catch(() => undefined);
   await new Promise((resolve) => setTimeout(resolve, 250));
+  const formatHeaderGeometry = await page.evaluate(() => {
+    const bar = document.querySelector(".section-titlebar")?.getBoundingClientRect();
+    const wrap = document.querySelector(".section-title-wrap")?.getBoundingClientRect();
+    if (!bar || !wrap) return null;
+    return { barHeight: bar.height, topGap: wrap.top - bar.top, bottomGap: bar.bottom - wrap.bottom };
+  });
+  if (!formatHeaderGeometry || formatHeaderGeometry.barHeight < 50 || formatHeaderGeometry.bottomGap < 7) {
+    throw new Error("Format chapter heading is still cramped against the lower divider: " + JSON.stringify(formatHeaderGeometry));
+  }
   await page.screenshot({ path: path.join(qaDir, "01-format-header-and-preview.png") });
   await page.$eval(".rich-editor", (element) => {
     element.focus();
@@ -64,8 +87,20 @@ try {
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".scene-break")), { timeout: 15000 });
   await page.click('[data-command="design"]');
   await page.waitForSelector(".theme-sample");
-  const themes = await page.$eval(".theme-sample", (items) => items.length);
-  if (themes !== 13) throw new Error("Packaged Folio 2.0 style browser expected exactly 13 curated themes, found " + themes + ".");
+  const builtInThemes = await page.$eval(".theme-sample:not(.theme-custom)", (items) => items.length);
+  const customThemes = await page.$eval(".theme-sample.theme-custom", (items) => items.length);
+  if (builtInThemes !== 13 || customThemes !== 1) throw new Error("Packaged style browser theme count mismatch: built-in=" + builtInThemes + ", custom=" + customThemes);
+  const designGeometry = await page.evaluate(() => {
+    const lab = document.querySelector(".style-open-theme-lab");
+    const customName = document.querySelector(".theme-sample.theme-custom .theme-name");
+    if (!(lab instanceof HTMLElement) || !(customName instanceof HTMLElement)) return null;
+    const button = lab.getBoundingClientRect();
+    const nameStyle = getComputedStyle(customName);
+    return { buttonWidth: button.width, buttonHeight: button.height, nameAlign: nameStyle.textAlign, customName: customName.textContent?.trim() ?? "" };
+  });
+  if (!designGeometry || Math.abs(designGeometry.buttonWidth - 104) > 2 || Math.abs(designGeometry.buttonHeight - 32) > 2 || designGeometry.nameAlign !== "left" || designGeometry.customName !== "QA Custom Theme") {
+    throw new Error("Theme Library geometry/alignment regression remains: " + JSON.stringify(designGeometry));
+  }
   await new Promise((resolve) => setTimeout(resolve, 150));
   await page.screenshot({ path: path.join(qaDir, "02-theme-library-and-theme-lab-button.png") });
   await page.click(".style-category-list button:nth-child(6)");
@@ -74,6 +109,13 @@ try {
   await page.click(".style-library-close");
   const devices = await page.$eval('select[aria-label="Preview device"] option', (items) => items.length);
   if (devices < 6) throw new Error("Packaged preview contains only " + devices + " device modes.");
+  const deviceSelectStyle = await page.$eval('select[aria-label="Preview device"]', (select) => {
+    const style = getComputedStyle(select);
+    return { width: select.getBoundingClientRect().width, textAlign: style.textAlign, textAlignLast: style.textAlignLast };
+  });
+  if (deviceSelectStyle.width < 110 || deviceSelectStyle.textAlign !== "center" || deviceSelectStyle.textAlignLast !== "center") {
+    throw new Error("Device selector is not centered/wide enough: " + JSON.stringify(deviceSelectStyle));
+  }
   const printStartedAt = Date.now();
   await page.select('select[aria-label="Preview device"]', "print");
   await page.waitForFunction(() => {
