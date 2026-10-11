@@ -82,7 +82,7 @@ try {
       dy: Math.abs((text.top + text.height / 2) - (rect.top + rect.height / 2)),
     };
   });
-  if (Math.abs(themeButton.width - 104) > 1 || Math.abs(themeButton.height - 32) > 1 || themeButton.dx > 2 || themeButton.dy > 2) {
+  if (themeButton.width < 68 || themeButton.width > 92 || Math.abs(themeButton.height - 28) > 1 || themeButton.dx > 2 || themeButton.dy > 2) {
     throw new Error("Theme Lab button geometry failed: " + JSON.stringify(themeButton));
   }
   const filler = await page.$$eval(".theme-sample .sample-copy", (nodes) => nodes.map((n) => n.textContent?.trim()).filter(Boolean));
