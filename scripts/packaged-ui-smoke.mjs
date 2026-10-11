@@ -117,7 +117,9 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 150));
   await page.screenshot({ path: path.join(qaDir, "02-theme-library-and-theme-lab-button.png") });
   await page.click('.theme-sample[data-custom-theme="qa-custom-theme"]');
+  await page.waitForFunction(() => document.querySelector('.theme-sample[data-custom-theme="qa-custom-theme"]')?.classList.contains("selected"));
   await page.click(".style-category-list button:nth-child(6)");
+  await page.waitForSelector(".ornament-picker button[data-ornament]");
   const ornaments = await page.$eval(".ornament-picker button[data-ornament]", (items) => items.length);
   if (ornaments < 20) throw new Error("Packaged ornament browser contains only " + ornaments + " ornaments.");
   await page.click(".style-library-close");
