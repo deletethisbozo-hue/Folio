@@ -2950,7 +2950,7 @@ function StyleLibrary(props: {
   };
   return <div className="style-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
     <section className="style-library" role="dialog" aria-modal="true" aria-label="Book style library">
-      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}>Theme Lab</button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
+      <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}><span>Theme Lab</span></button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
         <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">
