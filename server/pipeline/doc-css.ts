@@ -38,7 +38,7 @@ function styleDecls(s: StyleDef): string {
   if (s.font) d.push(`font-family: ${familyValue(s.font)} !important;`);
   if (s.size) d.push(`font-size: ${s.size} !important;`);
   if (s.color) d.push(`color: ${s.color};`);
-  if (s.align) d.push(`text-align: ${s.align};`);
+  if (s.align) d.push(`text-align: ${s.align} !important; text-align-last: ${s.align} !important;`);
   return d.join(" ");
 }
 
@@ -308,11 +308,9 @@ function typographyCss(book: Book): string {
   if (bodyDecls.length) out.push(`body { ${bodyDecls.join(" ")} }`);
   if (ty.bodyAlign === "justify") {
     out.push(`
-.book-formatter section.chapter > p:not(.scene-break),
+ .book-formatter section.chapter > p:not(.scene-break),
 .book-formatter section.chapter > blockquote p,
-.book-formatter section.chapter li,
-.book-formatter section.backmatter > p:not(.scene-break),
-.book-formatter section.backmatter li {
+.book-formatter section.chapter li {
   text-align: justify !important;
   text-align-last: left !important;
   text-justify: inter-word;
@@ -325,11 +323,9 @@ function typographyCss(book: Book): string {
 }`);
   } else if (ty.bodyAlign === "left") {
     out.push(`
-.book-formatter section.chapter > p:not(.scene-break),
+ .book-formatter section.chapter > p:not(.scene-break),
 .book-formatter section.chapter > blockquote p,
-.book-formatter section.chapter li,
-.book-formatter section.backmatter > p:not(.scene-break),
-.book-formatter section.backmatter li {
+.book-formatter section.chapter li {
   text-align: left !important;
   text-align-last: left !important;
   -webkit-hyphens: none;
