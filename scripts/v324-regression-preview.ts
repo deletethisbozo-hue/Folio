@@ -71,18 +71,27 @@ try {
   await settle(250);
   const libraryGeometry = await page.evaluate(() => {
     const dialog = document.querySelector<HTMLElement>(".style-library");
+    const content = document.querySelector<HTMLElement>(".style-content");
     const cards = [...document.querySelectorAll<HTMLElement>(".theme-sample")];
     const footer = document.querySelector<HTMLElement>(".style-library-footer");
     const lastBottom = cards.length ? Math.max(...cards.map((card) => card.getBoundingClientRect().bottom)) : 0;
     const footerTop = footer?.getBoundingClientRect().top ?? 9999;
+    const lastRowTop = cards.length ? Math.max(...cards.map((card) => card.getBoundingClientRect().top)) : 0;
+    const lastRow = cards.filter((card) => Math.abs(card.getBoundingClientRect().top - lastRowTop) < 2);
+    const contentRect = content?.getBoundingClientRect();
+    const firstLast = lastRow[0]?.getBoundingClientRect();
+    const finalLast = lastRow[lastRow.length - 1]?.getBoundingClientRect();
+    const leftRemainder = contentRect && firstLast ? firstLast.left - contentRect.left : 999;
+    const rightRemainder = contentRect && finalLast ? contentRect.right - finalLast.right : 999;
     return {
       width: dialog?.getBoundingClientRect().width ?? 0,
       height: dialog?.getBoundingClientRect().height ?? 0,
       trailingGap: footerTop - lastBottom,
+      lastRowBalance: Math.abs(leftRemainder - rightRemainder),
       count: cards.length,
     };
   });
-  if (libraryGeometry.count < 13 || libraryGeometry.width > 935 || libraryGeometry.height > 690 || libraryGeometry.trailingGap > 38) {
+  if (libraryGeometry.count < 13 || libraryGeometry.width > 935 || libraryGeometry.height > 690 || libraryGeometry.trailingGap > 38 || libraryGeometry.lastRowBalance > 8) {
     throw new Error("Theme Library still has sparse/oversized geometry: " + JSON.stringify(libraryGeometry));
   }
   const themeButton = await page.$eval(".style-open-theme-lab", (node) => {
