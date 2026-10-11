@@ -1,0 +1,37 @@
+name: Folio 3.2.4 Palette Preview
+
+on:
+  push:
+    branches: [experiment/3.2.4-icon-palette]
+  workflow_dispatch:
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+      - name: Install Chromium
+        run: npx puppeteer browsers install chrome-headless-shell
+      - name: Build Folio web app
+        run: npm run build:web
+      - name: Capture palette screenshots
+        run: node --import tsx scripts/v324-palette-preview.ts
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio-3.2.4-icon-palette-preview
+          path: build/qa-v324-palette/*.png
+          if-no-files-found: error
