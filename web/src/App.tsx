@@ -2910,6 +2910,7 @@ function StyleLibrary(props: {
     : undefined;
   const selected = selectedCustom ? undefined : themes.find((theme) => theme.name === meta.theme);
   const [hoverPreview, setHoverPreview] = useState<{ theme: string; label: string; html: string; loading: boolean; error?: string } | null>(null);
+  const [pendingDeleteTheme, setPendingDeleteTheme] = useState<ThemeLibraryEntry | null>(null);
   const hoverAbortRef = useRef<AbortController | null>(null);
   useEffect(() => () => hoverAbortRef.current?.abort(), []);
   const previewTheme = (theme: Theme) => {
@@ -2968,13 +2969,25 @@ function StyleLibrary(props: {
               <span className="sample-title" style={{ fontFamily: theme.config.headingFont ?? base?.previewHeadingFont, color: theme.config.headingColor, width: "100%", textAlign: headingAlign }}>The Visitor</span>
               {chapterArt?.dataUrl && chapterArt.placement !== "above" && <span className="sample-chapter-art" style={{ justifyContent: artJustify(chapterArt.align) }}><img src={chapterArt.dataUrl} alt="" style={{ width: Math.max(12, Math.min(100, chapterArt.width ?? 34)) + "%", opacity: chapterArt.opacity ?? 1 }}/></span>}
               {sceneArt?.dataUrl ? <span className="sample-scene-art" style={{ justifyContent: artJustify(sceneArt.align) }}><img src={sceneArt.dataUrl} alt="" style={{ width: Math.max(10, Math.min(80, sceneArt.width ?? 18)) + "%", opacity: sceneArt.opacity ?? 1 }}/></span> : <span className="sample-ornament">{theme.config.sceneOrnament ?? base?.sceneOrnament ?? "⁂"}</span>}
-              <span role="button" tabIndex={0} className="theme-custom-remove" title="Remove from theme library" aria-label={"Remove " + theme.label + " from theme library"} onClick={(event) => { event.stopPropagation(); props.onRemoveSavedTheme(theme.id); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); props.onRemoveSavedTheme(theme.id); } }}>×</span>
+              <span role="button" tabIndex={0} className="theme-custom-remove" title="Delete custom theme" aria-label={"Delete " + theme.label + " from Theme Library"} onClick={(event) => { event.stopPropagation(); setPendingDeleteTheme(theme); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); setPendingDeleteTheme(theme); } }}>×</span>
             </button>;
           })}
           {themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (!selectedCustom && meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectBuiltInTheme(theme)}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span></button>)}
         </div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selectedCustom?.config.dropcap ?? selected?.dropcap ?? false}/>}</div>
       </div>
       <footer className="style-library-footer"><div><strong>{selectedCustom?.label ?? selected?.label ?? meta.theme}</strong><span>{selectedCustom ? "Custom Theme Lab style · saved in your theme library" : selected?.description}</span></div><button className="native-button" onClick={props.onClose}>Done</button><button className="native-button primary" onClick={props.onSave}>Save to Book</button></footer>
+      {pendingDeleteTheme && <div className="theme-delete-confirm-overlay" onMouseDown={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) setPendingDeleteTheme(null); }}>
+        <section className="theme-delete-confirm" role="alertdialog" aria-modal="true" aria-labelledby="theme-delete-title" aria-describedby="theme-delete-copy">
+          <div className="theme-delete-confirm-copy">
+            <h3 id="theme-delete-title">Delete custom theme?</h3>
+            <p id="theme-delete-copy">Delete “{pendingDeleteTheme.label}”? This will permanently remove it from your Theme Library. This action cannot be undone.</p>
+          </div>
+          <div className="theme-delete-confirm-actions">
+            <button type="button" className="native-button" onClick={() => setPendingDeleteTheme(null)}>Cancel</button>
+            <button type="button" className="native-button theme-delete-confirm-danger" autoFocus onClick={() => { const themeId = pendingDeleteTheme.id; setPendingDeleteTheme(null); props.onRemoveSavedTheme(themeId); }}>Delete Theme</button>
+          </div>
+        </section>
+      </div>}
       {hoverPreview && <aside className="theme-hover-preview" aria-live="polite">
         <div className="theme-hover-preview-head"><span>Live chapter preview</span><strong>{hoverPreview.label}</strong></div>
         <div className="theme-hover-preview-stage">
