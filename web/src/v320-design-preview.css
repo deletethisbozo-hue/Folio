@@ -83,6 +83,21 @@
   line-height:1.2!important;
 }
 
+/* Format uses the same compact chrome rhythm as Write.
+   The old 42px floating toolbar + 12px bottom margin created a false white seam
+   and made the whole header look detached from the manuscript. */
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .format-toolbar{
+  width:calc(100% - 32px)!important;
+  height:36px!important;
+  min-height:36px!important;
+  margin:0 16px!important;
+  padding:2px 8px!important;
+  gap:6px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .editor-paper{
+  border-top:0!important;
+}
+
 .theme-sample.theme-custom{border-style:solid}
 .theme-sample.theme-custom .theme-name{left:9px!important;right:34px!important;max-width:calc(100% - 46px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left!important}
 .sample-chapter-art,.sample-scene-art{width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;flex:0 0 auto}
