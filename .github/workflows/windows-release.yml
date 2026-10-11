@@ -1,4 +1,4 @@
-# Folio 3.2.3 Theme Lab persistence hotfix release workflow
+# Folio 3.2.4 regression-fix release workflow
 name: Build and Release Folio for Windows
 
 on:
@@ -38,11 +38,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.2.3 version consistency
+      - name: Verify Folio 3.2.4 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.2.3") { throw "Windows release is scoped to Folio 3.2.3, found $version." }
+          if ($version -ne "3.2.4") { throw "Windows release is scoped to Folio 3.2.4, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -288,4 +288,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.2.3 fixes the Format chapter header so Add subtitle occupies its own stable row, centers the Theme Lab launcher using the button's real flex layout, and restores Write. Format. Publish. as the single preview sample. Theme Library persistence moves from random-port browser storage to Folio's durable userData library, so saved themes survive application restarts. Theme Lab Chapter now supports persistent user TTF/OTF uploads; custom heading fonts are stored globally, rendered in live Preview and Print, embedded in EPUB, retained after restart, and bundled into exported Folio Theme Lab packages for portable theme sharing. The verified Polish-capable Gothic library from 3.2.2 remains intact. Full Windows tests, persistent-library regression coverage, packaged smoke, Print matrix and SHA-256 generation remain release gates."
+            --notes "Folio 3.2.4 is a regression-fix release for Format, Print and Theme Library. It restores the compact Format header/toolbar geometry and removes the stray seam under the toolbar; repairs Print auto-fit, independent zoom controls and first-open latency; restores frontmatter/backmatter alignment without chapter-body overrides; fixes the device selector layout; cleans up Theme Library previews while preserving hover live preview; makes saved custom themes reflect their heading alignment and ornament artwork; keeps custom fonts persistent across restarts; and adds hover-only deletion for custom themes with a permanent-delete confirmation. Theme Lab launcher sizing/typography was corrected and the experimental icon-palette recolor is not included. Full Windows typecheck, formatter/UI tests, visual QA, Print trim matrix, packaged-app smoke, installer/portable validation and SHA-256 generation remain release gates."
