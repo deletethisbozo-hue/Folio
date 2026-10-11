@@ -6,6 +6,7 @@ import { registerApi } from "./api.ts";
 import { registerEditorApi } from "./editor-api.ts";
 import { registerWriteStudioApi } from "./write-studio-api.ts";
 import { checkPandoc, pandocBanner } from "./preflight.ts";
+import { getBrowser } from "./pipeline/render-pdf.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = process.env.FOLIO_ROOT ? path.resolve(process.env.FOLIO_ROOT) : path.resolve(__dirname, "..");
@@ -43,4 +44,7 @@ app.listen(PORT, HOST, () => {
   if (!isDev && process.env.BOOK_FORMATTER_NO_OPEN !== "1") {
     open(url).catch(() => {});
   }
+  setTimeout(() => {
+    void getBrowser().catch(() => undefined);
+  }, 1200);
 });
