@@ -2023,7 +2023,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       // 3.2 zooms the whole preview shell instead, so trim changes remain visible.
       style.textContent = "html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:1!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 14px 24px!important}.pagedjs_page{margin:10px auto!important}";
     } else {
-      const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li,body.book-formatter main.book section.backmatter>p:not(.scene-break),body.book-formatter main.book section.backmatter li";
+      const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li";
       const proseComposition = typography.bodyAlign === "left"
         ? `${proseSelector}{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:none!important;hyphens:none!important;text-wrap:pretty!important}`
         : `${proseSelector}{margin-right:0!important;text-align:left!important;text-align-last:left!important;-webkit-hyphens:manual!important;hyphens:manual!important;overflow-wrap:normal!important;word-break:normal!important;word-spacing:normal!important;letter-spacing:normal!important}`;
