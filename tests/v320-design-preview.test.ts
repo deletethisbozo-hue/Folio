@@ -78,7 +78,7 @@ test("Theme Lab button, Format header and device menu use stable geometry", () =
   assert.match(css, /style-open-theme-lab\{[\s\S]*display:grid!important;[\s\S]*place-items:center!important;[\s\S]*width:104px!important;[\s\S]*height:32px!important/);
   assert.match(css, /section-title-wrap\{[\s\S]*grid-template-rows:auto auto!important/);
   assert.doesNotMatch(css, /grid-template-rows:21px 14px!important/);
-  assert.match(css, /section-subtitle-button,[\s\S]*section-subtitle-input\{[\s\S]*grid-row:2!important/);
+  assert.match(css, /section-subtitle-button\{[\s\S]*grid-row:2!important/);\n  assert.match(css, /section-subtitle-input\{[\s\S]*grid-row:2!important/);
   assert.match(css, /device-label\{[\s\S]*overflow:visible!important/);
   assert.match(css, /device-label>select:first-child\{[\s\S]*width:124px!important;[\s\S]*text-align-last:center!important/);
   assert.match(css, /data-workspace-mode="format"\] \.format-toolbar\{[\s\S]*height:36px!important;[\s\S]*margin:0 16px!important/);
