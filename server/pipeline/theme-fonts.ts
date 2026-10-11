@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { ThemeName } from "./types.ts";
 import { THEME_FONTS_DIR, themeCss } from "./paths.ts";
-import { customFontByFamily, customFontPath, type CustomFontRecord } from "../global-library.ts";
+import { readCustomFonts, customFontPath, type CustomFontRecord } from "../global-library.ts";
 
 type FontTarget = "html" | "print" | "epub";
 type FontFace = { file: string; weight: string; style: "normal" | "italic" };
@@ -343,6 +343,7 @@ export async function buildThemeRuntimeCss(
   const normalized = normalizeThemeFontFamilies(source);
   const requested = new Set<FontKey>();
   const customFonts: CustomFontRecord[] = [];
+  const installedCustomFonts = await readCustomFonts();
   for (const family of requestedFamilies) {
     const direct = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
       .find(([, spec]) => spec.family === family)?.[0];
@@ -352,7 +353,7 @@ export async function buildThemeRuntimeCss(
       requested.add(key);
       continue;
     }
-    const custom = await customFontByFamily(family);
+    const custom = installedCustomFonts.find((font) => font.family === family) ?? null;
     if (custom && !customFonts.some((font) => font.id === custom.id)) customFonts.push(custom);
   }
   const keys = [...new Set<FontKey>([...normalized.used, ...requested])];
