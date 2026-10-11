@@ -3,7 +3,7 @@ name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/3.2.3-persistent-theme-lab, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5, feature/folio-3.0-second-draft]
+    branches: [main, qa/3.2.4-regression, fix/3.2.3-persistent-theme-lab, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5, feature/folio-3.0-second-draft]
     paths-ignore:
       - .github/workflows/prepare-v1012.yml
   workflow_dispatch:
@@ -266,6 +266,7 @@ jobs:
             build/qa-print-matrix/*
             build/qa-v210-writing-studio/*
             build/qa-v300-second-draft/*
+            build/qa-v324-regression/*
           if-no-files-found: error
 
       - name: Publish immutable GitHub Release
