@@ -191,19 +191,24 @@
   padding:14px!important;
 }
 .folio-shell .theme-gallery{
-  display:flex!important;
-  flex-wrap:wrap!important;
-  justify-content:center!important;
-  align-content:flex-start!important;
+  display:grid!important;
+  grid-template-columns:repeat(10,minmax(0,1fr))!important;
+  grid-auto-flow:row!important;
   gap:10px!important;
 }
 .folio-shell .theme-gallery>.theme-sample{
   box-sizing:border-box!important;
   min-width:0!important;
-  flex:0 0 calc((100% - 40px)/5)!important;
-  width:calc((100% - 40px)/5)!important;
-  max-width:calc((100% - 40px)/5)!important;
+  width:auto!important;
+  max-width:none!important;
+  grid-column:span 2!important;
 }
+/* Center an incomplete final row while keeping five cards on complete rows. */
+.folio-shell .theme-gallery>.theme-sample:nth-last-child(1):nth-child(5n+1){grid-column:5 / span 2!important}
+.folio-shell .theme-gallery>.theme-sample:nth-last-child(2):nth-child(5n+1){grid-column:4 / span 2!important}
+.folio-shell .theme-gallery>.theme-sample:nth-last-child(3):nth-child(5n+1){grid-column:3 / span 2!important}
+.folio-shell .theme-gallery>.theme-sample:nth-last-child(4):nth-child(5n+1){grid-column:2 / span 2!important}
+
 .folio-shell .theme-sample{
   min-height:166px!important;
   height:166px!important;
