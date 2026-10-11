@@ -29,8 +29,8 @@
 
 /* Format title header: keep both rows optically centered without fixed baselines. */
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{
-  height:44px!important;
-  min-height:44px!important;
+  height:40px!important;
+  min-height:40px!important;
   padding-inline:18px 16px!important;
   align-items:center!important;
 }
@@ -80,6 +80,21 @@
   padding:0!important;
   font-size:9.5px!important;
   line-height:1.2!important;
+}
+
+/* Format uses the same compact chrome rhythm as Write.
+   The old 42px floating toolbar + 12px bottom margin created a false white seam
+   and made the whole header look detached from the manuscript. */
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .format-toolbar{
+  width:calc(100% - 32px)!important;
+  height:36px!important;
+  min-height:36px!important;
+  margin:0 16px!important;
+  padding:2px 8px!important;
+  gap:6px!important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .editor-paper{
+  border-top:0!important;
 }
 
 .theme-sample.theme-custom{border-style:solid}
