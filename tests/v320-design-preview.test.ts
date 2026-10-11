@@ -164,8 +164,8 @@ test("matter alignment and paragraph geometry are isolated from chapter typograp
   const leftBlock = docCss.match(/else if \(ty\.bodyAlign === "left"\)[\s\S]*?\}\);/)?.[0] ?? "";
   assert.doesNotMatch(justifyBlock, /section\.backmatter/);
   assert.doesNotMatch(leftBlock, /section\.backmatter/);
-  assert.doesNotMatch(docCss, /p \{ text-indent: \$\{ty\.paragraphIndent\}/);
-  assert.doesNotMatch(docCss, /p \{ margin-bottom: \$\{ty\.paragraphSpacing\}/);
+  assert.doesNotMatch(docCss, /out\.push\(`p \{ text-indent: \$\{ty\.paragraphIndent\}/);
+  assert.doesNotMatch(docCss, /out\.push\(`p \{ margin-bottom: \$\{ty\.paragraphSpacing\}/);
   assert.match(docCss, /section\.chapter > p:not\(\.scene-break\), section\.chapter > blockquote p \{ text-indent: \$\{ty\.paragraphIndent\}/);
 });
 
