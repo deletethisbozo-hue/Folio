@@ -262,6 +262,7 @@ jobs:
             release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
             release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
             release/sha256.txt
+            build/qa-v324-regression/*
             build/qa-v107/*
             build/qa-print-matrix/*
             build/qa-v210-writing-studio/*
