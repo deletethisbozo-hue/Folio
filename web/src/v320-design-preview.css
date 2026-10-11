@@ -162,12 +162,30 @@
   border-top:0!important;
 }
 
+/* Book Style is a visual browser, so let the dialog fit its actual three rows
+   instead of stretching to the full settings-panel height. Other categories keep
+   the taller scrollable editor because they contain long control lists. */
+.folio-shell .style-library[data-category="Book Style"]{
+  width:min(930px,calc(100vw - 72px))!important;
+  height:auto!important;
+  max-height:calc(100vh - 96px)!important;
+  grid-template-rows:60px auto 54px!important;
+}
+.folio-shell .style-library[data-category="Book Style"] .style-library-body{
+  min-height:0!important;
+}
+.folio-shell .style-library[data-category="Book Style"] .style-content{
+  overflow:visible!important;
+}
+.folio-shell .style-library[data-category="Book Style"] .style-library-footer{
+  min-height:54px!important;
+}
 /* Theme Library: denser miniature book pages, not empty title cards. */
 .folio-shell .style-library-body{
-  grid-template-columns:156px minmax(0,1fr)!important;
+  grid-template-columns:146px minmax(0,1fr)!important;
 }
 .folio-shell .style-category-list{
-  padding:11px 8px!important;
+  padding:10px 8px!important;
 }
 .folio-shell .style-content{
   padding:14px!important;
