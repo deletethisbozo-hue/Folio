@@ -3,38 +3,44 @@
 .folio-shell[data-ui-tone] .folio-commandbar .tone-toggle{border-left-color:transparent!important}
 
 .folio-shell .style-library-header .style-open-theme-lab{
+  appearance:none!important;
   box-sizing:border-box!important;
-  width:128px!important;
-  min-width:128px!important;
-  height:36px!important;
-  min-height:36px!important;
-  padding:0 16px!important;
+  display:grid!important;
+  place-items:center!important;
+  flex:0 0 104px!important;
+  width:104px!important;
+  min-width:104px!important;
+  max-width:104px!important;
+  height:32px!important;
+  min-height:32px!important;
+  max-height:32px!important;
   margin:0!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
+  padding:0 12px!important;
+  border-radius:8px!important;
   text-align:center!important;
-  line-height:1!important;
+  font:700 11px/1 var(--folio-ui-font,"Source Sans 3",sans-serif)!important;
+  letter-spacing:0!important;
+  text-indent:0!important;
+  white-space:nowrap!important;
 }
 .theme-lab-title-block{min-width:0;display:grid;align-content:center}
 .theme-lab-title-block h2{margin:0 0 4px!important;line-height:1!important}
 .theme-lab-title-block p{margin:0!important}
 
-/* Format title header: explicit title and subtitle rows. Never let the subtitle
-   share the title's line box or get clipped by the compact toolbar. */
+/* Format title header: keep both rows optically centered without fixed baselines. */
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-titlebar{
-  height:48px!important;
-  min-height:48px!important;
+  height:44px!important;
+  min-height:44px!important;
   padding-inline:18px 16px!important;
   align-items:center!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{
   flex:1 1 auto!important;
   min-width:0!important;
-  min-height:36px!important;
+  min-height:30px!important;
   display:grid!important;
   grid-template-columns:auto minmax(0,1fr)!important;
-  grid-template-rows:21px 14px!important;
+  grid-template-rows:auto auto!important;
   align-items:center!important;
   align-content:center!important;
   row-gap:1px!important;
@@ -44,7 +50,7 @@
   grid-column:1!important;
   grid-row:1!important;
   align-self:center!important;
-  line-height:1!important;
+  line-height:1.15!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title,
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button,
@@ -54,19 +60,14 @@
   align-self:center!important;
   font-size:15px!important;
   font-weight:650!important;
-  line-height:19px!important;
+  line-height:1.15!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button{
-  min-height:20px!important;
-  height:20px!important;
+  min-height:22px!important;
+  height:auto!important;
   padding:0!important;
   display:flex!important;
   align-items:center!important;
-}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-input{
-  height:21px!important;
-  min-height:21px!important;
-  padding-block:0!important;
 }
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button,
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-input{
@@ -75,19 +76,14 @@
   align-self:center!important;
   margin:0!important;
   min-height:14px!important;
-  height:14px!important;
+  height:auto!important;
   padding:0!important;
   font-size:9.5px!important;
-  line-height:14px!important;
-}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-input{
-  height:17px!important;
-  min-height:17px!important;
-  padding-inline:4px!important;
+  line-height:1.2!important;
 }
 
 .theme-sample.theme-custom{border-style:solid}
-.theme-sample.theme-custom .theme-name{right:34px!important;max-width:calc(100% - 44px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.theme-sample.theme-custom .theme-name{left:9px!important;right:34px!important;max-width:calc(100% - 46px)!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left!important}
 .sample-chapter-art,.sample-scene-art{width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;flex:0 0 auto}
 .sample-chapter-art{height:22px;margin:2px 0}
 .sample-chapter-art img{display:block;max-width:100%;max-height:22px;object-fit:contain}
@@ -110,8 +106,8 @@
 .preview-stage.print-stage .reader-device.device-print{transform:none!important;transform-origin:center top}
 /* 3.2.1: device, zoom and paging are three separate groups in one clickable row. */
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-toolbar{grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:1fr!important;column-gap:4px!important;align-items:center!important;overflow:visible!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label{grid-column:1!important;grid-row:1!important;min-width:0!important;overflow:hidden!important;gap:4px!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label select{min-width:0!important;max-width:100%!important;padding-inline:8px!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label{grid-column:1!important;grid-row:1!important;min-width:0!important;overflow:visible!important;gap:4px!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select:first-child{flex:0 0 116px!important;width:116px!important;min-width:116px!important;max-width:116px!important;padding-inline:6px!important;text-align:center!important;text-align-last:center!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label .trim-select{flex:0 1 auto!important;max-width:84px!important;padding-inline:5px!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .preview-zoom-controls{grid-column:2!important;grid-row:1!important;min-width:102px!important}
 .folio-shell[data-ui-tone][data-workspace-mode="format"] .device-nav{grid-column:3!important;grid-row:1!important;min-width:64px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;white-space:nowrap!important;position:static!important;transform:none!important}
@@ -131,63 +127,3 @@
   color:var(--folio-muted,#777681);
   font:500 11px/1.35 var(--folio-ui-font,"Source Sans 3",sans-serif);
 }
-
-
-/* 3.2.4: one sizing contract instead of competing button and label rules. */
-.folio-shell .style-library-header .style-open-theme-lab{
-  display:inline-grid!important;
-  place-items:center!important;
-  flex:0 0 128px!important;
-  width:128px!important;
-  min-width:128px!important;
-  max-width:128px!important;
-  height:36px!important;
-  min-height:36px!important;
-  padding:0 12px!important;
-  font-family:var(--folio-ui-font,"Source Sans 3",sans-serif)!important;
-  font-size:11px!important;
-  font-weight:700!important;
-  line-height:normal!important;
-  letter-spacing:0!important;
-  text-indent:0!important;
-  white-space:nowrap!important;
-  box-sizing:border-box!important;
-}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-wrap{
-  grid-template-rows:minmax(22px,auto) minmax(16px,auto)!important;
-  row-gap:0!important;
-}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title-button,
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-title{
-  line-height:22px!important;
-}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .section-subtitle-button{
-  display:flex!important;
-  align-items:center!important;
-  line-height:16px!important;
-  min-height:16px!important;
-  height:16px!important;
-}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label select{
-  appearance:auto!important;
-  text-align:center!important;
-  text-align-last:center!important;
-  padding-inline:2px!important;
-}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label option,
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label optgroup{
-  text-align:center!important;
-}
-.theme-sample.theme-custom{
-  align-items:center!important;
-  text-align:center!important;
-}
-.theme-sample.theme-custom .sample-chapter,
-.theme-sample.theme-custom .sample-title,
-.theme-sample.theme-custom .sample-ornament{
-  align-self:center!important;
-  width:100%;
-  text-align:center!important;
-}
-.theme-sample.theme-custom .sample-chapter-art,
-.theme-sample.theme-custom .sample-scene-art{justify-content:center}
