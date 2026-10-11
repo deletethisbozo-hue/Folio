@@ -150,6 +150,10 @@ try {
     throw new Error("Device selector alignment failed: " + JSON.stringify(selectGeometry));
   }
   await page.screenshot({ path: path.join(qa, "03-device-toolbar.png") });
+  await page.click('select[aria-label="Preview device"]');
+  await settle(180);
+  await page.screenshot({ path: path.join(qa, "03b-device-dropdown-open.png") });
+  await page.keyboard.press("Escape");
 
   const started = Date.now();
   await page.select('select[aria-label="Preview device"]', "print");
