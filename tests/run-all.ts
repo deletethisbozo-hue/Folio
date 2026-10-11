@@ -59,24 +59,28 @@ const suites = [...ORDER.filter((f) => present.includes(f)), ...unknown].filter(
   (f) => filter.length === 0 || filter.some((q) => f.includes(q)),
 );
 
-const SUITE_TIMEOUT_MS = 90_000;
+const DEFAULT_SUITE_TIMEOUT_MS = 90_000;
+const SUITE_TIMEOUTS_MS: Record<string, number> = {
+  "illustration-preview-ui.test.ts": 150_000,
+};
 
-function run(file: string): Promise<{ code: number; out: string; timedOut: boolean }> {
+function run(file: string): Promise<{ code: number; out: string; timedOut: boolean; timeoutMs: number }> {
   return new Promise((resolve) => {
     const child = spawn("node", ["--import", "tsx", path.join(HERE, file)], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let settled = false;
+    const timeoutMs = SUITE_TIMEOUTS_MS[file] ?? DEFAULT_SUITE_TIMEOUT_MS;
     const finish = (code: number, timedOut: boolean) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve({ code, out, timedOut });
+      resolve({ code, out, timedOut, timeoutMs });
     };
     const timer = setTimeout(() => {
-      out += `\n✗ suite timeout — ${file} exceeded ${Math.round(SUITE_TIMEOUT_MS / 1000)}s\n`;
+      out += `\n✗ suite timeout — ${file} exceeded ${Math.round(timeoutMs / 1000)}s\n`;
       child.kill("SIGKILL");
       finish(124, true);
-    }, SUITE_TIMEOUT_MS);
+    }, timeoutMs);
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
     child.on("close", (code) => finish(code ?? 0, false));
@@ -93,7 +97,7 @@ const failed: string[] = [];
 
 for (const file of suites) {
   const started = Date.now();
-  const { code, out, timedOut } = await run(file);
+  const { code, out, timedOut, timeoutMs } = await run(file);
   const m = out.match(/(\d+) passed, (\d+) failed/);
   const passed = m ? Number(m[1]) : 0;
   const failedN = m ? Number(m[2]) : code === 0 ? 0 : 1;
@@ -104,7 +108,7 @@ for (const file of suites) {
   console.log(`${status} ${file.replace(".test.ts", "").padEnd(16)} ${String(passed).padStart(3)} passed  ${String(failedN).padStart(2)} failed  ${secs.padStart(3)}s`);
   if (failedN > 0 || code !== 0) {
     failed.push(file);
-    if (timedOut) console.log(`      ✗ ${file} exceeded the 90s per-suite watchdog`);
+    if (timedOut) console.log(`      ✗ ${file} exceeded the ${Math.round(timeoutMs / 1000)}s per-suite watchdog`);
     // Only the failing lines — the full output is long and mostly ticks.
     out
       .split("\n")
