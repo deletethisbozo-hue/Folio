@@ -188,7 +188,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     [props.state?.secondDraft.carryovers, props.targetSectionId],
   );
   const candidateSections = useMemo(
-    () => props.project.sections.filter((section) => section.id !== props.targetSectionId && section.kind === "chapter"),
+    () => props.project.sections.filter((section) =>
+      section.id !== props.targetSectionId &&
+      section.kind === "chapter" &&
+      !section.className?.split(/\s+/).includes("image-page")
+    ),
     [props.project.sections, props.targetSectionId],
   );
 
@@ -1164,7 +1168,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const unresolved = relevantBlocks.filter((block) => block.status === "active" || block.status === "later").length;
   const processed = relevantBlocks.filter((block) => ["rewritten", "cut", "keep", "sent"].includes(block.status)).length;
   const sendOptions = props.project.sections.filter(
-    (section) => section.kind === "chapter" && section.id !== props.targetSectionId && section.id !== pair?.sourceSectionId,
+    (section) =>
+      section.kind === "chapter" &&
+      !section.className?.split(/\s+/).includes("image-page") &&
+      section.id !== props.targetSectionId &&
+      section.id !== pair?.sourceSectionId,
   );
 
   return <section className={`writing-split-pane second-draft-pane ${memoryMode ? "memory-mode" : ""} ${memoryPeek ? "memory-peek" : ""}`} aria-label="Second Draft source">
