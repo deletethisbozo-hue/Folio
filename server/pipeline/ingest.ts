@@ -160,6 +160,16 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function withoutFullPageImageCaptions(markdown: string): string {
+  // Pandoc treats Markdown image alt text as a figure caption. Folio <=3.2.4
+  // could write the upload filename there, so normalize legacy image pages as
+  // they are ingested instead of relying on CSS to hide the leaked caption.
+  return markdown.replace(
+    /!\[(?:\\.|[^\]])*\](\([^)]+\)\{[^}]*\.full-page-image\b[^}]*\})/gi,
+    "![]$1",
+  );
+}
+
 async function sectionFromFile(
   filePath: string,
   kind: SectionKind,
@@ -192,7 +202,7 @@ async function sectionFromFile(
     className,
     toc: isImagePage ? false : typeof fm.toc === "boolean" ? fm.toc : defaults.toc,
     showTitle: isImagePage ? false : typeof fm.showTitle === "boolean" ? fm.showTitle : defaults.showTitle,
-    markdown: ex.body.trim(),
+    markdown: isImagePage ? withoutFullPageImageCaptions(ex.body.trim()) : ex.body.trim(),
     sourcePath: filePath,
   };
 }
