@@ -69,11 +69,13 @@ const serverApi = readFileSync(path.join(ROOT, "server/write-studio-api.ts"), "u
 
 check("Second Draft is separate from legacy Split View",
   app.includes("secondDraftView") && app.includes("<SecondDraftPane") && app.includes("<WritingSplitPane"));
-check("Second Draft only opens for real chapter-to-chapter work",
-  app.includes('selectedSection?.kind !== "chapter" || chapters.length < 2')
-  && app.includes('selectedSection?.kind === "chapter" && <SecondDraftPane')
+check("Second Draft only opens for real prose chapter-to-chapter work",
+  app.includes('selectedSection?.kind !== "chapter" || selectedIsImagePage || proseChapters.length < 2')
+  && app.includes('selectedSection?.kind === "chapter" && !selectedIsImagePage && <SecondDraftPane')
+  && pane.includes('includes("image-page")')
   && server.includes('target.kind !== "chapter"')
-  && server.includes('source.kind !== "chapter"'));
+  && server.includes('source.kind !== "chapter"')
+  && server.includes('includes("image-page")'));
 check("background progress sync cannot replace newer Second Draft state",
   app.includes("dailyProgress: updated.dailyProgress")
   && app.includes("setWriteStudioState((current) => current"));
