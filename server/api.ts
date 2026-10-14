@@ -86,7 +86,7 @@ async function buildSummary(projectId: string, overrides?: Partial<BookMeta>) {
   return {
     projectId,
     meta: book.meta,
-    sections: book.sections.map((s) => ({ id: s.id, title: s.title, kind: s.kind, toc: s.toc })),
+    sections: book.sections.map((s) => ({ id: s.id, title: s.title, kind: s.kind, toc: s.toc, className: s.className })),
     warnings: warnings.map((w) => w.message),
     hasCover: Boolean(book.coverPath),
     bodyChars,

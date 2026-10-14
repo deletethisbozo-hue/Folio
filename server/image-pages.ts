@@ -1,13 +1,13 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import yaml from "js-yaml";
 import type { BookMeta } from "./pipeline/types.ts";
-import { addMatter, readConfig } from "./matter.ts";
+import { addMatter, addStandaloneChapterPage } from "./matter.ts";
 import { atomicWriteUtf8 } from "./atomic-write.ts";
 import { normalizeImageUpload } from "./svg-images.ts";
 
 export type ImagePageFit = "contain" | "cover";
+export type ImagePagePlacement = "frontmatter" | "body";
 
 export interface AddImagePageOptions {
   filename: string;
@@ -16,6 +16,7 @@ export interface AddImagePageOptions {
   title?: string;
   alt?: string;
   fit?: ImagePageFit;
+  placement?: ImagePagePlacement;
 }
 
 function slug(value: string): string {
@@ -31,64 +32,32 @@ function yamlString(value: string): string {
   return JSON.stringify(value);
 }
 
-function markdownAlt(value: string): string {
-  return value.replace(/([\\\]])/g, "\\$1");
-}
-
-async function existingImagePageTitles(bookDir: string): Promise<Set<string>> {
-  const cfg = await readConfig(bookDir) as { frontmatter?: string[] } | null;
-  const entries = Array.isArray(cfg?.frontmatter) ? cfg.frontmatter : [];
-  const titles = new Set<string>();
-
-  for (const entry of entries) {
-    try {
-      const file = path.join(bookDir, ...String(entry).replace(/\\/g, "/").split("/"));
-      const raw = await fs.readFile(file, "utf8");
-      const frontmatter = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
-      if (!frontmatter) continue;
-      const data = (yaml.load(frontmatter[1]) ?? {}) as Record<string, unknown>;
-      const classes = String(data.class ?? "").split(/\s+/).filter(Boolean);
-      if (!classes.includes("image-page")) continue;
-      const title = String(data.title ?? "").trim();
-      if (title) titles.add(title.toLocaleLowerCase());
-    } catch {
-      // A stale config entry should not prevent the user from adding artwork.
-    }
-  }
-
-  return titles;
-}
-
-async function uniqueImagePageTitle(bookDir: string, requested: string): Promise<string> {
-  const titles = await existingImagePageTitles(bookDir);
-  if (!titles.has(requested.toLocaleLowerCase())) return requested;
-  let index = 2;
-  while (titles.has(`${requested} ${index}`.toLocaleLowerCase())) index += 1;
-  return `${requested} ${index}`;
+function imagePageMarkdown(asset: string): string {
+  // Intentionally blank alt text. Pandoc promotes Markdown image alt text into
+  // a visible figure caption, which previously leaked the uploaded filename
+  // onto full-page artwork. These pages are fixed decorative/structural art and
+  // must never acquire a visible caption.
+  return `![](${asset}){.full-page-image .fit-contain}`;
 }
 
 /**
- * Add a dedicated image page to front matter.
+ * Add a dedicated full-page illustration either to front matter or to the
+ * manuscript sequence.
  *
- * The image is copied into book/assets and the structural page itself is still a
- * normal front-matter Markdown file, so it participates in ordering, preview,
- * EPUB and print without introducing a second private document model.
- *
- * Full-page artwork is always contain-fit. Older callers can still pass `cover`
- * for API compatibility, but Folio never crops maps, family trees or fixed art.
- * The uploaded filename is deliberately not promoted into book-facing metadata:
- * it remains a technical storage detail, not a visible page title.
+ * The image is copied into book/assets and the structural page remains ordinary
+ * Markdown with class: image-page, so preview, EPUB and print share one model.
+ * Full-page artwork is always contain-fit and never exposes the source filename
+ * as book-facing metadata or a figure caption.
  */
 export async function addFullPageImage(
   bookDir: string,
   meta: BookMeta,
   options: AddImagePageOptions,
-): Promise<{ entry: string; asset: string }> {
+): Promise<{ entry: string; asset: string; placement: ImagePagePlacement }> {
   const normalized = normalizeImageUpload(options.filename, options.mime ?? "", options.buffer, "Full-page images");
   const ext = normalized.ext;
-  const requestedTitle = "Full-page Image";
-  const title = await uniqueImagePageTitle(bookDir, requestedTitle);
-  const alt = options.alt?.trim() || "Full-page illustration";
+  const title = "Full-page Image";
+  const placement: ImagePagePlacement = options.placement === "body" ? "body" : "frontmatter";
 
   const assetsDir = path.join(bookDir, "assets");
   await fs.mkdir(assetsDir, { recursive: true });
@@ -97,26 +66,36 @@ export async function addFullPageImage(
   const assetPath = path.join(assetsDir, assetFile);
   await fs.writeFile(assetPath, normalized.buffer);
 
+  const content = [
+    "---",
+    `title: ${yamlString(title)}`,
+    "class: image-page",
+    "toc: false",
+    "showTitle: false",
+    "---",
+    "",
+    imagePageMarkdown(asset),
+    "",
+  ].join("\n");
+
   try {
-    const { entry } = await addMatter(bookDir, meta, {
-      type: "full-page-image",
-      placement: "frontmatter",
-      title,
-    });
-    const pagePath = path.join(bookDir, ...entry.split("/"));
-    const content = [
-      "---",
-      `title: ${yamlString(title)}`,
-      "class: image-page",
-      "toc: false",
-      "showTitle: false",
-      "---",
-      "",
-      `![${markdownAlt(alt)}](${asset}){.full-page-image .fit-contain}`,
-      "",
-    ].join("\n");
-    await atomicWriteUtf8(pagePath, content, "utf8");
-    return { entry, asset };
+    let entry: string;
+    if (placement === "body") {
+      ({ entry } = await addStandaloneChapterPage(bookDir, meta, {
+        filenameStem: "full-page-image",
+        content,
+      }));
+    } else {
+      const added = await addMatter(bookDir, meta, {
+        type: "full-page-image",
+        placement: "frontmatter",
+        title,
+      });
+      entry = added.entry;
+      const pagePath = path.join(bookDir, ...entry.split("/"));
+      await atomicWriteUtf8(pagePath, content, "utf8");
+    }
+    return { entry, asset, placement };
   } catch (error) {
     await fs.rm(assetPath, { force: true }).catch(() => undefined);
     throw error;

@@ -24,9 +24,10 @@ export function registerImagePageApi(app: Express): void {
         filename: file.originalname,
         buffer: file.buffer,
         mime: file.mimetype,
-        title: typeof req.body?.title === "string" ? req.body.title : undefined,
-        alt: typeof req.body?.alt === "string" ? req.body.alt : undefined,
+        // Full-page artwork never derives visible metadata/captions from
+        // the uploaded filename. Placement is the only UI-controlled option.
         fit: "contain",
+        placement: req.body?.placement === "body" ? "body" : "frontmatter",
       });
       res.json({ ok: true, ...result });
     } catch (error) {

@@ -19,6 +19,7 @@ export interface SectionSummary {
   title: string;
   kind: string;
   toc: boolean;
+  className?: string;
 }
 
 export interface SectionDocument {

@@ -414,12 +414,16 @@ async function requireSecondDraftSections(projectId: string, targetSectionId: st
   const { book } = await loadProject(projectId);
   const target = book.sections.find((section) => section.id === targetSectionId);
   if (!target) throw new Error("Second Draft target section not found.");
-  if (target.kind !== "chapter") throw new Error("Second Draft is only available for chapter sections.");
+  if (target.kind !== "chapter" || target.className?.split(/\s+/).includes("image-page")) {
+    throw new Error("Second Draft is only available for prose chapter sections.");
+  }
   if (sourceSectionId !== undefined) {
     if (sourceSectionId === targetSectionId) throw new Error("Second Draft source and target must be different sections.");
     const source = book.sections.find((section) => section.id === sourceSectionId);
     if (!source) throw new Error("Second Draft source section not found.");
-    if (source.kind !== "chapter") throw new Error("Second Draft source must be a chapter section.");
+    if (source.kind !== "chapter" || source.className?.split(/\s+/).includes("image-page")) {
+      throw new Error("Second Draft source must be a prose chapter section.");
+    }
   }
 }
 

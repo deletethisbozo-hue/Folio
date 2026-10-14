@@ -2,8 +2,8 @@
   position: relative;
 }
 
-/* The Full-page Image action is deliberately the same row component as the
- * other front-matter actions. No one needs a mystery card inside a plain list. */
+/* Full-page Illustration uses the same compact row in front matter and in the
+ * manuscript body. It is a structural page, not a captioned inline figure. */
 .content-kind-group .content-image-kind {
   display: flex;
   align-items: center;
@@ -36,4 +36,9 @@
   clip: rect(0 0 0 0) !important;
   clip-path: inset(50%) !important;
   white-space: nowrap !important;
+}
+
+.content-body-image {
+  position: relative;
+  margin-top: 8px;
 }
