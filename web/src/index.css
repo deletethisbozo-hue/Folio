@@ -352,7 +352,7 @@ button:disabled { cursor: default; opacity: .45; }
 .cover-field small { max-width:110px; text-align:center; color:#88847c; font-size:8px; line-height:1.35; }
 .add-chapter-box { padding:12px; border:1px solid #cfcdc7; border-radius:6px; background:#fff; }
 .add-chapter-box h3,.content-kind-group h3 { margin:0 0 9px; font:600 12px Newsreader,serif; }
-.add-chapter-box>div { display:flex; gap:8px; }
+.add-chapter-box>.add-chapter-row { display:flex; gap:8px; }
 .content-kind-columns { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:15px; }
 .content-kind-group { display:flex; flex-direction:column; gap:3px; }
 .content-kind-group button { display:flex; align-items:center; justify-content:space-between; height:31px; padding:0 9px; border:0; border-radius:4px; background:transparent; text-align:left; font-size:10px; }
