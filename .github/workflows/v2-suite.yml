@@ -86,18 +86,4 @@ jobs:
             build/qa-v210-writing-studio/03de-progress-halo-midnight.png
           if-no-files-found: error
       - name: Full formatter and UI suite
-        shell: bash
-        run: |
-          max_attempts=3
-          for attempt in $(seq 1 $max_attempts); do
-            echo "Full test suite attempt $attempt/$max_attempts"
-            if npm test; then
-              exit 0
-            fi
-            if [ "$attempt" -eq "$max_attempts" ]; then
-              echo "Full formatter/UI suite failed after $max_attempts attempts." >&2
-              exit 1
-            fi
-            echo "Transient browser-test failure; retrying the complete suite." >&2
-            sleep 5
-          done
+        run: npm test
