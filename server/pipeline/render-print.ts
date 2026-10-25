@@ -320,7 +320,9 @@ async function withPaginated<T>(
   opts: PrintOptions,
   fn: (page: Page) => Promise<T>,
   qualityMode: "strict" | "preview" = "strict",
+  signal?: AbortSignal,
 ): Promise<{ result: T; meta: PrintMeta }> {
+  if (signal?.aborted) throw new Error("Print preview was superseded.");
   const gutter = resolveGutter(book, opts);
   // The paginated print gets a printed TOC (with page numbers filled in below);
   // the reflowable reading PDF does not.
@@ -335,9 +337,14 @@ async function withPaginated<T>(
     ? baseHtml.replace("</head>", `${styleTag}\n</head>`)
     : `${styleTag}\n${baseHtml}`;
 
+  if (signal?.aborted) throw new Error("Print preview was superseded.");
   const browser = await getBrowser();
+  if (signal?.aborted) throw new Error("Print preview was superseded.");
   const page = await browser.newPage();
+  const interrupt = () => { void page.close().catch(() => undefined); };
+  signal?.addEventListener("abort", interrupt, { once: true });
   try {
+    if (signal?.aborted) throw new Error("Print preview was superseded.");
     // page.pdf() ultimately uses print media. Compose under the same media from
     // the beginning so @media print font/spacing rules cannot invalidate the
     // line geometry after Folio has already frozen lines into nowrap spans.
@@ -622,7 +629,8 @@ async function withPaginated<T>(
     const result = await fn(page);
     return { result, meta: { pages, gutter } };
   } finally {
-    await page.close();
+    signal?.removeEventListener("abort", interrupt);
+    await page.close().catch(() => undefined);
   }
 }
 
@@ -647,7 +655,7 @@ export async function renderPrintPdf(book: Book, opts: PrintOptions): Promise<{ 
  * Render the paginated document as a self-contained HTML string for the in-app
  * print preview — the same pages the PDF will contain, shown in the previewer.
  */
-export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions): Promise<{ html: string; meta: PrintMeta }> {
+export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, signal?: AbortSignal): Promise<{ html: string; meta: PrintMeta }> {
   const t = getTrim(opts.trim);
   const { result, meta } = await withPaginated(book, opts, async (page) => {
     // Paged.js lays the live pages out correctly, but the serialized output sizes
@@ -669,6 +677,6 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions): Pr
       t.h,
     );
     return page.content();
-  }, "preview");
+  }, "preview", signal);
   return { html: result, meta };
 }
