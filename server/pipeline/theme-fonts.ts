@@ -377,11 +377,22 @@ export async function buildThemeRuntimeCss(
   // more than the temporary HTML byte count.
   const primaryThemeKeys = new Set<FontKey>();
   if (target === "epub") {
-    for (const declaration of normalized.css.matchAll(/\bfont-family\s*:\s*([^;}]+)/gi)) {
-      const name = primaryFontFamily(declaration[1]);
+    const recordPrimary = (stack: string) => {
+      const name = primaryFontFamily(stack);
       const match = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
         .find(([, spec]) => spec.family === name);
       if (match) primaryThemeKeys.add(match[0]);
+    };
+    for (const declaration of normalized.css.matchAll(/\bfont-family\s*:\s*([^;}]+)/gi)) {
+      recordPrimary(declaration[1]);
+    }
+    // 'font: 600 .45em/1 Source Sans 3, sans-serif' is used by chapter
+    // labels in several built-in themes. It is a genuine primary face, not a
+    // fallback; ignoring font shorthand silently breaks those headings.
+    for (const declaration of normalized.css.matchAll(/(?:^|[;{])\s*font\s*:\s*([^;}]+)/gi)) {
+      const shorthand = declaration[1];
+      const sizeAndFamily = shorthand.match(/\d*\.?\d+(?:px|pt|em|rem|%|vw|vh)(?:\s*\/\s*[\d.]+(?:px|pt|em|rem|%)?)?\s+(.+)$/i);
+      if (sizeAndFamily) recordPrimary(sizeAndFamily[1]);
     }
   }
   const embedFonts = options.embedFonts !== false;
