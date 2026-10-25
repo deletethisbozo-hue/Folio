@@ -71,11 +71,33 @@ try {
       const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
       const sheet = frame?.contentDocument?.querySelector<HTMLElement>(".pagedjs_page");
       if (!sheet) return false;
-      const rect = sheet.getBoundingClientRect();
-      return Math.abs(rect.width - width) < 3 && Math.abs(rect.height - height) < 3;
+      // Print preview deliberately zooms the page container to fit the pane, so
+      // getBoundingClientRect() is the visible (scaled) size. The computed page
+      // box remains the authoritative physical trim at 96 CSS px per inch.
+      const style = frame?.contentWindow?.getComputedStyle(sheet);
+      const physicalWidth = Number.parseFloat(style?.width ?? "0");
+      const physicalHeight = Number.parseFloat(style?.height ?? "0");
+      return Math.abs(physicalWidth - width) < 3 && Math.abs(physicalHeight - height) < 3;
     }, { timeout: 45_000 }, { width: expectedWidth, height: expectedHeight });
+    const geometry = await page.$eval("iframe", (frame) => {
+      const sheet = frame.contentDocument?.querySelector<HTMLElement>(".pagedjs_page");
+      if (!sheet) return { visibleWidth: 0, visibleHeight: 0, physicalWidth: 0, physicalHeight: 0 };
+      const rect = sheet.getBoundingClientRect();
+      const style = frame.contentWindow?.getComputedStyle(sheet);
+      return {
+        visibleWidth: rect.width,
+        visibleHeight: rect.height,
+        physicalWidth: Number.parseFloat(style?.width ?? "0"),
+        physicalHeight: Number.parseFloat(style?.height ?? "0"),
+      };
+    });
     const hasError = await page.evaluate(() => Boolean(document.querySelector(".preview-error, .error-banner, .error-text")));
     check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
+    check(
+      `changing print trim to ${trim} keeps a visible fitted sheet`,
+      geometry.visibleWidth > 120 && geometry.visibleHeight > 160,
+      `${geometry.visibleWidth.toFixed(1)}×${geometry.visibleHeight.toFixed(1)} visible; ${geometry.physicalWidth.toFixed(1)}×${geometry.physicalHeight.toFixed(1)} physical`,
+    );
   }
 
   stage = "switch Print -> Reader";
