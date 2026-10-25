@@ -22,6 +22,7 @@ import { themeList } from "./pipeline/themes.ts";
 import { PRESETS } from "./presets.ts";
 import { renderHtml } from "./pipeline/render-html.ts";
 import { renderEpub } from "./pipeline/render-epub.ts";
+import { inspectEpubSize } from "./pipeline/epub-size.ts";
 import { renderDocx } from "./pipeline/render-docx.ts";
 import { renderMarkdown } from "./pipeline/render-markdown.ts";
 import { renderPdf } from "./pipeline/render-pdf.ts";
@@ -628,8 +629,8 @@ export function registerApi(app: Express): void {
         case "epub": {
           const preset = (req.body?.preset ?? "universal") as PresetName;
           const { buffer } = await renderEpub(book, preset);
-          const validation = await validateEpub(buffer);
-          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation });
+          const [validation, sizeReport] = await Promise.all([validateEpub(buffer), inspectEpubSize(buffer)]);
+          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport });
           return;
         }
         case "docx": {
