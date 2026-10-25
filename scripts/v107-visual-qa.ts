@@ -534,8 +534,9 @@ try {
   );
   await page.waitForFunction((expected) => {
     const doc = document.querySelector("iframe")?.contentDocument;
+    const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
     const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-native-dropcap") ?? [])]
-      .find((candidate) => (candidate.textContent ?? "").includes(expected));
+      .find((candidate) => helper?.(candidate).includes(expected));
     if (!paragraph) return false;
     const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
     if (!cap) return false;
