@@ -61,6 +61,7 @@ const suites = [...ORDER.filter((f) => present.includes(f)), ...unknown].filter(
 
 const DEFAULT_SUITE_TIMEOUT_MS = 90_000;
 const SUITE_TIMEOUTS_MS: Record<string, number> = {
+  "print-preview-ui.test.ts": 180_000,
   "illustration-preview-ui.test.ts": 150_000,
 };
 
