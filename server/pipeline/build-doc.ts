@@ -17,6 +17,25 @@ function headerAttr(section: Section): string {
 }
 
 /**
+ * Pandoc's implicit_figures extension promotes standalone images' ALT text to
+ * a visible figure caption. Full-page illustrations never have book-facing
+ * captions: preserve meaningful ALT text while suppressing the figure markup.
+ * Inline image pages get their own block wrapper for EPUB and paginated PDF.
+ */
+export function prepareFullPageImageMarkdown(markdown: string, dedicatedPage = false): string {
+  return markdown.replace(
+    /^(!\[[^\]\r\n]*\]\([^\r\n)]*\)\{[^}\r\n]*\})[ \t]*$/gm,
+    (image) => {
+      if (!/\.full-page-image(?:\s|\})/.test(image)) return image;
+      const captionless = image + "\u00a0";
+      return dedicatedPage
+        ? captionless
+        : `::: {.folio-inline-image-page}\n${captionless}\n:::`;
+    },
+  );
+}
+
+/**
  * Assemble all sections into a single Markdown document. Each section becomes a
  * top-level "# Title {attrs}" so Pandoc can split chapters and apply section divs.
  *
@@ -38,7 +57,10 @@ export function assembleMarkdown(book: Book, _target: Target): string {
       parts.push(`:::`);
       parts.push("");
     }
-    if (section.markdown.trim()) parts.push(section.markdown.trim());
+    if (section.markdown.trim()) {
+      const isImagePage = section.className?.split(/\s+/).includes("image-page") ?? false;
+      parts.push(prepareFullPageImageMarkdown(section.markdown.trim(), isImagePage));
+    }
     parts.push("");
   }
   return parts.join("\n");
