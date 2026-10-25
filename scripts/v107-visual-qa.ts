@@ -232,7 +232,14 @@ try {
     // propagation on slower Windows runners and can leave the iframe on the
     // previous drop-cap state even though the checkbox already flipped.
     await page.waitForFunction(
-      (want) => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector(".dropcap")) === want,
+      (want) => {
+        const doc = document.querySelector("iframe")?.contentDocument;
+        const cap = doc?.querySelector<HTMLElement>("section.chapter .dropcap");
+        if (!cap) return !want;
+        const isFloating = doc!.defaultView?.getComputedStyle(cap).float === "left";
+        const hasNativeParagraph = Boolean(cap.closest("p")?.classList.contains("folio-native-dropcap"));
+        return want ? isFloating && hasNativeParagraph : !isFloating;
+      },
       {},
       enabled,
     );
