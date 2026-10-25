@@ -256,6 +256,17 @@ try {
       return [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed, section.chapter > p.folio-native-dropcap")]
         .some((paragraph) => helper(paragraph).includes(expected));
     }, {}, needle);
+    await page.waitForFunction(({ expected, minParagraphs, minLines }) => {
+      const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
+      const doc = document.querySelector("iframe")?.contentDocument;
+      if (!helper || !doc) return false;
+      const corpus = [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed, section.chapter > p.folio-native-dropcap")]
+        .find((paragraph) => helper(paragraph).includes(expected));
+      const section = corpus?.closest("section");
+      const paragraphs = [...(section?.querySelectorAll<HTMLElement>(":scope > p.folio-composed") ?? [])];
+      const lines = paragraphs.reduce((count, paragraph) => count + paragraph.querySelectorAll(":scope > .folio-composed-line").length, 0);
+      return paragraphs.length >= minParagraphs && lines >= minLines;
+    }, {}, { expected: needle, minParagraphs: minimums.paragraphs, minLines: minimums.justifiedLines });
     const report = await page.evaluate((expected) => {
       const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")!.contentDocument!;
