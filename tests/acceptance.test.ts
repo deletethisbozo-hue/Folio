@@ -143,15 +143,15 @@ check(
   [...INTENDED].every((name) => (newUni.get(name) ?? 0) > 0 && newUni.get(name) !== refUni.get(name)),
 );
 
-// KDP has no pre-work reference (the preset was inert, so both presets were the
-// same file). The real claim is what the fix guarantees, asserted directly.
+// The lightweight KDP preset must not ship any embedded font binaries; the
+// Universal edition retains the active design's font files.
 const newKdp = await entries(path.join(outDir, "sample-kdp.epub"));
 check(
-  "epub (kdp) keeps theme fonts, omits custom fonts, and is smaller than universal",
+  "epub (kdp) honors its font-free preset and is smaller than universal",
   (() => {
     const kdpFonts = [...newKdp.keys()].filter((n) => /\.(ttf|otf|woff2?)$/i.test(n));
     const universalFonts = [...newUni.keys()].filter((n) => /\.(ttf|otf|woff2?)$/i.test(n));
-    return kdpFonts.length > 0 && kdpFonts.every((n) => universalFonts.includes(n)) && universalFonts.length > kdpFonts.length && kdp.bytes < uni.bytes;
+    return kdpFonts.length === 0 && universalFonts.length > 0 && kdp.bytes < uni.bytes;
   })(),
   `${kdp.bytes} < ${uni.bytes}`,
 );
