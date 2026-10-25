@@ -54,6 +54,25 @@ try {
   check("switching Reader → Print displays physical paginated pages", printPages > 0, `${printPages} pages`);
   check("print page is visibly sized, not merely present in hidden DOM", printRect.width > 120 && printRect.height > 160, `${printRect.width.toFixed(1)}×${printRect.height.toFixed(1)}`);
 
+  // Changing trim must re-run Paged.js without losing the preview, surfacing a
+  // global error, or leaving behind the dimensions of the previous print size.
+  for (const [trim, expectedWidth, expectedHeight] of [
+    ["5x8", 5 * 96, 8 * 96],
+    ["6x9", 6 * 96, 9 * 96],
+    ["5.5x8.5", 5.5 * 96, 8.5 * 96],
+  ] as const) {
+    await page.select('select[aria-label="Print trim"]', trim);
+    await page.waitForFunction(({ width, height }) => {
+      const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+      const sheet = frame?.contentDocument?.querySelector<HTMLElement>(".pagedjs_page");
+      if (!sheet) return false;
+      const rect = sheet.getBoundingClientRect();
+      return Math.abs(rect.width - width) < 3 && Math.abs(rect.height - height) < 3;
+    }, { timeout: 45_000 }, { width: expectedWidth, height: expectedHeight });
+    const hasError = await page.evaluate(() => Boolean(document.querySelector(".preview-error, .error-banner, .error-text")));
+    check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
+  }
+
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
