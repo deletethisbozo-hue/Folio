@@ -54,6 +54,8 @@ jobs:
         run: node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Install Chromium runtime
         run: npx puppeteer browsers install chrome-headless-shell
       - name: Install pinned Pandoc 3.11
