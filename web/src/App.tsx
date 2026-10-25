@@ -360,6 +360,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
   const editorRef = useRef<HTMLDivElement>(null);
   const illustrationInputRef = useRef<HTMLInputElement>(null);
+  const fullPageInputRef = useRef<HTMLInputElement>(null);
   const illustrationRangeRef = useRef<Range | null>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
   const previewStageRef = useRef<HTMLDivElement>(null);
@@ -1242,7 +1243,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     illustrationRangeRef.current = selection.getRangeAt(0).cloneRange();
   }
 
-  async function insertIllustration(file: File) {
+  async function insertIllustration(file: File, fullPage = false) {
     if (!project || !document?.editable || document.id !== selectedSection?.id) return;
     const targetSectionId = selectedSection.id;
     if (!editorRef.current) return;
@@ -1252,11 +1253,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       if (selectedRef.current !== targetSectionId) throw new Error("The illustration target changed while the image was uploading. Select the target section and insert it again.");
       const editor = editorRef.current;
       if (!editor) throw new Error("The editor is still loading. Try inserting the illustration again.");
-      const alt = "Illustration";
+      const alt = fullPage ? "Full-page illustration" : "Illustration";
       const figure = window.document.createElement("figure");
-      figure.className = "editor-illustration";
+      figure.className = fullPage ? "editor-illustration editor-full-page-image" : "editor-illustration";
       figure.setAttribute("data-folio-illustration", "true");
-      figure.dataset.folioScale = "42";
+      if (fullPage) figure.dataset.folioFullPage = "true";
+      figure.dataset.folioScale = fullPage ? "100" : "42";
       figure.dataset.folioCrop = "false";
       figure.dataset.folioRatio = "4-3";
       figure.dataset.folioX = "50";
@@ -1270,6 +1272,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       figure.dataset.folioGap = "45";
       figure.contentEditable = "false";
       const image = window.document.createElement("img");
+      if (fullPage) { figure.style.width = "100%"; image.style.maxHeight = "65vh"; image.style.objectFit = "contain"; }
       image.src = uploaded.url;
       image.alt = alt;
       image.dataset.folioAsset = uploaded.asset;
@@ -1315,6 +1318,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     } finally {
       setBusy(false);
       if (illustrationInputRef.current) illustrationInputRef.current.value = "";
+      if (fullPageInputRef.current) fullPageInputRef.current.value = "";
     }
   }
 
@@ -2592,7 +2596,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <div className="section-titlebar">{workspaceMode === "write" && !focusMode && <button type="button" className={`write-sidebar-toggle ${writeSidebarOpen ? "active" : ""}`} aria-pressed={writeSidebarOpen} aria-label={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} title={writeSidebarOpen ? "Hide manuscript sidebar" : "Show manuscript sidebar"} onClick={() => setWriteSidebarOpen((value) => !value)}><UiIcon name="sidebar"/></button>}{coverSelected ? <div className="section-title-wrap cover-workspace-heading"><span className="section-title">Cover</span></div> : <ChapterHeading title={selectedSection?.title ?? document?.title ?? ""} subtitle={document?.subtitle ?? ""} index={chapterIndex} editable={selectedSection?.kind === "chapter"} busy={busy} onTitle={(title) => void updateCurrentChapterHeading({ title })} onSubtitle={(subtitle) => void updateCurrentChapterHeading({ subtitle })}/>} {workspaceMode === "write" && <div className="write-title-status" data-word-count-section-id={progressSectionId ?? ""}><span className={`save-indicator ${saveState}`}>{saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : ""}</span><WordCountPicker scope={wordCountScope} setScope={setWordCountScope} bookWords={totalWords} chapterWords={progressSectionWords} chapterAvailable={progressSection?.kind === "chapter"} open={wordCountMenuOpen} setOpen={setWordCountMenuOpen}/></div>}<div className="section-actions">{selectedSection?.kind === "chapter" && <><button className="section-move" title="Move chapter up" aria-label="Move chapter up" disabled={busy || chapterIndex === 1} onClick={() => moveChapter(selectedSection.id, -1)}><UiIcon name="up"/></button><button className="section-move" title="Move chapter down" aria-label="Move chapter down" disabled={busy || chapterIndex === chapters.length} onClick={() => moveChapter(selectedSection.id, 1)}><UiIcon name="down"/></button></>}{selectedSection && <button className="section-delete" title="Delete section" disabled={busy} onClick={() => void deleteCurrentSection()}>Delete</button>}</div></div>
         <div className={`format-toolbar ${coverSelected ? "cover-toolbar" : ""}`}>
           <div className="toolbar-group history-tools"><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("undo")} title="Undo (Ctrl+Z)" aria-label="Undo"><UiIcon name="undo"/></button><button onMouseDown={(e) => e.preventDefault()} onClick={() => history("redo")} title="Redo (Ctrl+Y)" aria-label="Redo"><UiIcon name="redo"/></button></div>
-          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration at cursor">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/></div>
+          <div className="toolbar-group"><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("bold", "bold text")} title="Bold (Ctrl+B)"><strong>B</strong></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("italic", "italic text")} title="Italic (Ctrl+I)"><em>I</em></button><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("underline", "underlined text")} title="Underline (Ctrl+U)"><u>U</u></button>{workspaceMode === "write" && <><button disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={() => applyInlineFormat("strikeThrough", "strikethrough text")} title="Strikethrough"><s>S</s></button><label className="writing-color-control" title="Text color"><span>A</span><input type="color" defaultValue="#b42318" disabled={!document?.editable} onChange={(e) => applyWritingColor("foreColor", e.target.value)}/></label><label className="writing-color-control writing-highlight-control" title="Highlight color"><span>H</span><input type="color" defaultValue="#d8f2d0" disabled={!document?.editable} onChange={(e) => applyWritingColor("hiliteColor", e.target.value)}/></label><button className="writing-clear-format" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={clearInlineFormatting} title="Clear inline formatting">Clear</button></>}<button className="scene-break-button" disabled={!document?.editable} onMouseDown={(e) => e.preventDefault()} onClick={insertSceneBreak} title="Insert ornamental scene break">❦ <span>Break</span></button><button className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => illustrationInputRef.current?.click()} title="Insert illustration at cursor">▧ <span>Image</span></button><input ref={illustrationInputRef} className="illustration-input" type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file); }}/><button type="button" className="illustration-button" disabled={busy || !document?.editable || document.id !== selectedSection?.id} title="Insert full-page illustration after current paragraph" onMouseDown={(e) => { e.preventDefault(); rememberIllustrationCaret(); }} onClick={() => fullPageInputRef.current?.click()}>▣ <span>Full Page</span></button><input ref={fullPageInputRef} className="illustration-input" type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" disabled={busy || !document?.editable || document.id !== selectedSection?.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertIllustration(file, true); }}/></div>
           <div className="toolbar-spacer"/>
           {showSearch ? <div className="editor-search" role="search" aria-label="Find in active editor">
             <UiIcon name="search"/>
