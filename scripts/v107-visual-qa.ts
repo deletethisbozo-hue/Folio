@@ -246,6 +246,16 @@ try {
     needle: string,
     minimums: { paragraphs: number; justifiedLines: number } = { paragraphs: 2, justifiedLines: 6 },
   ) => {
+    // Windows can finish the React/iframe transition a few frames after the
+    // loading indicator disappears. Do not sample an intermediate document:
+    // wait for the exact corpus paragraph that this report is meant to qualify.
+    await page.waitForFunction((expected) => {
+      const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
+      const doc = document.querySelector("iframe")?.contentDocument;
+      if (!helper || !doc) return false;
+      return [...doc.querySelectorAll<HTMLElement>("section.chapter > p.folio-composed, section.chapter > p.folio-native-dropcap")]
+        .some((paragraph) => helper(paragraph).includes(expected));
+    }, {}, needle);
     const report = await page.evaluate((expected) => {
       const helper = (window as Window & { __folioQaParagraphText?: (paragraph: HTMLElement) => string }).__folioQaParagraphText;
       const doc = document.querySelector("iframe")!.contentDocument!;
@@ -504,6 +514,24 @@ try {
     polishNeedle,
     { paragraphs: 1, justifiedLines: 4 },
   );
+  await page.waitForFunction((expected) => {
+    const doc = document.querySelector("iframe")?.contentDocument;
+    const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p.folio-native-dropcap") ?? [])]
+      .find((candidate) => (candidate.textContent ?? "").includes(expected));
+    if (!paragraph) return false;
+    const cap = paragraph.querySelector<HTMLElement>(":scope > .dropcap");
+    if (!cap) return false;
+    const rows: number[] = [];
+    const walker = doc!.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (cap.contains(node) || !node.data.trim()) continue;
+      const range = doc!.createRange();
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) if (rect.width > 1 && rect.height > 1) rows.push(Math.round(rect.top * 2) / 2);
+    }
+    return new Set(rows).size >= 3;
+  }, {}, polishNeedle);
   const dropcapOpening = await page.evaluate(() => {
     const doc = document.querySelector("iframe")!.contentDocument!;
     const paragraph = doc.querySelector<HTMLElement>("section.chapter > p.folio-native-dropcap");
