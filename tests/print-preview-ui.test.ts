@@ -40,6 +40,7 @@ try {
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter")));
   check("reader preview opens on a real chapter", true);
 
+  console.log("    stage: switch Reader -> Print");
   await page.select('select[aria-label="Preview device"]', "print");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
@@ -61,6 +62,7 @@ try {
     ["6x9", 6 * 96, 9 * 96],
     ["5.5x8.5", 5.5 * 96, 8.5 * 96],
   ] as const) {
+    console.log(`    stage: change Print trim -> ${trim}`);
     await page.select('select[aria-label="Print trim"]', trim);
     await page.waitForFunction(({ width, height }) => {
       const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
@@ -73,6 +75,7 @@ try {
     check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
   }
 
+  console.log("    stage: switch Print -> Reader");
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
