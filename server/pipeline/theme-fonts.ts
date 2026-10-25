@@ -286,6 +286,18 @@ export function normalizeThemeFontFamilies(css: string): { css: string; used: Se
   return { css: normalized, used };
 }
 
+/**
+ * Only the first family in a CSS stack is an explicitly selected typeface.
+ * Subsequent families are platform fallbacks; packaging all of their TTF files
+ * inflates every EPUB despite none being used on a normal reader.
+ */
+function primaryFontFamily(stack: string): string {
+  const value = stack.trim();
+  const quoted = value.match(/^"([^"]+)"|^'([^']+)'/);
+  return (quoted ? (quoted[1] ?? quoted[2]) : value.split(",")[0])
+    .trim().replace(/\s*!important\s*$/i, "");
+}
+
 function fontMime(file: string): string {
   return file.endsWith(".otf") ? "font/otf" : "font/ttf";
 }
@@ -302,7 +314,7 @@ async function faceSource(file: string, target: FontTarget): Promise<string> {
   return `url('data:${fontMime(file)};base64,${data.toString("base64")}') format('${format}')`;
 }
 
-async function fontFaceCss(spec: FontSpec, target: FontTarget): Promise<string> {
+async function fontFaceCss(spec: FontSpec, target: FontTarget, includeLegacyAlias = true): Promise<string> {
   const rules: string[] = [];
   const legacyFamily = "Folio " + spec.family;
   for (const face of spec.faces) {
@@ -311,12 +323,15 @@ async function fontFaceCss(spec: FontSpec, target: FontTarget): Promise<string> 
       `@font-face{font-family:${JSON.stringify(spec.family)};src:${src};` +
       `font-weight:${face.weight};font-style:${face.style};font-display:block;}`,
     );
-    // Backward compatibility only: projects saved before 3.1 may contain the
-    // old prefixed family name. New UI and new project data never emit it.
-    rules.push(
-      `@font-face{font-family:${JSON.stringify(legacyFamily)};src:${src};` +
-      `font-weight:${face.weight};font-style:${face.style};font-display:block;}`,
-    );
+    // The legacy family shares the same bytes. On print pages, repeating
+    // the base64 font source can double the HTML and render memory footprint.
+    // Only emit the alias when a project actually requests its old name.
+    if (includeLegacyAlias) {
+      rules.push(
+        `@font-face{font-family:${JSON.stringify(legacyFamily)};src:${src};` +
+        `font-weight:${face.weight};font-style:${face.style};font-display:block;}`,
+      );
+    }
   }
   return rules.join("\n");
 }
@@ -338,6 +353,7 @@ export async function buildThemeRuntimeCss(
   theme: ThemeName,
   target: FontTarget,
   requestedFamilies: string[] = [],
+  options: { embedFonts?: boolean } = {},
 ): Promise<{ css: string; themeCss: string; fontCss: string; fontFiles: string[]; families: string[] }> {
   const source = await fs.readFile(themeCss(theme), "utf8");
   const normalized = normalizeThemeFontFamilies(source);
@@ -356,22 +372,43 @@ export async function buildThemeRuntimeCss(
     const custom = installedCustomFonts.find((font) => font.family === family) ?? null;
     if (custom && !customFonts.some((font) => font.id === custom.id)) customFonts.push(custom);
   }
-  const keys = [...new Set<FontKey>([...normalized.used, ...requested])];
+  // EPUB needs the chosen families, not every family listed as a fallback.
+  // Keep all prequalified fallback faces in print/HTML, where accuracy matters
+  // more than the temporary HTML byte count.
+  const primaryThemeKeys = new Set<FontKey>();
+  if (target === "epub") {
+    for (const declaration of normalized.css.matchAll(/\bfont-family\s*:\s*([^;}]+)/gi)) {
+      const name = primaryFontFamily(declaration[1]);
+      const match = (Object.entries(FONTS) as Array<[FontKey, FontSpec]>)
+        .find(([, spec]) => spec.family === name);
+      if (match) primaryThemeKeys.add(match[0]);
+    }
+  }
+  const embedFonts = options.embedFonts !== false;
+  const keys = !embedFonts ? [] : [...new Set<FontKey>([
+    ...(target === "epub" && primaryThemeKeys.size > 0 ? primaryThemeKeys : normalized.used),
+    ...requested,
+  ])];
+  const embeddedCustomFonts = embedFonts ? customFonts : [];
   const faces = await Promise.all([
-    ...keys.map((key) => fontFaceCss(FONTS[key], target)),
-    ...customFonts.map((font) => customFontFaceCss(font, target)),
+    ...keys.map((key) => fontFaceCss(
+      FONTS[key],
+      target,
+      target !== "print" || requestedFamilies.some((value) => value.includes("Folio " + FONTS[key].family)),
+    )),
+    ...embeddedCustomFonts.map((font) => customFontFaceCss(font, target)),
   ]);
   const fontCss = faces.join("\n");
   const fontFiles = [...new Set([
     ...keys.flatMap((key) => FONTS[key].faces.map((face) => path.join(THEME_FONTS_DIR, face.file))),
-    ...customFonts.map((font) => customFontPath(font)),
+    ...embeddedCustomFonts.map((font) => customFontPath(font)),
   ])];
   return {
     css: `${fontCss}\n${normalized.css}`,
     themeCss: normalized.css,
     fontCss,
     fontFiles,
-    families: [...keys.map((key) => FONTS[key].family), ...customFonts.map((font) => font.family)],
+    families: [...keys.map((key) => FONTS[key].family), ...embeddedCustomFonts.map((font) => font.family)],
   };
 }
 
