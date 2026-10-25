@@ -60,7 +60,7 @@ test("reader shell zoom and Print page zoom are separated", () => {
 test("Print preview never throws export diagnostics at the user while export stays strict", () => {
   assert.match(print, /qualityMode: "strict" \| "preview" = "strict"/);
   assert.match(print, /if \(qualityMode === "strict"\)/);
-  assert.match(print, /}, "preview"\);/);
+  assert.match(print, /}, "preview", signal\);/);
   assert.match(print, /folioPrintPreviewQuality = "recoverable"/);
   assert.doesNotMatch(app, /<small>\{previewError\}<\/small>/);
 });
@@ -156,7 +156,7 @@ test("3.2.3 custom Chapter fonts persist and travel with exported theme packages
   assert.match(globalLibrary, /installCustomFont/);
   assert.match(runtimeFonts, /readCustomFonts/);
   assert.match(runtimeFonts, /customFontFaceCss/);
-  assert.match(runtimeFonts, /customFonts\.map\(\(font\) => customFontPath\(font\)\)/);
+  assert.match(runtimeFonts, /embeddedCustomFonts\.map\(\(font\) => customFontPath\(font\)\)/);
 });
 
 
