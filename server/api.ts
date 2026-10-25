@@ -503,6 +503,9 @@ export function registerApi(app: Express): void {
         if (!controller.signal.aborted) throw error;
       } finally {
         res.off("close", onClose);
+        // A caller need not abort its own HTTP request when superseded. Do not
+        // leave the previous response waiting indefinitely for a dead render.
+        if (controller.signal.aborted && !res.destroyed && !res.writableEnded) res.status(204).end();
         if (printPreviewControllers.get(key) === controller) printPreviewControllers.delete(key);
       }
     }),
