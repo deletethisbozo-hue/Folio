@@ -3,6 +3,46 @@
  * Fixed artwork is never cropped. It expands as far as the selected page or
  * reader permits and any remaining area stays white, just like a physical page.
  */
+/* Chapter-level full-page art uses an explicit native Pandoc fenced div,
+ * independent of :has() so EPUB readers can honor the same page boundaries.
+ * It is contain-fit: never crop an author's artwork. */
+.folio-inline-image-page {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 88vh;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #fff !important;
+  break-before: page;
+  break-after: page;
+  page-break-before: always;
+  page-break-after: always;
+}
+.folio-inline-image-page > p {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+}
+.folio-inline-image-page img.full-page-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 88vh;
+  object-fit: contain !important;
+  object-position: center;
+  break-inside: avoid;
+}
+section.image-page figcaption,
+.folio-inline-image-page figcaption {
+  display: none !important;
+}
+
 section.image-page {
   margin: 0 !important;
   padding: 0 !important;
@@ -102,6 +142,18 @@ section.image-page img.full-page-image.fit-cover {
 }
 
 @media print {
+  .folio-inline-image-page {
+    page: folio-image-page;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .folio-inline-image-page img.full-page-image {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+  }
   @page folio-image-page {
     margin: 0;
   }

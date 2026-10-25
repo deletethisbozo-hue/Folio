@@ -63,6 +63,11 @@ const DEFAULT_SUITE_TIMEOUT_MS = 90_000;
 const SUITE_TIMEOUTS_MS: Record<string, number> = {
   "print-preview-ui.test.ts": 180_000,
   "illustration-preview-ui.test.ts": 150_000,
+  // ui-runtime intentionally exercises a 100,000+ word Writer paste and a
+  // narrow-device recomposition with an explicit 120s assertion timeout.
+  // Keep the runner watchdog above that contract so it reports a real stage
+  // failure instead of killing the suite before the assertion can diagnose it.
+  "ui-runtime.test.ts": 180_000,
 };
 
 function run(file: string): Promise<{ code: number; out: string; timedOut: boolean; timeoutMs: number }> {

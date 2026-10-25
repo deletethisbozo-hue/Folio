@@ -42,10 +42,18 @@ export interface ProjectInfo {
 const projects = new Map<string, ProjectRecord>();
 const writableBookDirFlights = new Map<string, Promise<void>>();
 
-/** Safe-join that prevents path traversal outside base. */
-function safeJoin(base: string, rel: string): string {
-  const target = path.normalize(path.join(base, rel));
-  if (!target.startsWith(path.normalize(base))) throw new Error(`Unsafe path: ${rel}`);
+/** Refuse paths outside the project root, including sibling-name prefixes. */
+export function safeJoin(base: string, rel: string): string {
+  const posix = rel.replace(/\\/g, "/");
+  if (!posix || posix.startsWith("/") || path.win32.isAbsolute(rel) || /^[a-z]:/i.test(posix)) {
+    throw new Error(`Unsafe path: ${rel}`);
+  }
+  const root = path.resolve(base);
+  const target = path.resolve(root, ...posix.split("/"));
+  const remainder = path.relative(root, target);
+  if (!remainder || remainder === ".." || remainder.startsWith(".." + path.sep) || path.isAbsolute(remainder)) {
+    throw new Error(`Unsafe path: ${rel}`);
+  }
   return target;
 }
 

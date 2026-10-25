@@ -22,6 +22,7 @@ import { themeList } from "./pipeline/themes.ts";
 import { PRESETS } from "./presets.ts";
 import { renderHtml } from "./pipeline/render-html.ts";
 import { renderEpub } from "./pipeline/render-epub.ts";
+import { inspectEpubSize } from "./pipeline/epub-size.ts";
 import { renderDocx } from "./pipeline/render-docx.ts";
 import { renderMarkdown } from "./pipeline/render-markdown.ts";
 import { renderPdf } from "./pipeline/render-pdf.ts";
@@ -158,6 +159,9 @@ function applyPreviewDraft(book: { sections: Array<{ id: string; markdown: strin
 }
 
 export function registerApi(app: Express): void {
+  // Only the newest Print Preview request for a project should occupy Chromium.
+  // A browser fetch abort by itself does not cancel server-side pagination.
+  const printPreviewControllers = new Map<string, AbortController>();
   registerImagePageApi(app);
   registerIllustrationApi(app);
   app.get("/theme-fonts/:file", (req, res) =>
@@ -478,16 +482,32 @@ export function registerApi(app: Express): void {
   // Paginated print preview (same Paged.js layout as the print PDF).
   app.post("/api/projects/:id/preview-print", (req: Request, res: Response) =>
     wrap(res, async () => {
-      const { book } = await loadProject(req.params.id, bodyMeta(req));
-      applyTypography(book, req);
-      const sectionId = applyPreviewDraft(book, req);
-      // Print preview follows the same selected-section contract as Reader.
-      // Paginating the entire manuscript made realistic 100+ page projects look
-      // broken and kept Chromium busy long after the client had moved on.
-      if (sectionId) book.sections = book.sections.filter((section) => section.id === sectionId);
-      const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
-      const { html, meta } = await renderPrintPreviewHtml(book, print);
-      res.json({ html, pages: meta.pages, gutter: meta.gutter });
+      const key = req.params.id;
+      printPreviewControllers.get(key)?.abort();
+      const controller = new AbortController();
+      printPreviewControllers.set(key, controller);
+      // Cancel promptly when switching themes, pages or away from Print mode.
+      const onClose = () => { if (!res.writableEnded) controller.abort(); };
+      res.once("close", onClose);
+      try {
+        const { book } = await loadProject(key, bodyMeta(req));
+        if (controller.signal.aborted) return;
+        applyTypography(book, req);
+        const sectionId = applyPreviewDraft(book, req);
+        // Fast preview intentionally renders one section; export is whole-book.
+        if (sectionId) book.sections = book.sections.filter((section) => section.id === sectionId);
+        const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
+        const { html, meta } = await renderPrintPreviewHtml(book, print, controller.signal);
+        if (!controller.signal.aborted && !res.destroyed) res.json({ html, pages: meta.pages, gutter: meta.gutter });
+      } catch (error) {
+        if (!controller.signal.aborted) throw error;
+      } finally {
+        res.off("close", onClose);
+        // A caller need not abort its own HTTP request when superseded. Do not
+        // leave the previous response waiting indefinitely for a dead render.
+        if (controller.signal.aborted && !res.destroyed && !res.writableEnded) res.status(204).end();
+        if (printPreviewControllers.get(key) === controller) printPreviewControllers.delete(key);
+      }
     }),
   );
 
@@ -612,8 +632,8 @@ export function registerApi(app: Express): void {
         case "epub": {
           const preset = (req.body?.preset ?? "universal") as PresetName;
           const { buffer } = await renderEpub(book, preset);
-          const validation = await validateEpub(buffer);
-          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation });
+          const [validation, sizeReport] = await Promise.all([validateEpub(buffer), inspectEpubSize(buffer)]);
+          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport });
           return;
         }
         case "docx": {

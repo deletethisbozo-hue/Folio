@@ -1,11 +1,11 @@
-# Folio 3.2.4 regression-fix release workflow
+# Folio Windows release qualification. Pull requests build and test without publishing.
 name: Build and Release Folio for Windows
 
 on:
   push:
-    branches: [main, fix/3.2.3-persistent-theme-lab, fix/2.3.2-icons-split-alignment, experiment/ulysses-liquid-glass, fix/midnight-2.5, feature/folio-3.0-second-draft]
-    paths-ignore:
-      - .github/workflows/prepare-v1012.yml
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -38,17 +38,20 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.2.4 version consistency
+      - name: Verify Folio 3.2.5 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.2.4") { throw "Windows release is scoped to Folio 3.2.4, found $version." }
+          if ($version -ne "3.2.5") { throw "Windows release is scoped to Folio 3.2.5, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
           if ($LASTEXITCODE -ne 0) { throw "Windows ICO configuration validation failed." }
           if (-not (Test-Path "assets\NEUE.ico")) { throw "NEUE.ico is missing from the release inputs." }
           "FOLIO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Refuse an existing immutable version
         if: github.ref == 'refs/heads/main'
@@ -85,8 +88,8 @@ jobs:
         shell: pwsh
         run: |
           npx puppeteer browsers install chrome-headless-shell
-          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "152\.0\.7977\.75" } | Select-Object -First 1
-          if (-not $chrome) { throw "Pinned Chrome Headless Shell 152.0.7977.75 was not installed." }
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "156\.0\.8078\.47" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome Headless Shell 156.0.8078.47 was not installed." }
           $chrome.FullName
 
       - name: Typecheck
@@ -100,48 +103,19 @@ jobs:
 
       - name: Full formatter and UI suite on Windows
         shell: pwsh
-        run: |
-          $maxAttempts = 3
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Host "Full test suite attempt $attempt/$maxAttempts"
-            npm test
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            if ($attempt -eq $maxAttempts) { throw "Full formatter/UI suite failed after $maxAttempts attempts." }
-            Write-Warning "Transient browser-test failure; retrying the complete suite."
-            Start-Sleep -Seconds 5
-          }
+        run: npm test
 
       - name: Build web and server
         run: npm run build
 
       - name: Writing Studio interaction and screenshot QA
-        shell: pwsh
-        run: |
-          $maxAttempts = 3
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Host "Writing Studio QA attempt $attempt/$maxAttempts"
-            node --import tsx scripts/v210-writing-studio-preview.ts
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            if ($attempt -eq $maxAttempts) { throw "Writing Studio QA failed after $maxAttempts attempts." }
-            Write-Warning "Transient Chromium screenshot failure; retrying Writing Studio QA."
-            Start-Sleep -Seconds 4
-          }
+        run: node --import tsx scripts/v210-writing-studio-preview.ts
 
       - name: Folio 3.0 Second Draft interaction and screenshot QA
         run: node --import tsx scripts/v300-second-draft-preview.ts
 
       - name: Capture visual and typesetting QA on Windows
-        shell: pwsh
-        run: |
-          $maxAttempts = 3
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Host "Visual/typesetting QA attempt $attempt/$maxAttempts"
-            node --import tsx scripts/v107-visual-qa.ts
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            if ($attempt -eq $maxAttempts) { throw "Visual/typesetting QA failed after $maxAttempts attempts." }
-            Write-Warning "Transient render timing failure; retrying visual QA."
-            Start-Sleep -Seconds 5
-          }
+        run: node --import tsx scripts/v107-visual-qa.ts
 
       - name: Upload UI screenshots
         if: always() && (github.ref == 'refs/heads/experiment/ulysses-liquid-glass' || github.ref == 'refs/heads/fix/midnight-2.5' || github.ref == 'refs/heads/feature/folio-3.0-second-draft')
@@ -288,4 +262,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.2.4 is a regression-fix release for Format, Print and Theme Library. It restores the compact Format header/toolbar geometry and removes the stray seam under the toolbar; repairs Print auto-fit, independent zoom controls and first-open latency; restores frontmatter/backmatter alignment without chapter-body overrides; fixes the device selector layout; cleans up Theme Library previews while preserving hover live preview; makes saved custom themes reflect their heading alignment and ornament artwork; keeps custom fonts persistent across restarts; and adds hover-only deletion for custom themes with a permanent-delete confirmation. Theme Lab launcher sizing/typography was corrected and the experimental icon-palette recolor is not included. Full Windows typecheck, formatter/UI tests, visual QA, Print trim matrix, packaged-app smoke, installer/portable validation and SHA-256 generation remain release gates."
+            --notes "Folio 3.2.5 strengthens Print Preview cancellation and resource cleanup, protects imported project paths, adds captionless full-page illustrations inside chapters and front matter, and reduces unnecessarily embedded fonts in EPUB. Print and EPUB test coverage now includes trim changes, font packaging, accessible illustration captions, and safe file paths. Windows typecheck, full formatter/UI suites, visual QA, print-trim tests and packaged app smoke are required before publication."

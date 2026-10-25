@@ -222,6 +222,16 @@ export interface ValidationReport {
   note?: string;
 }
 
+export interface ExportSizeReport {
+  totalBytes: number;
+  fontsBytes: number;
+  imagesBytes: number;
+  contentBytes: number;
+  otherBytes: number;
+  overheadBytes: number;
+  largestAssets: Array<{ name: string; bytes: number; category: "fonts" | "images" | "content" | "other" }>;
+}
+
 export interface ExportResult {
   written?: boolean;
   needsConfirm?: boolean;
@@ -235,6 +245,7 @@ export interface ExportResult {
   archived?: string[];
   overwrote?: boolean;
   validation?: ValidationReport;
+  sizeReport?: ExportSizeReport;
   pages?: number;
   gutter?: number;
   totalPages?: number;

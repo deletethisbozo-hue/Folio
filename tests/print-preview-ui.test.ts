@@ -24,6 +24,7 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
+let stage = "open sample";
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -40,6 +41,8 @@ try {
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter")));
   check("reader preview opens on a real chapter", true);
 
+  stage = "switch Reader -> Print";
+  console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Preview device"]', "print");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
@@ -61,18 +64,44 @@ try {
     ["6x9", 6 * 96, 9 * 96],
     ["5.5x8.5", 5.5 * 96, 8.5 * 96],
   ] as const) {
+    stage = `change Print trim -> ${trim}`;
+    console.log(`    stage: ${stage}`);
     await page.select('select[aria-label="Print trim"]', trim);
     await page.waitForFunction(({ width, height }) => {
       const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
       const sheet = frame?.contentDocument?.querySelector<HTMLElement>(".pagedjs_page");
       if (!sheet) return false;
-      const rect = sheet.getBoundingClientRect();
-      return Math.abs(rect.width - width) < 3 && Math.abs(rect.height - height) < 3;
+      // Print preview deliberately zooms the page container to fit the pane, so
+      // getBoundingClientRect() is the visible (scaled) size. The computed page
+      // box remains the authoritative physical trim at 96 CSS px per inch.
+      const style = frame?.contentWindow?.getComputedStyle(sheet);
+      const physicalWidth = Number.parseFloat(style?.width ?? "0");
+      const physicalHeight = Number.parseFloat(style?.height ?? "0");
+      return Math.abs(physicalWidth - width) < 3 && Math.abs(physicalHeight - height) < 3;
     }, { timeout: 45_000 }, { width: expectedWidth, height: expectedHeight });
+    const geometry = await page.$eval("iframe", (frame) => {
+      const sheet = frame.contentDocument?.querySelector<HTMLElement>(".pagedjs_page");
+      if (!sheet) return { visibleWidth: 0, visibleHeight: 0, physicalWidth: 0, physicalHeight: 0 };
+      const rect = sheet.getBoundingClientRect();
+      const style = frame.contentWindow?.getComputedStyle(sheet);
+      return {
+        visibleWidth: rect.width,
+        visibleHeight: rect.height,
+        physicalWidth: Number.parseFloat(style?.width ?? "0"),
+        physicalHeight: Number.parseFloat(style?.height ?? "0"),
+      };
+    });
     const hasError = await page.evaluate(() => Boolean(document.querySelector(".preview-error, .error-banner, .error-text")));
     check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
+    check(
+      `changing print trim to ${trim} keeps a visible fitted sheet`,
+      geometry.visibleWidth > 120 && geometry.visibleHeight > 160,
+      `${geometry.visibleWidth.toFixed(1)}×${geometry.visibleHeight.toFixed(1)} visible; ${geometry.physicalWidth.toFixed(1)}×${geometry.physicalHeight.toFixed(1)} physical`,
+    );
   }
 
+  stage = "switch Print -> Reader";
+  console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
@@ -80,6 +109,9 @@ try {
     return Boolean(doc?.querySelector("section.chapter") && !doc.querySelector(".pagedjs_pages"));
   });
   check("switching Print → Reader restores the semantic reader preview", true);
+} catch (error) {
+  console.error(`Error: Print Preview stalled during stage: ${stage}`);
+  throw error;
 } finally {
   server.close();
   await closeBrowser();
