@@ -201,6 +201,59 @@ export async function addChapter(
   });
 }
 
+/** Add a standalone structural page inside the manuscript sequence.
+ * Full-page artwork needs its own section so print/EPUB can give it a complete
+ * page without pretending that it is a paragraph inside a prose chapter.
+ *
+ * Books stored as one combined Markdown manuscript cannot represent per-section
+ * YAML classes safely, so do not silently rewrite that format. */
+export async function addStandaloneChapterPage(
+  bookDir: string,
+  meta: BookMeta,
+  opts: { filenameStem: string; content: string },
+): Promise<{ entry: string }> {
+  return withConfigLock(bookDir, async () => {
+    const cfg = await ensureConfigUnlocked(bookDir, meta);
+    const chaptersEntry = typeof cfg.chapters === "string" && cfg.chapters.trim() ? cfg.chapters : "chapters";
+    const target = path.resolve(bookDir, chaptersEntry);
+
+    if (await exists(target) && (await fs.stat(target)).isFile()) {
+      throw new Error("Full-page illustrations inside the book require chapters stored as separate files.");
+    }
+
+    await fs.mkdir(target, { recursive: true });
+    const names = await fs.readdir(target);
+    const highest = names.reduce((n, name) => {
+      const match = name.match(/^(\d+)/);
+      return match ? Math.max(n, Number(match[1])) : n;
+    }, 0);
+    const safeStem = opts.filenameStem.toLowerCase().normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "page";
+
+    let number = highest + 1;
+    let filename = `${String(number).padStart(2, "0")}-${safeStem}.md`;
+    while (await exists(path.join(target, filename))) {
+      number += 1;
+      filename = `${String(number).padStart(2, "0")}-${safeStem}.md`;
+    }
+
+    const dest = path.join(target, filename);
+    await atomicWriteUtf8(dest, opts.content, "utf8");
+    const entry = path.relative(bookDir, dest).split(path.sep).join("/");
+
+    if (Array.isArray(cfg.chapter_order)) {
+      const order = cfg.chapter_order.map((item) => String(item).replace(/\\/g, "/"));
+      if (!order.includes(entry)) order.push(entry);
+      cfg.chapter_order = order;
+      await writeConfig(bookDir, cfg);
+    }
+
+    return { entry };
+  });
+}
+
 /** Add a matter section from a template (or a blank custom file). */
 export async function addMatter(
   bookDir: string,
