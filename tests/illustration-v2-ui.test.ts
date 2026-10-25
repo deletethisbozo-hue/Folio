@@ -306,7 +306,9 @@ try {
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".editor-illustration")?.dataset.folioWrap === "left");
   check("compact inspector can override wrap without moving the image", true);
 
-  const readerGeometryHandle = await page.waitForFunction(() => {
+  let readerGeometryHandle;
+  try {
+    readerGeometryHandle = await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
     const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block.folio-wrap-left");
     const image = figure?.querySelector<HTMLImageElement>("img.folio-illustration");
@@ -314,6 +316,11 @@ try {
     let paragraph = figure.nextElementSibling as HTMLElement | null;
     while (paragraph && paragraph.tagName !== "P") paragraph = paragraph.nextElementSibling as HTMLElement | null;
     if (!paragraph) return false;
+    // The preview compositor is lazy and the resize sequence can leave the
+    // anchored paragraph just outside the iframe viewport. Re-enter the same
+    // semantic target on every poll so the assertion tests real reader layout,
+    // not whichever lazy-composition window happened to be retained.
+    figure.scrollIntoView({ block: "center", inline: "nearest" });
     const textNode = [...paragraph.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 3);
     if (!textNode) return false;
     const range = doc.createRange();
@@ -332,7 +339,22 @@ try {
       firstLine.left >= figureRect.right - 2
       ? geometry
       : false;
-  }, { timeout: 60_000 });
+    }, { timeout: 60_000 });
+  } catch (error) {
+    const snapshot = await page.evaluate(() => {
+      const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
+      const doc = frame?.contentDocument;
+      const figure = doc?.querySelector<HTMLElement>(".folio-illustration-block");
+      const paragraph = figure?.nextElementSibling?.closest("p") as HTMLElement | null;
+      return {
+        frame: frame ? { width: frame.clientWidth, height: frame.clientHeight } : null,
+        figure: figure ? { className: figure.className, float: getComputedStyle(figure).float, rect: figure.getBoundingClientRect().toJSON() } : null,
+        paragraph: paragraph ? { text: paragraph.textContent?.slice(0, 120), rect: paragraph.getBoundingClientRect().toJSON() } : null,
+        previewDevice: document.querySelector(".reader-device")?.className ?? null,
+      };
+    });
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; readerGeometrySnapshot=${JSON.stringify(snapshot)}`);
+  }
   const readerGeometry = await readerGeometryHandle.jsonValue() as {
     viewportWidth: number;
     float: string;
