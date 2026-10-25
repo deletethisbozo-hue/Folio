@@ -86,6 +86,7 @@ check(
   kdp.body.filename,
 );
 check("   validation still returned", kdp.body.validation?.valid === true, JSON.stringify(kdp.body.validation?.tool));
+check("   EPUB footprint report is present and font-free for KDP", kdp.body.sizeReport?.totalBytes > 0 && kdp.body.sizeReport?.fontsBytes === 0 && Array.isArray(kdp.body.sizeReport?.largestAssets));
 
 const vf = (await readVersionFile(bookDir))!;
 const entry = vf.history.find((e) => e.version === 6)!;
