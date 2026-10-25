@@ -24,6 +24,7 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
+let stage = "open sample";
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -40,7 +41,8 @@ try {
   await page.waitForFunction(() => Boolean(document.querySelector("iframe")?.contentDocument?.querySelector("section.chapter")));
   check("reader preview opens on a real chapter", true);
 
-  console.log("    stage: switch Reader -> Print");
+  stage = "switch Reader -> Print";
+  console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Preview device"]', "print");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
@@ -62,7 +64,8 @@ try {
     ["6x9", 6 * 96, 9 * 96],
     ["5.5x8.5", 5.5 * 96, 8.5 * 96],
   ] as const) {
-    console.log(`    stage: change Print trim -> ${trim}`);
+    stage = `change Print trim -> ${trim}`;
+    console.log(`    stage: ${stage}`);
     await page.select('select[aria-label="Print trim"]', trim);
     await page.waitForFunction(({ width, height }) => {
       const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
@@ -75,7 +78,8 @@ try {
     check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
   }
 
-  console.log("    stage: switch Print -> Reader");
+  stage = "switch Print -> Reader";
+  console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
@@ -83,6 +87,9 @@ try {
     return Boolean(doc?.querySelector("section.chapter") && !doc.querySelector(".pagedjs_pages"));
   });
   check("switching Print → Reader restores the semantic reader preview", true);
+} catch (error) {
+  console.error(`Error: Print Preview stalled during stage: ${stage}`);
+  throw error;
 } finally {
   server.close();
   await closeBrowser();
