@@ -143,6 +143,9 @@ function renderNode(node: Node): string {
     const asset = image.dataset.folioAsset?.trim();
     if (!asset) return "";
     const alt = escapeMarkdownAlt(image.alt.trim() || "Illustration");
+    if (element.getAttribute("data-folio-full-page") === "true") {
+      return `\n\n![${alt}](${asset}){.full-page-image .fit-contain}\n\n`;
+    }
     const spec: IllustrationSpec = {
       scale: clampIllustration(element.getAttribute("data-folio-scale"), 20, 100, 100),
       crop: element.getAttribute("data-folio-crop") === "true",
@@ -333,9 +336,10 @@ export function markdownToEditorHtml(markdown: string, ornament = "❦", resolve
       const alt = image[1].trim() || "Illustration";
       const asset = image[2].trim();
       const spec = parseIllustrationAttrs(image[3] ?? "");
+      const fullPage = /(?:^|\\s)\\.full-page-image(?:\\s|$)/.test(image[3] ?? "");
       const src = resolveAsset ? resolveAsset(asset) : asset;
       const cropStyle = spec.crop ? `aspect-ratio:${illustrationRatioCss(spec.ratio)};object-fit:cover;object-position:${spec.x}% ${spec.y}%;` : "";
-      blocks.push(`<figure class="editor-illustration" data-folio-illustration="true" data-folio-scale="${spec.scale}" data-folio-crop="${spec.crop}" data-folio-ratio="${spec.ratio}" data-folio-x="${spec.x}" data-folio-y="${spec.y}" data-folio-wrap="${spec.wrap}" data-folio-shape="${spec.shape}" data-folio-gap="${spec.gap}" contenteditable="false" style="width:${spec.scale}%;${spec.shape === "contour" && spec.wrap !== "none" ? `shape-outside:inset(0);shape-margin:0;` : ""}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" data-folio-asset="${escapeHtml(asset)}" style="width:100%;${cropStyle}"><button type="button" class="editor-illustration-remove" aria-label="Remove illustration" title="Remove illustration">×</button></figure>`);
+      blocks.push(`<figure class="editor-illustration${fullPage ? " editor-full-page-image" : ""}" data-folio-illustration="true"${fullPage ? ' data-folio-full-page="true"' : ""} data-folio-scale="${fullPage ? 100 : spec.scale}" data-folio-crop="${spec.crop}" data-folio-ratio="${spec.ratio}" data-folio-x="${spec.x}" data-folio-y="${spec.y}" data-folio-wrap="${spec.wrap}" data-folio-shape="${spec.shape}" data-folio-gap="${spec.gap}" contenteditable="false" style="width:${fullPage ? 100 : spec.scale}%;${spec.shape === "contour" && spec.wrap !== "none" ? `shape-outside:inset(0);shape-margin:0;` : ""}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" data-folio-asset="${escapeHtml(asset)}" style="width:100%;${cropStyle}"><button type="button" class="editor-illustration-remove" aria-label="Remove illustration" title="Remove illustration">×</button></figure>`);
       continue;
     }
     if (/^\s*(?:---|\* \* \*)\s*$/.test(line)) {
