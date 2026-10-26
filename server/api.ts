@@ -549,8 +549,21 @@ export function registerApi(app: Express): void {
       /** Write to the configured destination, or hand back bytes to download. */
       const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}) => {
         if (!bookDir) {
+          // A drag-and-dropped book has no folder in which Folio can save
+          // exports. Give every downloadable artifact a distinct, recognizable
+          // name so exporting a second EPUB/PDF cannot silently replace the
+          // first file in the browser's Downloads folder.
+          const filenameByType: Record<ArtifactType, string> = {
+            blues: `${stem}_blues.pdf`,
+            print: `${stem}_print.pdf`,
+            reading: `${stem}_reading.pdf`,
+            "epub-kdp": `${stem}_kdp.epub`,
+            "epub-universal": `${stem}.epub`,
+            docx: `${stem}.docx`,
+            md: `${stem}.md`,
+          };
           res.json({
-            filename: `${stem}.${type === "epub-kdp" || type === "epub-universal" ? "epub" : type === "md" ? "md" : type === "docx" ? "docx" : "pdf"}`,
+            filename: filenameByType[type],
             mime,
             dataBase64: data.toString("base64"),
             bytes: data.length,

@@ -451,7 +451,7 @@ try {
   // not leave the detached illustration inspector selected, truncate prose, or
   // resurrect the image when autosave/reload rebuilds the editor DOM.
   await page.$eval(".editor-full-page-image", (figure) => figure.scrollIntoView({ block: "center", inline: "nearest" }));
-  await page.hover(".editor-full-page-image");
+  await page.hover(".editor-full-page-image .editor-illustration-remove");
   await page.waitForFunction(() => {
     const remove = document.querySelector<HTMLElement>(".editor-full-page-image .editor-illustration-remove");
     if (!remove) return false;

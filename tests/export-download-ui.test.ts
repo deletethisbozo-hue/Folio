@@ -28,11 +28,11 @@ const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 const downloadDir = await fs.mkdtemp(path.join(os.tmpdir(), "folio-export-download-ui-"));
 
 const formats = [
-  { label: "EPUB · Kindle", format: "epub", ext: ".epub", magic: "PK" },
-  { label: "EPUB · Universal", format: "epub", ext: ".epub", magic: "PK" },
-  { label: "Print PDF", format: "print", ext: ".pdf", magic: "%PDF-" },
-  { label: "Reading PDF", format: "pdf", ext: ".pdf", magic: "%PDF-" },
-  { label: "Word (.docx)", format: "docx", ext: ".docx", magic: "PK" },
+  { label: "EPUB · Kindle", format: "epub", ext: ".epub", filename: /_kdp\.epub$/i, magic: "PK" },
+  { label: "EPUB · Universal", format: "epub", ext: ".epub", filename: /^(?!.*_kdp\.epub$).+\.epub$/i, magic: "PK" },
+  { label: "Print PDF", format: "print", ext: ".pdf", filename: /_print\.pdf$/i, magic: "%PDF-" },
+  { label: "Reading PDF", format: "pdf", ext: ".pdf", filename: /_reading\.pdf$/i, magic: "%PDF-" },
+  { label: "Word (.docx)", format: "docx", ext: ".docx", filename: /\.docx$/i, magic: "PK" },
 ];
 
 try {
@@ -57,7 +57,7 @@ try {
       if (response.request().method() !== "POST" || !new URL(response.url()).pathname.endsWith("/export")) return false;
       try { return JSON.parse(response.request().postData() ?? "{}").format === item.format; }
       catch { return false; }
-    }, { timeout: 120_000 });
+    }, { timeout: 60_000 });
     const buttons = await page.$$(".generate-menu button");
     let target: typeof buttons[number] | undefined;
     for (const candidate of buttons) {
@@ -67,9 +67,11 @@ try {
     await target.click();
     const response = await responsePromise;
     const result = await response.json() as { filename?: string; bytes?: number; written?: boolean; dataBase64?: string; sizeReport?: unknown };
-    check(`${item.label} export API returns a non-empty artifact`, response.ok() && Number(result.bytes) > 0, `${result.filename ?? "no filename"} · ${result.bytes ?? 0} bytes`);
+    const downloadable = response.ok() && !result.written && Boolean(result.dataBase64) && Boolean(result.filename);
+    check(`${item.label} export API returns a non-empty artifact`, downloadable && Number(result.bytes) > 0 && item.filename.test(result.filename ?? ""), `${result.filename ?? "no filename"} · ${result.bytes ?? 0} bytes · written=${Boolean(result.written)} · base64=${Boolean(result.dataBase64)}`);
+    if (!downloadable) continue;
 
-    const deadline = Date.now() + 120_000;
+    const deadline = Date.now() + 25_000;
     let downloaded: string | null = null;
     while (Date.now() < deadline) {
       const files = await fs.readdir(downloadDir);
@@ -81,7 +83,7 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
     const bytes = downloaded ? await fs.readFile(path.join(downloadDir, downloaded)) : Buffer.alloc(0);
-    check(`${item.label} is actually downloaded by the UI`, Boolean(downloaded) && bytes.length > 1000 && bytes.subarray(0, item.magic.length).toString() === item.magic, downloaded ? `${downloaded} · ${bytes.length} bytes` : "no completed download appeared");
+    check(`${item.label} is actually downloaded by the UI`, Boolean(downloaded) && downloaded === result.filename && bytes.length > 1000 && bytes.subarray(0, item.magic.length).toString() === item.magic, downloaded ? `${downloaded} · ${bytes.length} bytes · expected ${result.filename}` : `no completed download appeared · expected ${result.filename}`);
 
     if (item.label === "EPUB · Kindle") {
       await page.waitForSelector(".export-size-report", { timeout: 10000 });
