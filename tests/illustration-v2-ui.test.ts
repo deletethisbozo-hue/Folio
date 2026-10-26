@@ -59,6 +59,7 @@ try {
   const page = await browser.newPage();
   page.setDefaultTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
+  stage = "open sample book";
   await page.goto(base, { waitUntil: "networkidle0" });
 
   await page.evaluate(() => {
@@ -384,7 +385,9 @@ try {
   check("Print Preview preserves anchored wrap semantics", true);
   await page.screenshot({ path: path.join(qaDir, "print.png"), fullPage: false });
 
+  stage = "wait for original illustration edits to autosave";
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 });
+  stage = "reload original illustration edits";
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
@@ -398,6 +401,7 @@ try {
   check("anchor, wrap and relative size survive autosave plus reload", true);
   // Reload may preserve the cover selection. Return to a chapter explicitly
   // before preparing the large-document insertion scenario.
+  stage = "select chapter after illustration reload";
   await page.click(".contents-list button.chapter-row");
   await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 30000 });
 
@@ -503,6 +507,15 @@ try {
 } catch (error) {
   failed++;
   console.error(`✗ illustration V2 browser scenario completed at stage: ${stage}`);
+  try {
+    const state = await (await getBrowser()).pages().then((pages) => pages.at(-1)?.evaluate(() => ({
+      saveState: document.querySelector(".folio-shell")?.getAttribute("data-save-state") ?? null,
+      globalError: document.querySelector(".global-error")?.textContent ?? null,
+      editorLength: document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.length ?? null,
+      fullPageFigure: Boolean(document.querySelector(".editor-full-page-image")),
+    })));
+    console.error(`Error: illustration UI failure state ${JSON.stringify(state)}`);
+  } catch { /* retain the original assertion failure if the browser is already closed */ }
   console.error(error);
 } finally {
   await closeBrowser().catch(() => undefined);
