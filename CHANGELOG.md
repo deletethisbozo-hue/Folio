@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.6] - 2026-10-26
+
+### Fixed
+- Keep image insertion responsive in long chapters by serializing editor content in cooperative slices and preserving text written during conversion.
+- Keep Print Preview fit independent from its user zoom control and recalculate it from the physical page size after pagination or pane resizing.
+- Keep the cooperative Markdown serializer's whitespace and punctuation cleanup consistent with the synchronous serializer.
+
+### Tests
+- Added browser regression coverage for full-page image insertion in a long chapter and print fit across paper sizes.
+
 ## [3.0.0] - 2026-10-06
 
 ### Added

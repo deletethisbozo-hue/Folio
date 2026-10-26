@@ -109,6 +109,48 @@ const trims = [
 ] as const;
 const defaultPrint: PrintOptions = { trim: "6x9", binding: "paperback", startChaptersRecto: true, layout: "author-title-bottom" };
 const COVER_ID = "__folio_cover__";
+const printFitObservers = new WeakMap<HTMLIFrameElement, { mutation: MutationObserver; resize: ResizeObserver }>();
+
+function applyPrintPreviewFit(frame: HTMLIFrameElement) {
+  const doc = frame.contentDocument;
+  const page = doc?.querySelector<HTMLElement>(".pagedjs_page");
+  const pages = doc?.querySelector<HTMLElement>(".pagedjs_pages");
+  if (!page || !pages) return;
+
+  // getBoundingClientRect() includes CSS zoom. Measuring it caused repeated
+  // trim changes to feed the previous preview zoom back into the next fit.
+  // Computed width is the physical Paged.js page box and remains unscaled.
+  const computedWidth = Number.parseFloat(doc?.defaultView?.getComputedStyle(page).width ?? "");
+  const pageWidth = computedWidth > 0 ? computedWidth : page.getBoundingClientRect().width;
+  if (!(pageWidth > 0)) return;
+  const available = Math.max(280, frame.clientWidth || frame.parentElement?.clientWidth || 576);
+  const fitScale = Math.max(.28, Math.min(1, (available - 28) / pageWidth));
+  const userZoom = Number(frame.dataset.folioPreviewZoom || "1");
+  frame.dataset.folioPrintFitZoom = String(fitScale);
+  pages.style.setProperty("zoom", String(fitScale * userZoom), "important");
+}
+
+function observePrintPreviewFit(frame: HTMLIFrameElement) {
+  printFitObservers.get(frame)?.mutation.disconnect();
+  printFitObservers.get(frame)?.resize.disconnect();
+  const doc = frame.contentDocument;
+  if (!doc?.documentElement) return;
+  let scheduled = false;
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    frame.ownerDocument.defaultView?.requestAnimationFrame(() => {
+      scheduled = false;
+      applyPrintPreviewFit(frame);
+    });
+  };
+  const mutation = new MutationObserver(schedule);
+  mutation.observe(doc.documentElement, { childList: true, subtree: true });
+  const resize = new ResizeObserver(schedule);
+  resize.observe(frame);
+  printFitObservers.set(frame, { mutation, resize });
+  schedule();
+}
 const sceneOrnaments = [
   "⁂", "❦", "❧", "✦", "◆", "◇", "◈", "❖", "※", "⁕",
   "✺", "✠", "☾", "☼", "§", "∞", "• • •", "· · ·", "* * *",
@@ -955,6 +997,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const pages = doc?.querySelector<HTMLElement>(".pagedjs_pages");
     if (!frame || !pages) return;
     const fit = Number(frame.dataset.folioPrintFitZoom || "1");
+    frame.dataset.folioPreviewZoom = String(previewZoom);
     pages.style.setProperty("zoom", String(fit * previewZoom), "important");
   }, [previewMode, previewZoom, previewHtml]);
   useEffect(() => { previewStageRef.current?.scrollTo(0, 0); }, [selectedId]);
@@ -1303,15 +1346,23 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       else editor.appendChild(figure);
       illustrationRangeRef.current = null;
 
-      // Commit the anchored illustration synchronously from the live editor DOM.
-      // The generic editor input queue is deliberately lazy for huge chapters;
-      // using it for an uploaded image created a window where React could swap
-      // sections before the figure reached the draft. Image insertion is a
-      // discrete publishing action, so make the Markdown authoritative now.
-      const nextMarkdown = richTextToMarkdown(editor.innerHTML);
+      // Mark the DOM snapshot dirty and serialize large chapters cooperatively.
+      // Synchronous conversion here used to freeze the whole editor after image
+      // insertion. If the writer types while conversion yields, take a fresh
+      // snapshot so the inserted image and their latest prose are both saved.
+      editorDomDirtyRef.current = true;
+      editorDomGenerationRef.current++;
+      let generation: number;
+      let nextMarkdown: string;
+      do {
+        generation = editorDomGenerationRef.current;
+        nextMarkdown = await richTextToMarkdownCooperative(editor.innerHTML);
+      } while (editorRef.current === editor && generation !== editorDomGenerationRef.current);
+      if (editorRef.current !== editor || selectedRef.current !== targetSectionId) {
+        throw new Error("The chapter changed while Folio was saving the illustration. Select the target section and insert it again.");
+      }
       editor.dataset.markdown = nextMarkdown;
       editorDomDirtyRef.current = false;
-      editorDomGenerationRef.current++;
       recordDraft(nextMarkdown);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -2047,16 +2098,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     style.id = "folio-device-profile";
     if (previewMode === "print") {
       doc.getElementById("folio-device-calibration")?.remove();
-      // Fit the physical print page to the preview pane first, then apply the
-      // user's Print-only zoom as a multiplier. 100% therefore means "fit",
-      // not an oversized 1 CSS-inch = 1 physical-inch rendering.
-      const page = doc.querySelector<HTMLElement>(".pagedjs_page");
-      const pageWidth = Math.max(1, page?.getBoundingClientRect().width || 576);
-      const available = Math.max(280, frame.clientWidth || previewStageRef.current?.clientWidth || 576);
-      const fitScale = Math.max(.28, Math.min(1, (available - 28) / pageWidth));
-      frame.dataset.folioPrintFitZoom = String(fitScale);
-      const effectiveZoom = fitScale * previewZoom;
-      style.textContent = `html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:${effectiveZoom}!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 0 24px!important}.pagedjs_page{margin:10px auto!important}`;
+      // Paged.js can add or replace its page tree after iframe onLoad. Keep the
+      // fit separate from the writer's zoom and recalculate from physical page
+      // width once pagination finishes or the preview pane changes size.
+      frame.dataset.folioPreviewZoom = String(previewZoom);
+      style.textContent = "html,body{background:#e9edf2!important;overflow:auto!important}.pagedjs_pages{zoom:1!important;transform:none!important;width:max-content!important;min-width:100%!important;margin:0 auto!important;padding:8px 0 24px!important}.pagedjs_page{margin:10px auto!important}";
     } else {
       const proseSelector = "body.book-formatter main.book section.chapter>p:not(.scene-break),body.book-formatter main.book section.chapter>blockquote p,body.book-formatter main.book section.chapter li";
       const proseComposition = typography.bodyAlign === "left"
@@ -2065,6 +2111,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       style.textContent = "html,body{min-height:100%!important;scrollbar-width:none!important;-ms-overflow-style:none!important}html::-webkit-scrollbar,body::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}html::-webkit-scrollbar-track,html::-webkit-scrollbar-thumb,body::-webkit-scrollbar-track,body::-webkit-scrollbar-thumb{background:transparent!important}body{margin:0!important;padding:0!important}main.book{max-width:none!important;margin:0!important;box-sizing:border-box!important}section.level1{display:block!important;margin:0!important;border:0!important;padding:0!important;break-before:auto!important;page-break-before:auto!important}section.chapter>h1,h1.chapter{margin-top:12px!important}.folio-composed{text-indent:0!important}.folio-composed-line{display:block;white-space:nowrap;text-indent:0}.folio-line-justified,.folio-line-natural{text-align:left!important;text-align-last:left!important}.scene-break{text-align:center!important;text-align-last:center!important;word-spacing:normal!important;letter-spacing:normal!important}" + proseComposition;
     }
     doc.head.appendChild(style);
+    if (previewMode === "print") observePrintPreviewFit(frame);
     const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
     if (previewMode !== "print") void seatPreviewDropCaps(frame);
     if (pendingPreviewDraftRef.current) {

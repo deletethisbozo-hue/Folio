@@ -92,7 +92,25 @@ try {
       };
     });
     const hasError = await page.evaluate(() => Boolean(document.querySelector(".preview-error, .error-banner, .error-text")));
+    const fit = await page.$eval("iframe", (frame) => {
+      const iframe = frame as HTMLIFrameElement;
+      const pages = iframe.contentDocument?.querySelector<HTMLElement>(".pagedjs_pages");
+      const sheet = iframe.contentDocument?.querySelector<HTMLElement>(".pagedjs_page");
+      const physicalWidth = Number.parseFloat(iframe.contentWindow?.getComputedStyle(sheet!).width ?? "0");
+      const expected = Math.max(.28, Math.min(1, (Math.max(280, iframe.clientWidth || iframe.parentElement?.clientWidth || 576) - 28) / physicalWidth));
+      return {
+        actual: Number(iframe.dataset.folioPrintFitZoom || "0"),
+        expected,
+        cssZoom: Number.parseFloat(pages?.style.zoom ?? "0"),
+        readout: document.querySelector<HTMLElement>(".preview-zoom-readout")?.textContent?.trim() ?? "",
+      };
+    });
     check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
+    check(
+      `changing print trim to ${trim} recalculates fit from physical page width without changing user zoom`,
+      Math.abs(fit.actual - fit.expected) < .02 && Math.abs(fit.cssZoom - fit.actual) < .02 && fit.readout.includes("100%"),
+      JSON.stringify(fit),
+    );
     check(
       `changing print trim to ${trim} keeps a visible fitted sheet`,
       geometry.visibleWidth > 120 && geometry.visibleHeight > 160,
