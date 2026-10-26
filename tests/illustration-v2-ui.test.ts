@@ -447,6 +447,32 @@ try {
   }, { timeout: 30000 });
   check("Full Page insertion preserves a large chapter while the UI continues to run", true, `${largeChapter.paragraphs} paragraphs`);
 
+  // Removing a full-page illustration must be a local document edit. It must
+  // not leave the detached illustration inspector selected, truncate prose, or
+  // resurrect the image when autosave/reload rebuilds the editor DOM.
+  await page.hover(".editor-full-page-image");
+  await page.click(".editor-full-page-image .editor-illustration-remove");
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const markdown = editor?.dataset.markdown ?? "";
+    return Boolean(
+      editor &&
+      !editor.querySelector(".editor-full-page-image") &&
+      markdown.includes("LARGE_CHAPTER_START") &&
+      markdown.includes("LARGE_CHAPTER_END") &&
+      !markdown.includes(".full-page-image")
+    );
+  }, { timeout: 30000 });
+  check("deleting a full-page illustration preserves all manuscript text", true);
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 });
+  await page.click('.tiny-footer-button[aria-label="Reload files"]');
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const markdown = editor?.dataset.markdown ?? "";
+    return Boolean(editor && markdown.includes("LARGE_CHAPTER_START") && markdown.includes("LARGE_CHAPTER_END") && !markdown.includes(".full-page-image"));
+  }, { timeout: 60000 });
+  check("deleted full-page image stays removed after save and reload without losing the chapter", true);
+
   await page.close();
 } catch (error) {
   failed++;

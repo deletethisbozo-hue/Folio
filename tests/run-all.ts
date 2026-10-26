@@ -40,6 +40,8 @@ const ORDER = [
   "global-library-persistence.test.ts",
   "image-page.test.ts",
   "illustration-ui.test.ts",
+  "illustration-v2-ui.test.ts",
+  "export-download-ui.test.ts",
   "print-preview-ui.test.ts",
   "folio-runtime.test.ts",
   "ui-runtime.test.ts",
@@ -62,6 +64,8 @@ const suites = [...ORDER.filter((f) => present.includes(f)), ...unknown].filter(
 const DEFAULT_SUITE_TIMEOUT_MS = 90_000;
 const SUITE_TIMEOUTS_MS: Record<string, number> = {
   "print-preview-ui.test.ts": 180_000,
+  "illustration-v2-ui.test.ts": 240_000,
+  "export-download-ui.test.ts": 600_000,
   "illustration-preview-ui.test.ts": 150_000,
   // ui-runtime intentionally exercises a 100,000+ word Writer paste and a
   // narrow-device recomposition with an explicit 120s assertion timeout.
