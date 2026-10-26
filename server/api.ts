@@ -494,8 +494,13 @@ export function registerApi(app: Express): void {
         if (controller.signal.aborted) return;
         applyTypography(book, req);
         const sectionId = applyPreviewDraft(book, req);
-        // Fast preview intentionally renders one section; export is whole-book.
-        if (sectionId) book.sections = book.sections.filter((section) => section.id === sectionId);
+        // Keep the previous one-section behavior for older clients. The book
+        // scope uses the same in-memory draft overlay but lets the compositor
+        // see every section so page flow and the printed TOC are book-accurate.
+        const previewScope = req.body?.previewScope === "book" ? "book" : "section";
+        if (sectionId && previewScope === "section") {
+          book.sections = book.sections.filter((section) => section.id === sectionId);
+        }
         const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
         const { html, meta } = await renderPrintPreviewHtml(book, print, controller.signal);
         if (!controller.signal.aborted && !res.destroyed) res.json({ html, pages: meta.pages, gutter: meta.gutter });

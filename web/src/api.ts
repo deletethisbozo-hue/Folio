@@ -417,13 +417,14 @@ export const api = {
     typography: Typography,
     previewSectionId?: string,
     draft?: string,
+    previewScope: "section" | "book" = "section",
     signal?: AbortSignal,
   ) => {
     const request = () =>
       fetch(`/api/projects/${projectId}/preview-print`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft }),
+        body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft, previewScope }),
         signal,
       }).then((r) => json<PrintPreviewResult>(r));
 

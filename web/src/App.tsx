@@ -334,6 +334,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-6-8");
+  const [printPreviewScope, setPrintPreviewScope] = useState<"section" | "book">("section");
   const [previewZoom, setPreviewZoom] = useState(() => {
     const raw = window.localStorage.getItem("folio-preview-zoom-reader") ?? window.localStorage.getItem("folio-preview-zoom");
     if (raw === null) return 1;
@@ -792,7 +793,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     const requestedDraft = previewDraft;
     const timer = window.setTimeout(async () => {
       try {
-        const result = await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, requestedDraft, controller.signal);
+        const result = await api.previewPrint(project.projectId, meta, meta.theme, printOptions, typography, selectedId, requestedDraft, printPreviewScope, controller.signal);
         if (!cancelled) { commitPreviewHtml(result.html, requestedDraft); setPreviewError(null); }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -807,9 +808,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
-    }, previewDraft.length > 250_000 ? 650 : previewDraft.length > 100_000 ? 400 : 150);
+    }, printPreviewScope === "book" ? (previewDraft.length > 100_000 ? 1_000 : 700) : previewDraft.length > 250_000 ? 650 : previewDraft.length > 100_000 ? 400 : 150);
     return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
-  }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", printOptions, selectedId, document?.id, document?.subtitle, previewDraft]);
+  }, [workspaceMode, project?.projectId, meta, typography, previewMode === "print", printOptions, printPreviewScope, selectedId, document?.id, document?.subtitle, previewDraft]);
 
   function commitPreviewHtml(html: string, representedDraft: string): void {
     const identity = `${project?.projectId ?? ""}:${selectedId ?? ""}:${previewMode}`;
@@ -2770,7 +2771,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.sizeReport && <details className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div><small>Stored ZIP sizes, not the uncompressed sources.</small></details>}</>}</div></div>}</div></div>
         <div className="device-toolbar">
-          <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}</div>
+          <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <><select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select className="print-scope-select" aria-label="Print preview scope" value={printPreviewScope} onChange={(e) => setPrintPreviewScope(e.target.value as "section" | "book")}><option value="section">Current section</option><option value="book">Entire book</option></select></>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
             <button type="button" aria-label="Zoom preview out" title="Zoom out" disabled={previewZoom <= 0.25} onClick={() => changePreviewZoom(-0.1)}>−</button>
             <button type="button" className="preview-zoom-readout" aria-label={"Reset preview zoom, currently " + Math.round(previewZoom * 100) + "%"} title="Reset preview zoom" onClick={() => changePreviewZoom("reset")}><UiIcon name="zoom"/><span>{Math.round(previewZoom * 100)}%</span></button>

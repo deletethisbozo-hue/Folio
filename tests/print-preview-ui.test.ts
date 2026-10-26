@@ -57,6 +57,31 @@ try {
   check("switching Reader → Print displays physical paginated pages", printPages > 0, `${printPages} pages`);
   check("print page is visibly sized, not merely present in hidden DOM", printRect.width > 120 && printRect.height > 160, `${printRect.width.toFixed(1)}×${printRect.height.toFixed(1)}`);
 
+  const sectionChapterCount = await page.$eval("iframe", (frame) => frame.contentDocument?.querySelectorAll("section.chapter").length ?? 0);
+  stage = "switch Print preview to entire book";
+  console.log(`    stage: ${stage}`);
+  await page.select('select[aria-label="Print preview scope"]', "book");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    return (frame?.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0) > 0
+      && (frame?.contentDocument?.querySelectorAll("section.chapter").length ?? 0) > 1;
+  }, { timeout: 90_000 });
+  const bookPreview = await page.$eval("iframe", (frame) => ({
+    chapters: frame.contentDocument?.querySelectorAll("section.chapter").length ?? 0,
+    pages: frame.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0,
+  }));
+  check("whole-book print preview paginates multiple chapters together", bookPreview.chapters > sectionChapterCount && bookPreview.pages >= printPages, `${bookPreview.chapters} chapters · ${bookPreview.pages} pages; section had ${sectionChapterCount} chapter`);
+
+  stage = "switch Print preview back to current section";
+  console.log(`    stage: ${stage}`);
+  await page.select('select[aria-label="Print preview scope"]', "section");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    return (frame?.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0) > 0
+      && (frame?.contentDocument?.querySelectorAll("section.chapter").length ?? 0) === 1;
+  }, { timeout: 90_000 });
+  check("current-section print preview remains available after whole-book preview", true);
+
   // Changing trim must re-run Paged.js without losing the preview, surfacing a
   // global error, or leaving behind the dimensions of the previous print size.
   for (const [trim, expectedWidth, expectedHeight] of [
