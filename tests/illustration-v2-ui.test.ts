@@ -536,7 +536,9 @@ try {
   console.error(`✗ illustration V2 browser scenario completed at stage: ${stage}`);
   try {
     console.error(`Error: illustration UI failure state ${JSON.stringify(await captureIllustrationState?.() ?? null)}`);
-  } catch { /* retain the original assertion failure if the browser is already closed */ }
+  } catch (diagnosticError) {
+    console.error(`Error: illustration diagnostics also failed: ${diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)}`);
+  }
   console.error(error);
 } finally {
   await closeBrowser().catch(() => undefined);
