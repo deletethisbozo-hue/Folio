@@ -66,3 +66,10 @@
   max-height: 65vh;
   object-fit: contain !important;
 }
+/* Full-page figures can fill the editor viewport, making hover-only controls
+   impossible to reach reliably. Keep their remove action visible and on top. */
+.folio-shell .rich-editor .editor-full-page-image > .editor-illustration-remove {
+  z-index: 5;
+  opacity: 1 !important;
+  pointer-events: auto;
+}

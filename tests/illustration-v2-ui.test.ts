@@ -457,8 +457,7 @@ try {
   // resurrect the image when autosave/reload rebuilds the editor DOM.
   stage = "scroll to full-page illustration remove control";
   await page.$eval(".editor-full-page-image", (figure) => figure.scrollIntoView({ block: "center", inline: "nearest" }));
-  stage = "hover full-page illustration remove control";
-  await page.hover(".editor-full-page-image .editor-illustration-remove");
+  stage = "check full-page illustration remove control is visible";
   await page.waitForFunction(() => {
     const remove = document.querySelector<HTMLElement>(".editor-full-page-image .editor-illustration-remove");
     if (!remove) return false;
