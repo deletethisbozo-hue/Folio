@@ -450,7 +450,14 @@ try {
   // Removing a full-page illustration must be a local document edit. It must
   // not leave the detached illustration inspector selected, truncate prose, or
   // resurrect the image when autosave/reload rebuilds the editor DOM.
+  await page.$eval(".editor-full-page-image", (figure) => figure.scrollIntoView({ block: "center", inline: "nearest" }));
   await page.hover(".editor-full-page-image");
+  await page.waitForFunction(() => {
+    const remove = document.querySelector<HTMLElement>(".editor-full-page-image .editor-illustration-remove");
+    if (!remove) return false;
+    const rect = remove.getBoundingClientRect();
+    return getComputedStyle(remove).opacity === "1" && rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= window.innerHeight;
+  }, { timeout: 10000 });
   await page.click(".editor-full-page-image .editor-illustration-remove");
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");

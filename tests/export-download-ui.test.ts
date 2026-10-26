@@ -95,13 +95,14 @@ try {
           height: rect.height,
           top: rect.top,
           bottom: rect.bottom,
+          viewportHeight: window.innerHeight,
           menuBottom: menu?.bottom ?? 0,
           paneBottom: pane?.bottom ?? 0,
           summary: details.querySelector("summary")?.textContent?.trim() ?? "",
           content: details.textContent ?? "",
         };
       });
-      check("EPUB breakdown is open and visible after export", report.open && report.height > 30 && report.top < window.innerHeight && report.bottom <= report.menuBottom && report.menuBottom <= report.paneBottom && /Images/.test(report.content), `${report.height.toFixed(0)} px · ${report.summary}`);
+      check("EPUB breakdown is open and visible after export", report.open && report.height > 30 && report.top < report.viewportHeight && report.bottom <= report.menuBottom && report.menuBottom <= report.paneBottom && /Images/.test(report.content), `${report.height.toFixed(0)} px · ${report.summary}`);
     }
   }
 
