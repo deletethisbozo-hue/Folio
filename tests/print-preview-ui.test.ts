@@ -57,28 +57,28 @@ try {
   check("switching Reader → Print displays physical paginated pages", printPages > 0, `${printPages} pages`);
   check("print page is visibly sized, not merely present in hidden DOM", printRect.width > 120 && printRect.height > 160, `${printRect.width.toFixed(1)}×${printRect.height.toFixed(1)}`);
 
-  const sectionChapterCount = await page.$eval("iframe", (frame) => frame.contentDocument?.querySelectorAll("section.chapter").length ?? 0);
+  const sectionHeadings = await page.$eval("iframe", (frame) => [...(frame.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? ""));
   stage = "switch Print preview to entire book";
   console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Print preview scope"]', "book");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
-    return (frame?.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0) > 0
-      && (frame?.contentDocument?.querySelectorAll("section.chapter").length ?? 0) > 1;
+    const headings = [...(frame?.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? "");
+    return ["The Letter", "The Garden", "The Mechanism"].every((title) => headings.includes(title));
   }, { timeout: 90_000 });
   const bookPreview = await page.$eval("iframe", (frame) => ({
-    chapters: frame.contentDocument?.querySelectorAll("section.chapter").length ?? 0,
+    headings: [...(frame.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? ""),
     pages: frame.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0,
   }));
-  check("whole-book print preview paginates multiple chapters together", bookPreview.chapters > sectionChapterCount && bookPreview.pages >= printPages, `${bookPreview.chapters} chapters · ${bookPreview.pages} pages; section had ${sectionChapterCount} chapter`);
+  check("whole-book print preview paginates all sample chapters together", ["The Letter", "The Garden", "The Mechanism"].every((title) => bookPreview.headings.includes(title)) && bookPreview.pages >= printPages, `${bookPreview.headings.length} chapter headings · ${bookPreview.pages} pages; section had ${sectionHeadings.length} heading`);
 
   stage = "switch Print preview back to current section";
   console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Print preview scope"]', "section");
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
-    return (frame?.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0) > 0
-      && (frame?.contentDocument?.querySelectorAll("section.chapter").length ?? 0) === 1;
+    const headings = [...(frame?.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? "");
+    return headings.includes("The Letter") && !headings.includes("The Garden") && !headings.includes("The Mechanism");
   }, { timeout: 90_000 });
   check("current-section print preview remains available after whole-book preview", true);
 
