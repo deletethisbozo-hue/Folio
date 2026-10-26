@@ -54,9 +54,37 @@ function geometryScript(containerSelector: string, figureSelector: string) {
 console.log("\nFolio illustration V2 direct manipulation");
 
 let stage = "starting";
+let captureIllustrationState: (() => Promise<unknown>) | null = null;
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  captureIllustrationState = () => page.evaluate(() => {
+    const figure = document.querySelector<HTMLElement>(".editor-full-page-image");
+    const remove = figure?.querySelector<HTMLElement>(".editor-illustration-remove") ?? null;
+    const rect = (element: Element | null) => {
+      if (!element) return null;
+      const value = element.getBoundingClientRect();
+      return { left: value.left, top: value.top, right: value.right, bottom: value.bottom, width: value.width, height: value.height };
+    };
+    const style = (element: HTMLElement | null) => element ? {
+      display: getComputedStyle(element).display,
+      position: getComputedStyle(element).position,
+      opacity: getComputedStyle(element).opacity,
+      pointerEvents: getComputedStyle(element).pointerEvents,
+      zIndex: getComputedStyle(element).zIndex,
+      overflow: getComputedStyle(element).overflow,
+    } : null;
+    const buttonRect = remove?.getBoundingClientRect();
+    const hit = buttonRect ? document.elementFromPoint(buttonRect.left + buttonRect.width / 2, buttonRect.top + buttonRect.height / 2) : null;
+    const scrollAncestors: Array<{ tag: string; className: string; scrollTop: number; clientHeight: number; scrollHeight: number; overflowY: string }> = [];
+    for (let node = figure?.parentElement ?? null; node; node = node.parentElement) {
+      const computed = getComputedStyle(node);
+      if (node.scrollHeight > node.clientHeight + 2 || /auto|scroll|hidden|clip/.test(computed.overflowY)) {
+        scrollAncestors.push({ tag: node.tagName, className: typeof node.className === "string" ? node.className : "", scrollTop: node.scrollTop, clientHeight: node.clientHeight, scrollHeight: node.scrollHeight, overflowY: computed.overflowY });
+      }
+    }
+    return { figure: { html: figure?.outerHTML.slice(0, 700) ?? null, rect: rect(figure ?? null), style: style(figure) }, remove: { rect: rect(remove), style: style(remove), hit: hit?.outerHTML.slice(0, 200) ?? null }, viewport: { width: innerWidth, height: innerHeight }, scrollAncestors };
+  });
   page.setDefaultTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
   stage = "open sample book";
@@ -507,13 +535,7 @@ try {
   failed++;
   console.error(`✗ illustration V2 browser scenario completed at stage: ${stage}`);
   try {
-    const state = await (await getBrowser()).pages().then((pages) => pages.at(-1)?.evaluate(() => ({
-      saveState: document.querySelector(".folio-shell")?.getAttribute("data-save-state") ?? null,
-      globalError: document.querySelector(".global-error")?.textContent ?? null,
-      editorLength: document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.length ?? null,
-      fullPageFigure: Boolean(document.querySelector(".editor-full-page-image")),
-    })));
-    console.error(`Error: illustration UI failure state ${JSON.stringify(state)}`);
+    console.error(`Error: illustration UI failure state ${JSON.stringify(await captureIllustrationState?.() ?? null)}`);
   } catch { /* retain the original assertion failure if the browser is already closed */ }
   console.error(error);
 } finally {
