@@ -59,21 +59,14 @@ try {
   const browser = await getBrowser();
   const page = await browser.newPage();
   captureIllustrationState = () => page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>(".folio-shell");
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
     const figure = document.querySelector<HTMLElement>(".editor-full-page-image");
     const remove = figure?.querySelector<HTMLElement>(".editor-illustration-remove") ?? null;
-    const rect = (element: Element | null) => {
-      if (!element) return null;
-      const value = element.getBoundingClientRect();
-      return { left: value.left, top: value.top, right: value.right, bottom: value.bottom, width: value.width, height: value.height };
-    };
-    const style = (element: HTMLElement | null) => element ? {
-      display: getComputedStyle(element).display,
-      position: getComputedStyle(element).position,
-      opacity: getComputedStyle(element).opacity,
-      pointerEvents: getComputedStyle(element).pointerEvents,
-      zIndex: getComputedStyle(element).zIndex,
-      overflow: getComputedStyle(element).overflow,
-    } : null;
+    const figureRect = figure?.getBoundingClientRect();
+    const removeRect = remove?.getBoundingClientRect();
+    const figureStyle = figure ? getComputedStyle(figure) : null;
+    const removeStyle = remove ? getComputedStyle(remove) : null;
     const buttonRect = remove?.getBoundingClientRect();
     const hit = buttonRect ? document.elementFromPoint(buttonRect.left + buttonRect.width / 2, buttonRect.top + buttonRect.height / 2) : null;
     const scrollAncestors: Array<{ tag: string; className: string; scrollTop: number; clientHeight: number; scrollHeight: number; overflowY: string }> = [];
@@ -83,7 +76,16 @@ try {
         scrollAncestors.push({ tag: node.tagName, className: typeof node.className === "string" ? node.className : "", scrollTop: node.scrollTop, clientHeight: node.clientHeight, scrollHeight: node.scrollHeight, overflowY: computed.overflowY });
       }
     }
-    return { figure: { html: figure?.outerHTML.slice(0, 700) ?? null, rect: rect(figure ?? null), style: style(figure) }, remove: { rect: rect(remove), style: style(remove), hit: hit?.outerHTML.slice(0, 200) ?? null }, viewport: { width: innerWidth, height: innerHeight }, scrollAncestors };
+    return {
+      saveState: shell?.getAttribute("data-save-state") ?? null,
+      globalError: document.querySelector(".global-error")?.textContent ?? null,
+      editorLength: editor?.dataset.markdown?.length ?? null,
+      editorHasWrap: editor?.dataset.markdown?.includes(".folio-wrap-left") ?? false,
+      selectedSection: document.querySelector(".contents-list button.chapter-row.selected")?.textContent ?? null,
+      figure: { html: figure?.outerHTML.slice(0, 700) ?? null, rect: figureRect ? { left: figureRect.left, top: figureRect.top, right: figureRect.right, bottom: figureRect.bottom, width: figureRect.width, height: figureRect.height } : null, style: figureStyle ? { display: figureStyle.display, position: figureStyle.position, opacity: figureStyle.opacity, overflow: figureStyle.overflow } : null },
+      remove: { rect: removeRect ? { left: removeRect.left, top: removeRect.top, right: removeRect.right, bottom: removeRect.bottom, width: removeRect.width, height: removeRect.height } : null, style: removeStyle ? { display: removeStyle.display, position: removeStyle.position, opacity: removeStyle.opacity, pointerEvents: removeStyle.pointerEvents, zIndex: removeStyle.zIndex, overflow: removeStyle.overflow } : null, hit: hit?.outerHTML.slice(0, 200) ?? null },
+      viewport: { width: innerWidth, height: innerHeight }, scrollAncestors,
+    };
   });
   page.setDefaultTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
