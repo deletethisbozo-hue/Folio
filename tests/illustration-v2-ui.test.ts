@@ -53,6 +53,7 @@ function geometryScript(containerSelector: string, figureSelector: string) {
 
 console.log("\nFolio illustration V2 direct manipulation");
 
+let stage = "starting";
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -450,7 +451,9 @@ try {
   // Removing a full-page illustration must be a local document edit. It must
   // not leave the detached illustration inspector selected, truncate prose, or
   // resurrect the image when autosave/reload rebuilds the editor DOM.
+  stage = "scroll to full-page illustration remove control";
   await page.$eval(".editor-full-page-image", (figure) => figure.scrollIntoView({ block: "center", inline: "nearest" }));
+  stage = "hover full-page illustration remove control";
   await page.hover(".editor-full-page-image .editor-illustration-remove");
   await page.waitForFunction(() => {
     const remove = document.querySelector<HTMLElement>(".editor-full-page-image .editor-illustration-remove");
@@ -458,7 +461,20 @@ try {
     const rect = remove.getBoundingClientRect();
     return getComputedStyle(remove).opacity === "1" && rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= window.innerHeight;
   }, { timeout: 10000 });
+  const removeHitTest = await page.$eval(".editor-full-page-image .editor-illustration-remove", (remove) => {
+    const rect = remove.getBoundingClientRect();
+    const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return {
+      bounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+      target: remove.outerHTML,
+      hit: top?.outerHTML.slice(0, 180) ?? null,
+      targetOwnsHit: Boolean(top && (top === remove || remove.contains(top))),
+    };
+  });
+  if (!removeHit.targetOwnsHit) throw new Error(`Full-page remove button is covered: ${JSON.stringify(removeHit)}`);
+  stage = "click full-page illustration remove control";
   await page.click(".editor-full-page-image .editor-illustration-remove");
+  stage = "verify manuscript after full-page illustration removal";
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
     const markdown = editor?.dataset.markdown ?? "";
@@ -471,8 +487,11 @@ try {
     );
   }, { timeout: 30000 });
   check("deleting a full-page illustration preserves all manuscript text", true);
+  stage = "wait for deleted illustration to autosave";
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 });
+  stage = "reload saved manuscript";
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
+  stage = "verify manuscript after reload";
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
     const markdown = editor?.dataset.markdown ?? "";
@@ -483,7 +502,7 @@ try {
   await page.close();
 } catch (error) {
   failed++;
-  console.error("✗ illustration V2 browser scenario completed");
+  console.error(`✗ illustration V2 browser scenario completed at stage: ${stage}`);
   console.error(error);
 } finally {
   await closeBrowser().catch(() => undefined);
