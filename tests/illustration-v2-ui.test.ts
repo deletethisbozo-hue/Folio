@@ -395,6 +395,10 @@ try {
     return Boolean(figure?.dataset.folioWrap === "left" && Number(figure.dataset.folioScale || 0) > 0);
   }, { timeout: 60000 });
   check("anchor, wrap and relative size survive autosave plus reload", true);
+  // Reload may preserve the cover selection. Return to a chapter explicitly
+  // before preparing the large-document insertion scenario.
+  await page.click(".contents-list button.chapter-row");
+  await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 30000 });
 
   // Inserting into a large chapter must serialize in animation-frame slices so
   // it does not freeze the editor or drop text at either end of the chapter.
