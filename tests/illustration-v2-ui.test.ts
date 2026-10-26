@@ -396,6 +396,53 @@ try {
   }, { timeout: 60000 });
   check("anchor, wrap and relative size survive autosave plus reload", true);
 
+  // Inserting into a large chapter must serialize in animation-frame slices so
+  // it does not freeze the editor or drop text at either end of the chapter.
+  const largeChapter = await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    if (!editor) throw new Error("Editor missing before large chapter insertion");
+    const repeated = "A long manuscript sentence that must remain intact after inserting an illustration. ".repeat(11);
+    const paragraphs = Array.from({ length: 120 }, (_, index) => `<p>${index === 0 ? "LARGE_CHAPTER_START " : ""}${repeated}${index === 119 ? " LARGE_CHAPTER_END" : ""}</p>`);
+    editor.innerHTML = paragraphs.join("");
+    const target = editor.querySelector<HTMLElement>("p:nth-child(60)");
+    const range = document.createRange();
+    range.setStart(target?.firstChild ?? editor, Math.min(8, target?.firstChild?.textContent?.length ?? 0));
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    (window as Window & { folioHeartbeat?: number }).folioHeartbeat = 0;
+    window.setInterval(() => {
+      const host = window as Window & { folioHeartbeat?: number };
+      host.folioHeartbeat = (host.folioHeartbeat ?? 0) + 1;
+    }, 0);
+    return { htmlLength: editor.innerHTML.length, paragraphs: paragraphs.length };
+  });
+  check("large chapter fixture exceeds the cooperative serialization threshold", largeChapter.htmlLength > 80_000, `${largeChapter.htmlLength} HTML characters`);
+  const fullPageUpload = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"),
+    { timeout: 12000 },
+  );
+  const [fullPageChooser] = await Promise.all([
+    page.waitForFileChooser({ timeout: 12000 }),
+    page.click('button[title^="Insert full-page illustration"]'),
+  ]);
+  await fullPageChooser.accept([fixture]);
+  if (!(await fullPageUpload).ok()) throw new Error("Full-page illustration upload failed for a large chapter");
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const markdown = editor?.dataset.markdown ?? "";
+    const heartbeat = (window as Window & { folioHeartbeat?: number }).folioHeartbeat ?? 0;
+    return Boolean(
+      editor?.querySelector(".editor-full-page-image") &&
+      markdown.includes("LARGE_CHAPTER_START") &&
+      markdown.includes("LARGE_CHAPTER_END") &&
+      markdown.includes(".full-page-image") &&
+      heartbeat >= 3
+    );
+  }, { timeout: 30000 });
+  check("Full Page insertion preserves a large chapter while the UI continues to run", true, `${largeChapter.paragraphs} paragraphs`);
+
   await page.close();
 } catch (error) {
   failed++;

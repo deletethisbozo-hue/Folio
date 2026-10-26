@@ -278,7 +278,9 @@ export async function richTextToMarkdownCooperative(html: string): Promise<strin
   return out
     .replace(/\u00a0/g, " ")
     .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
+    .replace(/ ?([,;:!?]|\.(?![A-Za-z0-9_-]))/g, "$1")
     .trim();
 }
 
