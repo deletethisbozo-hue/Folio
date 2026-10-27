@@ -1,6 +1,6 @@
 import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
 import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
   detectPastedLanguage,
@@ -26,6 +26,8 @@ import WritingProgressHalo from "./WritingProgressHalo";
 import ThemeLab, { themeLabTypography } from "./ThemeLab";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, CustomFontRecord, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, ThemeLabConfig, ThemeLibraryEntry, Typography } from "./types";
+
+const PublishPreflight = lazy(() => import("./components/PublishPreflight"));
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type WordCountScope = "book" | "chapter";
@@ -400,6 +402,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [searchMatchState, setSearchMatchState] = useState({ index: -1, total: 0 });
   const [coverVersion, setCoverVersion] = useState(0);
   const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
+  const [showPreflight, setShowPreflight] = useState(false);
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
   const editorRef = useRef<HTMLDivElement>(null);
   const illustrationInputRef = useRef<HTMLInputElement>(null);
@@ -2713,6 +2716,13 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }}
       />}
 
+      {showPreflight && <Suspense fallback={<div role="status">Loading Publish Preflight…</div>}><PublishPreflight
+        onClose={() => setShowPreflight(false)} onSection={(id) => void selectSection(id)}
+        onRun={async (format) => {
+          if (!(await saveCurrent())) throw new Error("Save the current chapter before running Publish Preflight.");
+          return api.preflight(project.projectId, { format, meta, typography, print: printOptions });
+        }}
+      /></Suspense>}
       {workspaceMode === "write" && <WriteStudioDrawer
         open={writeStudioOpen}
         activeTab={writeStudioTab}
@@ -2753,7 +2763,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </div>}
 
       <section className="preview-pane">
-        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div><small>Stored ZIP sizes, not the uncompressed sources.</small></details>}</>}</div></div>}</div></div>
+        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div><small>Stored ZIP sizes, not the uncompressed sources.</small></details>}</>}</div></div>}</div></div>
         <div className="device-toolbar">
           <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <><select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select className="print-scope-select" aria-label="Print preview scope" value={printPreviewScope} onChange={(e) => setPrintPreviewScope(e.target.value as "section" | "book")}><option value="section">Current section</option><option value="book">Entire book</option></select></>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">

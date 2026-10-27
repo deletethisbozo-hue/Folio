@@ -273,8 +273,8 @@ export default function ExportPanel({
           )}
           {last.validation && (
             <div className="mt-1">
-              <span className={last.validation.valid ? "text-emerald-700" : "text-red-700"}>
-                {last.validation.valid ? "✓ Valid" : "✗ Invalid"} EPUB
+              <span className={!last.validation.complete ? "text-amber-700" : last.validation.valid ? "text-emerald-700" : "text-red-700"}>
+                {!last.validation.complete ? "Incomplete validation" : last.validation.valid ? "✓ Valid EPUB" : "✗ Invalid EPUB"}
               </span>
               <span className="text-slate-400"> · checked by {last.validation.tool}</span>
               {last.validation.messages.length > 0 && (

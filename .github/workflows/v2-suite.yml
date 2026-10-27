@@ -66,6 +66,9 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
           "$PANDOC_BIN" --version | head -n 1
+      - name: Install checksum-pinned offline EPUBCheck runtime
+        run: npm run setup:publishing
+
       - name: Typecheck
         run: npm run typecheck
       - name: Build web and server

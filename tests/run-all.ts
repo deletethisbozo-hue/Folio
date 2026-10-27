@@ -21,6 +21,10 @@ const ROOT = path.resolve(HERE, "..");
 // Slowest last: the ones that render the whole book take minutes, and a fast
 // failure in ingestion should surface before you wait for them.
 const ORDER = [
+  "publish-preflight.test.ts",
+  "exec-limits.test.ts",
+  "epubcheck-report.test.ts",
+  "epubcheck-official.test.ts",
   "atomic-write.test.ts",
   "config-concurrency.test.ts",
   "save-queue.test.ts",

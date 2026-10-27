@@ -2,7 +2,7 @@
   "name": "folio-book-formatter",
   "version": "3.2.7",
   "private": true,
-  "description": "Folio — a Windows desktop studio for writing, formatting, previewing and publishing books.",
+  "description": "Folio \u2014 a Windows desktop studio for writing, formatting, previewing and publishing books.",
   "author": "Folio contributors; based on Byte-Sized Book Formatter by Angie Hartwell",
   "license": "MIT",
   "type": "module",
@@ -24,7 +24,8 @@
     "fonts": "node scripts/fetch-theme-fonts.mjs",
     "predev": "npm run fonts",
     "prebuild:web": "npm run fonts",
-    "prebuild:server": "npm run fonts"
+    "prebuild:server": "npm run fonts",
+    "setup:publishing": "node scripts/setup-publishing-tools.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",
@@ -109,6 +110,14 @@
       {
         "from": "build/puppeteer-cache",
         "to": "chromium"
+      },
+      {
+        "from": "build/publishing-tools/epubcheck",
+        "to": "app-resources/vendor/epubcheck"
+      },
+      {
+        "from": "build/publishing-tools/java",
+        "to": "app-resources/java"
       }
     ],
     "fileAssociations": [

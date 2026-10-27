@@ -218,6 +218,7 @@ export interface ValidationMessage {
 export interface ValidationReport {
   tool: "epubcheck" | "builtin";
   valid: boolean;
+  complete?: boolean;
   messages: ValidationMessage[];
   note?: string;
 }
@@ -262,3 +263,6 @@ export interface PrintPreviewResult {
   pages: number;
   gutter: number;
 }
+
+export interface PreflightIssue { code: string; severity: "error" | "warning"; text: string; remedy: string; sectionId?: string; asset?: string; }
+export interface PreflightReport { ready: boolean; issues: PreflightIssue[]; }

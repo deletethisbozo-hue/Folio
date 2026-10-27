@@ -26,6 +26,7 @@ import { inspectEpubSize } from "./pipeline/epub-size.ts";
 import { renderDocx } from "./pipeline/render-docx.ts";
 import { renderMarkdown } from "./pipeline/render-markdown.ts";
 import { renderPdf } from "./pipeline/render-pdf.ts";
+import { publishPreflight } from "./validate/preflight.ts";
 import { validateEpub } from "./validate/epubcheck.ts";
 import { slugify } from "./pipeline/util.ts";
 import { pickFolder, pickFolioProjectFile } from "./pick-folder.ts";
@@ -514,6 +515,16 @@ export function registerApi(app: Express): void {
     }),
   );
 
+  app.post("/api/projects/:id/preflight", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const { book } = await loadProject(req.params.id, bodyMeta(req));
+      applyTypography(book, req);
+      applyPreviewDraft(book, req);
+      const format = String(req.body?.format ?? "epub");
+      res.json(await publishPreflight(book, { format, print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined }));
+    }),
+  );
+
   /**
    * Export a format.
    *
@@ -530,6 +541,10 @@ export function registerApi(app: Express): void {
       const format = String(req.body?.format ?? "");
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
+      if (["epub", "pdf", "print", "docx"].includes(format)) {
+        const preflight = await publishPreflight(book, { format, print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined });
+        if (!preflight.ready) throw new Error("Publish Preflight: " + preflight.issues.filter((issue) => issue.severity === "error").slice(0, 8).map((issue) => `${issue.text} ${issue.remedy}`).join("; "));
+      }
       const stem = slugify(book.meta.title) || "book";
       const info = projectInfo(req.params.id);
       const bookDir = info.onDisk ? info.folder : null;
@@ -648,7 +663,8 @@ export function registerApi(app: Express): void {
         case "epub": {
           const preset = (req.body?.preset ?? "universal") as PresetName;
           const { buffer } = await renderEpub(book, preset);
-          const [validation, sizeReport] = await Promise.all([validateEpub(buffer), inspectEpubSize(buffer)]);
+          const [validation, sizeReport] = await Promise.all([validateEpub(buffer, { requireFullValidation: Boolean(process.env.FOLIO_RESOURCE_ROOT) }), inspectEpubSize(buffer)]);
+          if (!validation.valid) throw new Error("EPUB validation failed: " + validation.messages.filter((message) => message.severity === "error").slice(0, 8).map((message) => message.text).join("; "));
           await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport });
           return;
         }

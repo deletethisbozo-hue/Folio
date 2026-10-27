@@ -457,6 +457,11 @@ export const api = {
       body: JSON.stringify({ meta, typography }),
     }).then((r) => json<ProjectSummary>(r)),
 
+  preflight: (projectId: string, options: Record<string, unknown>) =>
+    fetch(`/api/projects/${projectId}/preflight`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(options),
+    }).then((response) => json<import("./types").PreflightReport>(response)),
+
   export: (
     projectId: string,
     format: string,
