@@ -29,6 +29,7 @@ const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQ
 await fs.writeFile(fixture, pixel);
 
 console.log("\nFolio front matter illustration preview + crop");
+let stage = "starting";
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -37,11 +38,13 @@ try {
   await page.setViewport({ width: 1440, height: 900 });
   // Folio now loads persistent theme/font library state during startup. UI
   // readiness must not depend on the browser reaching absolute network idle.
+  stage = "load application";
   await page.goto(base, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await page.waitForFunction(
     () => [...document.querySelectorAll("button")].some((item) => item.textContent?.includes("Open Sample")),
     { timeout: 30_000 },
   );
+  stage = "open sample book";
   await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes("Open Sample"));
     if (!button) throw new Error("Open Sample button is missing");
@@ -49,6 +52,7 @@ try {
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
 
+  stage = "add Preface section";
   await page.click('.library-add-section');
   await page.waitForSelector('.folio-dialog[aria-label="Add Content"]');
   await page.evaluate(() => {
@@ -60,6 +64,7 @@ try {
   await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Preface"));
   await page.waitForSelector('.illustration-button:not([disabled])');
 
+  stage = "upload front-matter illustration";
   const firstUploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"), { timeout: 60_000 });
   const [firstChooser] = await Promise.all([page.waitForFileChooser({ timeout: 60_000 }), page.click(".illustration-button")]);
   await firstChooser.accept([fixture]);
@@ -85,6 +90,7 @@ try {
   if (!first.ok) throw new Error("illustration preview diagnostic: " + JSON.stringify(first));
   check("illustration hydrates before controls are portal-mounted", true);
 
+  stage = "wait for live illustration preview";
   await page.waitForFunction(() => {
     const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
     const image = frame?.contentDocument?.querySelector<HTMLImageElement>(".folio-illustration-preview img, img.folio-illustration");
@@ -92,6 +98,7 @@ try {
   }, { timeout: 60_000 });
   check("new front-matter illustration is visible in live preview", true);
 
+  stage = "select illustration and set crop controls";
   await page.click(".editor-illustration img[data-folio-asset]");
   await page.waitForSelector('.folio-illustration-overlay .folio-image-inspector[data-open="true"]');
   check("V2 selects illustration before exposing crop controls", true);
@@ -116,6 +123,7 @@ try {
     control.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
+  stage = "wait for serialized crop settings";
   await page.waitForFunction(() => {
     const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
     return markdown.includes("width=60%")
@@ -126,6 +134,7 @@ try {
   });
   check("crop, scale and focal point serialize into manuscript Markdown", true);
 
+  stage = "wait for cropped live preview";
   await page.waitForFunction(() => {
     const frame = document.querySelector<HTMLIFrameElement>(".preview-frame");
     const figure = frame?.contentDocument?.querySelector<HTMLElement>(".folio-illustration-preview");
@@ -139,7 +148,10 @@ try {
   });
   check("live preview applies crop and scale immediately", true);
 
+  stage = "wait for crop autosave";
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saving", { timeout: 15_000 });
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved");
+  stage = "reload saved crop";
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
   await page.waitForFunction(() => [...document.querySelectorAll(".contents-row")].some((row) => row.textContent?.includes("Preface")));
   await page.evaluate(() => {
@@ -147,17 +159,43 @@ try {
     if (!row) throw new Error("Preface row missing after reload");
     row.click();
   });
+  stage = "verify Preface is selected after reload";
+  await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Preface"), { timeout: 15_000 });
+  stage = "verify serialized crop survived reload";
+  await page.waitForFunction(() => {
+    const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
+    return markdown.includes("width=60%") && markdown.includes(".folio-crop") && markdown.includes(".folio-ratio-1-1");
+  }, { timeout: 15_000 });
+  stage = "verify crop asset after reload";
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
     const scale = figure?.dataset.folioScale;
     const ratio = figure?.dataset.folioRatio;
     const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
     return Boolean(figure?.dataset.folioCrop === "true" && scale === "60" && ratio === "1-1" && image?.naturalWidth);
+  }, { timeout: 30_000 }).catch(async (error) => {
+    const state = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>(".folio-shell");
+      const row = document.querySelector<HTMLElement>(".contents-row.selected");
+      const editor = document.querySelector<HTMLElement>(".rich-editor");
+      const figure = document.querySelector<HTMLElement>(".editor-illustration");
+      const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+      return {
+        saveState: shell?.getAttribute("data-save-state") ?? null,
+        selectedRow: row?.textContent?.trim() ?? null,
+        markdown: editor?.dataset.markdown ?? null,
+        figure: figure ? { crop: figure.dataset.folioCrop, scale: figure.dataset.folioScale, ratio: figure.dataset.folioRatio, html: figure.outerHTML.slice(0, 600) } : null,
+        image: image ? { src: image.src, complete: image.complete, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight } : null,
+        globalError: document.querySelector(".global-error")?.textContent ?? null,
+      };
+    });
+    console.error("Illustration reload failure state: " + JSON.stringify(state));
+    throw error;
   });
   check("crop and scale survive autosave plus project reload", true);
 } catch (error) {
   failed++;
-  console.error("✗ illustration preview/crop scenario completed");
+  console.error(`✗ illustration preview/crop scenario completed at stage: ${stage}`);
   console.error(error);
 } finally {
   await closeBrowser().catch(() => undefined);

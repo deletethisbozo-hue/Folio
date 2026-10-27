@@ -57,6 +57,37 @@ try {
   check("switching Reader → Print displays physical paginated pages", printPages > 0, `${printPages} pages`);
   check("print page is visibly sized, not merely present in hidden DOM", printRect.width > 120 && printRect.height > 160, `${printRect.width.toFixed(1)}×${printRect.height.toFixed(1)}`);
 
+  const sectionHeadings = await page.$eval("iframe", (frame) => [...(frame.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? ""));
+  stage = "switch Print preview to entire book";
+  console.log(`    stage: ${stage}`);
+  await page.select('select[aria-label="Print preview scope"]', "book");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    const headings = [...(frame?.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? "");
+    return ["The Letter", "The Garden", "The Mechanism"].every((title) => headings.includes(title));
+  }, { timeout: 90_000 });
+  const bookPreview = await page.$eval("iframe", (frame) => ({
+    headings: [...(frame.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? ""),
+    pages: frame.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0,
+  }));
+  check("whole-book print preview paginates all sample chapters together", ["The Letter", "The Garden", "The Mechanism"].every((title) => bookPreview.headings.includes(title)) && bookPreview.pages >= printPages, `${bookPreview.headings.length} chapter headings · ${bookPreview.pages} pages; section had ${sectionHeadings.length} heading`);
+
+  stage = "set a non-default Print zoom before changing trim";
+  console.log(`    stage: ${stage}`);
+  await page.click('button[aria-label="Zoom preview in"]');
+  await page.waitForFunction(() => document.querySelector(".preview-zoom-readout")?.textContent?.includes("110%"));
+  check("Print zoom can be changed independently from paper size", true, "110% user zoom");
+
+  stage = "switch Print preview back to current section";
+  console.log(`    stage: ${stage}`);
+  await page.select('select[aria-label="Print preview scope"]', "section");
+  await page.waitForFunction(() => {
+    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
+    const headings = [...(frame?.contentDocument?.querySelectorAll("section.chapter > h1") ?? [])].map((heading) => heading.textContent?.trim() ?? "");
+    return headings.includes("The Letter") && !headings.includes("The Garden") && !headings.includes("The Mechanism");
+  }, { timeout: 90_000 });
+  check("current-section print preview remains available after whole-book preview", true);
+
   // Changing trim must re-run Paged.js without losing the preview, surfacing a
   // global error, or leaving behind the dimensions of the previous print size.
   for (const [trim, expectedWidth, expectedHeight] of [
@@ -101,6 +132,7 @@ try {
       return {
         actual: Number(iframe.dataset.folioPrintFitZoom || "0"),
         expected,
+        userZoom: Number(iframe.dataset.folioPreviewZoom || "0"),
         cssZoom: Number.parseFloat(pages?.style.zoom ?? "0"),
         readout: document.querySelector<HTMLElement>(".preview-zoom-readout")?.textContent?.trim() ?? "",
       };
@@ -108,7 +140,7 @@ try {
     check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
     check(
       `changing print trim to ${trim} recalculates fit from physical page width without changing user zoom`,
-      Math.abs(fit.actual - fit.expected) < .02 && Math.abs(fit.cssZoom - fit.actual) < .02 && fit.readout.includes("100%"),
+      Math.abs(fit.actual - fit.expected) < .02 && Math.abs(fit.cssZoom - fit.actual * 1.1) < .02 && Math.abs(fit.userZoom - 1.1) < .01 && fit.readout.includes("110%"),
       JSON.stringify(fit),
     );
     check(

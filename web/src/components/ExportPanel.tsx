@@ -109,7 +109,9 @@ export default function ExportPanel({
 
       // Written server-side when the book has a real folder; otherwise the
       // browser downloads it, which can only ever land in Downloads.
-      if (!result.written) downloadResult(result);
+      if (!result.written && !downloadResult(result)) {
+        throw new Error("The export finished, but Folio did not receive a downloadable file. Try exporting again.");
+      }
       setLast(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

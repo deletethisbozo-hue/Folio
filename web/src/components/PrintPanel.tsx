@@ -68,7 +68,9 @@ export default function PrintPanel({
       }
       // Written server-side for folder-backed books; downloaded only when there
       // is nowhere permanent to write to.
-      if (!result.written) downloadResult(result);
+      if (!result.written && !downloadResult(result)) {
+        throw new Error("The export finished, but Folio did not receive a downloadable file. Try exporting again.");
+      }
       setDone({
         filename: result.filename ?? "print.pdf",
         bytes: result.bytes,

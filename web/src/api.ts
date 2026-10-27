@@ -417,13 +417,14 @@ export const api = {
     typography: Typography,
     previewSectionId?: string,
     draft?: string,
+    previewScope: "section" | "book" = "section",
     signal?: AbortSignal,
   ) => {
     const request = () =>
       fetch(`/api/projects/${projectId}/preview-print`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft }),
+        body: JSON.stringify({ meta, theme, print, typography, previewSectionId, draft, previewScope }),
         signal,
       }).then((r) => json<PrintPreviewResult>(r));
 
@@ -479,12 +480,12 @@ export const api = {
     }).then((r) => json<ExportResult>(r)),
 };
 
-export function downloadResult(result: ExportResult): void {
-  if (!result.dataBase64 || !result.filename) return;
+export function downloadResult(result: ExportResult): boolean {
+  if (!result.dataBase64 || !result.filename) return false;
   const bin = atob(result.dataBase64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const blob = new Blob([bytes], { type: result.mime });
+  const blob = new Blob([bytes], { type: result.mime ?? "application/octet-stream" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -492,7 +493,11 @@ export function downloadResult(result: ExportResult): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Chromium/Electron begins consuming a download after the click task returns.
+  // Revoking the object URL in that same task can cancel the file before it is
+  // written, which looks like a successful export with no downloaded artifact.
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  return true;
 }
 
 export function formatBytes(n: number): string {

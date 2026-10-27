@@ -589,6 +589,14 @@ export function installIllustrationControls(): void {
     const fromInspector = Boolean(target?.closest(".folio-image-inspector"));
     const figure = fromInspector ? selectedFigure : target?.closest<HTMLElement>(".editor-illustration") ?? null;
 
+    // The inspector is a body-level portal and can otherwise keep pointing at
+    // the detached figure after React's delegated remove click deletes it.
+    // Clear that selection during capture before the editor commits the DOM.
+    if (target?.closest(".editor-illustration-remove")) {
+      selectFigure(null);
+      return;
+    }
+
     const wrapButton = target?.closest<HTMLButtonElement>("[data-folio-wrap-choice]");
     if (figure && wrapButton) {
       event.preventDefault();

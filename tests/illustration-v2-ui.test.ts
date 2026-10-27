@@ -53,11 +53,43 @@ function geometryScript(containerSelector: string, figureSelector: string) {
 
 console.log("\nFolio illustration V2 direct manipulation");
 
+let stage = "starting";
+let captureIllustrationState: (() => Promise<unknown>) | null = null;
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  captureIllustrationState = () => page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>(".folio-shell");
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const figure = document.querySelector<HTMLElement>(".editor-full-page-image");
+    const remove = figure?.querySelector<HTMLElement>(".editor-illustration-remove") ?? null;
+    const figureRect = figure?.getBoundingClientRect();
+    const removeRect = remove?.getBoundingClientRect();
+    const figureStyle = figure ? getComputedStyle(figure) : null;
+    const removeStyle = remove ? getComputedStyle(remove) : null;
+    const buttonRect = remove?.getBoundingClientRect();
+    const hit = buttonRect ? document.elementFromPoint(buttonRect.left + buttonRect.width / 2, buttonRect.top + buttonRect.height / 2) : null;
+    const scrollAncestors: Array<{ tag: string; className: string; scrollTop: number; clientHeight: number; scrollHeight: number; overflowY: string }> = [];
+    for (let node = figure?.parentElement ?? null; node; node = node.parentElement) {
+      const computed = getComputedStyle(node);
+      if (node.scrollHeight > node.clientHeight + 2 || /auto|scroll|hidden|clip/.test(computed.overflowY)) {
+        scrollAncestors.push({ tag: node.tagName, className: typeof node.className === "string" ? node.className : "", scrollTop: node.scrollTop, clientHeight: node.clientHeight, scrollHeight: node.scrollHeight, overflowY: computed.overflowY });
+      }
+    }
+    return {
+      saveState: shell?.getAttribute("data-save-state") ?? null,
+      globalError: document.querySelector(".global-error")?.textContent ?? null,
+      editorLength: editor?.dataset.markdown?.length ?? null,
+      editorHasWrap: editor?.dataset.markdown?.includes(".folio-wrap-left") ?? false,
+      selectedSection: document.querySelector(".contents-list button.chapter-row.selected")?.textContent ?? null,
+      figure: { html: figure?.outerHTML.slice(0, 700) ?? null, rect: figureRect ? { left: figureRect.left, top: figureRect.top, right: figureRect.right, bottom: figureRect.bottom, width: figureRect.width, height: figureRect.height } : null, style: figureStyle ? { display: figureStyle.display, position: figureStyle.position, opacity: figureStyle.opacity, overflow: figureStyle.overflow } : null },
+      remove: { rect: removeRect ? { left: removeRect.left, top: removeRect.top, right: removeRect.right, bottom: removeRect.bottom, width: removeRect.width, height: removeRect.height } : null, style: removeStyle ? { display: removeStyle.display, position: removeStyle.position, opacity: removeStyle.opacity, pointerEvents: removeStyle.pointerEvents, zIndex: removeStyle.zIndex, overflow: removeStyle.overflow } : null, hit: hit?.outerHTML.slice(0, 200) ?? null },
+      viewport: { width: innerWidth, height: innerHeight }, scrollAncestors,
+    };
+  });
   page.setDefaultTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
+  stage = "open sample book";
   await page.goto(base, { waitUntil: "networkidle0" });
 
   await page.evaluate(() => {
@@ -66,6 +98,10 @@ try {
     (button as HTMLButtonElement).click();
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
+  // Sample books can open on the cover on Linux. This scenario inserts and
+  // reloads a chapter illustration, so establish the same chapter explicitly.
+  await page.click(".contents-list button.chapter-row");
+  await page.waitForFunction(() => Boolean(document.querySelector(".contents-list button.chapter-row.selected")), { timeout: 30000 });
 
   const before = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
   const enabled = await page.$eval(".illustration-button", (button) => !(button as HTMLButtonElement).disabled);
@@ -383,7 +419,9 @@ try {
   check("Print Preview preserves anchored wrap semantics", true);
   await page.screenshot({ path: path.join(qaDir, "print.png"), fullPage: false });
 
+  stage = "wait for original illustration edits to autosave";
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 });
+  stage = "reload original illustration edits";
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
@@ -397,6 +435,7 @@ try {
   check("anchor, wrap and relative size survive autosave plus reload", true);
   // Reload may preserve the cover selection. Return to a chapter explicitly
   // before preparing the large-document insertion scenario.
+  stage = "select chapter after illustration reload";
   await page.click(".contents-list button.chapter-row");
   await page.waitForSelector('.rich-editor[contenteditable="true"]', { timeout: 30000 });
 
@@ -447,10 +486,65 @@ try {
   }, { timeout: 30000 });
   check("Full Page insertion preserves a large chapter while the UI continues to run", true, `${largeChapter.paragraphs} paragraphs`);
 
+  // Removing a full-page illustration must be a local document edit. It must
+  // not leave the detached illustration inspector selected, truncate prose, or
+  // resurrect the image when autosave/reload rebuilds the editor DOM.
+  stage = "scroll to full-page illustration remove control";
+  await page.$eval(".editor-full-page-image", (figure) => figure.scrollIntoView({ block: "center", inline: "nearest" }));
+  stage = "check full-page illustration remove control is visible";
+  await page.waitForFunction(() => {
+    const remove = document.querySelector<HTMLElement>(".editor-full-page-image .editor-illustration-remove");
+    if (!remove) return false;
+    const rect = remove.getBoundingClientRect();
+    return getComputedStyle(remove).opacity === "1" && rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= window.innerHeight;
+  }, { timeout: 10000 });
+  const removeHitTest = await page.$eval(".editor-full-page-image .editor-illustration-remove", (remove) => {
+    const rect = remove.getBoundingClientRect();
+    const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return {
+      bounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+      target: remove.outerHTML,
+      hit: top?.outerHTML.slice(0, 180) ?? null,
+      targetOwnsHit: Boolean(top && (top === remove || remove.contains(top))),
+    };
+  });
+  if (!removeHitTest.targetOwnsHit) throw new Error(`Full-page remove button is covered: ${JSON.stringify(removeHitTest)}`);
+  stage = "click full-page illustration remove control";
+  await page.click(".editor-full-page-image .editor-illustration-remove");
+  stage = "verify manuscript after full-page illustration removal";
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const markdown = editor?.dataset.markdown ?? "";
+    return Boolean(
+      editor &&
+      !editor.querySelector(".editor-full-page-image") &&
+      markdown.includes("LARGE_CHAPTER_START") &&
+      markdown.includes("LARGE_CHAPTER_END") &&
+      !markdown.includes(".full-page-image")
+    );
+  }, { timeout: 30000 });
+  check("deleting a full-page illustration preserves all manuscript text", true);
+  stage = "wait for deleted illustration to autosave";
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 });
+  stage = "reload saved manuscript";
+  await page.click('.tiny-footer-button[aria-label="Reload files"]');
+  stage = "verify manuscript after reload";
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    const markdown = editor?.dataset.markdown ?? "";
+    return Boolean(editor && markdown.includes("LARGE_CHAPTER_START") && markdown.includes("LARGE_CHAPTER_END") && !markdown.includes(".full-page-image"));
+  }, { timeout: 60000 });
+  check("deleted full-page image stays removed after save and reload without losing the chapter", true);
+
   await page.close();
 } catch (error) {
   failed++;
-  console.error("✗ illustration V2 browser scenario completed");
+  console.error(`✗ illustration V2 browser scenario completed at stage: ${stage}`);
+  try {
+    console.error(`Error: illustration UI failure state ${JSON.stringify(await captureIllustrationState?.() ?? null)}`);
+  } catch (diagnosticError) {
+    console.error(`Error: illustration diagnostics also failed: ${diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)}`);
+  }
   console.error(error);
 } finally {
   await closeBrowser().catch(() => undefined);

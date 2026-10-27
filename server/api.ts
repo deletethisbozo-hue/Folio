@@ -494,8 +494,13 @@ export function registerApi(app: Express): void {
         if (controller.signal.aborted) return;
         applyTypography(book, req);
         const sectionId = applyPreviewDraft(book, req);
-        // Fast preview intentionally renders one section; export is whole-book.
-        if (sectionId) book.sections = book.sections.filter((section) => section.id === sectionId);
+        // Keep the previous one-section behavior for older clients. The book
+        // scope uses the same in-memory draft overlay but lets the compositor
+        // see every section so page flow and the printed TOC are book-accurate.
+        const previewScope = req.body?.previewScope === "book" ? "book" : "section";
+        if (sectionId && previewScope === "section") {
+          book.sections = book.sections.filter((section) => section.id === sectionId);
+        }
         const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
         const { html, meta } = await renderPrintPreviewHtml(book, print, controller.signal);
         if (!controller.signal.aborted && !res.destroyed) res.json({ html, pages: meta.pages, gutter: meta.gutter });
@@ -544,8 +549,21 @@ export function registerApi(app: Express): void {
       /** Write to the configured destination, or hand back bytes to download. */
       const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}) => {
         if (!bookDir) {
+          // A drag-and-dropped book has no folder in which Folio can save
+          // exports. Give every downloadable artifact a distinct, recognizable
+          // name so exporting a second EPUB/PDF cannot silently replace the
+          // first file in the browser's Downloads folder.
+          const filenameByType: Record<ArtifactType, string> = {
+            blues: `${stem}_blues.pdf`,
+            print: `${stem}_print.pdf`,
+            reading: `${stem}_reading.pdf`,
+            "epub-kdp": `${stem}_kdp.epub`,
+            "epub-universal": `${stem}.epub`,
+            docx: `${stem}.docx`,
+            md: `${stem}.md`,
+          };
           res.json({
-            filename: `${stem}.${type === "epub-kdp" || type === "epub-universal" ? "epub" : type === "md" ? "md" : type === "docx" ? "docx" : "pdf"}`,
+            filename: filenameByType[type],
             mime,
             dataBase64: data.toString("base64"),
             bytes: data.length,
