@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Legacy chapter artwork opens as a normal removable image, preserving surrounding text and image assets.
+- Hidden Writing Studio tools no longer analyze words, phrases or search results on each text edit; visible analysis waits for a typing pause.
 - Reader preview waits for a typing pause instead of rebuilding short chapters after every keystroke.
 - Illustration hydration ignores plain text mutations and batches structural changes.
 - Preview selectors, zoom and navigation occupy separate wrapping rows in narrow panes.

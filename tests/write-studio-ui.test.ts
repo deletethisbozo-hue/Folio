@@ -241,6 +241,31 @@ try {
 
   const status = await page.evaluate(() => document.querySelector(".write-session-chip")?.textContent ?? "");
   check("status bar exposes compact session progress", /words/.test(status) && /active min/.test(status), status);
+  await page.click('button[aria-label="Close writing tools"]');
+  await page.waitForFunction(() => !document.querySelector(".write-studio-drawer"));
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor")!;
+    const sentence = "The spectrometer records the distant lantern while the traveller studies the old manuscript. ";
+    editor.innerHTML = Array.from({ length: 120 }, (_, i) => `<p>${i === 0 ? "START HIDDEN ANALYSIS TEST " : ""}${sentence.repeat(12)}${i === 119 ? " END HIDDEN ANALYSIS TEST" : ""}</p>`).join("");
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    editor.focus();
+    const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+  });
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("END HIDDEN ANALYSIS TEST"));
+  const metrics = await page.createCDPSession();
+  await metrics.send("Performance.enable");
+  const beforeTyping = await metrics.send("Performance.getMetrics");
+  await page.keyboard.type(" Ordinary typing must stay responsive.", { delay: 15 });
+  const afterTyping = await metrics.send("Performance.getMetrics");
+  const scriptBefore = beforeTyping.metrics.find((item) => item.name === "ScriptDuration")?.value ?? 0;
+  const scriptAfter = afterTyping.metrics.find((item) => item.name === "ScriptDuration")?.value ?? 0;
+  check("closed Writing Studio does not run analysis during a long-chapter typing burst", scriptAfter - scriptBefore < 1, `${(scriptAfter - scriptBefore).toFixed(3)} seconds of renderer JavaScript`);
+  check("long-chapter typing with hidden tools keeps the full manuscript", await page.$eval(".rich-editor", (el) => {
+    const markdown = (el as HTMLElement).dataset.markdown ?? "";
+    return markdown.includes("START HIDDEN ANALYSIS TEST") && markdown.includes("END HIDDEN ANALYSIS TEST") && markdown.includes("Ordinary typing must stay responsive.");
+  }));
+  await metrics.detach();
 } finally {
   server.close();
   await closeBrowser();
