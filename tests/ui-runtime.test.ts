@@ -316,12 +316,36 @@ check("preview offers size-based Kindle, Kobo, phone, tablet and print profiles"
   deviceModes.join(", "));
 await page.select('select[aria-label="Preview device"]', "phone-6-1");
 await stage("switch to phone size class", () => page.waitForSelector('.reader-device.device-phone-6-1[data-device-family="phone"]'));
-  await stage("phone justified layout", () => page.waitForFunction(() => {
+  // Composition is lazy. Bring the paragraph under inspection into the
+  // phone viewport instead of assuming it is visible below every theme header.
+  await stage("show phone paragraph under inspection", () => page.waitForFunction(() => {
     const doc = document.querySelector("iframe")?.contentDocument;
     const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
       .find((candidate) => !candidate.querySelector(":scope > .dropcap"));
-    return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
+    if (!paragraph) return false;
+    paragraph.scrollIntoView({ block: "center" });
+    return true;
   }));
+  await stage("phone justified layout", async () => {
+    try {
+      await page.waitForFunction(() => {
+        const doc = document.querySelector("iframe")?.contentDocument;
+        const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+          .find((candidate) => !candidate.querySelector(":scope > .dropcap"));
+        return Boolean(paragraph?.classList.contains("folio-composed") && paragraph.querySelector(".folio-composed-line"));
+      });
+    } catch (error) {
+      const state = await page.evaluate(() => {
+        const frame = document.querySelector("iframe");
+        const doc = frame?.contentDocument;
+        const paragraph = [...(doc?.querySelectorAll<HTMLElement>("section.chapter > p") ?? [])]
+          .find((candidate) => !candidate.querySelector(":scope > .dropcap"));
+        const rect = paragraph?.getBoundingClientRect();
+        return { paragraph: paragraph?.outerHTML.slice(0, 1800), top: rect?.top, bottom: rect?.bottom, viewport: frame?.contentWindow?.innerHeight, loading: Boolean(document.querySelector(".preview-loading")), error: document.querySelector(".preview-error")?.textContent };
+      });
+      throw new Error(`Phone composition state: ${JSON.stringify(state)}; ${error}`);
+    }
+  });
   check("Justified preview uses the bounded paragraph compositor", true);
   const centered = await page.evaluate(() => {
     const stage = document.querySelector(".preview-stage")!.getBoundingClientRect();
