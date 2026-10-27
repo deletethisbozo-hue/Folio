@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.8] - 2026-10-27
+
+### Removed
+- Full Page creation from the chapter toolbar and Add Content dialog.
+- The runtime that detected an image marker anywhere in a chapter and made the entire editor read-only.
+
+### Fixed
+- Legacy chapter artwork opens as a normal removable image, preserving surrounding text and image assets.
+- Reader preview waits for a typing pause instead of rebuilding short chapters after every keystroke.
+- Illustration hydration ignores plain text mutations and batches structural changes.
+- Preview selectors, zoom and navigation occupy separate wrapping rows in narrow panes.
+
+### Compatibility
+- Existing dedicated image-only front-matter sections remain readable; project files are not rewritten automatically.
+
 ## [3.2.7] - 2026-10-27
 
 ### Fixed

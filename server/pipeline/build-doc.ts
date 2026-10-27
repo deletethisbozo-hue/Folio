@@ -16,21 +16,17 @@ function headerAttr(section: Section): string {
   return `{#${section.id} ${classStr}}`;
 }
 
-/**
- * Pandoc's implicit_figures extension promotes standalone images' ALT text to
- * a visible figure caption. Full-page illustrations never have book-facing
- * captions: preserve meaningful ALT text while suppressing the figure markup.
- * Inline image pages get their own block wrapper for EPUB and paginated PDF.
- */
+/** Read legacy full-page markers without forcing chapter content onto fixed pages.
+ * Dedicated image-only sections retain their legacy rendering for compatibility.
+ * The source Markdown and image asset are never changed by this export step. */
 export function prepareFullPageImageMarkdown(markdown: string, dedicatedPage = false): string {
   return markdown.replace(
-    /^(!\[[^\]\r\n]*\]\([^\r\n)]*\)\{[^}\r\n]*\})[ \t]*$/gm,
-    (image) => {
-      if (!/\.full-page-image(?:\s|\})/.test(image)) return image;
-      const captionless = image + "\u00a0";
-      return dedicatedPage
-        ? captionless
-        : `::: {.folio-inline-image-page}\n${captionless}\n:::`;
+    /^(!\[[^\]\r\n]*\]\([^\r\n)]*\))\{([^}\r\n]*)\}[ \t]*$/gm,
+    (image, link: string, attrs: string) => {
+      if (!/(?:^|\s)\.full-page-image(?:\s|$)/.test(attrs)) return image;
+      if (dedicatedPage) return image + "\u00a0";
+      const normalAttrs = attrs.replace(/(?:^|\s)\.(?:full-page-image|fit-contain|fit-cover)(?=\s|$)/g, " ").trim();
+      return link + (normalAttrs ? `{${normalAttrs}}` : "") + "\u00a0";
     },
   );
 }

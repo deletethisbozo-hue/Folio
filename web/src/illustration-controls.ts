@@ -520,7 +520,22 @@ function finishInteraction(event: PointerEvent): void {
 }
 
 export function installIllustrationControls(): void {
-  const observer = new MutationObserver(hydrateAll);
+  let hydrationFrame = 0;
+  const observer = new MutationObserver((records) => {
+    // Native typing adds text nodes. Do not scan every paragraph, rewrite image
+    // styles and request inspector layout for changes unrelated to images.
+    const structuralChange = records.some((record) => {
+      const target = record.target instanceof Element ? record.target : record.target.parentElement;
+      return [...record.addedNodes, ...record.removedNodes].some((node) => {
+        if (!(node instanceof Element)) return false;
+        return target?.matches(".rich-editor")
+          || node.matches(".rich-editor, .editor-illustration")
+          || Boolean(node.querySelector(".rich-editor, .editor-illustration"));
+      });
+    });
+    if (!structuralChange || hydrationFrame) return;
+    hydrationFrame = requestAnimationFrame(() => { hydrationFrame = 0; hydrateAll(); });
+  });
   observer.observe(document.documentElement, { childList: true, subtree: true });
   requestAnimationFrame(hydrateAll);
   const repositionSelected = () => positionInspector(selectedFigure);

@@ -292,15 +292,14 @@
 .preview-stage.print-stage{place-items:start center!important}
 .preview-stage.print-stage .reader-device.device-print{transform:none!important;transform-origin:center top}
 /* 3.2.1: device, zoom and paging are three separate groups in one clickable row. */
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-toolbar{grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:1fr!important;column-gap:4px!important;align-items:center!important;overflow:visible!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label{grid-column:1!important;grid-row:1!important;min-width:0!important;overflow:visible!important;gap:4px!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select:first-child{flex:0 0 124px!important;width:124px!important;min-width:124px!important;max-width:124px!important;padding-inline:6px!important;text-align:center!important;text-align-last:center!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select:first-child option,
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select:first-child optgroup{text-align:center!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label .trim-select{flex:0 1 auto!important;max-width:84px!important;padding-inline:5px!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label .print-scope-select{flex:0 1 116px!important;width:116px!important;min-width:104px!important;max-width:116px!important;padding-inline:5px!important;text-align:center!important;text-align-last:center!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .preview-zoom-controls{grid-column:2!important;grid-row:1!important;min-width:102px!important}
-.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-nav{grid-column:3!important;grid-row:1!important;min-width:64px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;white-space:nowrap!important;position:static!important;transform:none!important}
+/* Selectors and navigation have independent rows. A narrow preview pane must
+   wrap selectors rather than paint them over zoom and chapter navigation. */
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-toolbar{display:grid!important;box-sizing:border-box!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto!important;height:auto!important;min-height:76px!important;row-gap:6px!important;column-gap:8px!important;align-items:center!important;padding:6px 10px!important;overflow:visible!important;flex-shrink:0!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label{grid-column:1 / -1!important;grid-row:1!important;display:flex!important;flex-wrap:wrap!important;min-width:0!important;gap:4px!important;overflow:hidden!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-label>select{flex:1 1 100px!important;width:auto!important;min-width:0!important;max-width:100%!important;padding-inline:6px!important;text-align:center!important;text-align-last:center!important;box-sizing:border-box!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .preview-zoom-controls{grid-column:1!important;grid-row:2!important;justify-self:start!important;min-width:110px!important;position:static!important;transform:none!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-nav{grid-column:2!important;grid-row:2!important;justify-self:end!important;min-width:80px!important;width:auto!important;display:flex!important;gap:4px!important;align-items:center!important;justify-content:flex-end!important;white-space:nowrap!important;position:static!important;transform:none!important}
+.folio-shell[data-ui-tone][data-workspace-mode="format"] .device-nav>span{position:static!important;min-width:28px!important;text-align:center!important;transform:none!important}
 
 /* Persistent user fonts inside Theme Lab Chapter. */
 .theme-lab-custom-font-row{

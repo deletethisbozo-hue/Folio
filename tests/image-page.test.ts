@@ -58,7 +58,7 @@ try {
   if (!chapter) throw new Error("Test fixture has no chapter");
   chapter.markdown += `\n\n![A chapter map](${result.asset}){.full-page-image .fit-contain}\n`;
   const manuscriptHtml = await renderHtml(loaded.book, "html");
-  check("full-page illustration inside a chapter gets a dedicated page block", manuscriptHtml.includes("folio-inline-image-page"));
+  check("legacy chapter illustration no longer creates forced page blocks", !manuscriptHtml.includes('class="folio-inline-image-page"'));
   check("chapter full-page alt is not a visible caption", !/<figcaption[^>]*>[^<]*A chapter map/i.test(manuscriptHtml));
 
   const epub = await renderEpub(loaded.book, "universal");
@@ -68,8 +68,8 @@ try {
     .map((entry) => Buffer.from(entry.data).toString("utf8"))
     .join("\n");
   check("EPUB contains the image-page structure", xhtml.includes("image-page") && xhtml.includes("full-page-image"));
-  check("EPUB has a separate captionless full-page block inside the chapter",
-    xhtml.includes("folio-inline-image-page") && !/<figcaption[^>]*>[^<]*(?:A chapter map|Map of the story world)/i.test(xhtml));
+  check("EPUB preserves legacy artwork without a forced chapter page block",
+    !xhtml.includes('class="folio-inline-image-page"') && !/<figcaption[^>]*>[^<]*(?:A chapter map|Map of the story world)/i.test(xhtml));
   check("EPUB never exposes a legacy image-page filename as text", !xhtml.includes("legacy-world-map.png"));
   check("EPUB packages the map image", entries.some((entry) => /world-map|assets\/media|media\//i.test(entry.name) && /\.(png|jpg|jpeg)$/i.test(entry.name)), entries.filter((entry) => /\.(png|jpg|jpeg)$/i.test(entry.name)).map((entry) => entry.name).join(", "));
 } finally {

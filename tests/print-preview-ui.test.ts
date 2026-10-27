@@ -150,6 +150,28 @@ try {
     );
   }
 
+  stage = "preview toolbar never overlaps at narrow pane widths";
+  for (const tone of ["ivory", "midnight"]) {
+    for (const width of [280, 360, 520]) {
+      const layout = await page.evaluate(async ({ tone, width }) => {
+        document.querySelector(".folio-shell")?.setAttribute("data-ui-tone", tone);
+        const toolbar = document.querySelector<HTMLElement>(".device-toolbar")!;
+        toolbar.style.setProperty("width", `${width}px`, "important");
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        const box = toolbar.getBoundingClientRect();
+        const controls = [...toolbar.querySelectorAll<HTMLElement>("select, button, .device-nav>span")].map((el) => ({ label: el.getAttribute("aria-label") || el.textContent || el.tagName, rect: el.getBoundingClientRect() }));
+        const overlaps: string[] = [];
+        for (let i = 0; i < controls.length; i++) for (let j = i + 1; j < controls.length; j++) {
+          const a = controls[i].rect, b = controls[j].rect;
+          if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) overlaps.push(`${controls[i].label} / ${controls[j].label}`);
+        }
+        return { overlaps, contained: controls.every(({ rect }) => rect.left >= box.left - 1 && rect.right <= box.right + 1 && rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1) };
+      }, { tone, width });
+      check(`preview selectors, zoom and navigation do not overlap at ${width}px in ${tone}`, layout.contained && layout.overlaps.length === 0, JSON.stringify(layout));
+    }
+  }
+  await page.$eval(".device-toolbar", (el) => (el as HTMLElement).style.removeProperty("width"));
+
   stage = "switch Print -> Reader";
   console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Preview device"]', "kindle-6-8");

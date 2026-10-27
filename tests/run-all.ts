@@ -40,6 +40,7 @@ const ORDER = [
   "recent-persistence.test.ts",
   "global-library-persistence.test.ts",
   "image-page.test.ts",
+  "legacy-illustration.test.ts",
   "illustration-ui.test.ts",
   "illustration-v2-ui.test.ts",
   "export-download-ui.test.ts",

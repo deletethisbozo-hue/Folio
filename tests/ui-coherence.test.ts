@@ -67,11 +67,3 @@ test("full-page artwork is white, fills the viewport, and legacy cover-fit can n
   assert.match(imagePageCss, /img\.full-page-image\.fit-contain,[\s\S]*img\.full-page-image\.fit-cover\s*\{\s*object-fit:\s*contain\s*!important/);
   assert.doesNotMatch(imagePageCss, /img\.full-page-image\.fit-cover\s*\{\s*object-fit:\s*cover/);
 });
-
-test("dedicated image-page editor removes prose chrome, beige cards and scrollbar gutter", () => {
-  assert.match(v206, /\.editor-pane\.folio-image-page-mode \.format-toolbar\s*\{\s*display:\s*none\s*!important/);
-  assert.match(v206, /\.editor-pane\.folio-image-page-mode \.editor-paper\s*\{\s*background:\s*#fff\s*!important/);
-  assert.match(v206, /\.manuscript-editor\.folio-image-page-editor\s*\{[\s\S]*?background:\s*#fff\s*!important[\s\S]*?overflow:\s*hidden\s*!important[\s\S]*?scrollbar-gutter:\s*auto\s*!important/);
-  assert.match(v206, /\.editor-full-page-art\s*\{[\s\S]*?width:\s*100%\s*!important[\s\S]*?height:\s*100%\s*!important[\s\S]*?background:\s*#fff\s*!important/);
-  assert.match(v206, /\.editor-illustration:not\(\.editor-full-page-art\)\s*\{\s*background:\s*#fff\s*!important/);
-});
