@@ -40,19 +40,36 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 
+let stage = "launch browser";
+let captureState: (() => Promise<unknown>) | undefined;
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error instanceof Error ? error.message : String(error)));
+  captureState = async () => ({ stage, browserErrors, ui: await page.evaluate(() => ({
+    mode: document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode"),
+    selected: document.querySelector(".contents-row.selected")?.textContent,
+    editor: document.querySelector(".rich-editor")?.getAttribute("contenteditable"),
+    drawer: Boolean(document.querySelector(".write-studio-drawer")),
+    error: document.querySelector(".global-error, .preview-error")?.textContent,
+    body: document.body.innerText.slice(-1600),
+  })) });
   page.setDefaultTimeout(45_000);
   page.setDefaultNavigationTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
   await page.goto(base, { waitUntil: "networkidle0" });
 
+  stage = "open sample chapter";
   await clickButtonByText(page, "button", "Open Sample");
+  await page.waitForSelector(".contents-list button.chapter-row");
+  await page.click(".contents-list button.chapter-row");
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
+  stage = "switch to Write";
   await clickButtonByText(page, ".workspace-mode-switch button", "Write");
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode") === "write");
 
+  stage = "open Writing Studio";
   await page.click(".editor-tools-toggle");
   await page.waitForSelector(".write-studio-drawer");
 
@@ -253,6 +270,7 @@ try {
     const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
   });
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("END HIDDEN ANALYSIS TEST"));
+  stage = "long chapter typing CPU budget";
   const metrics = await page.createCDPSession();
   await metrics.send("Performance.enable");
   const beforeTyping = await metrics.send("Performance.getMetrics");
@@ -266,6 +284,9 @@ try {
     return markdown.includes("START HIDDEN ANALYSIS TEST") && markdown.includes("END HIDDEN ANALYSIS TEST") && markdown.includes("Ordinary typing must stay responsive.");
   }));
   await metrics.detach();
+} catch (error) {
+  console.error(`Write Studio failed during ${stage}: ${JSON.stringify(await captureState?.())}`);
+  throw error;
 } finally {
   server.close();
   await closeBrowser();
