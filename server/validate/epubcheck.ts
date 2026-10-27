@@ -135,6 +135,7 @@ export function parseEpubcheckReport(report: unknown, exitCode: number): Validat
     };
   });
   const checker = (report as { checker?: { nError?: number; nFatal?: number } }).checker;
+  if (!checker || !Number.isInteger(checker.nError) || Number(checker.nError) < 0 || !Number.isInteger(checker.nFatal) || Number(checker.nFatal) < 0) messages.push({ severity: "error", code: "CHECKER_REPORT", text: "EPUBCheck returned an incomplete checker summary." });
   if ((exitCode !== 0 || Number(checker?.nError ?? 0) > 0 || Number(checker?.nFatal ?? 0) > 0) && !messages.some((message) => message.severity === "error")) {
     messages.push({ severity: "error", code: "CHECKER_EXIT", text: `EPUBCheck did not confirm validity (exit ${exitCode}).` });
   }

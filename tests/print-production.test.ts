@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDFDocument, PDFName, StandardFonts } from "pdf-lib";
 import { applyPrintPageBoxes, bookletOrder, createPrintSpreads } from "../server/pipeline/print-production.ts";
 import { getTrim } from "../server/print.ts";
 
@@ -22,10 +22,14 @@ assert.throws(() => bookletOrder(8, 6), /signature/i);
 const spreads = await createPrintSpreads(boxed, { mode: "booklet", signaturePages: 16 });
 const spreadDoc = await PDFDocument.load(spreads);
 assert.equal(spreadDoc.getPageCount(), 8);
-assert.ok(Math.abs(spreadDoc.getPage(0).getWidth() - (864 + 4 * bleedPt)) < 0.001);
+assert.ok(Math.abs(spreadDoc.getPage(0).getWidth() - (864 + 2 * bleedPt)) < 0.001);
+const sheet = spreadDoc.getPage(0), sheetTrim = sheet.getTrimBox();
+assert.ok(Math.abs(sheetTrim.x - bleedPt) < 0.001 && Math.abs(sheetTrim.y - bleedPt) < 0.001 && Math.abs(sheetTrim.width - 864) < 0.001 && Math.abs(sheetTrim.height - 648) < 0.001, "Imposed sheet must retain real trim geometry");
+assert.ok(sheet.node.has(PDFName.of("TrimBox")), "A fallback MediaBox is not an explicit production TrimBox");
+assert.ok(sheet.node.has(PDFName.of("BleedBox")), "Spread bleed must remain explicit");
 const facing = await createPrintSpreads(bytes, { mode: "facing" });
 assert.equal((await PDFDocument.load(facing)).getPageCount(), 5);
 assert.equal(getTrim("a5").w * 25.4, 148);
 await assert.rejects(() => applyPrintPageBoxes(bytes, "6x9", -2), /bleed/i);
 await assert.rejects(() => applyPrintPageBoxes(bytes, "a5", 0), /size/i);
-console.log("37 passed, 0 failed");
+console.log("40 passed, 0 failed");

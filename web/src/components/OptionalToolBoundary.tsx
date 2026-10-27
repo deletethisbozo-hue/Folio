@@ -7,6 +7,6 @@ export default class OptionalToolBoundary extends Component<{ label: string; act
   render() {
     if (this.state.failed && this.props.active === false) return null;
     if (this.state.failed) return <aside className="optional-tool-error" role="alert"><strong>{this.props.label} could not load.</strong><p>Your manuscript remains open. Save it before restarting Folio.</p>{this.props.onClose && <button className="native-button" onClick={this.props.onClose}>Close</button>}</aside>;
-    return <Suspense fallback={<div className="optional-tool-loading" role="status">Loading {this.props.label}…</div>}>{this.props.children}</Suspense>;
+    return <Suspense fallback={this.props.active === false ? null : <div className="optional-tool-loading" role="status">Loading {this.props.label}…</div>}>{this.props.children}</Suspense>;
   }
 }

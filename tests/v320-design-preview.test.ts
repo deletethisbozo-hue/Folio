@@ -69,7 +69,7 @@ test("reader shell zoom and Print page zoom are separated", () => {
 test("Print preview never throws export diagnostics at the user while export stays strict", () => {
   assert.match(print, /qualityMode: "strict" \| "preview" = "strict"/);
   assert.match(print, /if \(qualityMode === "strict"\)/);
-  assert.match(print, /}, "preview", signal\);/);
+  assert.match(print, /}, "preview", signal\)\);/);
   assert.match(print, /folioPrintPreviewQuality = "recoverable"/);
   assert.doesNotMatch(app, /<small>\{previewError\}<\/small>/);
 });

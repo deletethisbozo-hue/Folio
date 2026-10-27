@@ -86,7 +86,16 @@ export async function convertPdfX3(source: Buffer, options: { profile: Buffer; n
       if (text.code !== 0) throw new Error("PDF/X text preservation check could not complete.");
       return text.stdout.normalize("NFC").replace(/\s/g, "");
     };
-    if (await extract(input) !== await extract(output)) throw new Error("PDF/X conversion changed or rasterized the book's searchable text.");
+    const originalText = await extract(input), convertedText = await extract(output);
+    if (originalText !== convertedText) {
+      let index = 0; while (index < Math.min(originalText.length, convertedText.length) && originalText[index] === convertedText[index]) index++;
+      if (process.env.FOLIO_PUBLISH_QA_DIR) {
+        await fs.mkdir(process.env.FOLIO_PUBLISH_QA_DIR, { recursive: true });
+        const evidence = await fs.mkdtemp(path.join(process.env.FOLIO_PUBLISH_QA_DIR, "pdfx-"));
+        await Promise.all([fs.copyFile(input, path.join(evidence, "before.pdf")), fs.copyFile(output, path.join(evidence, "after.pdf")), fs.writeFile(path.join(evidence, "text-before.txt"), originalText), fs.writeFile(path.join(evidence, "text-after.txt"), convertedText)]);
+      }
+      throw new Error(`PDF/X conversion changed searchable text at character ${index} (${originalText.length} → ${convertedText.length} characters). Before: ${JSON.stringify(originalText.slice(Math.max(0, index - 40), index + 100))}; after: ${JSON.stringify(convertedText.slice(Math.max(0, index - 40), index + 100))}`);
+    }
     return { buffer, report };
   } finally { await fs.rm(dir, { recursive: true, force: true }).catch(() => {}); }
 }

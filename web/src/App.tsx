@@ -1,4 +1,4 @@
-import { printFitScale } from "./preview-fit";
+import { printFitScale, seekPrintSection } from "./preview-fit";
 import { PAPER_PROFILES } from "../../shared/paper-profiles";
 import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
 import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
@@ -359,6 +359,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
   const [writeStudioOpen, setWriteStudioOpen] = useState(false);
+  const [writeStudioHasOpened, setWriteStudioHasOpened] = useState(false);
   const [writeStudioTab, setWriteStudioTab] = useState<WriteStudioTab>("session");
   const [writeStudioState, setWriteStudioState] = useState<WriteStudioState | null>(null);
   const [wordCountScope, setWordCountScope] = useState<WordCountScope>(() => window.localStorage.getItem("folio-word-count-scope") === "chapter" ? "chapter" : "book");
@@ -1625,6 +1626,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function openWriteStudio(tab: WriteStudioTab = "session") {
+    setWriteStudioHasOpened(true);
     setWriteStudioTab(tab);
     setWriteStudioOpen(true);
   }
@@ -2100,6 +2102,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
     doc.head.appendChild(style);
     if (previewMode === "print") observePrintPreviewFit(frame);
+    if (previewMode !== "print" || printPreviewScope !== "book") delete frame.dataset.folioPrintAnchor;
     const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
     if (previewMode !== "print") void seatPreviewDropCaps(frame);
     if (pendingPreviewDraftRef.current) {
@@ -2136,10 +2139,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       : pendingPreviewScrollRef.current || doc.scrollingElement?.scrollTop || 0;
     pendingPreviewScrollRef.current = 0;
     requestAnimationFrame(() => {
+      if (previewRef.current !== frame || frame.contentDocument !== doc) return;
+      if (previewMode === "print") applyPrintPreviewFit(frame);
+      const soughtSection = previewMode === "print" && printPreviewScope === "book" && selectedId
+        && frame.dataset.folioPrintAnchor !== selectedId && seekPrintSection(frame, selectedId);
       // A profile switch already operates on the live iframe. Do not enqueue a
       // stale numeric scroll restoration that can fire after the reader has
       // clicked or scrolled to a new location in the same frame.
-      if (!geometryOnly || typeof restoreScroll === "number") {
+      if (!soughtSection && (!geometryOnly || typeof restoreScroll === "number")) {
         doc.scrollingElement?.scrollTo(0, targetScroll);
       }
       if (previewMode !== "print") void applySafeContours(doc);
@@ -2725,7 +2732,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           return api.preflight(project.projectId, { format, meta, typography, print: printOptions });
         }}
       /></OptionalToolBoundary>}
-      {workspaceMode === "write" && <OptionalToolBoundary active={writeStudioOpen} label="Writing Studio" onClose={() => setWriteStudioOpen(false)}><WriteStudioDrawer
+      {workspaceMode === "write" && (writeStudioOpen || writeStudioHasOpened) && <OptionalToolBoundary active={writeStudioOpen} label="Writing Studio" onClose={() => setWriteStudioOpen(false)}><WriteStudioDrawer
         open={writeStudioOpen}
         activeTab={writeStudioTab}
         setActiveTab={setWriteStudioTab}
@@ -3150,7 +3157,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
-    {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Paper profile", <select value={printOptions.trim} onChange={(event) => setPrintOptions({ ...printOptions, trim: event.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>)}{row("Bleed", <select value={printOptions.bleedMm ?? 0} onChange={(event) => setPrintOptions({ ...printOptions, bleedMm: Number(event.target.value) })}><option value={0}>None</option><option value={3}>3 mm</option><option value={3.175}>0.125 in</option><option value={5}>5 mm</option></select>)}{row("PDF/X printer ICC", <span><input type="file" accept=".icc,.icm" onChange={(event) => {
+    {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Paper profile", <select value={printOptions.trim} onChange={(event) => setPrintOptions({ ...printOptions, trim: event.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>)}{row("Bleed", <select value={printOptions.bleedMm ?? 0} onChange={(event) => setPrintOptions({ ...printOptions, bleedMm: Number(event.target.value) })}><option value={0}>None</option><option value={3}>3 mm</option><option value={3.175}>0.125 in</option><option value={5}>5 mm</option></select>)}{row("Inner margin", <select value={printOptions.gutter ?? "auto"} onChange={(event) => setPrintOptions({ ...printOptions, gutter: event.target.value === "auto" ? undefined : Number(event.target.value) })}><option value="auto">Auto · final book page count</option>{[.375, .5, .625, .75, .875, 1, 1.125, 1.25, 1.5, 2].map((value) => <option key={value} value={value}>{value} in</option>)}</select>)}{row("PDF/X printer ICC", <span><input type="file" accept=".icc,.icm" onChange={(event) => {
           const file = event.target.files?.[0];
           if (!file) return;
           if (file.size > 8 * 1024 * 1024) { window.alert("Choose a CMYK printer ICC profile smaller than 8 MB."); return; }

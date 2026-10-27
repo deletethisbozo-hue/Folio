@@ -24,6 +24,7 @@ const ORDER = [
   "analysis-job.test.ts",
   "runtime-priority.test.ts",
   "pdfx-profile.test.ts",
+  "print-pagination.test.ts",
   "print-production.test.ts",
   "publish-print-engine.test.ts",
   "publish-preflight-ui.test.ts",

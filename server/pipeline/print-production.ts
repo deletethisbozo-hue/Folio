@@ -39,6 +39,11 @@ export async function createPrintSpreads(buffer: Buffer, options: { mode: "facin
   const output = await PDFDocument.create();
   const count = source.getPageCount();
   const first = source.getPage(0).getMediaBox();
+  const trim = source.getPage(0).getTrimBox();
+  const leftBleed = trim.x - first.x;
+  const rightBleed = first.x + first.width - trim.x - trim.width;
+  const bottomBleed = trim.y - first.y;
+  const sheetWidth = 2 * trim.width + leftBleed + rightBleed;
   const order: Array<[number | null, number | null]> = options.mode === "booklet" ? bookletOrder(count, options.signaturePages, options.rtl) : [
     options.rtl ? [1, null] : [null, 1],
     ...Array.from({ length: Math.ceil((count - 1) / 2) }, (_, i): [number | null, number | null] => {
@@ -48,19 +53,23 @@ export async function createPrintSpreads(buffer: Buffer, options: { mode: "facin
   ];
   const pages = new Map<number, Awaited<ReturnType<typeof output.embedPage>>>();
   for (const pair of order) {
-    const sheet = output.addPage([first.width * 2, first.height]);
+    const sheet = output.addPage([sheetWidth, first.height]);
+    sheet.setCropBox(0, 0, sheetWidth, first.height);
+    sheet.setBleedBox(0, 0, sheetWidth, first.height);
+    sheet.setTrimBox(leftBleed, bottomBleed, 2 * trim.width, trim.height);
     for (let side = 0; side < pair.length; side++) {
       const number = pair[side];
       if (number === null) continue;
       let embedded = pages.get(number);
       if (!embedded) {
-        const page = source.getPage(number - 1), box = page.getMediaBox();
-        if (Math.abs(box.width - first.width) > 0.01 || Math.abs(box.height - first.height) > 0.01) throw new Error("Print spreads require uniform page sizes.");
+        const page = source.getPage(number - 1), box = page.getMediaBox(), pageTrim = page.getTrimBox();
+        if (Math.abs(box.width - first.width) > 0.01 || Math.abs(box.height - first.height) > 0.01 || Math.abs(pageTrim.width - trim.width) > 0.01 || Math.abs(pageTrim.height - trim.height) > 0.01) throw new Error("Print spreads require uniform page and trim sizes.");
         if (!page.node.Contents()) continue;
-        embedded = await output.embedPage(page, { left: box.x, right: box.x + box.width, bottom: box.y, top: box.y + box.height });
+        // Remove the two unprinted inner bleeds at the fold; retain outer bleed.
+        embedded = await output.embedPage(page, { left: side === 0 ? box.x : pageTrim.x, right: side === 0 ? pageTrim.x + pageTrim.width : box.x + box.width, bottom: box.y, top: box.y + box.height });
         pages.set(number, embedded);
       }
-      sheet.drawPage(embedded, { x: side * first.width, y: 0 });
+      sheet.drawPage(embedded, { x: side === 0 ? 0 : leftBleed + trim.width, y: 0 });
     }
   }
   if (source.getTitle()) output.setTitle(source.getTitle()!);

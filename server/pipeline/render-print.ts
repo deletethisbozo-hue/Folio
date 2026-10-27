@@ -1,3 +1,4 @@
+import { paginateToFinalGutter } from "./print-pagination.ts";
 import { applyPrintPageBoxes, createPrintSpreads, bookletOrder } from "./print-production.ts";
 import path from "node:path";
 import { promises as fs } from "node:fs";
@@ -639,16 +640,7 @@ async function withPaginated<T>(
 export async function renderPrintPdf(book: Book, opts: PrintOptions): Promise<{ buffer: Buffer; meta: PrintMeta }> {
   const pdfFn = async (page: Page) => Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
 
-  let r = await withPaginated(book, opts, pdfFn);
-  // In auto-gutter mode, if the actual page count lands in a different KDP band
-  // than the estimate assumed, re-render once with the correct gutter so the
-  // exported file is always KDP-safe.
-  if (opts.gutter === undefined) {
-    const correct = autoGutter(r.meta.pages, opts.binding);
-    if (Math.abs(correct - r.meta.gutter) > 0.001) {
-      r = await withPaginated(book, { ...opts, gutter: correct }, pdfFn);
-    }
-  }
+  const r = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, pdfFn));
   let buffer = await applyPrintPageBoxes(r.result, opts.trim, opts.bleedMm ?? 0);
   if (opts.spreadMode === "facing" || opts.spreadMode === "booklet") buffer = await createPrintSpreads(buffer, { mode: opts.spreadMode, signaturePages: opts.signaturePages, rtl: opts.rtl });
   return { buffer, meta: r.meta };
@@ -660,7 +652,7 @@ export async function renderPrintPdf(book: Book, opts: PrintOptions): Promise<{ 
  */
 export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, signal?: AbortSignal): Promise<{ html: string; meta: PrintMeta }> {
   const t = getTrim(opts.trim);
-  const { result, meta } = await withPaginated(book, opts, async (page) => {
+  const { result, meta } = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, async (page) => {
     // Paged.js lays the live pages out correctly, but the serialized output sizes
     // pages from a CSS variable that defaults to US Letter. Pin the trim size
     // explicitly so the static preview HTML keeps the right page dimensions, and
@@ -688,12 +680,12 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, sig
           return opts.rtl ? [pair[1], pair[0]] : pair;
         }),
       ];
-      await page.evaluate((pairs, width, height, bleedMm) => {
+      await page.evaluate((pairs, width, height, bleedMm, mode) => {
         const parent = document.querySelector<HTMLElement>(".pagedjs_pages")!;
         const pages = [...parent.querySelectorAll<HTMLElement>(".pagedjs_page")];
         parent.replaceChildren();
         for (const pair of pairs) {
-          const spread = document.createElement("div"); spread.className = "folio-print-spread";
+          const spread = document.createElement("div"); spread.className = "folio-print-spread"; spread.dataset.folioArrangement = mode;
           for (const number of pair) {
             if (number !== null) spread.appendChild(pages[number - 1]);
             else { const blank = document.createElement("div"); blank.className = "folio-print-blank"; blank.setAttribute("aria-label", "Padding blank page"); spread.appendChild(blank); }
@@ -701,9 +693,9 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, sig
           parent.appendChild(spread);
         }
         const style = document.createElement("style");
-        style.textContent = `.folio-print-spread{display:flex;width:max-content;gap:8px;margin:12px auto}.folio-print-spread>.pagedjs_page{margin:0!important}.folio-print-blank{width:${width}in;height:${height}in;background:#fff}.pagedjs_page{outline:${bleedMm > 0 ? "1px dashed #b75b5b" : "none"}}`;
+        style.textContent = `.folio-print-spread{display:flex;width:max-content;gap:8px;margin:12px auto}.folio-print-spread[data-folio-arrangement="booklet"]{gap:0}.folio-print-spread>.pagedjs_page{margin:0!important}.folio-print-blank{width:${width}in;height:${height}in;background:#fff}.pagedjs_page{outline:${bleedMm > 0 ? "1px dashed #b75b5b" : "none"}}`;
         document.head.appendChild(style);
-      }, order, t.w, t.h, opts.bleedMm ?? 0);
+      }, order, t.w, t.h, opts.bleedMm ?? 0, opts.spreadMode);
     }
     if ((opts.bleedMm ?? 0) > 0) await page.evaluate((bleedMm, width, height) => {
       for (const page of document.querySelectorAll<HTMLElement>(".pagedjs_page, .folio-print-blank")) {
@@ -711,10 +703,10 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, sig
         page.replaceWith(sheet); sheet.appendChild(page);
       }
       const style = document.createElement("style");
-      style.textContent = `.folio-physical-page{box-sizing:content-box;width:${width}in;height:${height}in;padding:${bleedMm}mm;background:#fff;margin:12px auto}.folio-physical-page>.pagedjs_page,.folio-physical-page>.folio-print-blank{margin:0!important;outline:1px dashed #b75b5b}.folio-print-spread>.folio-physical-page{margin:0}`;
+      style.textContent = `.folio-physical-page{box-sizing:content-box;width:${width}in;height:${height}in;padding:${bleedMm}mm;background:#fff;margin:12px auto}.folio-physical-page>.pagedjs_page,.folio-physical-page>.folio-print-blank{margin:0!important;outline:1px dashed #b75b5b}.folio-print-spread>.folio-physical-page{margin:0}.folio-print-spread>.folio-physical-page:first-child{padding-right:0}.folio-print-spread>.folio-physical-page:last-child{padding-left:0}`;
       document.head.appendChild(style);
     }, opts.bleedMm ?? 0, t.w, t.h);
     return page.content();
-  }, "preview", signal);
+  }, "preview", signal));
   return { html: result, meta };
 }

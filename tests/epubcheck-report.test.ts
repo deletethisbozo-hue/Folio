@@ -12,4 +12,5 @@ assert.equal(parseEpubcheckReport({ checker: { nError: 1 }, messages: [] }, 0).v
 assert.equal(parseEpubcheckReport({}, 0).complete, false, "malformed reports cannot count as completed conformance checking");
 assert.equal(parseEpubcheckReport({}, 0).valid, false);
 assert.equal(parseEpubcheckReport({ messages: [{}] }, 0).valid, false, "malformed diagnostics must not count as valid");
-console.log("9 passed, 0 failed");
+assert.equal(parseEpubcheckReport({ messages: [] }, 0).complete, false, "Missing checker summary cannot certify validity");
+console.log("10 passed, 0 failed");

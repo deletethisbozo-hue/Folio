@@ -59,3 +59,14 @@ for (const distribution of distributions) {
     console.log(`${distribution.name}: verified ${distribution.sha256}`);
   } finally { await fs.rm(stage, { recursive: true, force: true }); }
 }
+
+if (process.platform === "win32") {
+  const sourceName = "temurin-21.0.12.1-source.tar.gz";
+  const response = await fetch("https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk-sources_21.0.12.1_1.tar.gz", { signal: AbortSignal.timeout(180_000) });
+  if (!response.ok) throw new Error(`Java source download failed: HTTP ${response.status}`);
+  const source = Buffer.from(await response.arrayBuffer());
+  const checksum = "573057d03584ae793fb7ec9a14c76d826d9187a53efeefd99da47403a5308234";
+  if (createHash("sha256").update(source).digest("hex") !== checksum) throw new Error("Java corresponding source checksum mismatch");
+  await fs.writeFile(path.join(root, sourceName), source);
+  console.log(`${sourceName}: verified ${checksum}`);
+}

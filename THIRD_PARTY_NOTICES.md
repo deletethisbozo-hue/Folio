@@ -24,8 +24,10 @@ app-resources/vendor/epubcheck.
 They also include Eclipse Temurin OpenJDK 21.0.12.1+1 JRE for Windows x64
 (https://github.com/adoptium/temurin21-binaries), under GPLv2 with the Classpath
 Exception and the notices in the included legal/ directory. Corresponding
-OpenJDK source is available from https://github.com/adoptium/jdk21u at
-jdk-21.0.12.1+1. The distribution's own LICENSE, NOTICE and legal files are
+unmodified upstream source is supplied alongside the Windows release as
+temurin-21.0.12.1-source.tar.gz (SHA-256
+573057d03584ae793fb7ec9a14c76d826d9187a53efeefd99da47403a5308234).
+The distribution's own LICENSE, NOTICE and legal files are
 shipped in app-resources/java. Neither runtime is downloaded at application
 startup. Build inputs are pinned by SHA-256 in scripts/setup-publishing-tools.mjs.
 
@@ -49,3 +51,8 @@ Ghostscript. Choose the printer's supplied CMYK ICC profile when that printing
 condition is required. PDF/X exports run actual CMYK conversion, font embedding,
 ICC, page-box and searchable-text checks; Folio does not claim independent ISO
 certification of every possible PDF construct.
+
+EPUB resource optimization uses @xmldom/xmldom 0.9.12 and css-tree 3.2.1
+(https://github.com/xmldom/xmldom and https://github.com/csstree/csstree),
+under their included MIT licenses. XML attributes and CSS URL nodes are
+processed structurally; manuscript prose and code examples are not rewritten.

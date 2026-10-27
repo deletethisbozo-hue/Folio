@@ -25,13 +25,15 @@ try {
   assert.equal(converted.report.valid, true, JSON.stringify(converted.report));
   assert.ok(converted.report.embeddedFonts > 0);
   const preview = await renderPrintPreviewHtml(book, { ...options, spreadMode: "facing" });
+  assert.equal(preview.meta.pages, single.meta.pages, "Preview and PDF must use identical final pagination");
+  assert.equal(preview.meta.gutter, single.meta.gutter, "Preview and PDF must use the same resolved inner margin");
   assert.match(preview.html, /class="folio-print-spread"/);
   assert.match(preview.html, /class="folio-physical-page"/);
   for (const section of book.sections.filter((section) => section.kind === "chapter")) assert.ok(preview.html.includes(`id="${section.id}"`), `Full-book preview lost ${section.id}`);
   const booklet = await renderPrintPdf(book, { ...options, spreadMode: "booklet", signaturePages: 16 });
   const sheets = await PDFDocument.load(booklet.buffer);
   assert.equal(sheets.getPageCount(), bookletOrder(booklet.meta.pages, 16).length);
-  assert.ok(Math.abs(sheets.getPage(0).getWidth() - 308 * 72 / 25.4) < 0.01);
+  assert.ok(Math.abs(sheets.getPage(0).getWidth() - 302 * 72 / 25.4) < 0.01);
   assert.equal(JSON.stringify(book), original, "Publication transforms must preserve all project source data");
-  console.log(`${8 + 3 * pdf.getPageCount() + book.sections.filter((section) => section.kind === "chapter").length} passed, 0 failed`);
+  console.log(`${10 + 3 * pdf.getPageCount() + book.sections.filter((section) => section.kind === "chapter").length} passed, 0 failed`);
 } finally { await closeBrowser(); await fixture.cleanup(); }
