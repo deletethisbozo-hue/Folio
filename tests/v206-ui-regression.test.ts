@@ -145,7 +145,16 @@ try {
   check("legacy image cannot lock or replace the chapter", legacyState.editable === "true" && !legacyState.locked && !legacyState.fullPage && legacyState.text.includes("BEFORE_LEGACY_IMAGE") && legacyState.text.includes("AFTER_LEGACY_IMAGE"), JSON.stringify(legacyState));
   await page.waitForFunction(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
-    return doc?.body.textContent?.includes("AFTER_LEGACY_IMAGE") && !document.querySelector(".preview-loading");
+    return doc?.body.textContent?.replace(/[\u00ad-]/g, "").includes("AFTER_LEGACY_IMAGE") && !document.querySelector(".preview-loading");
+  }).catch(async (error) => {
+    const state = await page.evaluate(() => ({
+      device: (document.querySelector('select[aria-label="Preview device"]') as HTMLSelectElement | null)?.value,
+      loading: Boolean(document.querySelector(".preview-loading")),
+      previewError: document.querySelector(".preview-error")?.textContent,
+      editor: document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown,
+      frame: document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.body.textContent?.slice(-1800),
+    }));
+    throw new Error(`Legacy reader did not become ready: ${JSON.stringify(state)}; ${error}`);
   });
   await page.click(".rich-editor");
   await page.keyboard.press("Control+End");
@@ -168,7 +177,7 @@ try {
   });
   check("ordinary typing does not rehydrate unrelated illustrations", typingMutations.figure === 0, JSON.stringify(typingMutations));
   check("preview does not rebuild the chapter on every keystroke", typingMutations.preview === 0, JSON.stringify(typingMutations));
-  await page.waitForFunction(() => document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.body.textContent?.includes("RESPONSIVENESS_CHECK_123456789"));
+  await page.waitForFunction(() => document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.body.textContent?.replace(/[\u00ad-]/g, "").includes("RESPONSIVENESS_CHECK_123456789"));
   await page.hover(".editor-illustration");
   await page.click(".editor-illustration-remove");
   await page.waitForFunction(() => {
