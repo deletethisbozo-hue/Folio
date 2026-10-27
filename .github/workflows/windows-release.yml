@@ -110,6 +110,9 @@ jobs:
           npm run build:web
           node --import tsx tests/illustration-v6-opener-dropcap.test.ts
 
+      - name: Tall legacy illustration physical containment gate
+        run: node --import tsx tests/legacy-tall-illustration.test.ts
+
       - name: Focused Writing Studio responsiveness and interaction gate
         run: node --import tsx tests/write-studio-ui.test.ts
 
