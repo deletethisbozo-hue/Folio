@@ -31,6 +31,7 @@ const ORDER = [
   "typesetting-language.test.ts",
   "ingestion.test.ts",
   "versioning.test.ts",
+  "immutable-release-guard.test.ts",
   "destinations.test.ts",
   "review-folder.test.ts",
   "dropcap.test.ts",
