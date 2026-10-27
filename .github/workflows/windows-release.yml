@@ -91,12 +91,14 @@ jobs:
           if ($license) { Copy-Item $license.FullName build\pandoc\PANDOC_LICENSE.txt }
           & build\pandoc\pandoc.exe --version | Select-Object -First 1
 
-      - name: Download pinned Chromium runtime
+      - name: Download pinned Chrome runtime
         shell: pwsh
         run: |
-          npx puppeteer browsers install chrome-headless-shell
-          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "156\.0\.8078\.47" } | Select-Object -First 1
-          if (-not $chrome) { throw "Pinned Chrome Headless Shell 156.0.8078.47 was not installed." }
+          npx puppeteer browsers install chrome
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome.exe -Recurse | Where-Object { $_.FullName -match "156\.0\.8078\.47" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome 156.0.8078.47 was not installed." }
+          Remove-Item build\puppeteer-cache\chrome-headless-shell -Recurse -Force -ErrorAction SilentlyContinue
+          "PUPPETEER_EXECUTABLE_PATH=$($chrome.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           $chrome.FullName
 
       - name: Typecheck

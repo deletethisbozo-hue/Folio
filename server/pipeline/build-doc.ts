@@ -26,7 +26,10 @@ export function prepareFullPageImageMarkdown(markdown: string, dedicatedPage = f
       if (!/(?:^|\s)\.full-page-image(?:\s|$)/.test(attrs)) return image;
       if (dedicatedPage) return image + "\u00a0";
       const normalAttrs = attrs.replace(/(?:^|\s)\.(?:full-page-image|fit-contain|fit-cover)(?=\s|$)/g, " ").trim();
-      return link + (normalAttrs ? `{${normalAttrs}}` : "") + "\u00a0";
+      const illustrationAttrs = /(?:^|\s)\.folio-illustration(?:\s|$)/.test(normalAttrs) ? normalAttrs : `${normalAttrs} .folio-illustration`.trim();
+      // Use the ordinary Lua illustration path, which applies sizing guards and
+      // suppresses implicit figure captions without adding a stray paragraph space.
+      return `${link}{${illustrationAttrs}}`;
     },
   );
 }
