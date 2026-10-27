@@ -122,7 +122,9 @@ for (const file of suites) {
   if (failedN > 0 || code !== 0) {
     failed.push(file);
     if (timedOut) console.log(`      ✗ ${file} exceeded the ${Math.round(timeoutMs / 1000)}s per-suite watchdog`);
-    // Only the failing lines — the full output is long and mostly ticks.
+    // Preserve full failing-suite evidence so the exact assertion and stack are available.
+    console.log(out);
+    // Also repeat the failing lines for the job summary.
     out
       .split("\n")
       .filter((l) => l.includes("✗") || /Error|error TS/.test(l))
