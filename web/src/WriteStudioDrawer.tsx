@@ -6,9 +6,7 @@ import {
   countMatches,
   diffLines,
   markdownToReadableSnapshotText,
-  nearbyPhrases,
-  nearbyRepetitions,
-  repeatedWords,
+  analyzeWritingSnapshot,
   replaceMatches,
   replacementForMatch,
   todayKey,
@@ -183,15 +181,19 @@ export default function WriteStudioDrawer(props: Props) {
   const today = todayKey();
   const todayProgress = props.state?.dailyProgress[today] ?? 0;
   const chapterTarget = props.selectedId ? targetDraft.chapters[props.selectedId] ?? null : null;
+  const analysisActive = props.open && props.activeTab === "analysis";
+  const [analysisDraft, setAnalysisDraft] = useState("");
+  const analysisReady = analysisActive && analysisDraft === props.draft;
+  useEffect(() => {
+    if (!analysisActive) return;
+    const timer = window.setTimeout(() => setAnalysisDraft(props.draft), 350);
+    return () => window.clearTimeout(timer);
+  }, [analysisActive, props.draft]);
   const analysisSeparator = useMemo(() => Array.from({ length: 200 }, (_, index) => String(1000000 + index)).join(" "), []);
-  const readableDraft = useMemo(() => markdownToReadableSnapshotText(props.draft), [props.draft]);
-  const analysisSource = analysisScope === "book"
-    ? (bookDocs
-        ? bookDocs
-            .map((doc) => markdownToReadableSnapshotText(doc.id === props.selectedId ? props.draft : doc.markdown))
-            .join("\n\n" + analysisSeparator + "\n\n")
-        : "")
-    : readableDraft;
+  const analysis = useMemo(() => analyzeWritingSnapshot(analysisReady, () => analysisScope === "book"
+    ? (bookDocs ? bookDocs.map((doc) => markdownToReadableSnapshotText(doc.id === props.selectedId ? analysisDraft : doc.markdown)).join("\n\n" + analysisSeparator + "\n\n") : "")
+    : markdownToReadableSnapshotText(analysisDraft), props.language, analysisWindow),
+  [analysisReady, analysisScope, bookDocs, props.selectedId, analysisDraft, analysisSeparator, props.language, analysisWindow]);
   const exactBookWords = exactCounts
     ? exactCounts.total + Object.entries(props.liveSectionWordCounts).reduce((delta, [sectionId, liveCount]) => {
         const kind = props.project.sections.find((section) => section.id === sectionId)?.kind;
@@ -200,9 +202,9 @@ export default function WriteStudioDrawer(props: Props) {
         return savedCount === undefined ? delta : delta + liveCount - savedCount;
       }, 0)
     : props.totalWords;
-  const repeated = useMemo(() => repeatedWords(analysisSource, props.language), [analysisSource, props.language]);
-  const nearby = useMemo(() => nearbyRepetitions(analysisSource, props.language, analysisWindow), [analysisSource, props.language, analysisWindow]);
-  const nearbyPhraseResults = useMemo(() => nearbyPhrases(analysisSource, props.language, analysisWindow), [analysisSource, props.language, analysisWindow]);
+  const repeated = analysis?.repeated ?? [];
+  const nearby = analysis?.nearby ?? [];
+  const nearbyPhraseResults = analysis?.phrases ?? [];
   const revisions = useMemo(() => (props.state?.revisions ?? []).filter((item) => item.scope === "book" || item.sectionId === props.selectedId), [props.state?.revisions, props.selectedId]);
   const comments = useMemo(() => (props.state?.comments ?? []).filter((item) => item.sectionId === props.selectedId).sort((a, b) => Number(a.resolved) - Number(b.resolved) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [props.state?.comments, props.selectedId]);
   const notes = useMemo(() => {
@@ -215,7 +217,7 @@ export default function WriteStudioDrawer(props: Props) {
   let currentMatchCount = 0;
   let searchError = "";
   try {
-    currentMatchCount = query ? countMatches(props.draft, query, searchOptions) : 0;
+    currentMatchCount = props.open && props.activeTab === "find" && query ? countMatches(props.draft, query, searchOptions) : 0;
   } catch (error) {
     searchError = error instanceof Error ? error.message : String(error);
   }
@@ -451,10 +453,15 @@ export default function WriteStudioDrawer(props: Props) {
 
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   useEffect(() => {
+    if (!props.open || props.activeTab !== "find") return;
     if (!query) { setSearchHits([]); return; }
     if (scope === "book" && !bookDocs) { setSearchHits([]); return; }
-    void bookMatches().then(setSearchHits);
-  }, [query, replacement, scope, searchOptions.caseSensitive, searchOptions.wholeWord, searchOptions.regex, props.draft, props.selectedId, bookDocs]);
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void bookMatches().then((hits) => { if (!cancelled) setSearchHits(hits); });
+    }, 200);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [props.open, props.activeTab, query, replacement, scope, searchOptions.caseSensitive, searchOptions.wholeWord, searchOptions.regex, props.draft, props.selectedId, bookDocs]);
 
   if (!props.open) return null;
 
@@ -616,7 +623,7 @@ export default function WriteStudioDrawer(props: Props) {
       {props.state && props.activeTab === "analysis" && <div className="write-studio-section">
         <div className="write-section-heading"><div><h3>Repetition analysis</h3><p>Diagnostics only. Folio never rewrites your prose.</p></div></div>
         <div className="search-scope analysis-scope"><button className={analysisScope === "chapter" ? "active" : ""} onClick={() => setAnalysisScope("chapter")}>Chapter</button><button className={analysisScope === "book" ? "active" : ""} onClick={() => { setAnalysisScope("book"); if (!bookDocs) void scanBook().catch((error) => props.onError(error instanceof Error ? error.message : String(error))); }}>Entire book</button></div>
-        {analysisScope === "book" && !bookDocs ? <div className="write-studio-empty">{searchBusy ? "Scanning manuscript…" : "Open Entire Book to scan the manuscript."}</div> : <>
+        {!analysisReady ? <div className="write-studio-empty" role="status">Updating analysis…</div> : analysisScope === "book" && !bookDocs ? <div className="write-studio-empty">{searchBusy ? "Scanning manuscript…" : "Open Entire Book to scan the manuscript."}</div> : <>
           <h4>Repeated words</h4>
           <div className="analysis-list">{repeated.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}</strong></button>)}{!repeated.length && <div className="write-studio-empty">No notable repetitions in this scope.</div>}</div>
           <div className="analysis-window"><label>Nearby window <input type="range" min="30" max="180" step="10" value={analysisWindow} onChange={(event) => setAnalysisWindow(Number(event.target.value))}/><span>{analysisWindow} words</span></label></div>

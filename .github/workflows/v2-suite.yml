@@ -85,5 +85,11 @@ jobs:
             build/qa-v210-writing-studio/03ad-progress-halo-light.png
             build/qa-v210-writing-studio/03de-progress-halo-midnight.png
           if-no-files-found: error
+      - name: Tall legacy illustration physical containment gate
+        run: node --import tsx tests/legacy-tall-illustration.test.ts
+
+      - name: Focused Writing Studio responsiveness and interaction gate
+        run: node --import tsx tests/write-studio-ui.test.ts
+
       - name: Full formatter and UI suite
         run: npm test

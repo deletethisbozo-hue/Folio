@@ -40,22 +40,40 @@ const server = app.listen(0, "127.0.0.1");
 await new Promise((resolve) => server.once("listening", resolve));
 const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 
+let stage = "launch browser";
+let captureState: (() => Promise<unknown>) | undefined;
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error instanceof Error ? error.message : String(error)));
+  captureState = async () => ({ stage, browserErrors, ui: await page.evaluate(() => ({
+    mode: document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode"),
+    selected: document.querySelector(".contents-row.selected")?.textContent,
+    editor: document.querySelector(".rich-editor")?.getAttribute("contenteditable"),
+    drawer: Boolean(document.querySelector(".write-studio-drawer")),
+    error: document.querySelector(".global-error, .preview-error")?.textContent,
+    body: document.body.innerText.slice(-1600),
+  })) });
   page.setDefaultTimeout(45_000);
   page.setDefaultNavigationTimeout(60_000);
   await page.setViewport({ width: 1440, height: 900 });
   await page.goto(base, { waitUntil: "networkidle0" });
 
+  stage = "open sample chapter";
   await clickButtonByText(page, "button", "Open Sample");
+  await page.waitForSelector(".contents-list button.chapter-row");
+  await page.click(".contents-list button.chapter-row");
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
+  stage = "switch to Write";
   await clickButtonByText(page, ".workspace-mode-switch button", "Write");
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-workspace-mode") === "write");
 
+  stage = "open Writing Studio";
   await page.click(".editor-tools-toggle");
   await page.waitForSelector(".write-studio-drawer");
 
+  stage = "inspect drawer layout";
   const shell = await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>(".folio-shell")!;
     const drawer = document.querySelector<HTMLElement>(".write-studio-drawer")!;
@@ -72,6 +90,7 @@ try {
   check("Writing Studio is an overlay drawer rather than a third grid column", shell.drawerPosition === "fixed" && shell.drawerRight === "0px", JSON.stringify(shell));
   check("all selected Write tools are present", ["Session", "Notes", "Comments", "History", "Find", "Analysis"].every((tab) => shell.tabs.includes(tab)), JSON.stringify(shell.tabs));
 
+  stage = "inspect Session";
   const sessionUi = await page.evaluate(() => ({
     targets: [...document.querySelectorAll(".write-target-input > span")].map((item) => item.textContent?.trim()),
     stats: [...document.querySelectorAll(".write-stat-grid > div > span")].map((item) => item.textContent?.trim()),
@@ -86,9 +105,11 @@ try {
     inputs[1].value = "1500";
     inputs[1].dispatchEvent(new Event("input", { bubbles: true }));
   });
+  stage = "save Session targets";
   await clickButtonByText(page, ".write-section-heading button", "Save");
   await sleep(150);
 
+  stage = "capture prose selection";
   // Capture a real editor selection before moving focus into the drawer.
   const selected = await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -115,6 +136,7 @@ try {
   });
   check("test manuscript provides selectable prose", selected.length > 0, selected);
 
+  stage = "add selection comment";
   await clickButtonByText(page, ".write-studio-tabs button", "Comments");
   await page.waitForSelector(".comment-compose textarea");
   await page.type(".comment-compose textarea", "Browser smoke comment");
@@ -122,6 +144,7 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll(".comment-card p")].some((item) => item.textContent?.includes("Browser smoke comment")));
   check("inline comment survives focus moving into the drawer", true);
 
+  stage = "create chapter snapshot";
   await clickButtonByText(page, ".write-studio-tabs button", "History");
   await page.waitForSelector(".snapshot-compose input");
   await page.type(".snapshot-compose input", "Browser checkpoint");
@@ -138,6 +161,7 @@ try {
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "temporary-chapter-snapshot-mutation" }));
   });
   await sleep(120);
+  stage = "restore chapter snapshot";
   const openedChapterSnapshot = await page.evaluate(() => {
     const row = [...document.querySelectorAll<HTMLButtonElement>(".revision-row")]
       .find((item) => item.textContent?.includes("Browser checkpoint"));
@@ -154,6 +178,7 @@ try {
   });
   check("chapter snapshot restore replaces the live editor content", true);
 
+  stage = "create whole book snapshot";
   await clickButtonByText(page, ".snapshot-scope button", "Whole book");
   const snapshotLabelInput = await page.$(".snapshot-compose input");
   await snapshotLabelInput?.type("Browser book checkpoint");
@@ -170,6 +195,7 @@ try {
     editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "temporary-book-snapshot-mutation" }));
   });
   await sleep(120);
+  stage = "restore whole book snapshot";
   const openedBookSnapshot = await page.evaluate(() => {
     const row = [...document.querySelectorAll<HTMLButtonElement>(".revision-row")]
       .find((item) => item.textContent?.includes("Browser book checkpoint"));
@@ -186,6 +212,7 @@ try {
   });
   check("whole-book snapshot restore reloads the live editor content", true);
 
+  stage = "insert repetition fixture";
   // Add a deterministic repeated word through the real editor input path.
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -197,10 +224,12 @@ try {
   });
   await sleep(250);
 
+  stage = "analyze live unsaved draft";
   await clickButtonByText(page, ".write-studio-tabs button", "Analysis");
   await page.waitForFunction(() => [...document.querySelectorAll(".analysis-list button span")].some((item) => item.textContent?.trim() === "spectrometer"));
   check("repetition analysis reacts to the live unsaved editor", true);
 
+  stage = "search replacement preview";
   await clickButtonByText(page, ".write-studio-tabs button", "Find");
   await page.waitForSelector(".advanced-search input");
   const findInputs = await page.$$(".advanced-search input");
@@ -213,6 +242,7 @@ try {
   }));
   check("Find shows a replacement preview before Replace All", /spectrometer/i.test(findPreview.before) && /instrument/i.test(findPreview.after), JSON.stringify(findPreview));
 
+  stage = "wait for four search results";
   await page.waitForFunction(() => document.querySelectorAll(".search-hit-list button").length >= 4);
   const selectionOffset = async () => page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".manuscript-editor");
@@ -230,17 +260,52 @@ try {
     if (!button) throw new Error("Search hit " + targetIndex + " is no longer available.");
     button.click();
   }, index);
+  stage = "navigate first search result";
   await clickSearchHit(0);
   await sleep(120);
   const firstHitOffset = await selectionOffset();
+  stage = "wait for four search results";
   await page.waitForFunction(() => document.querySelectorAll(".search-hit-list button").length >= 4);
+  stage = "navigate third search result";
   await clickSearchHit(2);
   await sleep(120);
   const thirdHitOffset = await selectionOffset();
   check("Find can navigate to separate repeated results in the same chapter", firstHitOffset >= 0 && thirdHitOffset > firstHitOffset, JSON.stringify({ firstHitOffset, thirdHitOffset }));
 
+  stage = "inspect session status";
   const status = await page.evaluate(() => document.querySelector(".write-session-chip")?.textContent ?? "");
   check("status bar exposes compact session progress", /words/.test(status) && /active min/.test(status), status);
+  stage = "close Writing Studio";
+  await page.click('.write-studio-header button[aria-label="Close writing tools"]');
+  await page.waitForFunction(() => !document.querySelector(".write-studio-drawer"));
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor")!;
+    const sentence = "The spectrometer records the distant lantern while the traveller studies the old manuscript. ";
+    editor.innerHTML = Array.from({ length: 120 }, (_, i) => `<p>${i === 0 ? "START HIDDEN ANALYSIS TEST " : ""}${sentence.repeat(12)}${i === 119 ? " END HIDDEN ANALYSIS TEST" : ""}</p>`).join("");
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    editor.focus();
+    const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+    const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+  });
+  stage = "wait for long chapter serialization";
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("END HIDDEN ANALYSIS TEST"));
+  stage = "long chapter typing CPU budget";
+  const metrics = await page.createCDPSession();
+  await metrics.send("Performance.enable");
+  const beforeTyping = await metrics.send("Performance.getMetrics");
+  await page.keyboard.type(" Ordinary typing must stay responsive.", { delay: 15 });
+  const afterTyping = await metrics.send("Performance.getMetrics");
+  const scriptBefore = beforeTyping.metrics.find((item) => item.name === "ScriptDuration")?.value ?? 0;
+  const scriptAfter = afterTyping.metrics.find((item) => item.name === "ScriptDuration")?.value ?? 0;
+  check("closed Writing Studio does not run analysis during a long-chapter typing burst", scriptAfter - scriptBefore < 1, `${(scriptAfter - scriptBefore).toFixed(3)} seconds of renderer JavaScript`);
+  check("long-chapter typing with hidden tools keeps the full manuscript", await page.$eval(".rich-editor", (el) => {
+    const markdown = (el as HTMLElement).dataset.markdown ?? "";
+    return markdown.includes("START HIDDEN ANALYSIS TEST") && markdown.includes("END HIDDEN ANALYSIS TEST") && markdown.includes("Ordinary typing must stay responsive.");
+  }));
+  await metrics.detach();
+} catch (error) {
+  console.error(`Write Studio failed during ${stage}: ${JSON.stringify(await captureState?.())}`);
+  throw error;
 } finally {
   server.close();
   await closeBrowser();

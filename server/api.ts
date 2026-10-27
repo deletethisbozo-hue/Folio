@@ -54,7 +54,6 @@ import { roundWarning } from "./versioning.ts";
 import type { ArtifactType } from "./destinations.ts";
 import { THEME_FONTS_DIR } from "./pipeline/paths.ts";
 import { normalizeThemeFontStack } from "./pipeline/theme-fonts.ts";
-import { registerImagePageApi } from "./image-page-api.ts";
 import { registerIllustrationApi } from "./illustration-api.ts";
 import { forgetRecentProject, readRecentProjects, rememberRecentProject } from "./recent-projects.ts";
 import { customFontById, customFontPath, installCustomFont, readCustomFonts, readThemeLibrary, writeThemeLibrary } from "./global-library.ts";
@@ -162,7 +161,6 @@ export function registerApi(app: Express): void {
   // Only the newest Print Preview request for a project should occupy Chromium.
   // A browser fetch abort by itself does not cancel server-side pagination.
   const printPreviewControllers = new Map<string, AbortController>();
-  registerImagePageApi(app);
   registerIllustrationApi(app);
   app.get("/theme-fonts/:file", (req, res) =>
     wrap(res, async () => {

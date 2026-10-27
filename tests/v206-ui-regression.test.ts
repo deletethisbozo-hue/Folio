@@ -38,6 +38,11 @@ console.log("\nFolio 2.0.7 visual/media regression gate");
 try {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  let projectId = "";
+  page.on("request", (request) => {
+    const match = new URL(request.url()).pathname.match(/^\/api\/projects\/([^/]+)\//);
+    if (match) projectId = decodeURIComponent(match[1]);
+  });
   page.setDefaultTimeout(30000);
   await page.setViewport({ width: 1536, height: 960 });
   await page.goto(base, { waitUntil: "networkidle0" });
@@ -109,75 +114,89 @@ try {
   check("cover preview maximises without cropping", coverState.fit === "contain", coverState.fit);
   check("Replace Cover is a coherent desktop secondary action", coverState.buttonHeight >= 34 && coverState.buttonFont.includes("Source Sans 3") && Number.parseFloat(coverState.buttonRadius) <= 5, JSON.stringify(coverState));
 
-  async function addFullPageImage() {
-    const beforeCount = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.filter((row) => (row.textContent ?? "").includes(String(label))).length, neutralImageLabel);
-    await page.click('.library-add-section');
-    await page.waitForSelector('.folio-dialog[aria-label="Add Content"] .content-image-kind');
-    const uploadResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/image-page"), { timeout: 30000 });
-    const [chooser] = await Promise.all([
-      page.waitForFileChooser({ timeout: 12000 }),
-      page.click(".content-image-kind"),
-    ]);
-    await chooser.accept([mapFixture]);
-    const response = await uploadResponse;
-    if (!response.ok()) throw new Error(`Full-page image upload failed: ${response.status()} ${await response.text()}`);
-    await page.waitForFunction((label, count) => [...document.querySelectorAll(".contents-list .contents-row:not(.cover-row)")].filter((row) => (row.textContent ?? "").includes(String(label))).length > Number(count), { timeout: 30000 }, neutralImageLabel, beforeCount);
-    await page.waitForFunction(() => Boolean(document.querySelector(".editor-pane.folio-image-page-mode") || document.querySelector(".global-error")), { timeout: 30000 });
-    const error = await page.$eval("body", (body) => body.querySelector(".global-error")?.textContent ?? "");
-    if (error) throw new Error(error);
-  }
-
-  await addFullPageImage();
-  const filenameVisible = await page.$eval(".contents-list", (nav, label) => (nav.textContent ?? "").includes(String(label)), mapLabel);
-  check("Full-page Image never exposes the uploaded filename as a visible title", !filenameVisible, mapLabel);
-  await page.waitForSelector(".editor-pane.folio-image-page-mode .editor-full-page-art img");
-  const workspace = await page.evaluate(() => {
-    const pane = document.querySelector<HTMLElement>(".editor-pane.folio-image-page-mode");
-    const toolbar = pane?.querySelector<HTMLElement>(".format-toolbar");
-    const paper = pane?.querySelector<HTMLElement>(".editor-paper");
-    const editor = pane?.querySelector<HTMLElement>(".folio-image-page-editor");
-    const figure = pane?.querySelector<HTMLElement>(".editor-full-page-art");
-    const image = figure?.querySelector<HTMLImageElement>("img");
-    if (!pane || !toolbar || !paper || !editor || !figure || !image) throw new Error("Dedicated image-page workspace is incomplete");
-    const controls = figure.querySelector<HTMLElement>(".editor-illustration-controls");
-    const remove = figure.querySelector<HTMLElement>(".editor-illustration-remove");
-    return {
-      toolbar: getComputedStyle(toolbar).display,
-      paperBackground: getComputedStyle(paper).backgroundColor,
-      editorBackground: getComputedStyle(editor).backgroundColor,
-      editable: editor.getAttribute("contenteditable"),
-      fit: getComputedStyle(image).objectFit,
-      figureWidth: figure.getBoundingClientRect().width,
-      editorWidth: editor.getBoundingClientRect().width,
-      controls: controls ? getComputedStyle(controls).display : "missing",
-      remove: remove ? getComputedStyle(remove).display : "missing",
-    };
+  await page.click(".contents-list button.chapter-row");
+  await page.waitForSelector('.rich-editor[contenteditable="true"]');
+  check("Full Page insertion is absent from the chapter toolbar", await page.$('button[title^="Insert full-page"]') === null);
+  await page.click(".library-add-section");
+  await page.waitForSelector('.folio-dialog[aria-label="Add Content"]');
+  check("Add Content no longer offers full-page image creation", await page.$(".content-image-kind") === null);
+  await page.evaluate(() => {
+    const close = [...document.querySelectorAll<HTMLButtonElement>(".folio-dialog button")].find((el) => el.textContent?.trim() === "Close");
+    if (!close) throw new Error("Add Content close action missing");
+    close.click();
   });
-  check("Full-page Image has a dedicated non-text workspace", workspace.toolbar === "none" && workspace.editable === "false", JSON.stringify(workspace));
-  check("image-page workspace is white and fills the editor surface", workspace.paperBackground === "rgb(255, 255, 255)" && workspace.editorBackground === "rgb(255, 255, 255)" && Math.abs(workspace.figureWidth - workspace.editorWidth) < 2, JSON.stringify(workspace));
-  check("full-page artwork hides crop controls but keeps removal available", workspace.fit === "contain" && ["none", "missing"].includes(workspace.controls) && !["none", "missing"].includes(workspace.remove), JSON.stringify(workspace));
 
+  // Open a real legacy document with an image between two prose paragraphs.
+  const sectionId = await page.$eval(".rich-editor", (el) => (el as HTMLElement).dataset.sectionId!);
+  if (!projectId) throw new Error("Sample project ID was not observed");
+  const upload = new FormData();
+  upload.append("image", new Blob([pixel], { type: "image/png" }), "legacy-map.png");
+  const uploaded = await fetch(`${base}/api/projects/${encodeURIComponent(projectId)}/illustration`, { method: "POST", body: upload });
+  if (!uploaded.ok) throw new Error(`Legacy fixture image failed: ${await uploaded.text()}`);
+  const { asset } = await uploaded.json() as { asset: string };
+  const legacy = `BEFORE_LEGACY_IMAGE\n\n![Map](${asset}){.full-page-image .fit-contain}\n\nAFTER_LEGACY_IMAGE`;
+  const sectionUrl = `${base}/api/projects/${encodeURIComponent(projectId)}/sections/${encodeURIComponent(sectionId)}`;
+  const saved = await fetch(sectionUrl, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markdown: legacy }) });
+  if (!saved.ok) throw new Error(`Legacy fixture save failed: ${await saved.text()}`);
+  await page.click('.tiny-footer-button[aria-label="Reload files"]');
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("BEFORE_LEGACY_IMAGE"));
+  await page.waitForSelector('.rich-editor[contenteditable="true"] .editor-illustration img');
+  const legacyState = await page.$eval(".rich-editor", (el) => ({ editable: el.getAttribute("contenteditable"), text: (el as HTMLElement).innerText, locked: Boolean(el.closest(".folio-image-page-mode")), fullPage: Boolean(el.querySelector(".editor-full-page-image")) }));
+  check("legacy image cannot lock or replace the chapter", legacyState.editable === "true" && !legacyState.locked && !legacyState.fullPage && legacyState.text.includes("BEFORE_LEGACY_IMAGE") && legacyState.text.includes("AFTER_LEGACY_IMAGE"), JSON.stringify(legacyState));
   await page.waitForFunction(() => {
-    const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
-    return Boolean(frame?.contentDocument?.querySelector("section.image-page img.full-page-image"));
-  }, { timeout: 30000 });
-  const previewImage = await page.$eval("iframe", (frame) => {
-    const doc = frame.contentDocument;
-    const image = doc?.querySelector<HTMLImageElement>("section.image-page img.full-page-image");
-    if (!doc || !image) throw new Error("Reader full-page image missing");
-    return {
-      fit: getComputedStyle(image).objectFit,
-      imageBackground: getComputedStyle(image).backgroundColor,
-      bodyBackground: getComputedStyle(doc.body).backgroundColor,
-      scrollWidth: doc.documentElement.scrollWidth,
-      clientWidth: doc.documentElement.clientWidth,
-    };
+    const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
+    return doc?.body.textContent?.replace(/[\u00ad-]/g, "").includes("AFTER_LEGACY_IMAGE") && !document.querySelector(".preview-loading");
+  }).catch(async (error) => {
+    const state = await page.evaluate(() => ({
+      device: (document.querySelector('select[aria-label="Preview device"]') as HTMLSelectElement | null)?.value,
+      loading: Boolean(document.querySelector(".preview-loading")),
+      previewError: document.querySelector(".preview-error")?.textContent,
+      editor: document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown,
+      frame: document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.body.textContent?.slice(-1800),
+    }));
+    throw new Error(`Legacy reader did not become ready: ${JSON.stringify(state)}; ${error}`);
   });
-  check("Reader map preview is contain-fit on white with no horizontal scroll", previewImage.fit === "contain" && previewImage.imageBackground === "rgb(255, 255, 255)" && previewImage.bodyBackground === "rgb(255, 255, 255)" && previewImage.scrollWidth <= previewImage.clientWidth + 1, JSON.stringify(previewImage));
-
-  await addFullPageImage();
-  const labels = await page.$$eval(".contents-list .contents-row:not(.cover-row)", (rows, label) => rows.map((row) => row.textContent?.trim() ?? "").filter((text) => text.includes(String(label))), neutralImageLabel);
-  check("repeated Full-page Image entries stay neutral and filename-free", labels.length >= 2 && labels.every((label) => label === neutralImageLabel), labels.join(" | "));
+  await page.click(".rich-editor");
+  await page.keyboard.down("Control");
+  await page.keyboard.press("End");
+  await page.keyboard.up("Control");
+  await page.evaluate(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor")!;
+    const figure = editor.querySelector(".editor-illustration")!;
+    const section = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.querySelector("section.chapter, section.level1");
+    (window as any).__folioTypingMutations = { figure: 0, preview: 0 };
+    const figObserver = new MutationObserver((records) => { (window as any).__folioTypingMutations.figure += records.length; });
+    figObserver.observe(figure, { attributes: true, subtree: true });
+    const previewObserver = new MutationObserver((records) => { (window as any).__folioTypingMutations.preview += records.filter((r) => r.target === section && r.removedNodes.length > 0).length; });
+    if (!section) throw new Error("Reader section missing before typing performance test");
+    previewObserver.observe(section, { childList: true });
+    (window as any).__folioStopTypingObservers = () => { figObserver.disconnect(); previewObserver.disconnect(); };
+  });
+  await page.keyboard.type(" RESPONSIVENESS_CHECK_123456789", { delay: 25 });
+  const typingMutations = await page.evaluate(() => {
+    (window as any).__folioStopTypingObservers();
+    return (window as any).__folioTypingMutations as { figure: number; preview: number };
+  });
+  check("ordinary typing does not rehydrate unrelated illustrations", typingMutations.figure === 0, JSON.stringify(typingMutations));
+  check("preview does not rebuild the chapter on every keystroke", typingMutations.preview === 0, JSON.stringify(typingMutations));
+  await page.waitForFunction(() => document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument?.body.textContent?.replace(/[\u00ad-]/g, "").includes("RESPONSIVENESS_CHECK_123456789"));
+  await page.hover(".editor-illustration");
+  await page.click(".editor-illustration-remove");
+  await page.waitForFunction(() => {
+    const editor = document.querySelector<HTMLElement>(".rich-editor");
+    return !editor?.querySelector(".editor-illustration") && editor?.dataset.markdown?.includes("BEFORE_LEGACY_IMAGE") && editor?.dataset.markdown?.includes("AFTER_LEGACY_IMAGE");
+  });
+  await page.click(".rich-editor");
+  await page.keyboard.down("Control");
+  await page.keyboard.press("End");
+  await page.keyboard.up("Control");
+  await page.keyboard.type(" STILL_EDITABLE");
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("STILL_EDITABLE"));
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved");
+  await page.click('.tiny-footer-button[aria-label="Reload files"]');
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("STILL_EDITABLE"));
+  const restored = await (await fetch(sectionUrl)).json() as { markdown: string };
+  check("removing legacy art, typing and reloading preserves chapter prose", restored.markdown.includes("BEFORE_LEGACY_IMAGE") && restored.markdown.includes("AFTER_LEGACY_IMAGE") && restored.markdown.includes("STILL_EDITABLE") && !restored.markdown.includes(".full-page-image") && !restored.markdown.includes(asset));
 } catch (error) {
   failed++;
   console.error("✗ Folio 2.0.7 browser regression scenario");

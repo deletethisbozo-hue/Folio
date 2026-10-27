@@ -143,8 +143,8 @@ async function startFolio(initialProjectFile = null) {
     if (fs.existsSync(pandoc)) process.env.PANDOC_BIN = pandoc;
 
     const chromium = firstMatchingFile(path.join(process.resourcesPath, "chromium"), [
-      "chrome-headless-shell.exe",
       "chrome.exe",
+      "chrome-headless-shell.exe",
     ]);
     if (chromium) process.env.PUPPETEER_EXECUTABLE_PATH = chromium;
   }

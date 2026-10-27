@@ -638,3 +638,14 @@ export function diffLines(before: string, after: string): DiffLine[] {
   while (j < b.length) out.push({ kind: "add", text: b[j++] });
   return out;
 }
+
+/** Analysis is an explicit tool: a hidden drawer must not even read its source. */
+export function analyzeWritingSnapshot(active: boolean, source: () => string, language = "en", windowWords = 80) {
+  if (!active) return null;
+  const text = source();
+  return {
+    repeated: repeatedWords(text, language),
+    nearby: nearbyRepetitions(text, language, windowWords),
+    phrases: nearbyPhrases(text, language, windowWords),
+  };
+}

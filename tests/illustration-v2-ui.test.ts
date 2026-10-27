@@ -462,43 +462,54 @@ try {
     return { htmlLength: editor.innerHTML.length, paragraphs: paragraphs.length };
   });
   check("large chapter fixture exceeds the cooperative serialization threshold", largeChapter.htmlLength > 80_000, `${largeChapter.htmlLength} HTML characters`);
-  const fullPageUpload = page.waitForResponse((response) =>
+  await page.$eval(".rich-editor", (editor) => editor.dispatchEvent(new InputEvent("input", { bubbles: true })));
+  await page.waitForFunction(() => {
+    const markdown = document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown ?? "";
+    return markdown.includes("LARGE_CHAPTER_START") && markdown.includes("LARGE_CHAPTER_END");
+  });
+  stage = "ordinary middle-of-chapter typing without illustrations";
+  await page.keyboard.type(" MID_CHAPTER_EDIT ", { delay: 25 });
+  await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("MID_CHAPTER_EDIT"));
+  const proseEdit = await page.$eval(".rich-editor", (editor) => ({ editable: editor.getAttribute("contenteditable"), markdown: (editor as HTMLElement).dataset.markdown ?? "" }));
+  check("ordinary editing in a long chapter preserves text at both ends", proseEdit.editable === "true" && proseEdit.markdown.includes("LARGE_CHAPTER_START") && proseEdit.markdown.includes("LARGE_CHAPTER_END") && proseEdit.markdown.includes("MID_CHAPTER_EDIT"));
+  const largeImageUpload = page.waitForResponse((response) =>
     response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/illustration"),
     { timeout: 12000 },
   );
-  const [fullPageChooser] = await Promise.all([
+  const [largeImageChooser] = await Promise.all([
     page.waitForFileChooser({ timeout: 12000 }),
-    page.click('button[title^="Insert full-page illustration"]'),
+    page.click('button[title="Insert illustration at cursor"]'),
   ]);
-  await fullPageChooser.accept([fixture]);
-  if (!(await fullPageUpload).ok()) throw new Error("Full-page illustration upload failed for a large chapter");
+  await largeImageChooser.accept([fixture]);
+  if (!(await largeImageUpload).ok()) throw new Error("Illustration upload failed for a large chapter");
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
     const markdown = editor?.dataset.markdown ?? "";
     const heartbeat = (window as Window & { folioHeartbeat?: number }).folioHeartbeat ?? 0;
     return Boolean(
-      editor?.querySelector(".editor-full-page-image") &&
+      editor?.querySelector(".editor-illustration") &&
       markdown.includes("LARGE_CHAPTER_START") &&
       markdown.includes("LARGE_CHAPTER_END") &&
-      markdown.includes(".full-page-image") &&
+      markdown.includes(".folio-illustration") &&
       heartbeat >= 3
     );
   }, { timeout: 30000 });
-  check("Full Page insertion preserves a large chapter while the UI continues to run", true, `${largeChapter.paragraphs} paragraphs`);
+  check("Image insertion preserves a large chapter while the UI continues to run", true, `${largeChapter.paragraphs} paragraphs`);
 
-  // Removing a full-page illustration must be a local document edit. It must
+  // Removing an illustration must be a local document edit. It must
   // not leave the detached illustration inspector selected, truncate prose, or
   // resurrect the image when autosave/reload rebuilds the editor DOM.
-  stage = "scroll to full-page illustration remove control";
-  await page.$eval(".editor-full-page-image", (figure) => figure.scrollIntoView({ block: "center", inline: "nearest" }));
-  stage = "check full-page illustration remove control is visible";
+  stage = "scroll to illustration remove control";
+  await page.$eval(".editor-illustration", (figure) => figure.scrollIntoView({ block: "center", inline: "nearest" }));
+  await page.hover(".editor-illustration");
+  stage = "check illustration remove control is visible";
   await page.waitForFunction(() => {
-    const remove = document.querySelector<HTMLElement>(".editor-full-page-image .editor-illustration-remove");
+    const remove = document.querySelector<HTMLElement>(".editor-illustration .editor-illustration-remove");
     if (!remove) return false;
     const rect = remove.getBoundingClientRect();
     return getComputedStyle(remove).opacity === "1" && rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= window.innerHeight;
   }, { timeout: 10000 });
-  const removeHitTest = await page.$eval(".editor-full-page-image .editor-illustration-remove", (remove) => {
+  const removeHitTest = await page.$eval(".editor-illustration .editor-illustration-remove", (remove) => {
     const rect = remove.getBoundingClientRect();
     const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
     return {
@@ -508,22 +519,22 @@ try {
       targetOwnsHit: Boolean(top && (top === remove || remove.contains(top))),
     };
   });
-  if (!removeHitTest.targetOwnsHit) throw new Error(`Full-page remove button is covered: ${JSON.stringify(removeHitTest)}`);
-  stage = "click full-page illustration remove control";
-  await page.click(".editor-full-page-image .editor-illustration-remove");
-  stage = "verify manuscript after full-page illustration removal";
+  if (!removeHitTest.targetOwnsHit) throw new Error(`Illustration remove button is covered: ${JSON.stringify(removeHitTest)}`);
+  stage = "click illustration remove control";
+  await page.click(".editor-illustration .editor-illustration-remove");
+  stage = "verify manuscript after illustration removal";
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
     const markdown = editor?.dataset.markdown ?? "";
     return Boolean(
       editor &&
-      !editor.querySelector(".editor-full-page-image") &&
+      !editor.querySelector(".editor-illustration") &&
       markdown.includes("LARGE_CHAPTER_START") &&
       markdown.includes("LARGE_CHAPTER_END") &&
-      !markdown.includes(".full-page-image")
+      !markdown.includes(".folio-illustration")
     );
   }, { timeout: 30000 });
-  check("deleting a full-page illustration preserves all manuscript text", true);
+  check("deleting an illustration preserves all manuscript text", true);
   stage = "wait for deleted illustration to autosave";
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved", { timeout: 60000 });
   stage = "reload saved manuscript";
@@ -532,9 +543,9 @@ try {
   await page.waitForFunction(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor");
     const markdown = editor?.dataset.markdown ?? "";
-    return Boolean(editor && markdown.includes("LARGE_CHAPTER_START") && markdown.includes("LARGE_CHAPTER_END") && !markdown.includes(".full-page-image"));
+    return Boolean(editor && markdown.includes("LARGE_CHAPTER_START") && markdown.includes("LARGE_CHAPTER_END") && !markdown.includes(".folio-illustration"));
   }, { timeout: 60000 });
-  check("deleted full-page image stays removed after save and reload without losing the chapter", true);
+  check("deleted illustration stays removed after save and reload without losing the chapter", true);
 
   await page.close();
 } catch (error) {
