@@ -508,7 +508,7 @@ try {
       targetOwnsHit: Boolean(top && (top === remove || remove.contains(top))),
     };
   });
-  if (!removeHit.targetOwnsHit) throw new Error(`Full-page remove button is covered: ${JSON.stringify(removeHit)}`);
+  if (!removeHitTest.targetOwnsHit) throw new Error(`Full-page remove button is covered: ${JSON.stringify(removeHitTest)}`);
   stage = "click full-page illustration remove control";
   await page.click(".editor-full-page-image .editor-illustration-remove");
   stage = "verify manuscript after full-page illustration removal";

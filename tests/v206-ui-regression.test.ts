@@ -155,7 +155,7 @@ try {
   });
   check("Full-page Image has a dedicated non-text workspace", workspace.toolbar === "none" && workspace.editable === "false", JSON.stringify(workspace));
   check("image-page workspace is white and fills the editor surface", workspace.paperBackground === "rgb(255, 255, 255)" && workspace.editorBackground === "rgb(255, 255, 255)" && Math.abs(workspace.figureWidth - workspace.editorWidth) < 2, JSON.stringify(workspace));
-  check("full-page artwork never exposes crop/remove-X controls", workspace.fit === "contain" && ["none", "missing"].includes(workspace.controls) && ["none", "missing"].includes(workspace.remove), JSON.stringify(workspace));
+  check("full-page artwork hides crop controls but keeps removal available", workspace.fit === "contain" && ["none", "missing"].includes(workspace.controls) && !["none", "missing"].includes(workspace.remove), JSON.stringify(workspace));
 
   await page.waitForFunction(() => {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
