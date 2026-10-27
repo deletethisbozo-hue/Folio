@@ -276,7 +276,7 @@ try {
   const status = await page.evaluate(() => document.querySelector(".write-session-chip")?.textContent ?? "");
   check("status bar exposes compact session progress", /words/.test(status) && /active min/.test(status), status);
   stage = "close Writing Studio";
-  await page.click('button[aria-label="Close writing tools"]');
+  await page.click('.write-studio-header button[aria-label="Close writing tools"]');
   await page.waitForFunction(() => !document.querySelector(".write-studio-drawer"));
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor")!;

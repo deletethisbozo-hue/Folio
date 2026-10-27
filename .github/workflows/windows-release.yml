@@ -108,6 +108,9 @@ jobs:
           npm run build:web
           node --import tsx tests/illustration-v6-opener-dropcap.test.ts
 
+      - name: Focused Writing Studio responsiveness and interaction gate
+        run: node --import tsx tests/write-studio-ui.test.ts
+
       - name: Full formatter and UI suite on Windows
         shell: pwsh
         run: npm test
