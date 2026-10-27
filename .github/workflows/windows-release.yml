@@ -53,7 +53,7 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Refuse an existing immutable version
+      - name: Skip publication for an existing immutable version
         if: github.ref == 'refs/heads/main'
         shell: pwsh
         env:
@@ -61,10 +61,17 @@ jobs:
         run: |
           $tag = "v$env:FOLIO_VERSION"
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Refusing to delete or replace it; bump the version." }
-          $global:LASTEXITCODE = 0
-          git ls-remote --exit-code --tags origin "refs/tags/$tag" *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Tag $tag already exists. Refusing to move or replace it; bump the version." }
+          if ($LASTEXITCODE -eq 0) {
+            "FOLIO_SKIP_PUBLISH=true" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Host "Release $tag is already published; this push will run qualification without replacing the immutable release."
+          } else {
+            $global:LASTEXITCODE = 0
+            git ls-remote --exit-code --tags origin "refs/tags/$tag" *> $null
+            if ($LASTEXITCODE -eq 0) {
+              "FOLIO_SKIP_PUBLISH=true" | Out-File -FilePath $env:GITHUB_ENV -Append
+              Write-Host "Tag $tag already exists; this push will run qualification without moving the immutable tag."
+            }
+          }
           $global:LASTEXITCODE = 0
 
       - name: Download pinned Pandoc 3.11
@@ -243,7 +250,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish immutable GitHub Release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.FOLIO_SKIP_PUBLISH != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
