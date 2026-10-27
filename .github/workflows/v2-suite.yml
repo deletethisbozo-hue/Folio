@@ -43,10 +43,11 @@ jobs:
     timeout-minutes: 35
     env:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
+      PUPPETEER_SKIP_DOWNLOAD: "true"
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.23.2
           cache: npm
@@ -57,7 +58,12 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Install Chromium runtime
-        run: npx puppeteer browsers install chrome-headless-shell
+        shell: bash
+        run: |
+          npx puppeteer browsers install chrome-headless-shell
+          chrome=$(find "$PUPPETEER_CACHE_DIR" -type f -path '*156.0.8078.47*' -name chrome-headless-shell -print -quit)
+          test -n "$chrome"
+          echo "PUPPETEER_EXECUTABLE_PATH=$chrome" >> "$GITHUB_ENV"
       - name: Install pinned Pandoc 3.11
         shell: bash
         run: |
@@ -80,7 +86,7 @@ jobs:
 
       - name: Upload Halo QA screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Folio-Halo-QA
           path: |
@@ -88,5 +94,8 @@ jobs:
             build/qa-v210-writing-studio/03ad-progress-halo-light.png
             build/qa-v210-writing-studio/03de-progress-halo-midnight.png
           if-no-files-found: error
+      - name: Focused Writing Studio responsiveness and interaction gate
+        run: node --import tsx tests/write-studio-ui.test.ts
+
       - name: Full formatter and UI suite
         run: npm test

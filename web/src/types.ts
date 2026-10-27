@@ -186,6 +186,10 @@ export interface PrintOptions {
   binding: "paperback" | "hardcover";
   startChaptersRecto: boolean;
   layout: string;
+  bleedMm?: number;
+  spreadMode?: "single" | "facing" | "booklet";
+  signaturePages?: number;
+  rtl?: boolean;
   gutter?: number;
 }
 
@@ -248,6 +252,10 @@ export interface ExportResult {
   validation?: ValidationReport;
   sizeReport?: ExportSizeReport;
   pages?: number;
+  bleedMm?: number;
+  spreadMode?: "single" | "facing" | "booklet";
+  signaturePages?: number;
+  rtl?: boolean;
   gutter?: number;
   totalPages?: number;
   firstChapter?: number;

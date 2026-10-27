@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { PDFDocument } from "pdf-lib";
+import { makeBookFixture } from "./fixtures/book.ts";
+import { loadBook } from "../server/pipeline/ingest.ts";
+import { DEFAULT_PRINT } from "../server/print.ts";
+import { renderPrintPdf, renderPrintPreviewHtml } from "../server/pipeline/render-print.ts";
+import { bookletOrder } from "../server/pipeline/print-production.ts";
+import { closeBrowser } from "../server/pipeline/render-pdf.ts";
+
+const fixture = await makeBookFixture();
+try {
+  const { book } = await loadBook(fixture.bookDir);
+  const original = JSON.stringify(book);
+  const options = { ...DEFAULT_PRINT, trim: "a5", bleedMm: 3 };
+  const single = await renderPrintPdf(book, options);
+  const pdf = await PDFDocument.load(single.buffer);
+  assert.equal(pdf.getPageCount(), single.meta.pages);
+  for (const page of pdf.getPages()) {
+    assert.ok(Math.abs(page.getTrimBox().width - 148 * 72 / 25.4) < 0.01);
+    assert.ok(Math.abs(page.getTrimBox().height - 210 * 72 / 25.4) < 0.01);
+    assert.ok(Math.abs(page.getMediaBox().width - 154 * 72 / 25.4) < 0.01);
+  }
+  const preview = await renderPrintPreviewHtml(book, { ...options, spreadMode: "facing" });
+  assert.match(preview.html, /class="folio-print-spread"/);
+  assert.match(preview.html, /class="folio-physical-page"/);
+  for (const section of book.sections.filter((section) => section.kind === "chapter")) assert.ok(preview.html.includes(`id="${section.id}"`), `Full-book preview lost ${section.id}`);
+  const booklet = await renderPrintPdf(book, { ...options, spreadMode: "booklet", signaturePages: 16 });
+  const sheets = await PDFDocument.load(booklet.buffer);
+  assert.equal(sheets.getPageCount(), bookletOrder(booklet.meta.pages, 16).length);
+  assert.ok(Math.abs(sheets.getPage(0).getWidth() - 308 * 72 / 25.4) < 0.01);
+  assert.equal(JSON.stringify(book), original, "Publication transforms must preserve all project source data");
+  console.log(`${6 + 3 * pdf.getPageCount() + book.sections.filter((section) => section.kind === "chapter").length} passed, 0 failed`);
+} finally { await closeBrowser(); await fixture.cleanup(); }

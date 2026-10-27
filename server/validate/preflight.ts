@@ -5,6 +5,7 @@ import type { Book } from "../pipeline/types.ts";
 import { assembleMarkdown } from "../pipeline/build-doc.ts";
 import { PANDOC } from "../pipeline/pandoc.ts";
 import { run } from "../pipeline/exec.ts";
+import { buildThemeRuntimeCss } from "../pipeline/theme-fonts.ts";
 import { TRIMS, LAYOUTS, type PrintOptions } from "../print.ts";
 
 export interface PreflightIssue {
@@ -16,7 +17,7 @@ export interface PreflightIssue {
   asset?: string;
 }
 export interface PreflightReport { ready: boolean; issues: PreflightIssue[]; }
-export interface PreflightOptions { format: string; print?: PrintOptions; }
+export interface PreflightOptions { format: string; print?: PrintOptions; preset?: string; }
 
 /** Explicit publishing boundary only. Pandoc resolves Markdown references/code semantics. */
 export async function publishPreflight(book: Book, options: PreflightOptions): Promise<PreflightReport> {
@@ -31,11 +32,16 @@ export async function publishPreflight(book: Book, options: PreflightOptions): P
   }
   if (options.format === "print" && options.print) {
     const print = options.print;
+    if (print.bleedMm !== undefined && (!Number.isFinite(print.bleedMm) || print.bleedMm < 0 || print.bleedMm > 6)) add({ code: "PRINT_BLEED", severity: "error", text: "Bleed must be from 0 to 6 mm.", remedy: "Select a supported bleed value in Header & Footer settings." });
+    if (print.spreadMode && !["single", "facing", "booklet"].includes(print.spreadMode)) add({ code: "PRINT_SPREAD", severity: "error", text: "The page arrangement is unavailable.", remedy: "Choose Single pages, Facing pages or Booklet sheets." });
+    if (print.spreadMode === "booklet" && print.signaturePages !== undefined && (!Number.isInteger(print.signaturePages) || print.signaturePages < 4 || print.signaturePages > 64 || print.signaturePages % 4)) add({ code: "PRINT_SIGNATURE", severity: "error", text: "Booklet signatures must contain a multiple of four pages, from 4 to 64.", remedy: "Use the default 16-page signature." });
     if (!TRIMS.some((trim) => trim.key === print.trim)) add({ code: "PRINT_TRIM", severity: "error", text: "The selected paper profile is unavailable.", remedy: "Choose a supported paper profile in Print Preview." });
     if (!LAYOUTS.some((layout) => layout.key === print.layout)) add({ code: "PRINT_LAYOUT", severity: "error", text: "The running-head layout is unavailable.", remedy: "Choose a running-head layout in Print Preview." });
     if (print.gutter !== undefined && (!Number.isFinite(print.gutter) || print.gutter < 0.25 || print.gutter > 2)) add({ code: "PRINT_GUTTER", severity: "error", text: "The inner margin is outside the supported range.", remedy: "Use an inner margin from 0.25 to 2 inches, or select Auto." });
   }
-  for (const font of book.fonts) {
+  const runtimeFonts = await buildThemeRuntimeCss(book.meta.theme, "epub", [book.typography.bodyFont, book.typography.headingFont, book.typography.dropcapFont, book.typography.titlePageFont].filter((value): value is string => Boolean(value)), { embedFonts: options.format !== "epub" || options.preset !== "kdp" });
+  const fonts = [...book.fonts, ...runtimeFonts.fontFiles.map((file) => ({ file, family: path.basename(file) }))];
+  for (const font of fonts) {
     try { if (!(await fs.stat(font.file)).isFile()) throw new Error(); }
     catch { add({ code: "FONT_MISSING", severity: "error", asset: font.file, text: `The font ${font.family} is missing.`, remedy: "Install this font again or choose an available family." }); }
   }

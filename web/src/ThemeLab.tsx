@@ -1,3 +1,5 @@
+import { themeLabTypography } from "./theme-lab-typography";
+export { themeLabTypography } from "./theme-lab-typography";
 import { seatPreviewDropCaps } from "./dropcap-seat";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
@@ -116,33 +118,6 @@ function defaultConfig(theme: Theme | undefined, typography: Typography, customH
   };
 }
 
-export function themeLabTypography(base: Typography, lab: ThemeLabConfig): Typography {
-  return {
-    ...base,
-    themeLab: { ...lab, enabled: true },
-    bodyFont: lab.bodyFont,
-    fontSize: lab.bodySize ? String(lab.bodySize) + "em" : base.fontSize,
-    lineHeight: lab.lineHeight ?? base.lineHeight,
-    bodyAlign: lab.bodyAlign ?? base.bodyAlign,
-    paragraphIndent: lab.paragraphIndent === undefined ? base.paragraphIndent : String(lab.paragraphIndent) + "em",
-    paragraphSpacing: lab.paragraphSpacing === undefined ? base.paragraphSpacing : String(lab.paragraphSpacing) + "em",
-    headingFont: lab.headingFont,
-    dropcap: lab.dropcap,
-    dropcapSize: lab.dropcapSize,
-    dropcapFont: safeDropcapFamily(lab.dropcapFont ?? lab.headingFont),
-    sceneOrnament: lab.sceneOrnament,
-    titlePageFont: lab.titlePageFont,
-    chapterTitle: {
-      ...base.chapterTitle,
-      size: lab.headingSize ? String(lab.headingSize) + "em" : base.chapterTitle?.size,
-      case: lab.headingCase ?? base.chapterTitle?.case,
-      align: lab.headingAlign ?? base.chapterTitle?.align,
-      style: lab.headingStyle ?? base.chapterTitle?.style,
-      showLabel: lab.labelVisible,
-      labelText: lab.labelText,
-    },
-  };
-}
 
 function readBlobAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {

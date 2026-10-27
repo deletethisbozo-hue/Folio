@@ -1,3 +1,4 @@
+import { applyPrintPageBoxes, createPrintSpreads, bookletOrder } from "./print-production.ts";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import type { Page } from "puppeteer";
@@ -648,7 +649,9 @@ export async function renderPrintPdf(book: Book, opts: PrintOptions): Promise<{ 
       r = await withPaginated(book, { ...opts, gutter: correct }, pdfFn);
     }
   }
-  return { buffer: r.result, meta: r.meta };
+  let buffer = await applyPrintPageBoxes(r.result, opts.trim, opts.bleedMm ?? 0);
+  if (opts.spreadMode === "facing" || opts.spreadMode === "booklet") buffer = await createPrintSpreads(buffer, { mode: opts.spreadMode, signaturePages: opts.signaturePages, rtl: opts.rtl });
+  return { buffer, meta: r.meta };
 }
 
 /**
@@ -676,6 +679,41 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, sig
       t.w,
       t.h,
     );
+    if (opts.spreadMode === "facing" || opts.spreadMode === "booklet") {
+      const count = await page.$$eval(".pagedjs_page", (pages) => pages.length);
+      const order: Array<[number | null, number | null]> = opts.spreadMode === "booklet" ? bookletOrder(count, opts.signaturePages, opts.rtl) : [
+        opts.rtl ? [1, null] : [null, 1],
+        ...Array.from({ length: Math.ceil((count - 1) / 2) }, (_, index): [number | null, number | null] => {
+          const pair: [number | null, number | null] = [2 + index * 2, 3 + index * 2 <= count ? 3 + index * 2 : null];
+          return opts.rtl ? [pair[1], pair[0]] : pair;
+        }),
+      ];
+      await page.evaluate((pairs, width, height, bleedMm) => {
+        const parent = document.querySelector<HTMLElement>(".pagedjs_pages")!;
+        const pages = [...parent.querySelectorAll<HTMLElement>(".pagedjs_page")];
+        parent.replaceChildren();
+        for (const pair of pairs) {
+          const spread = document.createElement("div"); spread.className = "folio-print-spread";
+          for (const number of pair) {
+            if (number !== null) spread.appendChild(pages[number - 1]);
+            else { const blank = document.createElement("div"); blank.className = "folio-print-blank"; blank.setAttribute("aria-label", "Padding blank page"); spread.appendChild(blank); }
+          }
+          parent.appendChild(spread);
+        }
+        const style = document.createElement("style");
+        style.textContent = `.folio-print-spread{display:flex;width:max-content;gap:8px;margin:12px auto}.folio-print-spread>.pagedjs_page{margin:0!important}.folio-print-blank{width:${width}in;height:${height}in;background:#fff}.pagedjs_page{outline:${bleedMm > 0 ? "1px dashed #b75b5b" : "none"}}`;
+        document.head.appendChild(style);
+      }, order, t.w, t.h, opts.bleedMm ?? 0);
+    }
+    if ((opts.bleedMm ?? 0) > 0) await page.evaluate((bleedMm, width, height) => {
+      for (const page of document.querySelectorAll<HTMLElement>(".pagedjs_page, .folio-print-blank")) {
+        const sheet = document.createElement("div"); sheet.className = "folio-physical-page";
+        page.replaceWith(sheet); sheet.appendChild(page);
+      }
+      const style = document.createElement("style");
+      style.textContent = `.folio-physical-page{box-sizing:content-box;width:${width}in;height:${height}in;padding:${bleedMm}mm;background:#fff;margin:12px auto}.folio-physical-page>.pagedjs_page,.folio-physical-page>.folio-print-blank{margin:0!important;outline:1px dashed #b75b5b}.folio-print-spread>.folio-physical-page{margin:0}`;
+      document.head.appendChild(style);
+    }, opts.bleedMm ?? 0, t.w, t.h);
     return page.content();
   }, "preview", signal);
   return { html: result, meta };

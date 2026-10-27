@@ -1,19 +1,8 @@
 import type { BookMeta } from "./pipeline/types.ts";
 
-export interface Trim {
-  key: string;
-  label: string;
-  w: number; // inches
-  h: number;
-}
-
-export const TRIMS: Trim[] = [
-  { key: "5x8", label: "5 × 8 in", w: 5, h: 8 },
-  { key: "5.25x8", label: "5.25 × 8 in", w: 5.25, h: 8 },
-  { key: "5.5x8.5", label: "5.5 × 8.5 in", w: 5.5, h: 8.5 },
-  { key: "6x9", label: "6 × 9 in", w: 6, h: 9 },
-  { key: "8.5x11", label: "8.5 × 11 in (Letter)", w: 8.5, h: 11 },
-];
+export type { PaperProfile as Trim } from "../shared/paper-profiles.ts";
+import { PAPER_PROFILES, type PaperProfile as Trim } from "../shared/paper-profiles.ts";
+export const TRIMS = PAPER_PROFILES;
 
 type HeadContent = "none" | "author" | "title" | "chapter";
 type FolioPos = "bottom-center" | "top-outer" | "none";
@@ -44,6 +33,10 @@ export interface PrintOptions {
   binding: "paperback" | "hardcover";
   startChaptersRecto: boolean;
   layout: string;
+  bleedMm?: number; // symmetric unprinted bleed area, in millimetres
+  spreadMode?: "single" | "facing" | "booklet";
+  signaturePages?: number;
+  rtl?: boolean;
   gutter?: number; // manual inner-margin override (inches); omit for auto
 }
 

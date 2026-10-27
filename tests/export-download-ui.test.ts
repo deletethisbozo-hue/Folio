@@ -119,5 +119,5 @@ try {
   await fs.rm(downloadDir, { recursive: true, force: true });
 }
 
-console.log(`  ${pass} passed · ${fail} failed`);
+console.log(`  ${pass} passed, ${fail} failed`);
 if (fail) process.exitCode = 1;

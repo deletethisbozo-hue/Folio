@@ -521,7 +521,7 @@ export function registerApi(app: Express): void {
       applyTypography(book, req);
       applyPreviewDraft(book, req);
       const format = String(req.body?.format ?? "epub");
-      res.json(await publishPreflight(book, { format, print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined }));
+      res.json(await publishPreflight(book, { format, preset: String(req.body?.preset ?? "universal"), print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined }));
     }),
   );
 
@@ -542,7 +542,7 @@ export function registerApi(app: Express): void {
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
       if (["epub", "pdf", "print", "docx"].includes(format)) {
-        const preflight = await publishPreflight(book, { format, print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined });
+        const preflight = await publishPreflight(book, { format, preset: String(req.body?.preset ?? "universal"), print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined });
         if (!preflight.ready) throw new Error("Publish Preflight: " + preflight.issues.filter((issue) => issue.severity === "error").slice(0, 8).map((issue) => `${issue.text} ${issue.remedy}`).join("; "));
       }
       const stem = slugify(book.meta.title) || "book";

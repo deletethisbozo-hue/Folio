@@ -21,6 +21,9 @@ const ROOT = path.resolve(HERE, "..");
 // Slowest last: the ones that render the whole book take minutes, and a fast
 // failure in ingestion should surface before you wait for them.
 const ORDER = [
+  "print-production.test.ts",
+  "publish-print-engine.test.ts",
+  "publish-preflight-api.test.ts",
   "publish-preflight.test.ts",
   "exec-limits.test.ts",
   "epubcheck-report.test.ts",
@@ -70,6 +73,7 @@ const suites = [...ORDER.filter((f) => present.includes(f)), ...unknown].filter(
 
 const DEFAULT_SUITE_TIMEOUT_MS = 90_000;
 const SUITE_TIMEOUTS_MS: Record<string, number> = {
+  "publish-print-engine.test.ts": 180_000,
   "print-preview-ui.test.ts": 180_000,
   "illustration-v2-ui.test.ts": 240_000,
   "export-download-ui.test.ts": 240_000,

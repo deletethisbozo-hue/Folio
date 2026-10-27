@@ -1,6 +1,8 @@
+import { printFitScale } from "./preview-fit";
+import { PAPER_PROFILES } from "../../shared/paper-profiles";
 import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
 import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
   detectPastedLanguage,
@@ -20,13 +22,16 @@ import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import { playTypewriterPreview, playTypewriterSound, preloadTypewriterSounds, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import WritingSplitPane from "./WritingSplitPane";
-import SecondDraftPane from "./SecondDraftPane";
-import WriteStudioDrawer from "./WriteStudioDrawer";
+
+import OptionalToolBoundary from "./components/OptionalToolBoundary";
 import WritingProgressHalo from "./WritingProgressHalo";
-import ThemeLab, { themeLabTypography } from "./ThemeLab";
+import { themeLabTypography } from "./theme-lab-typography";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, CustomFontRecord, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, ThemeLabConfig, ThemeLibraryEntry, Typography } from "./types";
 
+const SecondDraftPane = lazy(() => import("./SecondDraftPane"));
+const WriteStudioDrawer = lazy(() => import("./WriteStudioDrawer"));
+const ThemeLab = lazy(() => import("./ThemeLab"));
 const PublishPreflight = lazy(() => import("./components/PublishPreflight"));
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -105,17 +110,14 @@ const styleCategories: StyleCategory[] = [
   "Book Style", "Chapter Heading", "First Paragraph", "Paragraph After Break",
   "Body", "Scene Break", "Header & Footer", "Title Page",
 ];
-const trims = [
-  ["5x8", "5 × 8"], ["5.25x8", "5.25 × 8"], ["5.5x8.5", "5.5 × 8.5"],
-  ["6x9", "6 × 9"], ["8.5x11", "8.5 × 11"],
-] as const;
+const trims = PAPER_PROFILES.map((paper) => [paper.key, paper.label]);
 const defaultPrint: PrintOptions = { trim: "6x9", binding: "paperback", startChaptersRecto: true, layout: "author-title-bottom" };
 const COVER_ID = "__folio_cover__";
 const printFitObservers = new WeakMap<HTMLIFrameElement, { mutation: MutationObserver; resize: ResizeObserver }>();
 
 function applyPrintPreviewFit(frame: HTMLIFrameElement) {
   const doc = frame.contentDocument;
-  const page = doc?.querySelector<HTMLElement>(".pagedjs_page");
+  const page = doc?.querySelector<HTMLElement>(".folio-print-spread, .folio-physical-page, .pagedjs_page");
   const pages = doc?.querySelector<HTMLElement>(".pagedjs_pages");
   if (!page || !pages) return;
 
@@ -125,8 +127,8 @@ function applyPrintPreviewFit(frame: HTMLIFrameElement) {
   const computedWidth = Number.parseFloat(doc?.defaultView?.getComputedStyle(page).width ?? "");
   const pageWidth = computedWidth > 0 ? computedWidth : page.getBoundingClientRect().width;
   if (!(pageWidth > 0)) return;
-  const available = Math.max(280, frame.clientWidth || frame.parentElement?.clientWidth || 576);
-  const fitScale = Math.max(.28, Math.min(1, (available - 28) / pageWidth));
+  const available = Math.max(120, frame.clientWidth || frame.parentElement?.clientWidth || 576);
+  const fitScale = printFitScale(pageWidth, available);
   const userZoom = Number(frame.dataset.folioPreviewZoom || "1");
   frame.dataset.folioPrintFitZoom = String(fitScale);
   pages.style.setProperty("zoom", String(fitScale * userZoom), "important");
@@ -2663,7 +2665,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </section>
 
       {splitView && (secondDraftView
-        ? selectedId && selectedId !== COVER_ID && selectedSection?.kind === "chapter" && <SecondDraftPane
+        ? selectedId && selectedId !== COVER_ID && selectedSection?.kind === "chapter" && <OptionalToolBoundary label="Second Draft" onClose={() => void toggleSecondDraftView()}><SecondDraftPane
             key={project.projectId + ":second-draft:" + selectedId}
             project={project}
             targetSectionId={selectedId}
@@ -2679,7 +2681,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
               setProgressSectionId(selectedId);
               requestAnimationFrame(() => editorRef.current?.focus());
             }}
-          />
+          /></OptionalToolBoundary>
         : <WritingSplitPane
             key={project.projectId + ":" + splitContentRevision}
             project={project}
@@ -2716,14 +2718,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }}
       />}
 
-      {showPreflight && <Suspense fallback={<div role="status">Loading Publish Preflight…</div>}><PublishPreflight
+      {showPreflight && <OptionalToolBoundary label="Publish Preflight" onClose={() => setShowPreflight(false)}><PublishPreflight
         onClose={() => setShowPreflight(false)} onSection={(id) => void selectSection(id)}
         onRun={async (format) => {
           if (!(await saveCurrent())) throw new Error("Save the current chapter before running Publish Preflight.");
           return api.preflight(project.projectId, { format, meta, typography, print: printOptions });
         }}
-      /></Suspense>}
-      {workspaceMode === "write" && <WriteStudioDrawer
+      /></OptionalToolBoundary>}
+      {workspaceMode === "write" && <OptionalToolBoundary label="Writing Studio" onClose={() => setWriteStudioOpen(false)}><WriteStudioDrawer
         open={writeStudioOpen}
         activeTab={writeStudioTab}
         setActiveTab={setWriteStudioTab}
@@ -2754,7 +2756,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }}
         onBookRestored={refreshAfterBookRestore}
         onError={(message) => setError(message)}
-      />}
+      /></OptionalToolBoundary>}
 
       {workspaceMode === "write" && focusMode && <div className="focus-layout-controls" role="toolbar" aria-label="Focus layout controls">
         {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onMouseDown={(event) => event.preventDefault()} onClick={() => { if (secondDraftView) void toggleSecondDraftView(); else void toggleSplitView(); }}><UiIcon name="split"/></button>}
@@ -2782,7 +2784,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <StyleLibrary themes={themes} savedThemes={savedThemes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()} onOpenThemeLab={() => { setShowStyle(false); setShowThemeLab(true); }} onSelectBuiltInTheme={selectBuiltInTheme} onSelectSavedTheme={selectSavedTheme} onRemoveSavedTheme={removeSavedTheme}/>
       )}
       {showThemeLab && (
-        <ThemeLab
+        <OptionalToolBoundary label="Theme Lab" onClose={() => setShowThemeLab(false)}><ThemeLab
           themes={themes}
           meta={meta}
           typography={typography}
@@ -2795,7 +2797,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           onClose={() => setShowThemeLab(false)}
           onApply={applyThemeLab}
           onSaveToLibrary={saveThemeToLibrary}
-        />
+        /></OptionalToolBoundary>
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
@@ -3148,7 +3150,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
-    {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
+    {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Paper profile", <select value={printOptions.trim} onChange={(event) => setPrintOptions({ ...printOptions, trim: event.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>)}{row("Bleed", <select value={printOptions.bleedMm ?? 0} onChange={(event) => setPrintOptions({ ...printOptions, bleedMm: Number(event.target.value) })}><option value={0}>None</option><option value={3}>3 mm</option><option value={3.175}>0.125 in</option><option value={5}>5 mm</option></select>)}{row("Page arrangement", <select value={printOptions.spreadMode ?? "single"} onChange={(event) => setPrintOptions({ ...printOptions, spreadMode: event.target.value as "single" | "facing" | "booklet" })}><option value="single">Single pages</option><option value="facing">Facing pages</option><option value="booklet">Booklet sheets · 16-page signatures</option></select>)}{row("Binding", <select value={printOptions.binding} onChange={(event) => setPrintOptions({ ...printOptions, binding: event.target.value as "paperback" | "hardcover" })}><option value="paperback">Paperback</option><option value="hardcover">Hardcover</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
     {category === "Title Page" && fontRow("Title typeface", ty.titlePageFont, (value) => setTy({ ...ty, titlePageFont: value || undefined }), displayFamilies)}
   </div>;
 }
