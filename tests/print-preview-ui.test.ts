@@ -72,6 +72,12 @@ try {
   }));
   check("whole-book print preview paginates all sample chapters together", ["The Letter", "The Garden", "The Mechanism"].every((title) => bookPreview.headings.includes(title)) && bookPreview.pages >= printPages, `${bookPreview.headings.length} chapter headings · ${bookPreview.pages} pages; section had ${sectionHeadings.length} heading`);
 
+  stage = "set a non-default Print zoom before changing trim";
+  console.log(`    stage: ${stage}`);
+  await page.click('button[aria-label="Zoom preview in"]');
+  await page.waitForFunction(() => document.querySelector(".preview-zoom-readout")?.textContent?.includes("110%"));
+  check("Print zoom can be changed independently from paper size", true, "110% user zoom");
+
   stage = "switch Print preview back to current section";
   console.log(`    stage: ${stage}`);
   await page.select('select[aria-label="Print preview scope"]', "section");
@@ -126,6 +132,7 @@ try {
       return {
         actual: Number(iframe.dataset.folioPrintFitZoom || "0"),
         expected,
+        userZoom: Number(iframe.dataset.folioPreviewZoom || "0"),
         cssZoom: Number.parseFloat(pages?.style.zoom ?? "0"),
         readout: document.querySelector<HTMLElement>(".preview-zoom-readout")?.textContent?.trim() ?? "",
       };
@@ -133,7 +140,7 @@ try {
     check(`changing print trim to ${trim} keeps paginated pages without an error`, !hasError);
     check(
       `changing print trim to ${trim} recalculates fit from physical page width without changing user zoom`,
-      Math.abs(fit.actual - fit.expected) < .02 && Math.abs(fit.cssZoom - fit.actual) < .02 && fit.readout.includes("100%"),
+      Math.abs(fit.actual - fit.expected) < .02 && Math.abs(fit.cssZoom - fit.actual * 1.1) < .02 && Math.abs(fit.userZoom - 1.1) < .01 && fit.readout.includes("110%"),
       JSON.stringify(fit),
     );
     check(
