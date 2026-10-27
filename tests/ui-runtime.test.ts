@@ -754,6 +754,7 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
 
   await page.evaluate(() => {
     const paper = document.querySelector(".editor-paper")!;
+    (window as any).__folioRenameEditorBefore = paper.querySelector(".rich-editor");
     (window as any).__folioRenameBlanked = false;
     const observer = new MutationObserver(() => {
       const editor = paper.querySelector(".rich-editor") as HTMLElement | null;
@@ -775,7 +776,9 @@ check("Polish justification uses paragraph-wide breaks and a natural final line"
   const renameContinuity = await page.evaluate(() => {
     (window as any).__folioRenameObserver?.disconnect();
     const editor = document.querySelector(".rich-editor") as HTMLElement | null;
-    return !(window as any).__folioRenameBlanked && Boolean(editor?.dataset.markdown?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY"));
+    return !(window as any).__folioRenameBlanked
+      && editor === (window as any).__folioRenameEditorBefore
+      && Boolean(editor?.dataset.markdown?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY"));
   });
   check("renaming never blanks or unmounts the manuscript editor", renameContinuity);
   await stage("renamed chapter body remains mounted", () => page.waitForFunction(() => document.querySelector(".rich-editor")?.getAttribute("data-markdown")?.includes("HEADING EDITS MUST PRESERVE THIS ENTIRE CHAPTER BODY")));
