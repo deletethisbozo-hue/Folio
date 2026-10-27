@@ -63,7 +63,12 @@ export async function convertPdfX3(source: Buffer, options: { profile: Buffer; n
     await fs.writeFile(definition, `%!PS\n[ /GTS_PDFXVersion (PDF/X-3:2002) /Title ${ps(options.title)} /Trapped /False /DOCINFO pdfmark\n` +
       `[ /_objdef {folio_icc} /type /stream /OBJ pdfmark\n[{folio_icc} << /N 4 >> /PUT pdfmark\n[{folio_icc} ${ps(profile.replace(/\\/g, "/"))} (r) file /PUT pdfmark\n` +
       `[ /_objdef {folio_intent} /type /dict /OBJ pdfmark\n[{folio_intent} << /Type /OutputIntent /S /GTS_PDFX /OutputConditionIdentifier (Custom) /Info ${ps(options.name)} /RegistryName (http://www.color.org) /DestOutputProfile {folio_icc} >> /PUT pdfmark\n[{Catalog} << /OutputIntents [{folio_intent}] >> /PUT pdfmark\n`);
-    const env = { ...process.env, PATH: resolveAppResource("java", "bin") + path.delimiter + (process.env.PATH ?? "") };
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    const runtimePath = resolveAppResource("java", "bin") + path.delimiter + (process.env.PATH ?? "");
+    if (process.platform === "win32") {
+      for (const key of Object.keys(env)) if (key.toLowerCase() === "path") delete env[key];
+      env.Path = runtimePath;
+    } else env.PATH = runtimePath;
     const args = ["-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", `--permit-file-read=${profile}`, "-sDEVICE=pdfwrite", "-sProcessColorModel=DeviceCMYK", "-sColorConversionStrategy=CMYK", `-sOutputICCProfile=${profile}`, "-dPDFX=3", "-dCompatibilityLevel=1.3", "-dPDFACompatibilityPolicy=2", "-dEmbedAllFonts=true", "-dSubsetFonts=true", "-dPreserveAnnots=false", `-sOutputFile=${output}`, definition, input];
     const result = await run(executable, args, { env, timeoutMs: 180_000, maxOutputBytes: 4 * 1024 * 1024 });
     if (result.code !== 0 || /not permitted|not allowed|non.?conform|cannot.*PDF.?X|reverting/i.test(result.stdout + result.stderr)) throw new Error(`PDF/X conversion failed: ${(result.stderr || result.stdout).slice(-2000)}`);

@@ -48,6 +48,7 @@ try {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
     return Boolean(frame?.contentDocument?.querySelector(".pagedjs_pages .pagedjs_page"));
   }, { timeout: 45_000 });
+  check("Print Preview defaults to full-book pagination", await page.$eval('select[aria-label="Print preview scope"]', (element) => (element as HTMLSelectElement).value === "book"));
   const printPages = await page.$eval("iframe", (frame) => frame.contentDocument?.querySelectorAll(".pagedjs_page").length ?? 0);
   const printRect = await page.$eval("iframe", (frame) => {
     const pageNode = frame.contentDocument?.querySelector(".pagedjs_page") as HTMLElement | null;

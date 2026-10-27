@@ -251,6 +251,7 @@ export interface ExportResult {
   version?: number;
   archived?: string[];
   overwrote?: boolean;
+  optimization?: { removedAssets: number; bytesSaved: number };
   pdfxReport?: { valid: boolean; standard: string; embeddedFonts: number; errors: string[]; note: string };
   validation?: ValidationReport;
   sizeReport?: ExportSizeReport;

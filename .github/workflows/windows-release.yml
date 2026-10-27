@@ -117,6 +117,9 @@ jobs:
           npm run build:web
           node --import tsx tests/illustration-v6-opener-dropcap.test.ts
 
+      - name: Tall legacy illustration physical containment gate
+        run: node --import tsx tests/legacy-tall-illustration.test.ts
+
       - name: Focused Writing Studio responsiveness and interaction gate
         run: node --import tsx tests/write-studio-ui.test.ts
 
@@ -304,6 +307,7 @@ jobs:
             release/ghostscript-10.08.0-source.tar.xz
             build/qa-v107/*
             build/qa-print-matrix/*
+            build/qa-publish-engine/*
             build/qa-v210-writing-studio/*
             build/qa-v300-second-draft/*
           if-no-files-found: error

@@ -31,6 +31,7 @@ const formats = [
   { label: "EPUB · Kindle", format: "epub", ext: ".epub", filename: /_kdp\.epub$/i, magic: "PK" },
   { label: "EPUB · Universal", format: "epub", ext: ".epub", filename: /^(?!.*_kdp\.epub$).+\.epub$/i, magic: "PK" },
   { label: "Print PDF", format: "print", ext: ".pdf", filename: /_print\.pdf$/i, magic: "%PDF-" },
+  { label: "PDF/X-3 · CMYK", format: "pdfx", ext: ".pdf", filename: /_pdfx\.pdf$/i, magic: "%PDF-" },
   { label: "Reading PDF", format: "pdf", ext: ".pdf", filename: /_reading\.pdf$/i, magic: "%PDF-" },
   { label: "Word (.docx)", format: "docx", ext: ".docx", filename: /\.docx$/i, magic: "PK" },
 ];

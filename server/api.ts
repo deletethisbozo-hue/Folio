@@ -664,10 +664,10 @@ export function registerApi(app: Express): void {
       switch (format) {
         case "epub": {
           const preset = (req.body?.preset ?? "universal") as PresetName;
-          const { buffer } = await renderEpub(book, preset);
+          const { buffer, optimization } = await renderEpub(book, preset);
           const [validation, sizeReport] = await Promise.all([validateEpub(buffer, { requireFullValidation: Boolean(process.env.FOLIO_RESOURCE_ROOT) }), inspectEpubSize(buffer)]);
           if (!validation.valid) throw new Error("EPUB validation failed: " + validation.messages.filter((message) => message.severity === "error").slice(0, 8).map((message) => message.text).join("; "));
-          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport });
+          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport, optimization });
           return;
         }
         case "docx": {

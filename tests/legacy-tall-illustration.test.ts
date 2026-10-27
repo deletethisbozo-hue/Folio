@@ -40,13 +40,13 @@ try {
     const image = document.querySelector<HTMLImageElement>(".pagedjs_page img.folio-illustration");
     const box = image?.getBoundingClientRect();
     const area = image?.closest(".pagedjs_area")?.getBoundingClientRect();
-    return { height: image?.naturalHeight, box: box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom, height: box.height } : null, area: area ? { left: area.left, right: area.right, top: area.top, bottom: area.bottom } : null, text: document.body.innerText.replace(/\u00ad/g, "") };
+    return { height: image?.naturalHeight, box: box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom, height: box.height } : null, area: area ? { left: area.left, right: area.right, top: area.top, bottom: area.bottom } : null, text: [...document.querySelectorAll(".pagedjs_page")].map((page) => page.textContent ?? "").join("\n").replace(/\u00ad/g, "").replace(/\s+/g, "") };
   });
   check(measured.height === 2000 && measured.box && measured.box.height > 20, "The actual tall artwork must remain visible");
   check(measured.box && measured.area && measured.box.top >= measured.area.top - 1 && measured.box.bottom <= measured.area.bottom + 1, "Artwork must fit vertically inside the physical page content box");
   check(measured.box && measured.area && measured.box.left >= measured.area.left - 1 && measured.box.right <= measured.area.right + 1, "Artwork must fit horizontally inside the physical page content box");
-  check(measured.text.includes("BEFORE_TALL_ART"), "Text before legacy artwork must remain in print");
-  check(measured.text.includes("AFTER_TALL_ART"), "Text after legacy artwork must remain in print");
+  check(measured.text.includes("BEFORE_TALL_ART"), "Text before legacy artwork must remain in print: " + JSON.stringify(measured));
+  check(measured.text.includes("AFTER_TALL_ART"), "Text after legacy artwork must remain in print: " + JSON.stringify(measured));
   const pdf = await renderPrintPdf(book, options);
   check(pdf.buffer.subarray(0, 5).toString() === "%PDF-" && pdf.meta.pages >= 1, "The same source must pass strict PDF export");
   check(JSON.stringify(book) === source, "Preview and export must not rewrite source chapters");

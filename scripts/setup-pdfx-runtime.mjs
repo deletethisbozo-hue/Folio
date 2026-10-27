@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { promises as fs, createWriteStream } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { getPath7za } from "app-builder-lib/out/toolsets/7zip.js";
 
 const root = path.resolve("build/publishing-tools");
 const target = path.join(root, "ghostscript");
@@ -37,7 +36,11 @@ await fs.mkdir(target, { recursive: true });
 if (process.platform === "win32") {
   const installer = await download("gs10080w64.exe", "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10080/gs10080w64.exe", "52a91b8bf09298788d7a57b9206127026c23eacd75405f0a131e26dc381dce50");
   // Extract the verified distribution without installing it on the build host.
-  await execute(await getPath7za(), ["x", installer, `-o${target}`, "-y"], root, "ghostscript-unpack");
+  // The Windows 7za mini build omits NSIS support; use the full 7-Zip tool
+  // supplied by the windows-2025 runner image for this verified NSIS archive.
+  const extractor = path.join(process.env.ProgramFiles || "C:\Program Files", "7-Zip", "7z.exe");
+  await fs.access(extractor);
+  await execute(extractor, ["x", installer, `-o${target}`, "-y"], root, "ghostscript-unpack");
   for (const entry of ["$PLUGINSDIR", "vcredist_x64.exe", "uninstgs.exe.nsis", "examples"]) await fs.rm(path.join(target, entry), { recursive: true, force: true });
 } else {
   const stage = await fs.mkdtemp(path.join(root, ".gs-source-"));
@@ -48,7 +51,7 @@ if (process.platform === "win32") {
     await fs.mkdir(path.join(target, "bin"));
     await fs.copyFile(path.join(stage, "bin", "gs"), path.join(target, "bin", "gs"));
     await fs.chmod(path.join(target, "bin", "gs"), 0o755);
-    for (const entry of ["iccprofiles", "Resource", "lib", "doc"]) await fs.cp(path.join(stage, entry), path.join(target, entry), { recursive: true });
+    for (const entry of ["iccprofiles", "Resource", "lib", "doc"]) await fs.cp(path.join(stage, entry), path.join(target, entry), { recursive: true, dereference: true });
     await fs.copyFile(path.join(stage, "LICENSE"), path.join(target, "LICENSE"));
   } finally { await fs.rm(stage, { recursive: true, force: true }); }
 }

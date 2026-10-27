@@ -1,3 +1,4 @@
+import { optimizeEpubResources } from "./epub-optimize.ts";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import type { Book, PresetName } from "./types.ts";
@@ -14,6 +15,7 @@ export interface EpubResult {
   buffer: Buffer;
   bytes: number;
   preset: PresetName;
+  optimization: { removedAssets: number; bytesSaved: number };
 }
 
 async function reorderToc(buffer: Buffer, book: Book): Promise<Buffer> {
@@ -124,7 +126,9 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
     let buffer: Buffer = await fs.readFile(outPath);
     buffer = await reorderToc(buffer, book);
     buffer = await applyEpubIllustrationContours(buffer);
-    return { buffer, bytes: buffer.length, preset: presetName };
+    const optimized = await optimizeEpubResources(buffer);
+    buffer = optimized.buffer;
+    return { buffer, bytes: buffer.length, preset: presetName, optimization: { removedAssets: optimized.removedAssets, bytesSaved: optimized.bytesSaved } };
   } finally {
     await cleanup(ws);
   }
