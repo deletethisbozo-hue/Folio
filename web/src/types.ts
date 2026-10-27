@@ -186,6 +186,7 @@ export interface PrintOptions {
   binding: "paperback" | "hardcover";
   startChaptersRecto: boolean;
   layout: string;
+  iccProfile?: { name: string; dataBase64: string };
   bleedMm?: number;
   spreadMode?: "single" | "facing" | "booklet";
   signaturePages?: number;
@@ -215,6 +216,7 @@ export interface Preset {
 }
 
 export interface ValidationMessage {
+  code?: string; path?: string; line?: number; column?: number;
   severity: "error" | "warning" | "info";
   text: string;
 }
@@ -249,9 +251,11 @@ export interface ExportResult {
   version?: number;
   archived?: string[];
   overwrote?: boolean;
+  pdfxReport?: { valid: boolean; standard: string; embeddedFonts: number; errors: string[]; note: string };
   validation?: ValidationReport;
   sizeReport?: ExportSizeReport;
   pages?: number;
+  iccProfile?: { name: string; dataBase64: string };
   bleedMm?: number;
   spreadMode?: "single" | "facing" | "booklet";
   signaturePages?: number;

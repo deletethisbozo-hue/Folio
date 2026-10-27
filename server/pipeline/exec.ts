@@ -10,10 +10,10 @@ export interface RunResult {
 export function run(
   command: string,
   args: string[],
-  opts: { input?: string | Buffer; cwd?: string; timeoutMs?: number; maxOutputBytes?: number } = {},
+  opts: { input?: string | Buffer; cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number; maxOutputBytes?: number } = {},
 ): Promise<RunResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: opts.cwd, windowsHide: true });
+    const child = spawn(command, args, { cwd: opts.cwd, env: opts.env, windowsHide: true });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     let settled = false;

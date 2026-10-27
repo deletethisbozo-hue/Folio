@@ -5,6 +5,7 @@ import { loadBook } from "../server/pipeline/ingest.ts";
 import { DEFAULT_PRINT } from "../server/print.ts";
 import { renderPrintPdf, renderPrintPreviewHtml } from "../server/pipeline/render-print.ts";
 import { bookletOrder } from "../server/pipeline/print-production.ts";
+import { convertPdfX3, defaultPdfXProfile } from "../server/pipeline/pdfx.ts";
 import { closeBrowser } from "../server/pipeline/render-pdf.ts";
 
 const fixture = await makeBookFixture();
@@ -20,6 +21,9 @@ try {
     assert.ok(Math.abs(page.getTrimBox().height - 210 * 72 / 25.4) < 0.01);
     assert.ok(Math.abs(page.getMediaBox().width - 154 * 72 / 25.4) < 0.01);
   }
+  const converted = await convertPdfX3(single.buffer, { profile: await defaultPdfXProfile(), name: "Artifex CMYK SWOP", title: book.meta.title });
+  assert.equal(converted.report.valid, true, JSON.stringify(converted.report));
+  assert.ok(converted.report.embeddedFonts > 0);
   const preview = await renderPrintPreviewHtml(book, { ...options, spreadMode: "facing" });
   assert.match(preview.html, /class="folio-print-spread"/);
   assert.match(preview.html, /class="folio-physical-page"/);
@@ -29,5 +33,5 @@ try {
   assert.equal(sheets.getPageCount(), bookletOrder(booklet.meta.pages, 16).length);
   assert.ok(Math.abs(sheets.getPage(0).getWidth() - 308 * 72 / 25.4) < 0.01);
   assert.equal(JSON.stringify(book), original, "Publication transforms must preserve all project source data");
-  console.log(`${6 + 3 * pdf.getPageCount() + book.sections.filter((section) => section.kind === "chapter").length} passed, 0 failed`);
+  console.log(`${8 + 3 * pdf.getPageCount() + book.sections.filter((section) => section.kind === "chapter").length} passed, 0 failed`);
 } finally { await closeBrowser(); await fixture.cleanup(); }

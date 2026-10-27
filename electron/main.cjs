@@ -1,3 +1,4 @@
+const { firstMatchingFile } = require("./runtime-paths.cjs");
 const { app, BrowserWindow, Menu, shell, dialog } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -31,27 +32,6 @@ async function openProjectFileInRenderer(win, projectFile) {
     if (typeof open !== "function") return false;
     return await open(${escaped});
   })()`, true);
-}
-
-function firstMatchingFile(root, names) {
-  if (!root || !fs.existsSync(root)) return null;
-  const wanted = new Set(names.map((n) => n.toLowerCase()));
-  const stack = [root];
-  while (stack.length) {
-    const dir = stack.pop();
-    let entries = [];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) stack.push(full);
-      else if (wanted.has(entry.name.toLowerCase())) return full;
-    }
-  }
-  return null;
 }
 
 function freePort() {
@@ -143,8 +123,8 @@ async function startFolio(initialProjectFile = null) {
     if (fs.existsSync(pandoc)) process.env.PANDOC_BIN = pandoc;
 
     const chromium = firstMatchingFile(path.join(process.resourcesPath, "chromium"), [
-      "chrome-headless-shell.exe",
       "chrome.exe",
+      "chrome-headless-shell.exe",
     ]);
     if (chromium) process.env.PUPPETEER_EXECUTABLE_PATH = chromium;
   }

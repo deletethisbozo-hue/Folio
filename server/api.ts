@@ -1,3 +1,4 @@
+import { convertPdfX3, defaultPdfXProfile, validateCmykProfile } from "./pipeline/pdfx.ts";
 import type { Express, Request, Response } from "express";
 import multer from "multer";
 import { promises as fs } from "node:fs";
@@ -521,7 +522,7 @@ export function registerApi(app: Express): void {
       applyTypography(book, req);
       applyPreviewDraft(book, req);
       const format = String(req.body?.format ?? "epub");
-      res.json(await publishPreflight(book, { format, preset: String(req.body?.preset ?? "universal"), print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined }));
+      res.json(await publishPreflight(book, { format: format === "pdfx" ? "print" : format, preset: String(req.body?.preset ?? "universal"), print: ["print", "pdfx"].includes(format) ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined }));
     }),
   );
 
@@ -541,8 +542,8 @@ export function registerApi(app: Express): void {
       const format = String(req.body?.format ?? "");
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
-      if (["epub", "pdf", "print", "docx"].includes(format)) {
-        const preflight = await publishPreflight(book, { format, preset: String(req.body?.preset ?? "universal"), print: format === "print" ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined });
+      if (["epub", "pdf", "print", "pdfx", "docx"].includes(format)) {
+        const preflight = await publishPreflight(book, { format: format === "pdfx" ? "print" : format, preset: String(req.body?.preset ?? "universal"), print: ["print", "pdfx"].includes(format) ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined });
         if (!preflight.ready) throw new Error("Publish Preflight: " + preflight.issues.filter((issue) => issue.severity === "error").slice(0, 8).map((issue) => `${issue.text} ${issue.remedy}`).join("; "));
       }
       const stem = slugify(book.meta.title) || "book";
@@ -569,6 +570,7 @@ export function registerApi(app: Express): void {
           const filenameByType: Record<ArtifactType, string> = {
             blues: `${stem}_blues.pdf`,
             print: `${stem}_print.pdf`,
+            pdfx: `${stem}_pdfx.pdf`,
             reading: `${stem}_reading.pdf`,
             "epub-kdp": `${stem}_kdp.epub`,
             "epub-universal": `${stem}.epub`,
@@ -687,10 +689,16 @@ export function registerApi(app: Express): void {
           await deliver("reading", buffer, "application/pdf");
           return;
         }
-        case "print": {
+        case "print":
+        case "pdfx": {
           const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
+          const profile = format === "pdfx" ? print.iccProfile ? Buffer.from(print.iccProfile.dataBase64, "base64") : await defaultPdfXProfile() : null;
+          if (profile) validateCmykProfile(profile);
           const { buffer, meta } = await renderPrintPdf(book, print);
-          await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter });
+          if (profile) {
+            const converted = await convertPdfX3(buffer, { profile, name: print.iccProfile?.name ?? "Artifex CMYK SWOP", title: book.meta.title });
+            await deliver("pdfx", converted.buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter, pdfxReport: converted.report });
+          } else await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter });
           return;
         }
         default:

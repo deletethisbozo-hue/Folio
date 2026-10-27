@@ -92,17 +92,21 @@ jobs:
           if ($license) { Copy-Item $license.FullName build\pandoc\PANDOC_LICENSE.txt }
           & build\pandoc\pandoc.exe --version | Select-Object -First 1
 
-      - name: Download pinned Chromium runtime
+      - name: Download pinned Chrome runtime
         shell: pwsh
         run: |
-          npx puppeteer browsers install chrome-headless-shell
-          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome-headless-shell.exe -Recurse | Where-Object { $_.FullName -match "156\.0\.8078\.47" } | Select-Object -First 1
-          if (-not $chrome) { throw "Pinned Chrome Headless Shell 156.0.8078.47 was not installed." }
+          npx puppeteer browsers install chrome
+          $chrome = Get-ChildItem build\puppeteer-cache -Filter chrome.exe -Recurse | Where-Object { $_.FullName -match "156\.0\.8078\.47" } | Select-Object -First 1
+          if (-not $chrome) { throw "Pinned Chrome 156.0.8078.47 was not installed." }
           "PUPPETEER_EXECUTABLE_PATH=$($chrome.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Remove-Item build\puppeteer-cache\chrome-headless-shell -Recurse -Force -ErrorAction SilentlyContinue
           $chrome.FullName
 
       - name: Install checksum-pinned offline EPUBCheck runtime
         run: npm run setup:publishing
+
+      - name: Stage pinned PDF/X converter and corresponding source
+        run: npm run setup:pdfx
 
       - name: Typecheck
         run: npm run typecheck
@@ -163,8 +167,12 @@ jobs:
         shell: pwsh
         run: |
           # Exercise the bundled validation runtime, without build-directory overrides.
+          $env:PANDOC_BIN = $null
+          $env:PUPPETEER_EXECUTABLE_PATH = $null
           $env:FOLIO_EPUBCHECK_JAR = $null
           $env:FOLIO_JAVA_BIN = $null
+          $env:FOLIO_GS_BIN = $null
+          $env:FOLIO_GS_PROFILE = $null
           $env:FOLIO_E2E_PORT = "43127"
           $env:FOLIO_E2E_DEBUG_PORT = "43128"
           $exe = Resolve-Path "release\Folio-$env:FOLIO_VERSION-portable.exe"
@@ -221,18 +229,54 @@ jobs:
             $printPreview = Invoke-RestMethod -Method Post -ContentType "application/json" -Body $printBody "$base/api/projects/$($sample.projectId)/preview-print"
             if ($printPreview.pages -lt 1 -or [string]$printPreview.html -notmatch "pagedjs_page") { throw "Packaged print-preview endpoint did not return paginated pages." }
 
-            foreach ($format in @("epub", "pdf", "print")) {
+            foreach ($format in @("epub", "pdf", "print", "pdfx")) {
               $body = @{ format = $format; meta = $current.meta; theme = "literary" }
               if ($format -eq "epub") { $body["preset"] = "kdp" }
-              if ($format -eq "print") { $body["print"] = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } }
+              if ($format -in @("print", "pdfx")) { $body["print"] = @{ trim = "6x9"; binding = "paperback"; startChaptersRecto = $true; layout = "author-title-bottom" } }
               $export = Invoke-RestMethod -Method Post -ContentType "application/json" -Body ($body | ConvertTo-Json -Depth 10) "$base/api/projects/$($sample.projectId)/export"
               if ($format -eq "epub" -and ($export.validation.tool -ne "epubcheck" -or -not $export.validation.complete -or -not $export.validation.valid)) { throw "Packaged EPUB must pass full offline EPUBCheck." }
+              if ($format -eq "pdfx" -and -not $export.pdfxReport.valid) { throw "Packaged PDF/X did not pass production checks." }
               if ($export.bytes -lt 1000 -or [string]::IsNullOrWhiteSpace($export.dataBase64)) { throw "Packaged $format export is empty." }
             }
           }
           finally {
             Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Install, launch and uninstall the NSIS setup artifact
+        shell: pwsh
+        run: |
+          $env:PANDOC_BIN = $null
+          $env:PUPPETEER_EXECUTABLE_PATH = $null
+          $env:FOLIO_EPUBCHECK_JAR = $null
+          $env:FOLIO_JAVA_BIN = $null
+          $env:FOLIO_GS_BIN = $null
+          $env:FOLIO_GS_PROFILE = $null
+          $env:FOLIO_E2E_PORT = "43127"
+          $env:FOLIO_E2E_DEBUG_PORT = "43128"
+          $installDir = Join-Path $env:RUNNER_TEMP "Folio-installed-qa"
+          $setup = Resolve-Path "release\Folio-$env:FOLIO_VERSION-setup.exe"
+          $installed = Start-Process -FilePath $setup -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
+          if ($installed.ExitCode -ne 0) { throw "NSIS setup failed with $($installed.ExitCode)." }
+          $exe = Join-Path $installDir "Folio.exe"
+          if (-not (Test-Path $exe)) { throw "NSIS setup did not install Folio.exe." }
+          try {
+            Start-Process -FilePath $exe | Out-Null
+            $health = $null
+            for ($i = 0; $i -lt 120; $i++) {
+              try { $health = Invoke-RestMethod "http://127.0.0.1:43127/api/health"; break } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $health.ok -or -not $health.pandoc.ok) { throw "Installed Folio did not start with its own bundled Pandoc." }
+            node scripts\packaged-ui-smoke.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Installed Folio UI smoke failed." }
+          } finally {
+            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            $uninstall = Join-Path $installDir "Uninstall Folio.exe"
+            if (Test-Path $uninstall) {
+              $removed = Start-Process -FilePath $uninstall -ArgumentList "/S" -Wait -PassThru
+              if ($removed.ExitCode -ne 0) { throw "NSIS uninstall failed." }
+            }
           }
 
       - name: Hash release binaries
@@ -244,6 +288,8 @@ jobs:
             if ((Get-Item $file).Length -lt 1MB) { throw "Release asset is unexpectedly small: $file" }
           }
           $lines = Get-FileHash $required -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" }
+          Copy-Item build\publishing-tools\ghostscript-10.08.0-source.tar.xz release\ghostscript-10.08.0-source.tar.xz
+          $lines += Get-FileHash release\ghostscript-10.08.0-source.tar.xz -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" }
           $lines | Set-Content -Encoding ascii release\sha256.txt
           Get-Content release\sha256.txt
 
@@ -255,6 +301,7 @@ jobs:
             release/Folio-${{ env.FOLIO_VERSION }}-setup.exe
             release/Folio-${{ env.FOLIO_VERSION }}-portable.exe
             release/sha256.txt
+            release/ghostscript-10.08.0-source.tar.xz
             build/qa-v107/*
             build/qa-print-matrix/*
             build/qa-v210-writing-studio/*
@@ -278,6 +325,7 @@ jobs:
             "release\Folio-$env:FOLIO_VERSION-setup.exe" `
             "release\Folio-$env:FOLIO_VERSION-portable.exe" `
             "release\sha256.txt" `
+            "release\ghostscript-10.08.0-source.tar.xz" `
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `

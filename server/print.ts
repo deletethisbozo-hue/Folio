@@ -33,6 +33,7 @@ export interface PrintOptions {
   binding: "paperback" | "hardcover";
   startChaptersRecto: boolean;
   layout: string;
+  iccProfile?: { name: string; dataBase64: string };
   bleedMm?: number; // symmetric unprinted bleed area, in millimetres
   spreadMode?: "single" | "facing" | "booklet";
   signaturePages?: number;

@@ -28,3 +28,24 @@ OpenJDK source is available from https://github.com/adoptium/jdk21u at
 jdk-21.0.12.1+1. The distribution's own LICENSE, NOTICE and legal files are
 shipped in app-resources/java. Neither runtime is downloaded at application
 startup. Build inputs are pinned by SHA-256 in scripts/setup-publishing-tools.mjs.
+
+## PDF production runtime (Folio 3.3)
+
+The PDF manipulation library pdf-lib 1.17.1 is distributed under the MIT license
+(https://github.com/Hopding/pdf-lib); its package license is included with the
+installed dependency.
+
+The independent Ghostscript 10.08.0 command-line distribution is shipped with
+its original doc/COPYING (GNU AGPLv3), LICENSE and third-party notices, including
+its font and ICC profile notices. Folio invokes this executable as a separate
+process. The unmodified corresponding upstream source archive is supplied as
+ghostscript-10.08.0-source.tar.xz alongside the Windows release.
+Upstream source: https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/tag/gs10080
+Source SHA-256: c20492bc8ebb96c87fa2e52a0926e1cda8cde95d66145e018ac713fed5da38cf
+Build recipe: scripts/setup-pdfx-runtime.mjs.
+
+The default CMYK output profile is the Artifex CMYK SWOP profile included with
+Ghostscript. Choose the printer's supplied CMYK ICC profile when that printing
+condition is required. PDF/X exports run actual CMYK conversion, font embedding,
+ICC, page-box and searchable-text checks; Folio does not claim independent ISO
+certification of every possible PDF construct.
