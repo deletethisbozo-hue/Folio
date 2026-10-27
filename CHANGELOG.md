@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.2.8] - 2026-10-27
-
 ### Removed
 - Full Page creation from the chapter toolbar and Add Content dialog.
 - The runtime that detected an image marker anywhere in a chapter and made the entire editor read-only.

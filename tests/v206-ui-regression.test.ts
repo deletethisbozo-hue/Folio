@@ -157,7 +157,9 @@ try {
     throw new Error(`Legacy reader did not become ready: ${JSON.stringify(state)}; ${error}`);
   });
   await page.click(".rich-editor");
-  await page.keyboard.press("Control+End");
+  await page.keyboard.down("Control");
+  await page.keyboard.press("End");
+  await page.keyboard.up("Control");
   await page.evaluate(() => {
     const editor = document.querySelector<HTMLElement>(".rich-editor")!;
     const figure = editor.querySelector(".editor-illustration")!;
@@ -185,7 +187,9 @@ try {
     return !editor?.querySelector(".editor-illustration") && editor?.dataset.markdown?.includes("BEFORE_LEGACY_IMAGE") && editor?.dataset.markdown?.includes("AFTER_LEGACY_IMAGE");
   });
   await page.click(".rich-editor");
-  await page.keyboard.press("Control+End");
+  await page.keyboard.down("Control");
+  await page.keyboard.press("End");
+  await page.keyboard.up("Control");
   await page.keyboard.type(" STILL_EDITABLE");
   await page.waitForFunction(() => document.querySelector<HTMLElement>(".rich-editor")?.dataset.markdown?.includes("STILL_EDITABLE"));
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved");

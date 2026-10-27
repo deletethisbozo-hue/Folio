@@ -38,11 +38,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.2.8 version consistency
+      - name: Verify Folio 3.2.7 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.2.8") { throw "Windows release is scoped to Folio 3.2.6, found $version." }
+          if ($version -ne "3.2.7") { throw "Windows release is scoped to Folio 3.2.6, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -269,4 +269,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.2.8 removes Full Page creation and its editor-locking runtime, opens legacy chapter artwork as normal illustrations, reduces per-keystroke preview work and fixes overlapping preview controls. Publication requires Windows regression tests, print layout checks and a packaged portable launch test."
+            --notes "Folio 3.2.7 stabilizes chapter renaming, full-page illustration removal, export downloads and breakdown visibility, and full-book Print Preview pagination. Windows and Linux UI suites, print-trim matrix, visual QA, packaged installer/portable smoke and SHA-256 verification passed before publication."
