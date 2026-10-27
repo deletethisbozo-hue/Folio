@@ -149,6 +149,7 @@ try {
   check("live preview applies crop and scale immediately", true);
 
   stage = "wait for crop autosave";
+  await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saving", { timeout: 15_000 });
   await page.waitForFunction(() => document.querySelector(".folio-shell")?.getAttribute("data-save-state") === "saved");
   stage = "reload saved crop";
   await page.click('.tiny-footer-button[aria-label="Reload files"]');
@@ -158,13 +159,38 @@ try {
     if (!row) throw new Error("Preface row missing after reload");
     row.click();
   });
-  stage = "verify crop after reload";
+  stage = "verify Preface is selected after reload";
+  await page.waitForFunction(() => document.querySelector(".contents-row.selected")?.textContent?.includes("Preface"), { timeout: 15_000 });
+  stage = "verify serialized crop survived reload";
+  await page.waitForFunction(() => {
+    const markdown = (document.querySelector(".rich-editor") as HTMLElement | null)?.dataset.markdown ?? "";
+    return markdown.includes("width=60%") && markdown.includes(".folio-crop") && markdown.includes(".folio-ratio-1-1");
+  }, { timeout: 15_000 });
+  stage = "verify crop asset after reload";
   await page.waitForFunction(() => {
     const figure = document.querySelector<HTMLElement>(".editor-illustration");
     const scale = figure?.dataset.folioScale;
     const ratio = figure?.dataset.folioRatio;
     const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
     return Boolean(figure?.dataset.folioCrop === "true" && scale === "60" && ratio === "1-1" && image?.naturalWidth);
+  }, { timeout: 30_000 }).catch(async (error) => {
+    const state = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>(".folio-shell");
+      const row = document.querySelector<HTMLElement>(".contents-row.selected");
+      const editor = document.querySelector<HTMLElement>(".rich-editor");
+      const figure = document.querySelector<HTMLElement>(".editor-illustration");
+      const image = figure?.querySelector<HTMLImageElement>("img[data-folio-asset]");
+      return {
+        saveState: shell?.getAttribute("data-save-state") ?? null,
+        selectedRow: row?.textContent?.trim() ?? null,
+        markdown: editor?.dataset.markdown ?? null,
+        figure: figure ? { crop: figure.dataset.folioCrop, scale: figure.dataset.folioScale, ratio: figure.dataset.folioRatio, html: figure.outerHTML.slice(0, 600) } : null,
+        image: image ? { src: image.src, complete: image.complete, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight } : null,
+        globalError: document.querySelector(".global-error")?.textContent ?? null,
+      };
+    });
+    console.error("Illustration reload failure state: " + JSON.stringify(state));
+    throw error;
   });
   check("crop and scale survive autosave plus project reload", true);
 } catch (error) {
