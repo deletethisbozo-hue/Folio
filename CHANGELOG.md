@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.7] - 2026-10-27
+
+### Fixed
+- Keep the manuscript editor mounted, with its text intact, when a chapter title changes its section ID.
+- Keep the full-page illustration remove action reachable and prevent its inspector from retaining a deleted figure.
+- Keep browser downloads alive through Chromium's download start and give download-only exports distinct filenames.
+- Keep the EPUB size breakdown visible inside the export menu.
+- Keep Print Preview zoom independent from paper trim size and viewport recalculation.
+
+### Changed
+- Add full-book Print Preview pagination while retaining current-section preview as the default.
+
+### Tests
+- Assert editor element identity across chapter rename and run the full Linux and Windows UI suites.
+- Run visual QA, Print PDF trim matrix, packaged portable smoke test and SHA-256 generation.
+
+
 ## [3.2.6] - 2026-10-26
 
 ### Fixed
