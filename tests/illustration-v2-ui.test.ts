@@ -98,6 +98,10 @@ try {
     (button as HTMLButtonElement).click();
   });
   await page.waitForSelector('.rich-editor[contenteditable="true"]');
+  // Sample books can open on the cover on Linux. This scenario inserts and
+  // reloads a chapter illustration, so establish the same chapter explicitly.
+  await page.click(".contents-list button.chapter-row");
+  await page.waitForFunction(() => Boolean(document.querySelector(".contents-list button.chapter-row.selected")), { timeout: 30000 });
 
   const before = await page.$eval(".rich-editor", (editor) => (editor as HTMLElement).dataset.markdown ?? "");
   const enabled = await page.$eval(".illustration-button", (button) => !(button as HTMLButtonElement).disabled);
