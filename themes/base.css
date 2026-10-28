@@ -52,6 +52,11 @@ body {
   body {
     background: #fff !important;
   }
+  /* Avoid ligature glyph remapping during PDF/X conversion. */
+  body,
+  body * {
+    font-variant-ligatures: none !important;
+  }
 }
 
 /* The final line of justified text must stay ragged-left, never stretched
