@@ -101,7 +101,11 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         : -(fontSize * strictCompressionEm);
       const maxTracking = fontSize * 0.003;
       const minTracking = -fontSize * (emergency || finalCompression ? 0.003 : 0.0025);
-      const maxGlyphScaleDelta = 0.01;
+      // Chromium wraps transformed text runs in transparency-group Form XObjects.
+      // Ghostscript must flatten those groups for PDF/X-3, which rasterizes body
+      // text and makes it unsearchable. Keep glyphs unscaled and fit with spacing
+      // and legal line breaks instead.
+      const maxGlyphScaleDelta = 0;
       const available = naturalWidth + adjustment;
       let best: LineFit | null = null;
       let bestRank = Number.POSITIVE_INFINITY;
@@ -865,7 +869,6 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         if (lineBreak.justified || lineBreak.finalCompressed) {
           line.style.wordSpacing = `${baseWordSpacing + lineBreak.wordSpacing}px`;
           line.style.letterSpacing = `${baseTracking + lineBreak.tracking}px`;
-          if (Math.abs(lineBreak.glyphScale - 1) > 0.00001) content.style.transform = `scaleX(${lineBreak.glyphScale})`;
           line.dataset.folioWordSpacing = String(lineBreak.wordSpacing);
           line.dataset.folioTracking = String(lineBreak.tracking);
           line.dataset.folioGlyphScale = String(lineBreak.glyphScale);
@@ -895,27 +898,17 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // Verify/calibrate what the reader actually sees. fitLine now rejects
       // candidates below the physical gap floor, so this is only a rasterisation
       // safety net and should need at most a tiny correction.
-      const maxAdjacentScaleDelta = 0.012;
-      let previousCorrectedScale: number | null = null;
       for (const line of lines) {
         if (!line.classList.contains("folio-line-justified") && !line.classList.contains("folio-line-final-compressed")) {
-          previousCorrectedScale = null;
           continue;
         }
         const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
-        if (!content) {
-          previousCorrectedScale = null;
-          continue;
-        }
+        if (!content) continue;
         let rendered = content.getBoundingClientRect().width;
         const measure = line.getBoundingClientRect().width;
         const protrusion = Number(line.dataset.folioRightProtrusion ?? 0);
         const opticalMeasure = measure + protrusion;
-        let correctedScale = Number(line.dataset.folioGlyphScale ?? 1);
-        if (rendered <= 0 || opticalMeasure <= 0 || !Number.isFinite(correctedScale)) {
-          previousCorrectedScale = null;
-          continue;
-        }
+        if (rendered <= 0 || opticalMeasure <= 0) continue;
 
         const lineFontSize = px(getComputedStyle(line).fontSize) || fontSize;
         const releaseGapFloor = Math.max(1.5, lineFontSize * 0.12);
@@ -941,25 +934,20 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             line.dataset.folioGapViolation = "true";
           } else {
             const currentWordSpacing = Number(line.dataset.folioWordSpacing ?? 0);
-            line.style.wordSpacing = `${baseWordSpacing + currentWordSpacing + deficit / Math.max(0.98, correctedScale)}px`;
-            line.dataset.folioWordSpacing = String(currentWordSpacing + deficit / Math.max(0.98, correctedScale));
+            line.style.wordSpacing = `${baseWordSpacing + currentWordSpacing + deficit}px`;
+            line.dataset.folioWordSpacing = String(currentWordSpacing + deficit);
           }
         }
 
         rendered = content.getBoundingClientRect().width;
         if (rendered > 0) {
-          correctedScale = Math.max(0.98, Math.min(1.01, correctedScale * opticalMeasure / rendered));
-          if (previousCorrectedScale !== null) {
-            correctedScale = Math.max(
-              previousCorrectedScale - maxAdjacentScaleDelta,
-              Math.min(previousCorrectedScale + maxAdjacentScaleDelta, correctedScale),
-            );
-            correctedScale = Math.max(0.98, Math.min(1.01, correctedScale));
-          }
-          content.style.transform = Math.abs(correctedScale - 1) > 0.00001
-            ? "scaleX(" + correctedScale + ")"
-            : "";
-          line.dataset.folioGlyphScale = String(correctedScale);
+          const correction = Math.max(.98, Math.min(1.01, opticalMeasure / rendered));
+          const characters = Math.max(1, [...(content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
+          const trackingCorrection = (rendered * correction - rendered) / characters;
+          const currentTracking = px(getComputedStyle(line).letterSpacing);
+          line.style.letterSpacing = `${currentTracking + trackingCorrection}px`;
+          line.dataset.folioTracking = String(Number(line.dataset.folioTracking ?? 0) + trackingCorrection);
+          line.dataset.folioGlyphScale = "1";
         }
 
         const finalMinimumGap = semanticGapMinimum();
@@ -967,7 +955,6 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           line.dataset.folioMinSemanticGap = String(finalMinimumGap);
           if (finalMinimumGap < releaseGapFloor - 0.005) line.dataset.folioGapViolation = "true";
         }
-        previousCorrectedScale = correctedScale;
       }
     }
   });

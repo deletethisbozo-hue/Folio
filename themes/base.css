@@ -551,6 +551,17 @@ span.note {
   max-width: 72%;
 }
 
+@media print {
+  .journal,
+  .diary {
+    border-left-color: color-mix(in srgb, rgb(120 90 60) 30%, var(--folio-paper, #fff));
+  }
+  .sign,
+  .inscription {
+    border-color: color-mix(in srgb, #000 35%, var(--folio-paper, #fff));
+  }
+}
+
 /* Verse / poem / song. */
 .verse,
 .poem {

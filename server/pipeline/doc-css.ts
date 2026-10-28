@@ -109,7 +109,7 @@ function themeLabCss(book: Book): string {
   const paragraphIndent = clampNumber(lab.paragraphIndent, 0, 4, 1.25);
   const paragraphSpacing = clampNumber(lab.paragraphSpacing, 0, 3, 0);
 
-  out.push(`body { background:${paper}; color:${ink} !important; font-family:${bodyFont} !important; font-size:${bodySize}em !important; line-height:${lineHeight} !important; }`);
+  out.push(`body { --folio-paper:${paper}; background:${paper}; color:${ink} !important; font-family:${bodyFont} !important; font-size:${bodySize}em !important; line-height:${lineHeight} !important; }`);
   out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p, section.chapter li, section.backmatter > p:not(.scene-break), section.backmatter li { color:${ink}; }`);
   out.push(`section.chapter > p:not(.scene-break), section.chapter > blockquote p { text-indent:${paragraphIndent}em !important; margin-bottom:${paragraphSpacing}em !important; } section.chapter > p.folio-native-dropcap, section.chapter > p:has(.dropcap), .folio-native-dropcap { text-indent:0 !important; }`);
   if (lab.bodyAlign === "left") {

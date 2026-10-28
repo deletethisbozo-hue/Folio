@@ -434,8 +434,8 @@ async function withPaginated<T>(
     // Fractional inch/px conversion and cloned page geometry can therefore leave
     // a tiny final horizontal mismatch even when source composition used the
     // exact calculated text measure. Calibrate those rare lines against the real
-    // Paged.js area. Never hide a genuine layout failure: correction is capped at
-    // 2% horizontal scale and a strict second pass still blocks the export.
+    // Paged.js area using letter spacing, not transforms: Chromium emits transformed
+    // text as transparency groups that PDF/X-3 must rasterize.
     const overflow = await page.evaluate(() => {
       const lines = [...document.querySelectorAll<HTMLElement>(".folio-composed-line")];
       let corrected = 0;
@@ -454,14 +454,18 @@ async function withPaginated<T>(
         const overshoot = contentRect.right - (areaRect.right + protrusion);
         if (overshoot <= 0.25) continue;
 
-        const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
-        if (!Number.isFinite(currentScale) || currentScale <= 0) continue;
         const desiredWidth = Math.max(1, contentRect.width - overshoot - 0.35);
-        const nextScale = currentScale * desiredWidth / contentRect.width;
-        if (nextScale < 0.98) continue;
-        largestCorrection = Math.max(largestCorrection, Math.abs(nextScale - currentScale));
-        content.style.transform = Math.abs(nextScale - 1) > 0.00001 ? `scaleX(${nextScale})` : "";
-        line.dataset.folioGlyphScale = String(nextScale);
+        const ratio = Math.max(0.98, desiredWidth / contentRect.width);
+        const characters = Math.max(1, [...(content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
+        const trackingCorrection = (contentRect.width * ratio - contentRect.width) / characters;
+        const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
+        const trackingDelta = Number(line.dataset.folioTracking ?? 0);
+        const minimumTrackingDelta = -fontSize * 0.0055;
+        const appliedCorrection = Math.max(trackingCorrection, minimumTrackingDelta - trackingDelta);
+        const currentTracking = Number.parseFloat(getComputedStyle(line).letterSpacing) || 0;
+        line.style.letterSpacing = `${currentTracking + appliedCorrection}px`;
+        line.dataset.folioTracking = String(trackingDelta + appliedCorrection);
+        largestCorrection = Math.max(largestCorrection, Math.abs(appliedCorrection));
         line.dataset.folioPagedFit = "true";
         corrected++;
       }
@@ -501,13 +505,11 @@ async function withPaginated<T>(
           return minimum;
         };
 
-        let scale = Number(line.dataset.folioGlyphScale ?? 1);
-        if (!Number.isFinite(scale) || scale <= 0) scale = 1;
         let trackingDelta = Number(line.dataset.folioTracking ?? 0);
         if (!Number.isFinite(trackingDelta)) trackingDelta = 0;
         let wordSpacingDelta = Number(line.dataset.folioWordSpacing ?? 0);
         if (!Number.isFinite(wordSpacingDelta)) wordSpacingDelta = 0;
-        const trackingOps = Math.max(1, (content.textContent ?? "").replace(/\u00ad/g, "").length - 1);
+        const trackingOps = Math.max(1, [...(content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
         const minimumTrackingDelta = -fontSize * 0.0055;
 
         for (let pass = 0; pass < 6; pass++) {
@@ -518,8 +520,7 @@ async function withPaginated<T>(
           // problem. Do not disguise it by brutal post-render distortion.
           if (deficit > 0.32) break;
 
-          const safeScale = Math.max(0.98, scale);
-          const addedWordSpacing = deficit / safeScale;
+          const addedWordSpacing = deficit;
           const computedWordSpacing = Number.parseFloat(getComputedStyle(line).wordSpacing) || 0;
           line.style.wordSpacing = `${computedWordSpacing + addedWordSpacing}px`;
           wordSpacingDelta += addedWordSpacing;
@@ -536,7 +537,7 @@ async function withPaginated<T>(
           let overshoot = contentRect.right - (areaRect.right + protrusion);
           if (overshoot > 0.05 && trackingDelta > minimumTrackingDelta + 0.000001) {
             const removableTracking = Math.max(0, trackingDelta - minimumTrackingDelta);
-            const requestedTracking = overshoot / (trackingOps * safeScale);
+            const requestedTracking = overshoot / trackingOps;
             const trackingReduction = Math.min(removableTracking, requestedTracking);
             if (trackingReduction > 0.000001) {
               const computedTracking = Number.parseFloat(getComputedStyle(line).letterSpacing) || 0;
@@ -549,13 +550,15 @@ async function withPaginated<T>(
           areaRect = area.getBoundingClientRect();
           contentRect = content.getBoundingClientRect();
           overshoot = contentRect.right - (areaRect.right + protrusion);
-          if (overshoot > 0.05 && contentRect.width > 0) {
-            const desiredWidth = Math.max(1, contentRect.width - overshoot - 0.08);
-            const nextScale = Math.max(0.98, Math.min(1.01, scale * desiredWidth / contentRect.width));
-            if (nextScale < scale - 0.000001) {
-              scale = nextScale;
-              content.style.transform = Math.abs(scale - 1) > 0.00001 ? `scaleX(${scale})` : "";
-              line.dataset.folioGlyphScale = String(scale);
+          if (overshoot > 0.05 && contentRect.width > 0 && trackingDelta > minimumTrackingDelta + 0.000001) {
+            const availableTracking = trackingDelta - minimumTrackingDelta;
+            const requestedTracking = overshoot / trackingOps;
+            const trackingReduction = Math.min(availableTracking, requestedTracking);
+            if (trackingReduction > 0.000001) {
+              const computedTracking = Number.parseFloat(getComputedStyle(line).letterSpacing) || 0;
+              line.style.letterSpacing = `${computedTracking - trackingReduction}px`;
+              trackingDelta -= trackingReduction;
+              line.dataset.folioTracking = String(trackingDelta);
               line.dataset.folioPagedGapFit = "true";
             }
           }

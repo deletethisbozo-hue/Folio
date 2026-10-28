@@ -81,12 +81,12 @@ export async function convertPdfX3(source: Buffer, options: { profile: Buffer; n
       const original = before.getPage(i).getTrimBox(), converted = after.getPage(i).getTrimBox();
       if (Math.abs(original.width - converted.width) > .1 || Math.abs(original.height - converted.height) > .1) throw new Error("PDF/X conversion changed the page trim size.");
     }
-    const extract = async (file: string) => {
-      const text = await run(executable, ["-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=txtwrite", "-sOutputFile=-", file], { env, timeoutMs: 90_000, maxOutputBytes: 64 * 1024 * 1024 });
+    const extract = async (file: string, textFile: string) => {
+      const text = await run(executable, ["-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=txtwrite", `-sOutputFile=${textFile}`, file], { env, timeoutMs: 90_000, maxOutputBytes: 64 * 1024 * 1024 });
       if (text.code !== 0) throw new Error("PDF/X text preservation check could not complete.");
-      return text.stdout.normalize("NFC").replace(/\s/g, "");
+      return (await fs.readFile(textFile, "utf8")).normalize("NFC").replace(/\s/g, "");
     };
-    const originalText = await extract(input), convertedText = await extract(output);
+    const originalText = await extract(input, path.join(dir, "input.txt")), convertedText = await extract(output, path.join(dir, "output.txt"));
     if (originalText !== convertedText) {
       let index = 0; while (index < Math.min(originalText.length, convertedText.length) && originalText[index] === convertedText[index]) index++;
       if (process.env.FOLIO_PUBLISH_QA_DIR) {
