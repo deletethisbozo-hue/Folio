@@ -71,7 +71,7 @@ check("Second Draft is separate from legacy Split View",
   app.includes("secondDraftView") && app.includes("<SecondDraftPane") && app.includes("<WritingSplitPane"));
 check("Second Draft only opens for real chapter-to-chapter work",
   app.includes('selectedSection?.kind !== "chapter" || chapters.length < 2')
-  && app.includes('selectedSection?.kind === "chapter" && <SecondDraftPane')
+  && app.includes('selectedSection?.kind === "chapter" && <OptionalToolBoundary label="Second Draft"')
   && server.includes('target.kind !== "chapter"')
   && server.includes('source.kind !== "chapter"'));
 check("background progress sync cannot replace newer Second Draft state",

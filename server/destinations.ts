@@ -13,7 +13,7 @@ import { promises as fs } from "node:fs";
 import { readConfig } from "./matter.ts";
 import { slugify } from "./pipeline/util.ts";
 
-export type ArtifactType = "blues" | "print" | "reading" | "epub-kdp" | "epub-universal" | "docx" | "md";
+export type ArtifactType = "blues" | "print" | "pdfx" | "reading" | "epub-kdp" | "epub-universal" | "docx" | "md";
 
 interface ArtifactDef {
   ext: string;
@@ -30,6 +30,7 @@ interface ArtifactDef {
 const ARTIFACTS: Record<ArtifactType, ArtifactDef> = {
   blues: { ext: "pdf", variant: "blues", travels: true, label: "blues" },
   print: { ext: "pdf", variant: "print", travels: false, label: "print pdf" },
+  pdfx: { ext: "pdf", variant: "pdfx", travels: false, label: "PDF/X-3" },
   reading: { ext: "pdf", variant: "reading", travels: false, label: "reading pdf" },
   "epub-kdp": { ext: "epub", variant: "kdp", travels: false, label: "epub (kdp)" },
   "epub-universal": { ext: "epub", variant: null, travels: false, label: "epub (universal)" },

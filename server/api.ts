@@ -1,3 +1,4 @@
+import { convertPdfX3, defaultPdfXProfile, validateCmykProfile } from "./pipeline/pdfx.ts";
 import type { Express, Request, Response } from "express";
 import multer from "multer";
 import { promises as fs } from "node:fs";
@@ -26,6 +27,7 @@ import { inspectEpubSize } from "./pipeline/epub-size.ts";
 import { renderDocx } from "./pipeline/render-docx.ts";
 import { renderMarkdown } from "./pipeline/render-markdown.ts";
 import { renderPdf } from "./pipeline/render-pdf.ts";
+import { publishPreflight } from "./validate/preflight.ts";
 import { validateEpub } from "./validate/epubcheck.ts";
 import { slugify } from "./pipeline/util.ts";
 import { pickFolder, pickFolioProjectFile } from "./pick-folder.ts";
@@ -514,6 +516,16 @@ export function registerApi(app: Express): void {
     }),
   );
 
+  app.post("/api/projects/:id/preflight", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const { book } = await loadProject(req.params.id, bodyMeta(req));
+      applyTypography(book, req);
+      applyPreviewDraft(book, req);
+      const format = String(req.body?.format ?? "epub");
+      res.json(await publishPreflight(book, { format: format === "pdfx" ? "print" : format, preset: String(req.body?.preset ?? "universal"), print: ["print", "pdfx"].includes(format) ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined }));
+    }),
+  );
+
   /**
    * Export a format.
    *
@@ -530,6 +542,10 @@ export function registerApi(app: Express): void {
       const format = String(req.body?.format ?? "");
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
+      if (["epub", "pdf", "print", "pdfx", "docx"].includes(format)) {
+        const preflight = await publishPreflight(book, { format: format === "pdfx" ? "print" : format, preset: String(req.body?.preset ?? "universal"), print: ["print", "pdfx"].includes(format) ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined });
+        if (!preflight.ready) throw new Error("Publish Preflight: " + preflight.issues.filter((issue) => issue.severity === "error").slice(0, 8).map((issue) => `${issue.text} ${issue.remedy}`).join("; "));
+      }
       const stem = slugify(book.meta.title) || "book";
       const info = projectInfo(req.params.id);
       const bookDir = info.onDisk ? info.folder : null;
@@ -554,6 +570,7 @@ export function registerApi(app: Express): void {
           const filenameByType: Record<ArtifactType, string> = {
             blues: `${stem}_blues.pdf`,
             print: `${stem}_print.pdf`,
+            pdfx: `${stem}_pdfx.pdf`,
             reading: `${stem}_reading.pdf`,
             "epub-kdp": `${stem}_kdp.epub`,
             "epub-universal": `${stem}.epub`,
@@ -647,9 +664,10 @@ export function registerApi(app: Express): void {
       switch (format) {
         case "epub": {
           const preset = (req.body?.preset ?? "universal") as PresetName;
-          const { buffer } = await renderEpub(book, preset);
-          const [validation, sizeReport] = await Promise.all([validateEpub(buffer), inspectEpubSize(buffer)]);
-          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport });
+          const { buffer, optimization } = await renderEpub(book, preset);
+          const [validation, sizeReport] = await Promise.all([validateEpub(buffer, { requireFullValidation: Boolean(process.env.FOLIO_RESOURCE_ROOT) }), inspectEpubSize(buffer)]);
+          if (!validation.valid) throw new Error("EPUB validation failed: " + validation.messages.filter((message) => message.severity === "error").slice(0, 8).map((message) => message.text).join("; "));
+          await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport, optimization });
           return;
         }
         case "docx": {
@@ -671,10 +689,16 @@ export function registerApi(app: Express): void {
           await deliver("reading", buffer, "application/pdf");
           return;
         }
-        case "print": {
+        case "print":
+        case "pdfx": {
           const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
+          const profile = format === "pdfx" ? print.iccProfile ? Buffer.from(print.iccProfile.dataBase64, "base64") : await defaultPdfXProfile() : null;
+          if (profile) validateCmykProfile(profile);
           const { buffer, meta } = await renderPrintPdf(book, print);
-          await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter });
+          if (profile) {
+            const converted = await convertPdfX3(buffer, { profile, name: print.iccProfile?.name ?? "Artifex CMYK SWOP", title: book.meta.title });
+            await deliver("pdfx", converted.buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter, pdfxReport: converted.report });
+          } else await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter });
           return;
         }
         default:

@@ -1,3 +1,5 @@
+import { paginateToFinalGutter } from "./print-pagination.ts";
+import { applyPrintPageBoxes, createPrintSpreads, bookletOrder } from "./print-production.ts";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import type { Page } from "puppeteer";
@@ -432,8 +434,8 @@ async function withPaginated<T>(
     // Fractional inch/px conversion and cloned page geometry can therefore leave
     // a tiny final horizontal mismatch even when source composition used the
     // exact calculated text measure. Calibrate those rare lines against the real
-    // Paged.js area. Never hide a genuine layout failure: correction is capped at
-    // 2% horizontal scale and a strict second pass still blocks the export.
+    // Paged.js area using letter spacing, not transforms: Chromium emits transformed
+    // text as transparency groups that PDF/X-3 must rasterize.
     const overflow = await page.evaluate(() => {
       const lines = [...document.querySelectorAll<HTMLElement>(".folio-composed-line")];
       let corrected = 0;
@@ -452,14 +454,18 @@ async function withPaginated<T>(
         const overshoot = contentRect.right - (areaRect.right + protrusion);
         if (overshoot <= 0.25) continue;
 
-        const currentScale = Number(line.dataset.folioGlyphScale ?? 1);
-        if (!Number.isFinite(currentScale) || currentScale <= 0) continue;
         const desiredWidth = Math.max(1, contentRect.width - overshoot - 0.35);
-        const nextScale = currentScale * desiredWidth / contentRect.width;
-        if (nextScale < 0.98) continue;
-        largestCorrection = Math.max(largestCorrection, Math.abs(nextScale - currentScale));
-        content.style.transform = Math.abs(nextScale - 1) > 0.00001 ? `scaleX(${nextScale})` : "";
-        line.dataset.folioGlyphScale = String(nextScale);
+        const ratio = Math.max(0.98, desiredWidth / contentRect.width);
+        const characters = Math.max(1, [...(content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
+        const trackingCorrection = (contentRect.width * ratio - contentRect.width) / characters;
+        const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
+        const trackingDelta = Number(line.dataset.folioTracking ?? 0);
+        const minimumTrackingDelta = -fontSize * 0.0055;
+        const appliedCorrection = Math.max(trackingCorrection, minimumTrackingDelta - trackingDelta);
+        const currentTracking = Number.parseFloat(getComputedStyle(line).letterSpacing) || 0;
+        line.style.letterSpacing = `${currentTracking + appliedCorrection}px`;
+        line.dataset.folioTracking = String(trackingDelta + appliedCorrection);
+        largestCorrection = Math.max(largestCorrection, Math.abs(appliedCorrection));
         line.dataset.folioPagedFit = "true";
         corrected++;
       }
@@ -499,13 +505,11 @@ async function withPaginated<T>(
           return minimum;
         };
 
-        let scale = Number(line.dataset.folioGlyphScale ?? 1);
-        if (!Number.isFinite(scale) || scale <= 0) scale = 1;
         let trackingDelta = Number(line.dataset.folioTracking ?? 0);
         if (!Number.isFinite(trackingDelta)) trackingDelta = 0;
         let wordSpacingDelta = Number(line.dataset.folioWordSpacing ?? 0);
         if (!Number.isFinite(wordSpacingDelta)) wordSpacingDelta = 0;
-        const trackingOps = Math.max(1, (content.textContent ?? "").replace(/\u00ad/g, "").length - 1);
+        const trackingOps = Math.max(1, [...(content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
         const minimumTrackingDelta = -fontSize * 0.0055;
 
         for (let pass = 0; pass < 6; pass++) {
@@ -516,8 +520,7 @@ async function withPaginated<T>(
           // problem. Do not disguise it by brutal post-render distortion.
           if (deficit > 0.32) break;
 
-          const safeScale = Math.max(0.98, scale);
-          const addedWordSpacing = deficit / safeScale;
+          const addedWordSpacing = deficit;
           const computedWordSpacing = Number.parseFloat(getComputedStyle(line).wordSpacing) || 0;
           line.style.wordSpacing = `${computedWordSpacing + addedWordSpacing}px`;
           wordSpacingDelta += addedWordSpacing;
@@ -534,7 +537,7 @@ async function withPaginated<T>(
           let overshoot = contentRect.right - (areaRect.right + protrusion);
           if (overshoot > 0.05 && trackingDelta > minimumTrackingDelta + 0.000001) {
             const removableTracking = Math.max(0, trackingDelta - minimumTrackingDelta);
-            const requestedTracking = overshoot / (trackingOps * safeScale);
+            const requestedTracking = overshoot / trackingOps;
             const trackingReduction = Math.min(removableTracking, requestedTracking);
             if (trackingReduction > 0.000001) {
               const computedTracking = Number.parseFloat(getComputedStyle(line).letterSpacing) || 0;
@@ -547,13 +550,15 @@ async function withPaginated<T>(
           areaRect = area.getBoundingClientRect();
           contentRect = content.getBoundingClientRect();
           overshoot = contentRect.right - (areaRect.right + protrusion);
-          if (overshoot > 0.05 && contentRect.width > 0) {
-            const desiredWidth = Math.max(1, contentRect.width - overshoot - 0.08);
-            const nextScale = Math.max(0.98, Math.min(1.01, scale * desiredWidth / contentRect.width));
-            if (nextScale < scale - 0.000001) {
-              scale = nextScale;
-              content.style.transform = Math.abs(scale - 1) > 0.00001 ? `scaleX(${scale})` : "";
-              line.dataset.folioGlyphScale = String(scale);
+          if (overshoot > 0.05 && contentRect.width > 0 && trackingDelta > minimumTrackingDelta + 0.000001) {
+            const availableTracking = trackingDelta - minimumTrackingDelta;
+            const requestedTracking = overshoot / trackingOps;
+            const trackingReduction = Math.min(availableTracking, requestedTracking);
+            if (trackingReduction > 0.000001) {
+              const computedTracking = Number.parseFloat(getComputedStyle(line).letterSpacing) || 0;
+              line.style.letterSpacing = `${computedTracking - trackingReduction}px`;
+              trackingDelta -= trackingReduction;
+              line.dataset.folioTracking = String(trackingDelta);
               line.dataset.folioPagedGapFit = "true";
             }
           }
@@ -638,17 +643,10 @@ async function withPaginated<T>(
 export async function renderPrintPdf(book: Book, opts: PrintOptions): Promise<{ buffer: Buffer; meta: PrintMeta }> {
   const pdfFn = async (page: Page) => Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
 
-  let r = await withPaginated(book, opts, pdfFn);
-  // In auto-gutter mode, if the actual page count lands in a different KDP band
-  // than the estimate assumed, re-render once with the correct gutter so the
-  // exported file is always KDP-safe.
-  if (opts.gutter === undefined) {
-    const correct = autoGutter(r.meta.pages, opts.binding);
-    if (Math.abs(correct - r.meta.gutter) > 0.001) {
-      r = await withPaginated(book, { ...opts, gutter: correct }, pdfFn);
-    }
-  }
-  return { buffer: r.result, meta: r.meta };
+  const r = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, pdfFn));
+  let buffer = await applyPrintPageBoxes(r.result, opts.trim, opts.bleedMm ?? 0);
+  if (opts.spreadMode === "facing" || opts.spreadMode === "booklet") buffer = await createPrintSpreads(buffer, { mode: opts.spreadMode, signaturePages: opts.signaturePages, rtl: opts.rtl });
+  return { buffer, meta: r.meta };
 }
 
 /**
@@ -657,7 +655,7 @@ export async function renderPrintPdf(book: Book, opts: PrintOptions): Promise<{ 
  */
 export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, signal?: AbortSignal): Promise<{ html: string; meta: PrintMeta }> {
   const t = getTrim(opts.trim);
-  const { result, meta } = await withPaginated(book, opts, async (page) => {
+  const { result, meta } = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, async (page) => {
     // Paged.js lays the live pages out correctly, but the serialized output sizes
     // pages from a CSS variable that defaults to US Letter. Pin the trim size
     // explicitly so the static preview HTML keeps the right page dimensions, and
@@ -676,7 +674,42 @@ export async function renderPrintPreviewHtml(book: Book, opts: PrintOptions, sig
       t.w,
       t.h,
     );
+    if (opts.spreadMode === "facing" || opts.spreadMode === "booklet") {
+      const count = await page.$$eval(".pagedjs_page", (pages) => pages.length);
+      const order: Array<[number | null, number | null]> = opts.spreadMode === "booklet" ? bookletOrder(count, opts.signaturePages, opts.rtl) : [
+        opts.rtl ? [1, null] : [null, 1],
+        ...Array.from({ length: Math.ceil((count - 1) / 2) }, (_, index): [number | null, number | null] => {
+          const pair: [number | null, number | null] = [2 + index * 2, 3 + index * 2 <= count ? 3 + index * 2 : null];
+          return opts.rtl ? [pair[1], pair[0]] : pair;
+        }),
+      ];
+      await page.evaluate((pairs, width, height, bleedMm, mode) => {
+        const parent = document.querySelector<HTMLElement>(".pagedjs_pages")!;
+        const pages = [...parent.querySelectorAll<HTMLElement>(".pagedjs_page")];
+        parent.replaceChildren();
+        for (const pair of pairs) {
+          const spread = document.createElement("div"); spread.className = "folio-print-spread"; spread.dataset.folioArrangement = mode;
+          for (const number of pair) {
+            if (number !== null) spread.appendChild(pages[number - 1]);
+            else { const blank = document.createElement("div"); blank.className = "folio-print-blank"; blank.setAttribute("aria-label", "Padding blank page"); spread.appendChild(blank); }
+          }
+          parent.appendChild(spread);
+        }
+        const style = document.createElement("style");
+        style.textContent = `.folio-print-spread{display:flex;width:max-content;gap:8px;margin:12px auto}.folio-print-spread[data-folio-arrangement="booklet"]{gap:0}.folio-print-spread>.pagedjs_page{margin:0!important}.folio-print-blank{width:${width}in;height:${height}in;background:#fff}.pagedjs_page{outline:${bleedMm > 0 ? "1px dashed #b75b5b" : "none"}}`;
+        document.head.appendChild(style);
+      }, order, t.w, t.h, opts.bleedMm ?? 0, opts.spreadMode);
+    }
+    if ((opts.bleedMm ?? 0) > 0) await page.evaluate((bleedMm, width, height) => {
+      for (const page of document.querySelectorAll<HTMLElement>(".pagedjs_page, .folio-print-blank")) {
+        const sheet = document.createElement("div"); sheet.className = "folio-physical-page";
+        page.replaceWith(sheet); sheet.appendChild(page);
+      }
+      const style = document.createElement("style");
+      style.textContent = `.folio-physical-page{box-sizing:content-box;width:${width}in;height:${height}in;padding:${bleedMm}mm;background:#fff;margin:12px auto}.folio-physical-page>.pagedjs_page,.folio-physical-page>.folio-print-blank{margin:0!important;outline:1px dashed #b75b5b}.folio-print-spread>.folio-physical-page{margin:0}.folio-print-spread>.folio-physical-page:first-child{padding-right:0}.folio-print-spread>.folio-physical-page:last-child{padding-left:0}`;
+      document.head.appendChild(style);
+    }, opts.bleedMm ?? 0, t.w, t.h);
     return page.content();
-  }, "preview", signal);
+  }, "preview", signal));
   return { html: result, meta };
 }

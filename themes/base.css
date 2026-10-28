@@ -52,6 +52,11 @@ body {
   body {
     background: #fff !important;
   }
+  /* Avoid ligature glyph remapping during PDF/X conversion. */
+  body,
+  body * {
+    font-variant-ligatures: none !important;
+  }
 }
 
 /* The final line of justified text must stay ragged-left, never stretched
@@ -549,6 +554,17 @@ span.note {
   padding: 0.7em 1em;
   margin: 1.5em auto;
   max-width: 72%;
+}
+
+@media print {
+  .journal,
+  .diary {
+    border-left-color: color-mix(in srgb, rgb(120 90 60) 30%, var(--folio-paper, #fff));
+  }
+  .sign,
+  .inscription {
+    border-color: color-mix(in srgb, #000 35%, var(--folio-paper, #fff));
+  }
 }
 
 /* Verse / poem / song. */

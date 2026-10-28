@@ -1,3 +1,4 @@
+import { printFitScale } from "../web/src/preview-fit.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +53,15 @@ test("reader shell zoom and Print page zoom are separated", () => {
   assert.match(app, /folio-preview-zoom-reader/);
   assert.match(app, /folio-preview-zoom-print/);
   assert.match(app, /folioPrintFitZoom/);
-  assert.match(app, /fitScale = Math\.max\(\.28, Math\.min\(1,/);
+  assert.match(app, /fitScale = printFitScale\(pageWidth, available\)/);
+  for (const physicalWidth of [576, 1120, 1600]) {
+    for (const available of [160, 280, 520]) {
+      const fit = printFitScale(physicalWidth, available);
+      assert.ok(fit > 0 && fit <= 1);
+      assert.ok(physicalWidth * fit <= available - 28 + 0.0001, "Even a facing A4 spread must fit the pane before user zoom");
+    }
+  }
+  assert.equal(printFitScale(576, 1200), 1, "Fit must not silently enlarge small paper");
   assert.match(css, /\.preview-stage \.reader-device\{transform:scale\(var\(--folio-preview-zoom,1\)\)/);
   assert.match(css, /\.preview-stage\.print-stage \.reader-device\.device-print\{transform:none!important/);
 });
@@ -60,7 +69,7 @@ test("reader shell zoom and Print page zoom are separated", () => {
 test("Print preview never throws export diagnostics at the user while export stays strict", () => {
   assert.match(print, /qualityMode: "strict" \| "preview" = "strict"/);
   assert.match(print, /if \(qualityMode === "strict"\)/);
-  assert.match(print, /}, "preview", signal\);/);
+  assert.match(print, /}, "preview", signal\)\);/);
   assert.match(print, /folioPrintPreviewQuality = "recoverable"/);
   assert.doesNotMatch(app, /<small>\{previewError\}<\/small>/);
 });

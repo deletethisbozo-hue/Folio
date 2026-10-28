@@ -1,3 +1,4 @@
+import type { WritingAnalysisResult } from "./analysis-job";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import type { ProjectSummary, SectionDocument } from "./types";
@@ -6,7 +7,6 @@ import {
   countMatches,
   diffLines,
   markdownToReadableSnapshotText,
-  analyzeWritingSnapshot,
   replaceMatches,
   replacementForMatch,
   todayKey,
@@ -182,18 +182,31 @@ export default function WriteStudioDrawer(props: Props) {
   const todayProgress = props.state?.dailyProgress[today] ?? 0;
   const chapterTarget = props.selectedId ? targetDraft.chapters[props.selectedId] ?? null : null;
   const analysisActive = props.open && props.activeTab === "analysis";
-  const [analysisDraft, setAnalysisDraft] = useState("");
-  const analysisReady = analysisActive && analysisDraft === props.draft;
+  const [analysis, setAnalysis] = useState<WritingAnalysisResult | null>(null);
+  const [analysisError, setAnalysisError] = useState("");
+  const analysisReady = analysisActive && analysis !== null;
   useEffect(() => {
+    setAnalysis(null); setAnalysisError("");
     if (!analysisActive) return;
-    const timer = window.setTimeout(() => setAnalysisDraft(props.draft), 350);
-    return () => window.clearTimeout(timer);
-  }, [analysisActive, props.draft]);
-  const analysisSeparator = useMemo(() => Array.from({ length: 200 }, (_, index) => String(1000000 + index)).join(" "), []);
-  const analysis = useMemo(() => analyzeWritingSnapshot(analysisReady, () => analysisScope === "book"
-    ? (bookDocs ? bookDocs.map((doc) => markdownToReadableSnapshotText(doc.id === props.selectedId ? analysisDraft : doc.markdown)).join("\n\n" + analysisSeparator + "\n\n") : "")
-    : markdownToReadableSnapshotText(analysisDraft), props.language, analysisWindow),
-  [analysisReady, analysisScope, bookDocs, props.selectedId, analysisDraft, analysisSeparator, props.language, analysisWindow]);
+    let worker: Worker | undefined;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      try {
+        worker = new Worker(new URL("./analysis.worker.ts", import.meta.url), { type: "module" });
+        worker.onmessage = (event: MessageEvent<{ result?: WritingAnalysisResult; error?: string }>) => {
+          if (cancelled) return;
+          if (event.data.result) setAnalysis(event.data.result);
+          else setAnalysisError(event.data.error || "Writing analysis could not complete.");
+          worker?.terminate();
+        };
+        worker.onerror = () => { if (!cancelled) setAnalysisError("Writing analysis could not start. Close and reopen Analysis to retry."); worker?.terminate(); };
+        worker.postMessage({ markdown: props.draft, language: props.language, windowWords: analysisWindow,
+          ...(analysisScope === "book" ? { documents: (bookDocs ?? []).map((document) => document.id === props.selectedId ? props.draft : document.markdown) } : {}),
+        });
+      } catch { worker?.terminate(); if (!cancelled) setAnalysisError("Writing analysis could not start. Close and reopen Analysis to retry."); }
+    }, 350);
+    return () => { cancelled = true; window.clearTimeout(timer); worker?.terminate(); };
+  }, [analysisActive, props.draft, analysisScope, bookDocs, props.selectedId, props.language, analysisWindow]);
   const exactBookWords = exactCounts
     ? exactCounts.total + Object.entries(props.liveSectionWordCounts).reduce((delta, [sectionId, liveCount]) => {
         const kind = props.project.sections.find((section) => section.id === sectionId)?.kind;
@@ -623,7 +636,7 @@ export default function WriteStudioDrawer(props: Props) {
       {props.state && props.activeTab === "analysis" && <div className="write-studio-section">
         <div className="write-section-heading"><div><h3>Repetition analysis</h3><p>Diagnostics only. Folio never rewrites your prose.</p></div></div>
         <div className="search-scope analysis-scope"><button className={analysisScope === "chapter" ? "active" : ""} onClick={() => setAnalysisScope("chapter")}>Chapter</button><button className={analysisScope === "book" ? "active" : ""} onClick={() => { setAnalysisScope("book"); if (!bookDocs) void scanBook().catch((error) => props.onError(error instanceof Error ? error.message : String(error))); }}>Entire book</button></div>
-        {!analysisReady ? <div className="write-studio-empty" role="status">Updating analysis…</div> : analysisScope === "book" && !bookDocs ? <div className="write-studio-empty">{searchBusy ? "Scanning manuscript…" : "Open Entire Book to scan the manuscript."}</div> : <>
+        {analysisError ? <div className="write-inline-error" role="alert">{analysisError}</div> : !analysisReady ? <div className="write-studio-empty" role="status">Updating analysis…</div> : analysisScope === "book" && !bookDocs ? <div className="write-studio-empty">{searchBusy ? "Scanning manuscript…" : "Open Entire Book to scan the manuscript."}</div> : <>
           <h4>Repeated words</h4>
           <div className="analysis-list">{repeated.map((item) => <button key={item.word} onClick={() => void inspectAnalysisWord(item.word)}><span>{item.word}</span><strong>{item.count}</strong></button>)}{!repeated.length && <div className="write-studio-empty">No notable repetitions in this scope.</div>}</div>
           <div className="analysis-window"><label>Nearby window <input type="range" min="30" max="180" step="10" value={analysisWindow} onChange={(event) => setAnalysisWindow(Number(event.target.value))}/><span>{analysisWindow} words</span></label></div>

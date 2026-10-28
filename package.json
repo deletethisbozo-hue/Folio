@@ -1,6 +1,6 @@
 {
   "name": "folio-book-formatter",
-  "version": "3.2.7",
+  "version": "3.3.0",
   "private": true,
   "description": "Folio — a Windows desktop studio for writing, formatting, previewing and publishing books.",
   "author": "Folio contributors; based on Byte-Sized Book Formatter by Angie Hartwell",
@@ -24,9 +24,13 @@
     "fonts": "node scripts/fetch-theme-fonts.mjs",
     "predev": "npm run fonts",
     "prebuild:web": "npm run fonts",
-    "prebuild:server": "npm run fonts"
+    "prebuild:server": "npm run fonts",
+    "setup:publishing": "node scripts/setup-publishing-tools.mjs",
+    "setup:pdfx": "node scripts/setup-pdfx-runtime.mjs"
   },
   "dependencies": {
+    "@xmldom/xmldom": "0.9.12",
+    "css-tree": "3.2.1",
     "express": "^4.21.2",
     "gray-matter": "^4.0.3",
     "hyphenation.en-us": "^0.2.1",
@@ -36,10 +40,12 @@
     "multer": "2.5.0",
     "open": "^10.1.0",
     "pagedjs": "^0.4.3",
+    "pdf-lib": "1.17.1",
     "puppeteer": "25.16.0",
     "yauzl": "^3.2.0"
   },
   "devDependencies": {
+    "@types/css-tree": "3.2.0",
     "@types/express": "^4.17.21",
     "@types/js-yaml": "^4.0.9",
     "@types/multer": "2.2.0",
@@ -109,6 +115,18 @@
       {
         "from": "build/puppeteer-cache",
         "to": "chromium"
+      },
+      {
+        "from": "build/publishing-tools/epubcheck",
+        "to": "app-resources/vendor/epubcheck"
+      },
+      {
+        "from": "build/publishing-tools/java",
+        "to": "app-resources/java"
+      },
+      {
+        "from": "build/publishing-tools/ghostscript",
+        "to": "app-resources/vendor/ghostscript"
       }
     ],
     "fileAssociations": [

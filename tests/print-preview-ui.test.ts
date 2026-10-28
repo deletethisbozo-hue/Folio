@@ -48,6 +48,7 @@ try {
     const frame = document.querySelector("iframe") as HTMLIFrameElement | null;
     return Boolean(frame?.contentDocument?.querySelector(".pagedjs_pages .pagedjs_page"));
   }, { timeout: 45_000 });
+  check("Print Preview defaults to full-book pagination", await page.$eval('select[aria-label="Print preview scope"]', (element) => (element as HTMLSelectElement).value === "book"));
   const printPages = await page.$eval("iframe", (frame) => frame.contentDocument?.querySelectorAll(".pagedjs_page").length ?? 0);
   const printRect = await page.$eval("iframe", (frame) => {
     const pageNode = frame.contentDocument?.querySelector(".pagedjs_page") as HTMLElement | null;
@@ -71,6 +72,32 @@ try {
     pages: frame.contentDocument?.querySelectorAll(".pagedjs_pages .pagedjs_page").length ?? 0,
   }));
   check("whole-book print preview paginates all sample chapters together", ["The Letter", "The Garden", "The Mechanism"].every((title) => bookPreview.headings.includes(title)) && bookPreview.pages >= printPages, `${bookPreview.headings.length} chapter headings · ${bookPreview.pages} pages; section had ${sectionHeadings.length} heading`);
+
+  stage = "navigate whole-book Print Preview to a later chapter";
+  await page.evaluate(() => {
+    const chapter = [...document.querySelectorAll<HTMLButtonElement>(".contents-list .chapter-row")].find((button) => button.textContent?.includes("The Garden"));
+    if (!chapter) throw new Error("Second sample chapter missing");
+    chapter.click();
+  });
+  async function waitForVisibleChapter(title: string) {
+    await page.waitForFunction((title) => {
+      const frame = document.querySelector<HTMLIFrameElement>("iframe"), previewDocument = frame?.contentDocument;
+      const heading = [...(previewDocument?.querySelectorAll<HTMLElement>(".pagedjs_page section.chapter > h1") ?? [])].find((heading) => heading.textContent?.includes(title));
+      const box = heading?.getBoundingClientRect();
+      return Boolean(box && frame && box.top >= 0 && box.top < frame.clientHeight && box.bottom > 0);
+    }, { timeout: 90_000 }, title);
+  }
+  await waitForVisibleChapter("The Garden");
+  check("sidebar navigation makes the selected later chapter visible in the full book", true);
+  await page.click('button[aria-label="Next section"]');
+  await waitForVisibleChapter("The Mechanism");
+  check("Next section seeks its actual paginated chapter", true);
+  await page.click('button[aria-label="Previous section"]');
+  await waitForVisibleChapter("The Garden");
+  check("Previous section seeks its actual paginated chapter", true);
+
+  await page.click(".contents-list .chapter-row");
+  await waitForVisibleChapter("The Letter");
 
   stage = "set a non-default Print zoom before changing trim";
   console.log(`    stage: ${stage}`);

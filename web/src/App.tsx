@@ -1,6 +1,8 @@
+import { printFitScale, seekPrintSection } from "./preview-fit";
+import { PAPER_PROFILES } from "../../shared/paper-profiles";
 import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
 import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useEffect, useMemo, useRef, useState } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
   detectPastedLanguage,
@@ -20,12 +22,17 @@ import { SerialSaveQueue } from "./save-queue";
 import { centerTypewriterCaret, scheduleTypewriterCaret } from "./typewriter";
 import { playTypewriterPreview, playTypewriterSound, preloadTypewriterSounds, shouldPlayTypewriterSound, type TypewriterSoundStyle } from "./typewriter-sound";
 import WritingSplitPane from "./WritingSplitPane";
-import SecondDraftPane from "./SecondDraftPane";
-import WriteStudioDrawer from "./WriteStudioDrawer";
+
+import OptionalToolBoundary from "./components/OptionalToolBoundary";
 import WritingProgressHalo from "./WritingProgressHalo";
-import ThemeLab, { themeLabTypography } from "./ThemeLab";
+import { themeLabTypography } from "./theme-lab-typography";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, CustomFontRecord, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, ThemeLabConfig, ThemeLibraryEntry, Typography } from "./types";
+
+const SecondDraftPane = lazy(() => import("./SecondDraftPane"));
+const WriteStudioDrawer = lazy(() => import("./WriteStudioDrawer"));
+const ThemeLab = lazy(() => import("./ThemeLab"));
+const PublishPreflight = lazy(() => import("./components/PublishPreflight"));
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type WordCountScope = "book" | "chapter";
@@ -103,17 +110,14 @@ const styleCategories: StyleCategory[] = [
   "Book Style", "Chapter Heading", "First Paragraph", "Paragraph After Break",
   "Body", "Scene Break", "Header & Footer", "Title Page",
 ];
-const trims = [
-  ["5x8", "5 × 8"], ["5.25x8", "5.25 × 8"], ["5.5x8.5", "5.5 × 8.5"],
-  ["6x9", "6 × 9"], ["8.5x11", "8.5 × 11"],
-] as const;
+const trims = PAPER_PROFILES.map((paper) => [paper.key, paper.label]);
 const defaultPrint: PrintOptions = { trim: "6x9", binding: "paperback", startChaptersRecto: true, layout: "author-title-bottom" };
 const COVER_ID = "__folio_cover__";
 const printFitObservers = new WeakMap<HTMLIFrameElement, { mutation: MutationObserver; resize: ResizeObserver }>();
 
 function applyPrintPreviewFit(frame: HTMLIFrameElement) {
   const doc = frame.contentDocument;
-  const page = doc?.querySelector<HTMLElement>(".pagedjs_page");
+  const page = doc?.querySelector<HTMLElement>(".folio-print-spread, .folio-physical-page, .pagedjs_page");
   const pages = doc?.querySelector<HTMLElement>(".pagedjs_pages");
   if (!page || !pages) return;
 
@@ -123,8 +127,8 @@ function applyPrintPreviewFit(frame: HTMLIFrameElement) {
   const computedWidth = Number.parseFloat(doc?.defaultView?.getComputedStyle(page).width ?? "");
   const pageWidth = computedWidth > 0 ? computedWidth : page.getBoundingClientRect().width;
   if (!(pageWidth > 0)) return;
-  const available = Math.max(280, frame.clientWidth || frame.parentElement?.clientWidth || 576);
-  const fitScale = Math.max(.28, Math.min(1, (available - 28) / pageWidth));
+  const available = Math.max(120, frame.clientWidth || frame.parentElement?.clientWidth || 576);
+  const fitScale = printFitScale(pageWidth, available);
   const userZoom = Number(frame.dataset.folioPreviewZoom || "1");
   frame.dataset.folioPrintFitZoom = String(fitScale);
   pages.style.setProperty("zoom", String(fitScale * userZoom), "important");
@@ -334,7 +338,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("kindle-6-8");
-  const [printPreviewScope, setPrintPreviewScope] = useState<"section" | "book">("section");
+  const [printPreviewScope, setPrintPreviewScope] = useState<"section" | "book">("book");
   const [previewZoom, setPreviewZoom] = useState(() => {
     const raw = window.localStorage.getItem("folio-preview-zoom-reader") ?? window.localStorage.getItem("folio-preview-zoom");
     if (raw === null) return 1;
@@ -355,6 +359,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [typewriterMode, setTypewriterMode] = useState(false);
   const [writeSidebarOpen, setWriteSidebarOpen] = useState(false);
   const [writeStudioOpen, setWriteStudioOpen] = useState(false);
+  const [writeStudioHasOpened, setWriteStudioHasOpened] = useState(false);
   const [writeStudioTab, setWriteStudioTab] = useState<WriteStudioTab>("session");
   const [writeStudioState, setWriteStudioState] = useState<WriteStudioState | null>(null);
   const [wordCountScope, setWordCountScope] = useState<WordCountScope>(() => window.localStorage.getItem("folio-word-count-scope") === "chapter" ? "chapter" : "book");
@@ -400,6 +405,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [searchMatchState, setSearchMatchState] = useState({ index: -1, total: 0 });
   const [coverVersion, setCoverVersion] = useState(0);
   const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
+  const [showPreflight, setShowPreflight] = useState(false);
   const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
   const editorRef = useRef<HTMLDivElement>(null);
   const illustrationInputRef = useRef<HTMLInputElement>(null);
@@ -1620,6 +1626,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }
 
   function openWriteStudio(tab: WriteStudioTab = "session") {
+    setWriteStudioHasOpened(true);
     setWriteStudioTab(tab);
     setWriteStudioOpen(true);
   }
@@ -2095,6 +2102,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
     doc.head.appendChild(style);
     if (previewMode === "print") observePrintPreviewFit(frame);
+    if (previewMode !== "print" || printPreviewScope !== "book") delete frame.dataset.folioPrintAnchor;
     const calibrationChanged = previewMode !== "print" ? calibratePreviewFrame(frame) : false;
     if (previewMode !== "print") void seatPreviewDropCaps(frame);
     if (pendingPreviewDraftRef.current) {
@@ -2131,10 +2139,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       : pendingPreviewScrollRef.current || doc.scrollingElement?.scrollTop || 0;
     pendingPreviewScrollRef.current = 0;
     requestAnimationFrame(() => {
+      if (previewRef.current !== frame || frame.contentDocument !== doc) return;
+      if (previewMode === "print") applyPrintPreviewFit(frame);
+      const soughtSection = previewMode === "print" && printPreviewScope === "book" && selectedId
+        && frame.dataset.folioPrintAnchor !== selectedId && seekPrintSection(frame, selectedId);
       // A profile switch already operates on the live iframe. Do not enqueue a
       // stale numeric scroll restoration that can fire after the reader has
       // clicked or scrolled to a new location in the same frame.
-      if (!geometryOnly || typeof restoreScroll === "number") {
+      if (!soughtSection && (!geometryOnly || typeof restoreScroll === "number")) {
         doc.scrollingElement?.scrollTo(0, targetScroll);
       }
       if (previewMode !== "print") void applySafeContours(doc);
@@ -2570,7 +2582,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     if (!project || !meta || !(await saveCurrent())) return;
     setExportState({ busy: label, result: null, error: null });
     try {
-      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: format === "print" ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined });
+      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined });
       if (result.needsConfirm) {
         if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) return runExport(label, format, preset, true);
         setExportState({ busy: null, result: null, error: null }); return;
@@ -2660,7 +2672,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </section>
 
       {splitView && (secondDraftView
-        ? selectedId && selectedId !== COVER_ID && selectedSection?.kind === "chapter" && <SecondDraftPane
+        ? selectedId && selectedId !== COVER_ID && selectedSection?.kind === "chapter" && <OptionalToolBoundary label="Second Draft" onClose={() => void toggleSecondDraftView()}><SecondDraftPane
             key={project.projectId + ":second-draft:" + selectedId}
             project={project}
             targetSectionId={selectedId}
@@ -2676,7 +2688,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
               setProgressSectionId(selectedId);
               requestAnimationFrame(() => editorRef.current?.focus());
             }}
-          />
+          /></OptionalToolBoundary>
         : <WritingSplitPane
             key={project.projectId + ":" + splitContentRevision}
             project={project}
@@ -2713,7 +2725,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }}
       />}
 
-      {workspaceMode === "write" && <WriteStudioDrawer
+      {showPreflight && <OptionalToolBoundary label="Publish Preflight" onClose={() => setShowPreflight(false)}><PublishPreflight
+        onClose={() => setShowPreflight(false)} onSection={(id) => void selectSection(id)}
+        onRun={async (format) => {
+          if (!(await saveCurrent())) throw new Error("Save the current chapter before running Publish Preflight.");
+          return api.preflight(project.projectId, { format, meta, typography, print: printOptions });
+        }}
+      /></OptionalToolBoundary>}
+      {workspaceMode === "write" && (writeStudioOpen || writeStudioHasOpened) && <OptionalToolBoundary active={writeStudioOpen} label="Writing Studio" onClose={() => setWriteStudioOpen(false)}><WriteStudioDrawer
         open={writeStudioOpen}
         activeTab={writeStudioTab}
         setActiveTab={setWriteStudioTab}
@@ -2744,7 +2763,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }}
         onBookRestored={refreshAfterBookRestore}
         onError={(message) => setError(message)}
-      />}
+      /></OptionalToolBoundary>}
 
       {workspaceMode === "write" && focusMode && <div className="focus-layout-controls" role="toolbar" aria-label="Focus layout controls">
         {splitView && <button type="button" className="focus-split-close" aria-label="Close split editor" title="Close split editor" onMouseDown={(event) => event.preventDefault()} onClick={() => { if (secondDraftView) void toggleSecondDraftView(); else void toggleSplitView(); }}><UiIcon name="split"/></button>}
@@ -2753,7 +2772,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </div>}
 
       <section className="preview-pane">
-        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div><small>Stored ZIP sizes, not the uncompressed sources.</small></details>}</>}</div></div>}</div></div>
+        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("PDF/X-3 · CMYK", "pdfx")}>PDF/X-3 · CMYK</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.validation && <div className="export-validation-status">{exportState.result.validation.complete ? exportState.result.validation.valid ? "EPUBCheck: valid" : "EPUBCheck: invalid" : "Incomplete EPUB validation"}{exportState.result.validation.messages.map((message, index) => <p key={index}>{message.text}</p>)}</div>}{exportState.result.pdfxReport && <div className="export-validation-status"><strong>{exportState.result.pdfxReport.standard} · {exportState.result.pdfxReport.embeddedFonts} embedded fonts</strong><p>{exportState.result.pdfxReport.note}</p></div>}{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div>{exportState.result.optimization && exportState.result.optimization.bytesSaved > 0 && <p>{formatBytes(exportState.result.optimization.bytesSaved)} saved by sharing {exportState.result.optimization.removedAssets} identical assets.</p>}<small>Stored ZIP sizes.</small></details>}</>}</div></div>}</div></div>
         <div className="device-toolbar">
           <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <><select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select className="print-scope-select" aria-label="Print preview scope" value={printPreviewScope} onChange={(e) => setPrintPreviewScope(e.target.value as "section" | "book")}><option value="section">Current section</option><option value="book">Entire book</option></select></>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
@@ -2772,7 +2791,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         <StyleLibrary themes={themes} savedThemes={savedThemes} meta={meta} setMeta={setMeta} typography={typography} setTypography={setTypography} category={styleCategory} setCategory={setStyleCategory} printOptions={printOptions} setPrintOptions={setPrintOptions} projectId={project.projectId} previewSectionId={stylePreviewSectionId} previewDraft={stylePreviewDraft} onClose={() => setShowStyle(false)} onSave={() => void saveAppearance()} onOpenThemeLab={() => { setShowStyle(false); setShowThemeLab(true); }} onSelectBuiltInTheme={selectBuiltInTheme} onSelectSavedTheme={selectSavedTheme} onRemoveSavedTheme={removeSavedTheme}/>
       )}
       {showThemeLab && (
-        <ThemeLab
+        <OptionalToolBoundary label="Theme Lab" onClose={() => setShowThemeLab(false)}><ThemeLab
           themes={themes}
           meta={meta}
           typography={typography}
@@ -2785,7 +2804,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           onClose={() => setShowThemeLab(false)}
           onApply={applyThemeLab}
           onSaveToLibrary={saveThemeToLibrary}
-        />
+        /></OptionalToolBoundary>
       )}
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
@@ -3138,7 +3157,14 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}
     {category === "Scene Break" && <><div className="ornament-heading"><span>Choose an ornament</span><small>Every break in the book updates live.</small></div><div className="ornament-picker"><button className={ty.sceneOrnament === undefined ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: undefined })}><span>Theme</span><small>default</small></button><button className={ty.sceneOrnament === "" ? "selected" : ""} onClick={() => setTy({ ...ty, sceneOrnament: "" })}><span>None</span><small>no symbol</small></button>{sceneOrnaments.map((ornament) => <button key={ornament} data-ornament={ornament} className={ty.sceneOrnament === ornament ? "selected" : ""} title={`Use ${ornament}`} onClick={() => setTy({ ...ty, sceneOrnament: ornament })}>{ornament}</button>)}</div>{row("Custom ornament", <input value={ty.sceneOrnament ?? ""} placeholder="Type or paste a symbol" onChange={(e) => setTy({ ...ty, sceneOrnament: e.target.value })}/>)}</>}
-    {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
+    {category === "Header & Footer" && <>{row("Running heads", <select value={printOptions.layout} onChange={(e) => setPrintOptions({ ...printOptions, layout: e.target.value })}><option value="author-title-bottom">Author / title · folio bottom</option><option value="author-title-top">Author / title · folio top</option><option value="title-chapter-bottom">Title / chapter · folio bottom</option><option value="title-chapter-top">Title / chapter · folio top</option><option value="folio-bottom">Page number only · bottom</option></select>)}{row("Paper profile", <select value={printOptions.trim} onChange={(event) => setPrintOptions({ ...printOptions, trim: event.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>)}{row("Bleed", <select value={printOptions.bleedMm ?? 0} onChange={(event) => setPrintOptions({ ...printOptions, bleedMm: Number(event.target.value) })}><option value={0}>None</option><option value={3}>3 mm</option><option value={3.175}>0.125 in</option><option value={5}>5 mm</option></select>)}{row("Inner margin", <select value={printOptions.gutter ?? "auto"} onChange={(event) => setPrintOptions({ ...printOptions, gutter: event.target.value === "auto" ? undefined : Number(event.target.value) })}><option value="auto">Auto · final book page count</option>{[.375, .5, .625, .75, .875, 1, 1.125, 1.25, 1.5, 2].map((value) => <option key={value} value={value}>{value} in</option>)}</select>)}{row("PDF/X printer ICC", <span><input type="file" accept=".icc,.icm" onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          if (file.size > 8 * 1024 * 1024) { window.alert("Choose a CMYK printer ICC profile smaller than 8 MB."); return; }
+          const reader = new FileReader();
+          reader.onload = () => setPrintOptions({ ...printOptions, iccProfile: { name: file.name, dataBase64: String(reader.result).split(",")[1] } });
+          reader.readAsDataURL(file);
+        }}/><small>{printOptions.iccProfile?.name ?? "Artifex CMYK SWOP (default)"}</small></span>)}{row("Page arrangement", <select value={printOptions.spreadMode ?? "single"} onChange={(event) => setPrintOptions({ ...printOptions, spreadMode: event.target.value as "single" | "facing" | "booklet" })}><option value="single">Single pages</option><option value="facing">Facing pages</option><option value="booklet">Booklet sheets · 16-page signatures</option></select>)}{row("Binding", <select value={printOptions.binding} onChange={(event) => setPrintOptions({ ...printOptions, binding: event.target.value as "paperback" | "hardcover" })}><option value="paperback">Paperback</option><option value="hardcover">Hardcover</option></select>)}{row("Recto chapter starts", <input type="checkbox" checked={printOptions.startChaptersRecto} onChange={(e) => setPrintOptions({ ...printOptions, startChaptersRecto: e.target.checked })}/>)}</>}
     {category === "Title Page" && fontRow("Title typeface", ty.titlePageFont, (value) => setTy({ ...ty, titlePageFont: value || undefined }), displayFamilies)}
   </div>;
 }

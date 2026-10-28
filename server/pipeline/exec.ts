@@ -10,22 +10,45 @@ export interface RunResult {
 export function run(
   command: string,
   args: string[],
-  opts: { input?: string | Buffer; cwd?: string } = {},
+  opts: { input?: string | Buffer; cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number; maxOutputBytes?: number } = {},
 ): Promise<RunResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: opts.cwd, windowsHide: true });
+    const child = spawn(command, args, { cwd: opts.cwd, env: opts.env, windowsHide: true });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
-    child.stdout.on("data", (d) => out.push(d));
-    child.stderr.on("data", (d) => err.push(d));
-    child.on("error", reject);
+    let settled = false;
+    let bytes = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      child.kill();
+      reject(error);
+    };
+    const capture = (target: Buffer[], chunk: Buffer) => {
+      if (settled) return;
+      bytes += chunk.length;
+      if (opts.maxOutputBytes !== undefined && bytes > opts.maxOutputBytes) {
+        fail(new Error(`Command output exceeded ${opts.maxOutputBytes} bytes.`));
+        return;
+      }
+      target.push(chunk);
+    };
+    child.stdout.on("data", (chunk) => capture(out, chunk));
+    child.stderr.on("data", (chunk) => capture(err, chunk));
+    child.on("error", fail);
+    child.stdin.on("error", (error: NodeJS.ErrnoException) => { if (error.code !== "EPIPE") fail(error); });
     child.on("close", (code) => {
-      resolve({
-        code: code ?? 0,
-        stdout: Buffer.concat(out).toString("utf8"),
-        stderr: Buffer.concat(err).toString("utf8"),
-      });
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve({ code: code ?? -1, stdout: Buffer.concat(out).toString("utf8"), stderr: Buffer.concat(err).toString("utf8") });
     });
+    if (opts.timeoutMs !== undefined) {
+      timer = setTimeout(() => fail(new Error(`Command timed out after ${opts.timeoutMs} ms.`)), opts.timeoutMs);
+      timer.unref();
+    }
     if (opts.input !== undefined) {
       child.stdin.write(opts.input);
     }

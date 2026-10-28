@@ -43,10 +43,12 @@ jobs:
     timeout-minutes: 35
     env:
       PANDOC_BIN: ${{ github.workspace }}/build/pandoc/bin/pandoc
+      FOLIO_PUBLISH_QA_DIR: ${{ github.workspace }}/build/qa-publish-engine
+      PUPPETEER_SKIP_DOWNLOAD: "true"
       PUPPETEER_CACHE_DIR: ${{ github.workspace }}/build/puppeteer-cache
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.23.2
           cache: npm
@@ -57,7 +59,12 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Install Chromium runtime
-        run: npx puppeteer browsers install chrome-headless-shell
+        shell: bash
+        run: |
+          npx puppeteer browsers install chrome
+          chrome=$(find "$PUPPETEER_CACHE_DIR" -type f -path '*156.0.8078.47*' -name chrome -print -quit)
+          test -n "$chrome"
+          echo "PUPPETEER_EXECUTABLE_PATH=$chrome" >> "$GITHUB_ENV"
       - name: Install pinned Pandoc 3.11
         shell: bash
         run: |
@@ -66,6 +73,12 @@ jobs:
           echo "37edb3bbcf722f921a009941bf5874e2e0c09263226c9b4a2d980788cb062ab6  build/pandoc-3.11-linux-amd64.tar.gz" | sha256sum -c -
           tar -xzf build/pandoc-3.11-linux-amd64.tar.gz -C build/pandoc --strip-components=1
           "$PANDOC_BIN" --version | head -n 1
+      - name: Install checksum-pinned offline EPUBCheck runtime
+        run: npm run setup:publishing
+
+      - name: Stage pinned PDF/X converter and corresponding source
+        run: npm run setup:pdfx
+
       - name: Typecheck
         run: npm run typecheck
       - name: Build web and server
@@ -77,7 +90,7 @@ jobs:
 
       - name: Upload Halo QA screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Folio-Halo-QA
           path: |
@@ -93,3 +106,11 @@ jobs:
 
       - name: Full formatter and UI suite
         run: npm test
+
+      - name: Upload publishing diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Folio-Publishing-QA-${{ runner.os }}
+          path: build/qa-publish-engine/**
+          if-no-files-found: warn

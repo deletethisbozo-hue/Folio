@@ -186,6 +186,11 @@ export interface PrintOptions {
   binding: "paperback" | "hardcover";
   startChaptersRecto: boolean;
   layout: string;
+  iccProfile?: { name: string; dataBase64: string };
+  bleedMm?: number;
+  spreadMode?: "single" | "facing" | "booklet";
+  signaturePages?: number;
+  rtl?: boolean;
   gutter?: number;
 }
 
@@ -211,6 +216,7 @@ export interface Preset {
 }
 
 export interface ValidationMessage {
+  code?: string; path?: string; line?: number; column?: number;
   severity: "error" | "warning" | "info";
   text: string;
 }
@@ -218,6 +224,7 @@ export interface ValidationMessage {
 export interface ValidationReport {
   tool: "epubcheck" | "builtin";
   valid: boolean;
+  complete?: boolean;
   messages: ValidationMessage[];
   note?: string;
 }
@@ -244,9 +251,16 @@ export interface ExportResult {
   version?: number;
   archived?: string[];
   overwrote?: boolean;
+  optimization?: { removedAssets: number; bytesSaved: number };
+  pdfxReport?: { valid: boolean; standard: string; embeddedFonts: number; errors: string[]; note: string };
   validation?: ValidationReport;
   sizeReport?: ExportSizeReport;
   pages?: number;
+  iccProfile?: { name: string; dataBase64: string };
+  bleedMm?: number;
+  spreadMode?: "single" | "facing" | "booklet";
+  signaturePages?: number;
+  rtl?: boolean;
   gutter?: number;
   totalPages?: number;
   firstChapter?: number;
@@ -262,3 +276,6 @@ export interface PrintPreviewResult {
   pages: number;
   gutter: number;
 }
+
+export interface PreflightIssue { code: string; severity: "error" | "warning"; text: string; remedy: string; sectionId?: string; asset?: string; }
+export interface PreflightReport { ready: boolean; issues: PreflightIssue[]; }
