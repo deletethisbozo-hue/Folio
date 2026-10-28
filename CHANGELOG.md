@@ -5,7 +5,14 @@ All notable changes to Folio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.3.0] - 2026-10-28
+
+### Added
+- Full-book Print Preview with facing-page and booklet production layouts.
+- Publish Preflight checks for missing resources and fonts, broken anchors, empty chapters and invalid print settings.
+- PDF/X-3:2002 conversion using a user-selected CMYK ICC profile with embedded-font, page-geometry and strict searchable-text integrity checks.
+- Lossless duplicate-resource sharing in EPUB exports and cancellable, Worker-based writing analysis.
+- Checksum-pinned offline EPUBCheck and publishing runtimes.
 
 ### Removed
 - Full Page creation from the chapter toolbar and Add Content dialog.
@@ -17,9 +24,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reader preview waits for a typing pause instead of rebuilding short chapters after every keystroke.
 - Illustration hydration ignores plain text mutations and batches structural changes.
 - Preview selectors, zoom and navigation occupy separate wrapping rows in narrow panes.
+- Print PDF text remains searchable after PDF/X conversion; print ligatures are disabled to prevent Unicode character corruption during conversion.
+- Text compositor avoids glyph scaling that caused PDF/X rasterization and large searchable-text loss.
+- Export diagnostics and packaged Windows PDF/X exports preserve manuscript content.
+
+### Changed
+- Print PDFs use real trim and bleed boxes and support metric paper profiles.
+- Print Preview opens on the complete book while preserving current-section pagination.
+- PDF/X output size stays compact by retaining vector text rather than flattening pages.
 
 ### Compatibility
 - Existing dedicated image-only front-matter sections remain readable; project files are not rewritten automatically.
+
+### Tests
+- Added a strict full-text PDF/X regression for ligature-heavy manuscript words.
+- Passed full Linux qualification, Windows UI/build and packaged installer/portable smoke, print trim matrix, export-download tests and illustration stability checks.
 
 ## [3.2.7] - 2026-10-27
 
