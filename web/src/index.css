@@ -180,7 +180,7 @@ button:disabled { cursor: default; opacity: .45; }
 .generate-menu button { width: 100%; height: 27px; border: 0; border-radius: 4px; background: transparent; text-align: left; padding: 0 8px; font-size: 10px; cursor: default; }
 .generate-menu button:hover { background: #3978d4; color: #fff; }
 .generate-status { min-height: 20px; border-top: 1px solid #dededa; margin-top: 4px; padding: 6px 7px 2px; font-size: 8px; color: #666; }
-.export-progress { position: absolute; z-index: 20; top: 34px; right: 12px; display: flex; align-items: center; gap: 9px; max-width: min(360px, calc(100% - 24px)); padding: 8px 11px; border: 1px solid #c8c8c5; border-radius: 8px; background: rgba(250,250,248,.97); box-shadow: 0 3px 12px rgba(0,0,0,.14); color: #444; font-size: 11px; }
+.export-progress { position: relative; z-index: 1; display: flex; align-items: center; gap: 9px; min-height: 48px; flex: 0 0 auto; padding: 7px 12px; border-bottom: 1px solid #c8c8c5; background: #fafaf8; color: #444; font-size: 11px; }
 .export-progress-ring { --export-progress: 0%; display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border-radius: 50%; background: conic-gradient(#3978d4 var(--export-progress), #dededa 0); }
 .export-progress-ring > span { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #fafaf8; color: #333; font-size: 8px; font-variant-numeric: tabular-nums; }
 .error-text { color: #a42f2a; }

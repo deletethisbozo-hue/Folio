@@ -5,7 +5,17 @@ All notable changes to Folio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.4.0] - Unreleased
+## [3.4.1] - Unreleased
+
+### Fixed
+- Kindle EPUB exports now embed the selected theme fonts while preserving reader font overrides.
+- Export progress remains visible below the preview controls instead of covering the Export button.
+
+### Tests
+- Verify selected theme fonts in both EPUB presets and their reported archive sizes.
+- Verify wrapped illustrations remain visible in print previews, PDFs and PDF/X exports.
+
+## [3.4.0] - 2026-10-29
 
 ### Added
 - Theme Library search and automatically grouped Illustrated, Typography-led, Ornamental and Minimal collections.

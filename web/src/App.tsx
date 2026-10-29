@@ -2588,6 +2588,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   async function runExport(label: string, format: string, preset?: string, force = false): Promise<void> {
     if (!project || !meta || !(await saveCurrent())) return;
     const progressId = crypto.randomUUID();
+    setShowGenerate(false);
     setExportState({ busy: label, result: null, error: null, progress: { percent: 0, stage: "Preparing export" }, progressId });
     let polling = true;
     let progressTimer: number | undefined;
@@ -2617,7 +2618,11 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         throw new Error("The export finished, but Folio did not receive a downloadable file. Try exporting again.");
       }
       setExportState({ busy: null, result, error: null, progress: null, progressId: null });
-    } catch (e) { setExportState({ busy: null, result: null, error: e instanceof Error ? e.message : String(e), progress: null, progressId: null }); }
+      setShowGenerate(true);
+    } catch (e) {
+      setExportState({ busy: null, result: null, error: e instanceof Error ? e.message : String(e), progress: null, progressId: null });
+      setShowGenerate(true);
+    }
     finally {
       polling = false;
       if (progressTimer !== undefined) window.clearTimeout(progressTimer);
@@ -2803,12 +2808,6 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("PDF/X-3 · CMYK", "pdfx")}>PDF/X-3 · CMYK</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.validation && <div className="export-validation-status">{exportState.result.validation.complete ? exportState.result.validation.valid ? "EPUBCheck: valid" : "EPUBCheck: invalid" : "Incomplete EPUB validation"}{exportState.result.validation.messages.map((message, index) => <p key={index}>{message.text}</p>)}</div>}{exportState.result.pdfxReport && <div className="export-validation-status"><strong>{exportState.result.pdfxReport.standard} · {exportState.result.pdfxReport.embeddedFonts} embedded fonts</strong><p>{exportState.result.pdfxReport.note}</p></div>}{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div>{exportState.result.optimization && exportState.result.optimization.bytesSaved > 0 && <p>{formatBytes(exportState.result.optimization.bytesSaved)} saved by sharing {exportState.result.optimization.removedAssets} identical assets.</p>}<small>Stored ZIP sizes.</small></details>}</>}</div></div>}</div></div>
-        {exportState.busy && exportState.progress && <div className="export-progress" role="status" aria-live="polite">
-          <span className="export-progress-ring" style={{ "--export-progress": `${exportState.progress.percent}%` } as CSSProperties}>
-            <span>{exportState.progress.percent}%</span>
-          </span>
-          <span>{exportState.progress.stage}</span>
-        </div>}
         <div className="device-toolbar">
           <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <><select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select className="print-scope-select" aria-label="Print preview scope" value={printPreviewScope} onChange={(e) => setPrintPreviewScope(e.target.value as "section" | "book")}><option value="section">Current section</option><option value="book">Entire book</option></select></>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
@@ -2818,6 +2817,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
           </div>
           <div className="device-nav"><button disabled={!previousId} title="Previous section" aria-label="Previous section" onClick={() => previousId && void selectSection(previousId)}><UiIcon name="previous"/></button><span>{selectedPosition >= 0 ? selectedPosition + 1 : 0} / {navigationIds.length}</span><button disabled={!nextId} title="Next section" aria-label="Next section" onClick={() => nextId && void selectSection(nextId)}><UiIcon name="next"/></button></div>
         </div>
+        {exportState.busy && exportState.progress && <div className="export-progress" role="status" aria-live="polite">
+          <span className="export-progress-ring" style={{ "--export-progress": `${exportState.progress.percent}%` } as CSSProperties}>
+            <span>{exportState.progress.percent}%</span>
+          </span>
+          <span>{exportState.progress.stage}</span>
+        </div>}
         <div ref={previewStageRef} className={`preview-stage ${previewMode === "print" ? "print-stage" : "device-stage"}`} style={{ "--folio-preview-zoom": String(previewZoom) } as React.CSSProperties}><div className={"reader-device device-" + previewMode} data-device-family={previewProfile?.family ?? "kindle"} style={previewMode === "print" || !previewProfile ? undefined : ({ "--folio-device-aspect": String(previewProfile.viewport.width / previewProfile.viewport.height), "--folio-device-max-width": `${previewProfile.shellMaxWidth}px` } as React.CSSProperties)}><div className="reader-screen">{previewLoading && <div className="preview-loading">Rendering…</div>}{previewError && !previewLoading && <div className="preview-error" role="status"><strong>Preview could not refresh.</strong><span>The last valid page is still shown. Try changing a preview setting to refresh.</span></div>}{coverSelected ? (project.hasCover ? <div className="cover-preview-surface"><img src={`/api/projects/${project.projectId}/cover?v=${coverVersion}`} alt={`${meta.title} cover`}/></div> : <div className="cover-preview-empty"><strong>No cover yet</strong><span>Add a PNG or JPEG from the Cover workspace.</span></div>) : selectedId ? <iframe key={`${project.projectId}:${selectedId}:${previewMode === "print" ? "print" : "reader"}`} ref={previewRef} className="preview-frame" title="Book preview" srcDoc={previewHtml} onLoad={() => onPreviewLoad()}/> : <div className="preview-empty">Add a chapter to see its live preview.</div>}</div></div></div>
       </section>
 
