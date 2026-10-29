@@ -59,6 +59,10 @@ import { normalizeThemeFontStack } from "./pipeline/theme-fonts.ts";
 import { registerIllustrationApi } from "./illustration-api.ts";
 import { forgetRecentProject, readRecentProjects, rememberRecentProject } from "./recent-projects.ts";
 import { customFontById, customFontPath, installCustomFont, readCustomFonts, readThemeLibrary, writeThemeLibrary } from "./global-library.ts";
+import { builtinThemeFontFamilies } from "./pipeline/theme-fonts.ts";
+import { runThemeTypographyQa } from "./pipeline/theme-qa.ts";
+import { validateThemeConfig } from "../shared/theme-validation.ts";
+import { readExportProgress, updateExportProgress } from "./export-progress.ts";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -181,7 +185,23 @@ export function registerApi(app: Express): void {
     wrap(res, async () => { res.json(await readThemeLibrary()); }),
   );
   app.put("/api/library/themes", (req: Request, res: Response) =>
-    wrap(res, async () => { res.json(await writeThemeLibrary(req.body?.themes ?? req.body)); }),
+    wrap(res, async () => {
+      const entries = req.body?.themes ?? req.body;
+      if (Array.isArray(entries)) {
+        const knownThemes = themeList().map((theme) => theme.name);
+        const customFonts = await readCustomFonts();
+        const installedFonts = [...builtinThemeFontFamilies(), ...customFonts.map((font) => font.family)];
+        for (const entry of entries) {
+          const issues = validateThemeConfig(entry?.config, {
+            baseTheme: entry?.baseTheme,
+            knownBaseThemes: knownThemes,
+            installedFonts,
+          }).filter((issue) => issue.severity === "error");
+          if (issues.length) throw new Error(`Theme "${String(entry?.label ?? "Untitled")}" is invalid: ${issues.map((issue) => issue.message).join(" ")}`);
+        }
+      }
+      res.json(await writeThemeLibrary(entries));
+    }),
   );
   app.get("/api/library/fonts", (_req, res) =>
     wrap(res, async () => { res.json(await readCustomFonts()); }),
@@ -479,6 +499,26 @@ export function registerApi(app: Express): void {
     }),
   );
 
+  app.post("/api/projects/:id/theme-qa", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const baseTheme = typeof req.body?.baseTheme === "string" ? req.body.baseTheme : "";
+      const knownThemes = themeList().map((theme) => theme.name);
+      const customFonts = await readCustomFonts();
+      const validation = validateThemeConfig(req.body?.config, {
+        baseTheme,
+        knownBaseThemes: knownThemes,
+        installedFonts: [...builtinThemeFontFamilies(), ...customFonts.map((font) => font.family)],
+      });
+      if (validation.some((issue) => issue.severity === "error")) {
+        res.status(400).json({ error: "Fix theme validation errors before running typography QA.", validation });
+        return;
+      }
+      const { book } = await loadProject(req.params.id, { theme: baseTheme as BookMeta["theme"] });
+      applyTypography(book, req);
+      res.json(await runThemeTypographyQa(book));
+    }),
+  );
+
   // Paginated print preview (same Paged.js layout as the print PDF).
   app.post("/api/projects/:id/preview-print", (req: Request, res: Response) =>
     wrap(res, async () => {
@@ -537,15 +577,33 @@ export function registerApi(app: Express): void {
    * Drag-and-dropped projects live in a temp folder with no permanent home, so
    * those still come back as base64 for the browser to download.
    */
+  app.get("/api/projects/:id/export-progress/:progressId", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      if (!hasProject(req.params.id)) throw new Error("Project not found.");
+      const progress = readExportProgress(req.params.id, req.params.progressId);
+      if (!progress) {
+        res.status(404).json({ error: "Export progress is no longer available." });
+        return;
+      }
+      res.json(progress);
+    }),
+  );
+
   app.post("/api/projects/:id/export", (req: Request, res: Response) =>
     wrap(res, async () => {
       const format = String(req.body?.format ?? "");
+      const progressId = typeof req.body?.progressId === "string" ? req.body.progressId : undefined;
+      const reportProgress = (percent: number, stage: string) =>
+        updateExportProgress(req.params.id, progressId, percent, stage);
+      reportProgress(2, "Preparing export");
       const { book } = await loadProject(req.params.id, bodyMeta(req));
       applyTypography(book, req);
+      reportProgress(8, "Checking the manuscript and export settings");
       if (["epub", "pdf", "print", "pdfx", "docx"].includes(format)) {
         const preflight = await publishPreflight(book, { format: format === "pdfx" ? "print" : format, preset: String(req.body?.preset ?? "universal"), print: ["print", "pdfx"].includes(format) ? { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) } : undefined });
         if (!preflight.ready) throw new Error("Publish Preflight: " + preflight.issues.filter((issue) => issue.severity === "error").slice(0, 8).map((issue) => `${issue.text} ${issue.remedy}`).join("; "));
       }
+      reportProgress(12, "Starting the renderer");
       const stem = slugify(book.meta.title) || "book";
       const info = projectInfo(req.params.id);
       const bookDir = info.onDisk ? info.folder : null;
@@ -562,6 +620,7 @@ export function registerApi(app: Express): void {
 
       /** Write to the configured destination, or hand back bytes to download. */
       const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}) => {
+        reportProgress(94, "Finishing and saving the export");
         if (!bookDir) {
           // A drag-and-dropped book has no folder in which Folio can save
           // exports. Give every downloadable artifact a distinct, recognizable
@@ -585,6 +644,7 @@ export function registerApi(app: Express): void {
             written: false,
             ...extra,
           });
+          reportProgress(100, "Export ready");
           return;
         }
         const prep = await prepareExport(book, bookDir, { exportsOut: exportOutputDir, slug: projectSlug });
@@ -595,6 +655,7 @@ export function registerApi(app: Express): void {
         });
         if (!result.written) {
           res.json({ needsConfirm: true, message: result.conflictMessage, bytes: data.length, ...extra });
+          reportProgress(100, "Waiting for overwrite confirmation");
           return;
         }
         res.json({
@@ -608,6 +669,7 @@ export function registerApi(app: Express): void {
           mime,
           ...extra,
         });
+        reportProgress(100, "Export ready");
       };
 
       // The blues needs its version and round BEFORE it renders — both are
@@ -664,7 +726,9 @@ export function registerApi(app: Express): void {
       switch (format) {
         case "epub": {
           const preset = (req.body?.preset ?? "universal") as PresetName;
+          reportProgress(20, "Building the EPUB and packaging selected fonts");
           const { buffer, optimization } = await renderEpub(book, preset);
+          reportProgress(80, "Validating the EPUB");
           const [validation, sizeReport] = await Promise.all([validateEpub(buffer, { requireFullValidation: Boolean(process.env.FOLIO_RESOURCE_ROOT) }), inspectEpubSize(buffer)]);
           if (!validation.valid) throw new Error("EPUB validation failed: " + validation.messages.filter((message) => message.severity === "error").slice(0, 8).map((message) => message.text).join("; "));
           await deliver(preset === "kdp" ? "epub-kdp" : "epub-universal", buffer, "application/epub+zip", { validation, sizeReport, optimization });
@@ -685,7 +749,8 @@ export function registerApi(app: Express): void {
           return;
         }
         case "pdf": {
-          const buffer = await renderPdf(book);
+          const buffer = await renderPdf(book, ({ completedParagraphs, totalParagraphs, fraction }) =>
+            reportProgress(15 + 72 * fraction, `Composing reading PDF: ${completedParagraphs}/${totalParagraphs} paragraphs`));
           await deliver("reading", buffer, "application/pdf");
           return;
         }
@@ -694,7 +759,8 @@ export function registerApi(app: Express): void {
           const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
           const profile = format === "pdfx" ? print.iccProfile ? Buffer.from(print.iccProfile.dataBase64, "base64") : await defaultPdfXProfile() : null;
           if (profile) validateCmykProfile(profile);
-          const { buffer, meta } = await renderPrintPdf(book, print);
+          const { buffer, meta } = await renderPrintPdf(book, print, ({ completedParagraphs, totalParagraphs, fraction }) =>
+            reportProgress(15 + 66 * fraction, `Composing print PDF: ${completedParagraphs}/${totalParagraphs} paragraphs`));
           if (profile) {
             const converted = await convertPdfX3(buffer, { profile, name: print.iccProfile?.name ?? "Artifex CMYK SWOP", title: book.meta.title });
             await deliver("pdfx", converted.buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter, pdfxReport: converted.report });

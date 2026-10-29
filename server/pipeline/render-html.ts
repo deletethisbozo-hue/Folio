@@ -2,7 +2,7 @@ import type { Book } from "./types.ts";
 import { assembleMarkdown, type Target } from "./build-doc.ts";
 import { printCss, THEMES_DIR } from "./paths.ts";
 import { BOOK_TEMPLATE, cleanup, commonArgs, makeWorkspace, runPandoc } from "./pandoc.ts";
-import { buildDocCss } from "./doc-css.ts";
+import { bookFontFamilies, buildDocCss } from "./doc-css.ts";
 import { buildThemeRuntimeCss } from "./theme-fonts.ts";
 import { applyIllustrationContours } from "./illustration-shapes.ts";
 import { promises as fs } from "node:fs";
@@ -24,7 +24,7 @@ export async function renderHtml(book: Book, target: Target = "html"): Promise<s
     const runtimeTheme = await buildThemeRuntimeCss(
       book.meta.theme,
       target === "print" ? "print" : "html",
-      [book.typography.bodyFont, book.typography.headingFont, book.typography.dropcapFont, book.typography.titlePageFont].filter((value): value is string => Boolean(value)),
+      bookFontFamilies(book),
     );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");
     await fs.writeFile(runtimeThemePath, runtimeTheme.themeCss, "utf8");

@@ -13,6 +13,7 @@ import type {
   CustomFontRecord,
   Trim,
   Typography,
+  TypographyQaReport,
 } from "./types";
 import type { RecentProject } from "./recent-projects";
 import type { RevisionPayload, SecondDraftBlockStatus, SecondDraftCarryStatus, SecondDraftIssueCategory, SecondDraftReviewPassKey, SecondDraftRewriteIntent, SecondDraftSealReveal, WriteStudioState, WritingTargets } from "./write-studio";
@@ -409,6 +410,13 @@ export const api = {
       signal,
     }).then((r) => json<{ html: string }>(r)),
 
+  themeTypographyQa: (projectId: string, baseTheme: string, typography: Typography, config: unknown) =>
+    fetch(`/api/projects/${projectId}/theme-qa`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ baseTheme, typography, config }),
+    }).then((r) => json<TypographyQaReport>(r)),
+
   previewPrint: async (
     projectId: string,
     meta: Partial<BookMeta>,
@@ -476,6 +484,7 @@ export const api = {
       note?: string;
       force?: boolean;
       outputDir?: string;
+      progressId?: string;
     },
   ) =>
     fetch(`/api/projects/${projectId}/export`, {
@@ -483,6 +492,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ format, ...opts }),
     }).then((r) => json<ExportResult>(r)),
+
+  exportProgress: (projectId: string, progressId: string) =>
+    fetch(`/api/projects/${projectId}/export-progress/${progressId}`).then(async (response) => {
+      if (response.status === 404) return null;
+      return json<{ percent: number; stage: string; updatedAt: number }>(response);
+    }),
 };
 
 export function downloadResult(result: ExportResult): boolean {

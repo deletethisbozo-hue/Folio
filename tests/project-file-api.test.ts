@@ -48,9 +48,23 @@ try {
   const sectionId = created.body.sections?.find((section: any) => section.kind === "chapter")?.id as string;
   check("creates an editable starter chapter", Boolean(projectId && sectionId));
 
+  const themeLab = { enabled: true, name: "API QA", bodyFont: "EB Garamond", headingFont: "Bodoni Moda" };
+  const themeQa = await request("POST", `/api/projects/${projectId}/theme-qa`, {
+    baseTheme: "literary",
+    typography: { themeLab, bodyFont: themeLab.bodyFont, headingFont: themeLab.headingFont },
+    config: themeLab,
+  });
+  check("theme typography QA checks preview, PDF and EPUB paths", themeQa.status === 200 && themeQa.body.checks?.length === 3 && themeQa.body.checks.every((item: any) => item.status === "pass"));
+
   const savedText = "# Chapter One\n\nPersisted through the editor API.\n";
   const saved = await request("PUT", `/api/projects/${projectId}/sections/${encodeURIComponent(sectionId)}`, { markdown: savedText });
   check("saves chapter text through the editor API", saved.status === 200 && saved.body.markdown.includes("Persisted through the editor API."));
+
+  const largeText = ("Representative manuscript text.\n\n".repeat(18_000)).trim();
+  const saveStarted = performance.now();
+  const largeSave = await request("PUT", `/api/projects/${projectId}/sections/${encodeURIComponent(sectionId)}`, { markdown: largeText });
+  const saveDurationMs = performance.now() - saveStarted;
+  check("saves a representative large manuscript intact in under 10 seconds", largeSave.status === 200 && largeSave.body.markdown === largeText && saveDurationMs < 10_000, `${Math.round(saveDurationMs)} ms`);
 
   const flushed = await request("POST", `/api/projects/${projectId}/flush`, {});
   check("flushes working-copy changes into the .folio file", flushed.status === 200 && flushed.body.ok === true);
@@ -66,7 +80,7 @@ try {
   const reopenedId = reopened.body.projectId as string;
   const reopenedSectionId = reopened.body.sections?.find((section: any) => section.kind === "chapter")?.id as string;
   const document = await request("GET", `/api/projects/${reopenedId}/sections/${encodeURIComponent(reopenedSectionId)}`);
-  check("restores saved manuscript text after reopen", document.status === 200 && document.body.markdown.includes("Persisted through the editor API."));
+  check("restores the full saved manuscript after reopen", document.status === 200 && document.body.markdown === largeText);
 
   const exported = await request("POST", `/api/projects/${reopenedId}/export`, {
     format: "md",

@@ -481,6 +481,37 @@
   white-space: nowrap;
 }
 .theme-lab-error { color: #a34e4b; }
+.theme-lab-qa-summary,
+.theme-lab-qa-target {
+  margin: 0 0 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(75, 80, 109, .12);
+  border-radius: 8px;
+  background: #fff;
+}
+.theme-lab-qa-summary { display: grid; gap: 4px; }
+.theme-lab-qa-summary strong { color: #315d43; font-size: 11px; }
+.theme-lab-qa-summary > span,
+.theme-lab-qa-target p,
+.theme-lab-qa-message span { color: #74798a; font-size: 9px; line-height: 1.45; }
+.theme-lab-qa-summary[data-status="warning"] strong { color: #9a6b27; }
+.theme-lab-qa-summary[data-status="error"] strong,
+.theme-lab-qa-message.error strong { color: #a34e4b; }
+.theme-lab-qa-message { display: grid; gap: 3px; margin: 7px 0; padding: 8px 10px; border-left: 3px solid #d5a04b; background: rgba(224, 172, 82, .09); }
+.theme-lab-qa-message.error { border-left-color: #b65451; background: rgba(182, 84, 81, .08); }
+.theme-lab-qa-message strong { color: #8c692f; font-size: 9px; }
+.theme-lab-qa-run { margin: 8px 0 12px; }
+.theme-lab-qa-target { margin-bottom: 7px; }
+.theme-lab-qa-target h4 { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; color: #404457; font-size: 10px; }
+.theme-lab-qa-target h4 span { color: #35734d; font-size: 8px; text-transform: uppercase; }
+.theme-lab-qa-target[data-status="warning"] h4 span { color: #9a6b27; }
+.theme-lab-qa-target p { margin: 3px 0 0; }
+.folio-shell[data-ui-tone="midnight"] .theme-lab-qa-summary,
+.folio-shell[data-ui-tone="midnight"] .theme-lab-qa-target { border-color: rgba(255,255,255,.09); background: #191b23; }
+.folio-shell[data-ui-tone="midnight"] .theme-lab-qa-target h4 { color: #e8e9f1; }
+.folio-shell[data-ui-tone="midnight"] .theme-lab-qa-summary > span,
+.folio-shell[data-ui-tone="midnight"] .theme-lab-qa-target p,
+.folio-shell[data-ui-tone="midnight"] .theme-lab-qa-message span { color: #9a9dad; }
 
 /* Midnight: same geometry, only materials change. */
 .folio-shell[data-ui-tone="midnight"] .theme-lab-overlay { background: rgba(5, 6, 10, .60); }

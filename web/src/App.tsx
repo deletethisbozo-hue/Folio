@@ -2,7 +2,7 @@ import { printFitScale, seekPrintSection } from "./preview-fit";
 import { PAPER_PROFILES } from "../../shared/paper-profiles";
 import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
 import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
-import { lazy, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
   detectPastedLanguage,
@@ -26,6 +26,7 @@ import WritingSplitPane from "./WritingSplitPane";
 import OptionalToolBoundary from "./components/OptionalToolBoundary";
 import WritingProgressHalo from "./WritingProgressHalo";
 import { themeLabTypography } from "./theme-lab-typography";
+import { themeCollections, themeMatchesCollection } from "./theme-collections";
 import { todayKey, type SelectionCapture, type SessionStats, type WriteStudioState, type WriteStudioTab } from "./write-studio";
 import type { BookMeta, CustomFontRecord, ExportResult, MatterType, PrintOptions, ProjectSummary, SectionDocument, Theme, ThemeLabConfig, ThemeLibraryEntry, Typography } from "./types";
 
@@ -406,7 +407,13 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [coverVersion, setCoverVersion] = useState(0);
   const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
   const [showPreflight, setShowPreflight] = useState(false);
-  const [exportState, setExportState] = useState<{ busy: string | null; result: ExportResult | null; error: string | null }>({ busy: null, result: null, error: null });
+  const [exportState, setExportState] = useState<{
+    busy: string | null;
+    result: ExportResult | null;
+    error: string | null;
+    progress: { percent: number; stage: string } | null;
+    progressId: string | null;
+  }>({ busy: null, result: null, error: null, progress: null, progressId: null });
   const editorRef = useRef<HTMLDivElement>(null);
   const illustrationInputRef = useRef<HTMLInputElement>(null);
   const illustrationRangeRef = useRef<Range | null>(null);
@@ -2580,18 +2587,41 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
   async function runExport(label: string, format: string, preset?: string, force = false): Promise<void> {
     if (!project || !meta || !(await saveCurrent())) return;
-    setExportState({ busy: label, result: null, error: null });
+    const progressId = crypto.randomUUID();
+    setExportState({ busy: label, result: null, error: null, progress: { percent: 0, stage: "Preparing export" }, progressId });
+    let polling = true;
+    let progressTimer: number | undefined;
+    const pollProgress = async () => {
+      try {
+        const progress = await api.exportProgress(project.projectId, progressId);
+        if (progress) setExportState((current) =>
+          current.progressId === progressId ? { ...current, progress: { percent: progress.percent, stage: progress.stage } } : current,
+        );
+      } catch {
+        setExportState((current) =>
+          current.progressId === progressId
+            ? { ...current, progress: { percent: current.progress?.percent ?? 0, stage: "Export is still running; progress update unavailable" } }
+            : current,
+        );
+      }
+      if (polling) progressTimer = window.setTimeout(pollProgress, 500);
+    };
+    progressTimer = window.setTimeout(pollProgress, 0);
     try {
-      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined });
+      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined, progressId });
       if (result.needsConfirm) {
         if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) return runExport(label, format, preset, true);
-        setExportState({ busy: null, result: null, error: null }); return;
+        setExportState({ busy: null, result: null, error: null, progress: null, progressId: null }); return;
       }
       if (!result.written && !downloadResult(result)) {
         throw new Error("The export finished, but Folio did not receive a downloadable file. Try exporting again.");
       }
-      setExportState({ busy: null, result, error: null });
-    } catch (e) { setExportState({ busy: null, result: null, error: e instanceof Error ? e.message : String(e) }); }
+      setExportState({ busy: null, result, error: null, progress: null, progressId: null });
+    } catch (e) { setExportState({ busy: null, result: null, error: e instanceof Error ? e.message : String(e), progress: null, progressId: null }); }
+    finally {
+      polling = false;
+      if (progressTimer !== undefined) window.clearTimeout(progressTimer);
+    }
   }
 
   if (!project || !meta) return (
@@ -2773,6 +2803,12 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
 
       <section className="preview-pane">
         <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("PDF/X-3 · CMYK", "pdfx")}>PDF/X-3 · CMYK</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.validation && <div className="export-validation-status">{exportState.result.validation.complete ? exportState.result.validation.valid ? "EPUBCheck: valid" : "EPUBCheck: invalid" : "Incomplete EPUB validation"}{exportState.result.validation.messages.map((message, index) => <p key={index}>{message.text}</p>)}</div>}{exportState.result.pdfxReport && <div className="export-validation-status"><strong>{exportState.result.pdfxReport.standard} · {exportState.result.pdfxReport.embeddedFonts} embedded fonts</strong><p>{exportState.result.pdfxReport.note}</p></div>}{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div>{exportState.result.optimization && exportState.result.optimization.bytesSaved > 0 && <p>{formatBytes(exportState.result.optimization.bytesSaved)} saved by sharing {exportState.result.optimization.removedAssets} identical assets.</p>}<small>Stored ZIP sizes.</small></details>}</>}</div></div>}</div></div>
+        {exportState.busy && exportState.progress && <div className="export-progress" role="status" aria-live="polite">
+          <span className="export-progress-ring" style={{ "--export-progress": `${exportState.progress.percent}%` } as CSSProperties}>
+            <span>{exportState.progress.percent}%</span>
+          </span>
+          <span>{exportState.progress.stage}</span>
+        </div>}
         <div className="device-toolbar">
           <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <><select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select className="print-scope-select" aria-label="Print preview scope" value={printPreviewScope} onChange={(e) => setPrintPreviewScope(e.target.value as "section" | "book")}><option value="section">Current section</option><option value="book">Entire book</option></select></>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
@@ -2969,7 +3005,16 @@ function StyleLibrary(props: {
   const selected = selectedCustom ? undefined : themes.find((theme) => theme.name === meta.theme);
   const [hoverPreview, setHoverPreview] = useState<{ theme: string; label: string; html: string; loading: boolean; error?: string } | null>(null);
   const [pendingDeleteTheme, setPendingDeleteTheme] = useState<ThemeLibraryEntry | null>(null);
+  const [themeSearch, setThemeSearch] = useState("");
+  const [themeCollection, setThemeCollection] = useState("all");
   const hoverAbortRef = useRef<AbortController | null>(null);
+  const collections = themeCollections(savedThemes);
+  const query = themeSearch.trim().toLocaleLowerCase();
+  const visibleSavedThemes = savedThemes.filter((theme) =>
+    themeMatchesCollection(theme, themeCollection)
+    && (!query || `${theme.label} ${theme.baseTheme} ${theme.config.bodyFont ?? ""} ${theme.config.headingFont ?? ""}`.toLocaleLowerCase().includes(query)),
+  );
+  const visibleBuiltInThemes = themes.filter((theme) => !query || `${theme.label} ${theme.description}`.toLocaleLowerCase().includes(query));
   useEffect(() => () => hoverAbortRef.current?.abort(), []);
   const previewTheme = (theme: Theme) => {
     hoverAbortRef.current?.abort();
@@ -3012,8 +3057,15 @@ function StyleLibrary(props: {
       <header className="style-library-header"><div><h2>Book Styles</h2><p>Hover a style to preview it on the current chapter. Click to apply, or build your own in Theme Lab.</p></div><div className="style-library-header-actions"><button type="button" className="style-open-theme-lab" onClick={props.onOpenThemeLab}><span>Theme Lab</span></button><button className="style-library-close" onClick={props.onClose} aria-label="Close">×</button></div></header>
       <div className="style-library-body">
         <nav className="style-category-list">{styleCategories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}</nav>
-        <div className="style-content">{category === "Book Style" ? <div className="theme-gallery">
-          {savedThemes.map((theme) => {
+        <div className="style-content">{category === "Book Style" ? <div className="theme-library-browser">
+          <div className="theme-library-toolbar">
+            <label className="theme-library-search"><span>Search themes</span><input type="search" value={themeSearch} onChange={(event) => setThemeSearch(event.target.value)} placeholder="Name, base theme, or font"/></label>
+            <div className="theme-library-collections" aria-label="Automatic theme collections">
+              {collections.map((collection) => <button key={collection.id} type="button" aria-pressed={themeCollection === collection.id} className={themeCollection === collection.id ? "active" : ""} onClick={() => setThemeCollection(collection.id)}>{collection.label}<span>{collection.count}</span></button>)}
+            </div>
+          </div>
+          <div className="theme-gallery">
+          {visibleSavedThemes.map((theme) => {
             const base = themes.find((item) => item.name === theme.baseTheme);
             const active = selectedCustom?.id === theme.id;
             const chapterArt = theme.config.chapterOrnament;
@@ -3030,7 +3082,9 @@ function StyleLibrary(props: {
               <span role="button" tabIndex={0} className="theme-custom-remove" title="Delete custom theme" aria-label={"Delete " + theme.label + " from Theme Library"} onClick={(event) => { event.stopPropagation(); setPendingDeleteTheme(theme); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); setPendingDeleteTheme(theme); } }}>×</span>
             </button>;
           })}
-          {themes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (!selectedCustom && meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectBuiltInTheme(theme)}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span></button>)}
+          {visibleBuiltInThemes.map((theme) => <button key={theme.name} data-theme={theme.name} className={"theme-sample theme-" + theme.name + (!selectedCustom && meta.theme === theme.name ? " selected" : "")} style={{ background: theme.previewPaper, color: theme.previewAccent, fontFamily: theme.previewFont }} onMouseEnter={() => previewTheme(theme)} onMouseLeave={clearThemePreview} onFocus={() => previewTheme(theme)} onBlur={clearThemePreview} onClick={() => props.onSelectBuiltInTheme(theme)}><span className="theme-name">{theme.label}</span><span className="sample-chapter" style={{ fontFamily: theme.previewHeadingFont }}>{theme.chapterLabel}</span><span className="sample-title" style={{ fontFamily: theme.previewHeadingFont }}>The Visitor</span><span className="sample-ornament">{theme.sceneOrnament}</span></button>)}
+          {!visibleSavedThemes.length && !visibleBuiltInThemes.length && <div className="theme-library-empty">No themes match this search.</div>}
+          </div>
         </div> : <CustomizePanel category={category} typography={typography} setTypography={setTypography} printOptions={printOptions} setPrintOptions={setPrintOptions} themeDropcap={selectedCustom?.config.dropcap ?? selected?.dropcap ?? false}/>}</div>
       </div>
       <footer className="style-library-footer"><div><strong>{selectedCustom?.label ?? selected?.label ?? meta.theme}</strong><span>{selectedCustom ? "Custom Theme Lab style · saved in your theme library" : selected?.description}</span></div><button className="native-button" onClick={props.onClose}>Done</button><button className="native-button primary" onClick={props.onSave}>Save to Book</button></footer>

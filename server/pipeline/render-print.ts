@@ -11,7 +11,7 @@ import { ROOT, THEMES_DIR, resolveAppResource } from "./paths.ts";
 import { alignDropCaps } from "./dropcap.ts";
 import { autoGutter, buildPageCss, estimatePages, getTrim, printContentWidthIn, type PrintOptions } from "../print.ts";
 import { applyProfessionalHyphenation } from "./hyphenation.ts";
-import { composeProfessionalParagraphs } from "./compositor.ts";
+import { composeProfessionalParagraphs, type CompositionProgress } from "./compositor.ts";
 
 export interface PrintMeta {
   pages: number; // actual paginated page count
@@ -323,6 +323,7 @@ async function withPaginated<T>(
   fn: (page: Page) => Promise<T>,
   qualityMode: "strict" | "preview" = "strict",
   signal?: AbortSignal,
+  onProgress?: (progress: CompositionProgress) => void,
 ): Promise<{ result: T; meta: PrintMeta }> {
   if (signal?.aborted) throw new Error("Print preview was superseded.");
   const gutter = resolveGutter(book, opts);
@@ -382,7 +383,9 @@ async function withPaginated<T>(
     // The alpha profile itself is cached in the page, so even this pass avoids
     // decoding the PNG twice.
     if (illustrationPreflight.autoScaled > 0) await applySafePrintContourPolygons(page);
-    await composeProfessionalParagraphs(page, book);
+    onProgress?.({ completedParagraphs: 0, totalParagraphs: 1, fraction: 0 });
+    await composeProfessionalParagraphs(page, book, onProgress);
+    onProgress?.({ completedParagraphs: 1, totalParagraphs: 1, fraction: 1 });
     // Disable Paged.js auto-run (set before the polyfill script loads).
     await page.evaluate(() => {
       window.PagedConfig = { auto: false };
@@ -640,10 +643,14 @@ async function withPaginated<T>(
 }
 
 /** Render a print-ready PDF (Paged.js + Chromium). */
-export async function renderPrintPdf(book: Book, opts: PrintOptions): Promise<{ buffer: Buffer; meta: PrintMeta }> {
+export async function renderPrintPdf(
+  book: Book,
+  opts: PrintOptions,
+  onProgress?: (progress: CompositionProgress) => void,
+): Promise<{ buffer: Buffer; meta: PrintMeta }> {
   const pdfFn = async (page: Page) => Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
 
-  const r = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, pdfFn));
+  const r = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, pdfFn, "strict", undefined, onProgress));
   let buffer = await applyPrintPageBoxes(r.result, opts.trim, opts.bleedMm ?? 0);
   if (opts.spreadMode === "facing" || opts.spreadMode === "booklet") buffer = await createPrintSpreads(buffer, { mode: opts.spreadMode, signaturePages: opts.signaturePages, rtl: opts.rtl });
   return { buffer, meta: r.meta };
