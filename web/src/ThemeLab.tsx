@@ -1,12 +1,13 @@
 import { themeLabTypography } from "./theme-lab-typography";
 export { themeLabTypography } from "./theme-lab-typography";
+import { validateThemeConfig } from "../../shared/theme-validation";
 import { seatPreviewDropCaps } from "./dropcap-seat";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
-import type { BookMeta, CustomFontRecord, Theme, ThemeLabConfig, ThemeLabImage, Typography } from "./types";
+import type { BookMeta, CustomFontRecord, Theme, ThemeLabConfig, ThemeLabImage, Typography, TypographyQaReport } from "./types";
 
-type LabPanel = "Foundation" | "Body" | "Chapter" | "Ornaments" | "Title Page";
+type LabPanel = "Foundation" | "Body" | "Chapter" | "Ornaments" | "Title Page" | "Validation & QA";
 type ThemePackageFont = {
   family: string;
   originalName: string;
@@ -20,19 +21,12 @@ type ThemePackage = {
   customFonts?: ThemePackageFont[];
 };
 
-const panels: LabPanel[] = ["Foundation", "Body", "Chapter", "Ornaments", "Title Page"];
+const panels: LabPanel[] = ["Foundation", "Body", "Chapter", "Ornaments", "Title Page", "Validation & QA"];
 
-const bodyFontOptions = BODY_FONT_FAMILIES;
-const displayFontOptions = DISPLAY_FONT_FAMILIES;
-const dropcapFontOptions = DROPCAP_FONT_FAMILIES;
-
-
-
-const safeDropcapFamilies: Set<string> = new Set(dropcapFontOptions);
-function safeDropcapFamily(value: string | undefined): string {
-  return value && safeDropcapFamilies.has(value) ? value : "Libre Baskerville";
+function safeDropcapFamily(value: string | undefined, extraFamilies: readonly string[] = []): string {
+  const allowed = new Set<string>([...DROPCAP_FONT_FAMILIES, ...extraFamilies]);
+  return value && allowed.has(value) ? value : "Libre Baskerville";
 }
-
 
 // Normalize CSS fallback stacks to an installed family before showing it in a
 // single-family picker. Persistent custom heading fonts count as installed too.
@@ -45,6 +39,7 @@ function fontFamilyFromStack(value: string | undefined, fallback: string, extraF
     "Palatino Linotype": "Vollkorn", "Times New Roman": "Source Serif 4",
   };
   for (const item of names) {
+    if (installedFamilies.has(item)) return item;
     const resolved = aliases[item] ?? item.replace(/^Folio /, "");
     if (installedFamilies.has(resolved)) return resolved;
   }
@@ -67,7 +62,7 @@ function defaultConfig(theme: Theme | undefined, typography: Typography, customH
       bodyFont: fontFamilyFromStack(typography.themeLab.bodyFont, "EB Garamond"),
       headingFont: fontFamilyFromStack(typography.themeLab.headingFont, "Libre Baskerville", customHeadingFamilies),
       titlePageFont: fontFamilyFromStack(typography.themeLab.titlePageFont, "Libre Baskerville"),
-      dropcapFont: safeDropcapFamily(typography.themeLab.dropcapFont),
+      dropcapFont: safeDropcapFamily(typography.themeLab.dropcapFont, customHeadingFamilies),
       enabled: true,
     };
   }
@@ -105,7 +100,7 @@ function defaultConfig(theme: Theme | undefined, typography: Typography, customH
     labelColor: theme?.previewAccent ?? "#856744",
     dropcap: typography.dropcap ?? theme?.dropcap ?? true,
     dropcapSize: typography.dropcapSize ?? "small",
-    dropcapFont: safeDropcapFamily(typography.dropcapFont ?? typography.headingFont ?? theme?.previewHeadingFont),
+    dropcapFont: safeDropcapFamily(typography.dropcapFont ?? typography.headingFont ?? theme?.previewHeadingFont, customHeadingFamilies),
     sceneOrnament: typography.sceneOrnament ?? theme?.sceneOrnament ?? "⁂",
     sceneSize: 1.1,
     sceneColor: theme?.previewAccent ?? "#856744",
@@ -194,7 +189,7 @@ function ColorControl(props: { label: string; value: string; onChange: (value: s
 function FontControl(props: {label:string; value:string; onChange:(value:string)=>void; options?:readonly string[]}) {
   return <div className="theme-lab-row theme-lab-font-row">
     <span>{props.label}</span>
-    <FontPicker label={props.label} value={props.value} onChange={props.onChange} families={props.options ?? displayFontOptions}/>
+    <FontPicker label={props.label} value={props.value} onChange={props.onChange} families={props.options ?? DISPLAY_FONT_FAMILIES}/>
   </div>;
 }
 
@@ -278,11 +273,16 @@ export default function ThemeLab(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [librarySaved, setLibrarySaved] = useState(false);
+  const [qaReport, setQaReport] = useState<TypographyQaReport | null>(null);
+  const [qaLoading, setQaLoading] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const fontImportRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const customFamilyNames = useMemo(() => props.customFonts.map((font) => font.family), [props.customFonts]);
+  const bodyFontOptions = useMemo(() => [...new Set([...customFamilyNames, ...BODY_FONT_FAMILIES])], [customFamilyNames]);
+  const displayFontOptions = useMemo(() => [...new Set([...customFamilyNames, ...DISPLAY_FONT_FAMILIES])], [customFamilyNames]);
+  const dropcapFontOptions = useMemo(() => [...new Set([...customFamilyNames, ...DROPCAP_FONT_FAMILIES])], [customFamilyNames]);
   const chapterFontOptions = useMemo(
     () => [...new Set<string>([...customFamilyNames, ...DISPLAY_FONT_FAMILIES])],
     [customFamilyNames],
@@ -290,6 +290,15 @@ export default function ThemeLab(props: {
   const previewId = previewTarget === "title" && props.titlePagePreviewId ? props.titlePagePreviewId : props.chapterPreviewId;
   const effectiveTypography = useMemo(() => themeLabTypography(props.typography, lab), [props.typography, lab]);
   const effectiveMeta = useMemo(() => ({ ...props.meta, theme: baseTheme }), [props.meta, baseTheme]);
+  const validationIssues = useMemo(
+    () => validateThemeConfig(lab, {
+      baseTheme,
+      knownBaseThemes: props.themes.map((theme) => theme.name),
+      installedFonts: [...bodyFontOptions, ...displayFontOptions, ...dropcapFontOptions],
+    }),
+    [lab, baseTheme, props.themes, bodyFontOptions, displayFontOptions, dropcapFontOptions],
+  );
+  const validationErrors = validationIssues.filter((issue) => issue.severity === "error");
 
   useEffect(() => {
     if (panel === "Title Page" && props.titlePagePreviewId) setPreviewTarget("title");
@@ -333,10 +342,12 @@ export default function ThemeLab(props: {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   function patch(next: Partial<ThemeLabConfig>) {
+    setQaReport(null);
     setLab((current) => ({ ...current, ...next, enabled: true }));
   }
 
   function resetFromBase() {
+    setQaReport(null);
     setLab(defaultConfig(selectedTheme(props.themes, baseTheme), {}, customFamilyNames));
   }
 
@@ -372,16 +383,20 @@ export default function ThemeLab(props: {
   }
 
   async function exportPackage() {
+    if (validationErrors.length) {
+      setError("Fix theme validation errors before exporting this style.");
+      return;
+    }
     setError(null);
     try {
+      const selectedFamilies = new Set([lab.bodyFont, lab.headingFont, lab.dropcapFont, lab.titlePageFont].filter((family): family is string => Boolean(family)));
       const customFonts: ThemePackageFont[] = [];
-      const headingFont = props.customFonts.find((font) => font.family === lab.headingFont);
-      if (headingFont) {
-        const response = await fetch(api.customFontUrl(headingFont.id));
-        if (!response.ok) throw new Error("Could not read the custom heading font for export.");
+      for (const font of props.customFonts.filter((item) => selectedFamilies.has(item.family))) {
+        const response = await fetch(api.customFontUrl(font.id));
+        if (!response.ok) throw new Error(`Could not read custom font "${font.family}" for export.`);
         customFonts.push({
-          family: headingFont.family,
-          originalName: headingFont.originalName,
+          family: font.family,
+          originalName: font.originalName,
           dataUrl: await readBlobAsDataUrl(await response.blob()),
         });
       }
@@ -419,6 +434,14 @@ export default function ThemeLab(props: {
 
       const importedFamilies = [...customFamilyNames];
       if (parsed.version === 2 && Array.isArray(parsed.customFonts)) {
+        const bundledFamilies = parsed.customFonts.map((font) => font?.family).filter((family): family is string => typeof family === "string");
+        const packageIssues = validateThemeConfig(parsed.config, {
+          baseTheme: theme.name,
+          knownBaseThemes: props.themes.map((item) => item.name),
+          installedFonts: [...bodyFontOptions, ...displayFontOptions, ...dropcapFontOptions, ...bundledFamilies],
+        });
+        const packageErrors = packageIssues.filter((issue) => issue.severity === "error");
+        if (packageErrors.length) throw new Error(`Theme package is invalid: ${packageErrors.map((issue) => issue.message).join(" ")}`);
         for (const embedded of parsed.customFonts) {
           if (!embedded || typeof embedded.family !== "string" || typeof embedded.originalName !== "string" || typeof embedded.dataUrl !== "string") {
             throw new Error("Theme package contains an invalid custom font.");
@@ -431,14 +454,23 @@ export default function ThemeLab(props: {
           const installed = await props.onInstallCustomFont(new File([blob], embedded.originalName || ("custom-font" + extension), { type: blob.type }));
           importedFamilies.push(installed.family);
         }
+      } else {
+        const packageIssues = validateThemeConfig(parsed.config, {
+          baseTheme: theme.name,
+          knownBaseThemes: props.themes.map((item) => item.name),
+          installedFonts: [...bodyFontOptions, ...displayFontOptions, ...dropcapFontOptions],
+        });
+        const packageErrors = packageIssues.filter((issue) => issue.severity === "error");
+        if (packageErrors.length) throw new Error(`Theme package is invalid: ${packageErrors.map((issue) => issue.message).join(" ")}`);
       }
 
       setBaseTheme(theme.name);
+      setQaReport(null);
       const imported = { ...defaultConfig(theme, {}, importedFamilies), ...parsed.config, enabled: true };
-      imported.dropcapFont = safeDropcapFamily(imported.dropcapFont);
-      imported.bodyFont = fontFamilyFromStack(imported.bodyFont, "EB Garamond");
+      imported.dropcapFont = safeDropcapFamily(imported.dropcapFont, importedFamilies);
+      imported.bodyFont = fontFamilyFromStack(imported.bodyFont, "EB Garamond", importedFamilies);
       imported.headingFont = fontFamilyFromStack(imported.headingFont, "Libre Baskerville", importedFamilies);
-      imported.titlePageFont = fontFamilyFromStack(imported.titlePageFont, "Libre Baskerville");
+      imported.titlePageFont = fontFamilyFromStack(imported.titlePageFont, "Libre Baskerville", importedFamilies);
       setLab(imported);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -446,6 +478,10 @@ export default function ThemeLab(props: {
   }
 
   async function apply() {
+    if (validationErrors.length) {
+      setError("Fix theme validation errors before applying this style.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -459,6 +495,10 @@ export default function ThemeLab(props: {
   }
 
   async function saveToLibrary() {
+    if (validationErrors.length) {
+      setError("Fix theme validation errors before saving this style.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setLibrarySaved(false);
@@ -471,6 +511,22 @@ export default function ThemeLab(props: {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runTypographyQa() {
+    if (validationErrors.length) {
+      setError("Fix theme validation errors before running typography QA.");
+      return;
+    }
+    setQaLoading(true);
+    setError(null);
+    try {
+      setQaReport(await api.themeTypographyQa(props.projectId, baseTheme, effectiveTypography, lab));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setQaLoading(false);
     }
   }
 
@@ -500,7 +556,7 @@ export default function ThemeLab(props: {
           {panel === "Foundation" && <>
             <div className="theme-lab-section-heading"><h3>Foundation</h3><p>Start from a proven Folio theme, then override it deliberately.</p></div>
             {row("Theme name", <input value={lab.name ?? ""} maxLength={64} onChange={(event) => patch({ name: event.target.value })}/>)}
-            <SelectControl label="Base theme" value={baseTheme} onChange={setBaseTheme}>{props.themes.map((theme) => <option key={theme.name} value={theme.name}>{theme.label}</option>)}</SelectControl>
+            <SelectControl label="Base theme" value={baseTheme} onChange={(value) => { setBaseTheme(value); setQaReport(null); }}>{props.themes.map((theme) => <option key={theme.name} value={theme.name}>{theme.label}</option>)}</SelectControl>
             <div className="theme-lab-color-grid">
               <ColorControl label="Paper" value={lab.paper ?? "#fbfaf6"} onChange={(value) => patch({ paper: value })}/>
               <ColorControl label="Ink" value={lab.ink ?? "#242527"} onChange={(value) => patch({ ink: value })}/>
@@ -508,6 +564,17 @@ export default function ThemeLab(props: {
               <ColorControl label="Heading" value={lab.headingColor ?? "#242527"} onChange={(value) => patch({ headingColor: value })}/>
             </div>
             <div className="theme-lab-note"><strong>Base + overrides</strong><span>The base theme supplies the structural fallbacks. Theme Lab owns the final typography, chapter treatment and artwork, so exports stay deterministic.</span></div>
+          </>}
+
+          {panel === "Validation & QA" && <>
+            <div className="theme-lab-section-heading"><h3>Theme validation</h3><p>Catch invalid settings and check how the selected typography travels through each publishing target.</p></div>
+            <div className="theme-lab-qa-summary" data-status={validationErrors.length ? "error" : validationIssues.length ? "warning" : "pass"}>
+              <strong>{validationErrors.length ? `${validationErrors.length} error(s) to fix` : validationIssues.length ? "Ready with review notes" : "Theme settings are valid"}</strong>
+              <span>{validationErrors.length ? "Fix errors before applying or saving this theme." : "Validation covers supported ranges, color contrast, artwork and font availability."}</span>
+            </div>
+            {validationIssues.map((issue, index) => <div key={`${issue.field}-${index}`} className={`theme-lab-qa-message ${issue.severity}`}><strong>{issue.field}</strong><span>{issue.message}</span></div>)}
+            <button type="button" className="theme-lab-button primary theme-lab-qa-run" disabled={qaLoading || validationErrors.length > 0} onClick={() => void runTypographyQa()}>{qaLoading ? "Checking targets…" : "Run typography QA"}</button>
+            {qaReport?.checks.map((check) => <section key={check.target} className="theme-lab-qa-target" data-status={check.status}><h4>{check.target}<span>{check.status === "pass" ? "Pass" : "Review"}</span></h4>{check.details.map((detail) => <p key={detail}>{detail}</p>)}</section>)}
           </>}
 
           {panel === "Body" && <>
@@ -621,8 +688,8 @@ export default function ThemeLab(props: {
         <div>{error ? <span className="theme-lab-error">{error}</span> : <span>Theme Lab uses Folio's bundled font library so preview, PDF and EPUB stay portable and deterministic across devices.</span>}</div>
         <div className="theme-lab-footer-actions">
           <button type="button" className="theme-lab-button" disabled={busy} onClick={props.onClose}>Cancel</button>
-          <button type="button" className="theme-lab-button" disabled={busy} onClick={() => void saveToLibrary()}>{busy ? "Saving…" : librarySaved ? "Saved ✓" : "Save to Library"}</button>
-          <button type="button" className="theme-lab-button primary" disabled={busy} onClick={() => void apply()}>{busy ? "Saving…" : "Apply to Book"}</button>
+          <button type="button" className="theme-lab-button" disabled={busy || validationErrors.length > 0} onClick={() => void saveToLibrary()}>{busy ? "Saving…" : librarySaved ? "Saved ✓" : "Save to Library"}</button>
+          <button type="button" className="theme-lab-button primary" disabled={busy || validationErrors.length > 0} onClick={() => void apply()}>{busy ? "Saving…" : "Apply to Book"}</button>
         </div>
       </footer>
     </section>

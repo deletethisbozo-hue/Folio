@@ -91,6 +91,13 @@ export async function readSectionDocument(projectId: string, sectionId: string):
   return documentFromSection(projectId, section);
 }
 
+/** Use the ingested editor state for autosave's before/after response reads. */
+export async function readCachedSectionDocument(projectId: string, sectionId: string): Promise<SectionDocument> {
+  const cached = cachedSection(projectId, sectionId);
+  if (cached) return documentFromSection(projectId, cached);
+  return readSectionDocument(projectId, sectionId);
+}
+
 function preservedFrontMatter(raw: string): string {
   if (!raw.startsWith("---")) return "";
   const match = raw.match(/^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/);

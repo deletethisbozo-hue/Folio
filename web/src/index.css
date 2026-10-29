@@ -180,6 +180,9 @@ button:disabled { cursor: default; opacity: .45; }
 .generate-menu button { width: 100%; height: 27px; border: 0; border-radius: 4px; background: transparent; text-align: left; padding: 0 8px; font-size: 10px; cursor: default; }
 .generate-menu button:hover { background: #3978d4; color: #fff; }
 .generate-status { min-height: 20px; border-top: 1px solid #dededa; margin-top: 4px; padding: 6px 7px 2px; font-size: 8px; color: #666; }
+.export-progress { position: absolute; z-index: 20; top: 34px; right: 12px; display: flex; align-items: center; gap: 9px; max-width: min(360px, calc(100% - 24px)); padding: 8px 11px; border: 1px solid #c8c8c5; border-radius: 8px; background: rgba(250,250,248,.97); box-shadow: 0 3px 12px rgba(0,0,0,.14); color: #444; font-size: 11px; }
+.export-progress-ring { --export-progress: 0%; display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border-radius: 50%; background: conic-gradient(#3978d4 var(--export-progress), #dededa 0); }
+.export-progress-ring > span { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #fafaf8; color: #333; font-size: 8px; font-variant-numeric: tabular-nums; }
 .error-text { color: #a42f2a; }
 
 .device-toolbar {
@@ -211,6 +214,16 @@ button:disabled { cursor: default; opacity: .45; }
 .style-category-list button:hover { background: rgba(0,0,0,.04); }
 .style-category-list button.active { background: #d1d0cb; color: #171716; font-weight: 600; }
 .style-content { min-width: 0; min-height: 0; overflow-y: auto; padding: 16px; background: #f7f6f2; }
+.theme-library-browser { display: grid; gap: 14px; }
+.theme-library-toolbar { display: grid; gap: 9px; }
+.theme-library-search { display: grid; grid-template-columns: auto minmax(160px, 1fr); align-items: center; gap: 10px; max-width: 620px; color: #55534e; font-size: 10px; font-weight: 650; }
+.theme-library-search input { min-width: 0; height: 31px; padding: 0 10px; border: 1px solid #d5d2cb; border-radius: 5px; background: #fff; color: #292824; font: inherit; }
+.theme-library-search input:focus { outline: 2px solid rgba(52,119,199,.25); border-color: #3477c7; }
+.theme-library-collections { display: flex; flex-wrap: wrap; gap: 6px; }
+.theme-library-collections button { display: inline-flex; align-items: center; gap: 7px; min-height: 27px; padding: 0 9px; border: 1px solid #d4d1c9; border-radius: 14px; background: #eeede8; color: #59574f; font-size: 9px; cursor: pointer; }
+.theme-library-collections button.active { border-color: #7d9bb8; background: #e2ebf4; color: #284f72; }
+.theme-library-collections button span { min-width: 15px; padding: 1px 4px; border-radius: 8px; background: rgba(0,0,0,.07); text-align: center; font-size: 8px; }
+.theme-library-empty { grid-column: 1 / -1; padding: 24px; color: #77736a; font-size: 11px; text-align: center; }
 .theme-gallery { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 13px; }
 .theme-sample { position: relative; min-height: 205px; display: flex; flex-direction: column; align-items: center; padding: 14px 17px; border: 1px solid #d3d0c8; border-radius: 3px; box-shadow: 0 2px 7px rgba(0,0,0,.06); text-align: center; cursor: pointer; overflow: hidden; transition: transform .1s, box-shadow .1s; }
 .theme-sample:hover { border-color: #92908a; box-shadow: 0 4px 12px rgba(0,0,0,.1); transform: translateY(-1px); }

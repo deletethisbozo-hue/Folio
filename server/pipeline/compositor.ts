@@ -1,17 +1,39 @@
 import type { Page } from "puppeteer";
 import type { Book } from "./types.ts";
 
+export interface CompositionProgress {
+  completedParagraphs: number;
+  totalParagraphs: number;
+  fraction: number;
+}
+
 /** Chromium print/PDF composition mirrors the reflow preview rules: legal
  * paragraph-level break optimisation, bounded spaces/tracking, hyphen ladder
  * penalties, semantic inline preservation and deterministic drop-cap geometry. */
-export async function composeProfessionalParagraphs(page: Page, book: Book): Promise<void> {
+export async function composeProfessionalParagraphs(
+  page: Page,
+  book: Book,
+  onProgress?: (progress: CompositionProgress) => void,
+): Promise<void> {
   if (book.typography.bodyAlign === "left") return;
 
-  // tsx/esbuild can emit calls to a module-level __name helper while serialising
-  // nested helpers inside page.evaluate. Define it in the page explicitly so the
-  // callback never depends on the Node module closure.
-  await page.evaluate("globalThis.__name = globalThis.__name || function(target){ return target; }");
-  await page.evaluate(async () => {
+  const reportProgress = (message: import("puppeteer").ConsoleMessage) => {
+    if (!onProgress) return;
+    const text = message.text();
+    if (!text.startsWith("__FOLIO_COMPOSITION_PROGRESS__")) return;
+    const [completed, total] = text.slice("__FOLIO_COMPOSITION_PROGRESS__".length).split("/").map(Number);
+    if (Number.isFinite(completed) && Number.isFinite(total) && total > 0) {
+      onProgress({ completedParagraphs: completed, totalParagraphs: total, fraction: completed / total });
+    }
+  };
+  if (onProgress) page.on("console", reportProgress);
+
+  try {
+    // tsx/esbuild can emit calls to a module-level __name helper while serialising
+    // nested helpers inside page.evaluate. Define it in the page explicitly so the
+    // callback never depends on the Node module closure.
+    await page.evaluate("globalThis.__name = globalThis.__name || function(target){ return target; }");
+    await page.evaluate(async () => {
     try { await document.fonts?.ready; } catch { /* fallback metrics are usable */ }
 
     const selector = [
@@ -21,6 +43,8 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       "section.backmatter > p:not(.scene-break)",
       "section.backmatter li",
     ].join(",");
+    const normalizedLanguage = (document.documentElement.lang || "en").toLowerCase();
+    const englishProse = normalizedLanguage.startsWith("en");
     const atomicInline = "a,em,strong,b,i,u,s,sup,sub";
     const styleNode = document.createElement("style");
     styleNode.id = "folio-professional-compositor";
@@ -45,6 +69,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       canBreakBefore: boolean;
       characters: number;
       rightProtrusion: number;
+      lexeme: string;
     };
     type SectionHyphenStats = { justifiedLines: number; hyphenatedLines: number };
     type LineFit = { wordSpacing: number; tracking: number; glyphScale: number; badness: number; fitness: number };
@@ -67,10 +92,13 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       from: number;
       fromKey: number;
       fitness: number;
+      lineNo: number;
       hyphenCount: number;
+      hyphenStreak: number;
       gapPositions: number[];
       riverPositions: number[];
     };
+    const lineFitCache = new Map<string, LineFit | null>();
 
     const fitLine = (
       adjustment: number,
@@ -79,18 +107,17 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       spaceWidth: number,
       fontSize: number,
       naturalWidth: number,
-      previousGlyphScale = 1,
       emergency = false,
       finalCompression = false,
-      selection: "badness" | "continuity" | "spacing-continuity" = "badness",
-      targetWordSpacing = 0,
     ): LineFit | null => {
       if (gaps <= 0) return null;
+      const cacheKey = `${adjustment}:${gaps}:${trackingOps}:${emergency ? 1 : 0}:${finalCompression ? 1 : 0}`;
+      const cached = lineFitCache.get(cacheKey);
+      if (cached !== undefined) return cached;
       // The second pass may stretch inter-word space only slightly beyond
       // strict composition. Tracking and glyph expansion stay at strict limits;
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = fontSize * 0.075;
-      const normalizedLanguage = (document.documentElement.lang || "en").toLowerCase();
       const relaxedCompressionEm = 0.120;
       // Match the live preview cross-platform Polish density rescue. It stays
       // below the 0.101em strict-spacing qualification ceiling and only wins when
@@ -105,93 +132,59 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // Ghostscript must flatten those groups for PDF/X-3, which rasterizes body
       // text and makes it unsearchable. Keep glyphs unscaled and fit with spacing
       // and legal line breaks instead.
-      const maxGlyphScaleDelta = 0;
+      // Glyph scaling is intentionally disabled to preserve searchable text.
+      // The former 41-step search admitted only scale=1, so calculate that
+      // sole candidate directly instead of repeating an empty loop per break.
+      const glyphScale = 1;
       const available = naturalWidth + adjustment;
-      let best: LineFit | null = null;
-      let bestRank = Number.POSITIVE_INFINITY;
-
-      for (let step = -20; step <= 20; step++) {
-        const glyphScale = 1 + step * 0.0005;
-        if (Math.abs(glyphScale - 1) > maxGlyphScaleDelta + 0.000001) continue;
-        if (Math.abs(glyphScale - previousGlyphScale) > 0.012) continue;
-        const scaledAdjustment = available / glyphScale - naturalWidth;
-        let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
-        let remaining = scaledAdjustment - wordSpacing * gaps;
-        let tracking = trackingOps > 0 ? remaining / trackingOps : 0;
-        if (tracking > maxTracking || tracking < minTracking) {
-          tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
-          wordSpacing = (scaledAdjustment - tracking * trackingOps) / gaps;
-        }
-        wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
+      const scaledAdjustment = available / glyphScale - naturalWidth;
+      let wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, scaledAdjustment / gaps));
+      let remaining = scaledAdjustment - wordSpacing * gaps;
+      let tracking = trackingOps > 0 ? remaining / trackingOps : 0;
+      if (tracking > maxTracking || tracking < minTracking) {
         tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
-
-        // A line that only fits by visually collapsing whitespace is not a valid
-        // book line. Keep a conservative pre-break reserve above the release
-        // floor because Chromium/Paged.js can shave roughly 0.4 px from modeled
-        // inline-space geometry at 11pt. The final gate still enforces the real
-        // 0.12em floor, so this changes the break instead of lowering quality.
-        const physicalGapFloor = Math.max(1.5, fontSize * 0.12) + Math.min(0.45, fontSize * 0.03);
-        const minimumPhysicalWordSpacing = physicalGapFloor / glyphScale - spaceWidth - tracking;
-        if (minimumPhysicalWordSpacing > maxWordSpacing + 0.000001) continue;
-        if (wordSpacing < minimumPhysicalWordSpacing) {
-          wordSpacing = minimumPhysicalWordSpacing;
-        }
-
-        const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
-        if (Math.abs(residualPx) > 1.705) continue;
-
-        const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
-        const trackingRatio = tracking / Math.max(1, fontSize);
-        const scaleRatio = Math.abs(glyphScale - 1) / 0.01;
-        const scaleJumpRatio = Math.abs(glyphScale - previousGlyphScale) / 0.01;
-        const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
-          + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
-          + 42 * Math.pow(scaleRatio, 3)
-          + 90 * Math.pow(scaleJumpRatio, 2)
-          + 80 * Math.pow(Math.abs(residualPx) / 1.7, 2);
-        const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
-        const candidate = { wordSpacing, tracking, glyphScale, badness, fitness };
-        const rank = selection === "continuity"
-          ? Math.abs(glyphScale - previousGlyphScale) * 1_000_000 + candidate.badness
-          : selection === "spacing-continuity"
-            ? Math.abs(wordSpacing - targetWordSpacing) * 1_000_000 + candidate.badness
-            : candidate.badness;
-        if (!best || rank < bestRank) {
-          best = candidate;
-          bestRank = rank;
-        }
+        wordSpacing = (scaledAdjustment - tracking * trackingOps) / gaps;
       }
-      return best;
+      wordSpacing = Math.max(minWordSpacing, Math.min(maxWordSpacing, wordSpacing));
+      tracking = Math.max(minTracking, Math.min(maxTracking, tracking));
+
+      // A line that only fits by visually collapsing whitespace is not a valid
+      // book line. Keep a conservative pre-break reserve above the release
+      // floor because Chromium/Paged.js can shave roughly 0.4 px from modeled
+      // inline-space geometry at 11pt. The final gate still enforces the real
+      // 0.12em floor, so this changes the break instead of lowering quality.
+      const physicalGapFloor = Math.max(1.5, fontSize * 0.12) + Math.min(0.45, fontSize * 0.03);
+      const minimumPhysicalWordSpacing = physicalGapFloor / glyphScale - spaceWidth - tracking;
+      if (minimumPhysicalWordSpacing > maxWordSpacing + 0.000001) {
+        lineFitCache.set(cacheKey, null);
+        return null;
+      }
+      if (wordSpacing < minimumPhysicalWordSpacing) wordSpacing = minimumPhysicalWordSpacing;
+
+      const residualPx = (scaledAdjustment - wordSpacing * gaps - tracking * trackingOps) * glyphScale;
+      if (Math.abs(residualPx) > 1.705) {
+        lineFitCache.set(cacheKey, null);
+        return null;
+      }
+
+      const spaceRatio = wordSpacing / Math.max(0.5, spaceWidth);
+      const trackingRatio = tracking / Math.max(1, fontSize);
+      const badness = 100 * Math.pow(Math.abs(spaceRatio) / 0.20, 3)
+        + 55 * Math.pow(Math.abs(trackingRatio) / 0.0035, 3)
+        + 80 * Math.pow(Math.abs(residualPx) / 1.7, 2);
+      const fitness = spaceRatio < -0.04 ? 0 : spaceRatio <= 0.10 ? 1 : spaceRatio <= 0.22 ? 2 : 3;
+      const result = { wordSpacing, tracking, glyphScale, badness, fitness };
+      lineFitCache.set(cacheKey, result);
+      return result;
     };
 
     const FITNESS_COUNT = 4;
     const HYPHEN_STREAK_COUNT = 3;
-    const GLYPH_SCALE_MIN = 0.99;
-    const GLYPH_SCALE_STEP = 0.0005;
-    const GLYPH_SCALE_COUNT = 41;
-    const glyphScaleBucket = (glyphScale: number) => Math.max(0, Math.min(
-      GLYPH_SCALE_COUNT - 1,
-      Math.round((glyphScale - GLYPH_SCALE_MIN) / GLYPH_SCALE_STEP),
-    ));
     const HYPHEN_BUCKET_COUNT = 9;
     const hyphenCountBucket = (hyphenCount: number) => Math.min(HYPHEN_BUCKET_COUNT - 1, hyphenCount);
-    const encodeState = (line: number, hyphenStreak: number, fitness: number, glyphScale: number, hyphenCount: number) => {
+    const encodeState = (line: number, hyphenStreak: number, fitness: number, hyphenCount: number) => {
       const base = (line * HYPHEN_STREAK_COUNT + hyphenStreak) * FITNESS_COUNT + fitness;
-      const packed = base * GLYPH_SCALE_COUNT + glyphScaleBucket(glyphScale);
-      return packed * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);
-    };
-    const decodeState = (key: number) => {
-      const hyphenBucket = key % HYPHEN_BUCKET_COUNT;
-      const packed = Math.floor(key / HYPHEN_BUCKET_COUNT);
-      const glyphBucket = packed % GLYPH_SCALE_COUNT;
-      const base = Math.floor(packed / GLYPH_SCALE_COUNT);
-      return {
-        line: Math.floor(base / (HYPHEN_STREAK_COUNT * FITNESS_COUNT)),
-        hyphenStreak: Math.floor(base / FITNESS_COUNT) % HYPHEN_STREAK_COUNT,
-        fitness: base % FITNESS_COUNT,
-        glyphScale: GLYPH_SCALE_MIN + glyphBucket * GLYPH_SCALE_STEP,
-        hyphenBucket,
-      };
+      return base * HYPHEN_BUCKET_COUNT + hyphenCountBucket(hyphenCount);
     };
     const lineGapPositions = (
       words: Word[],
@@ -215,24 +208,42 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       }
       return positions;
     };
+    const nearestDistance = (sortedPositions: number[], target: number) => {
+      let low = 0;
+      let high = sortedPositions.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (sortedPositions[middle] < target) low = middle + 1;
+        else high = middle;
+      }
+      const before = low > 0 ? Math.abs(target - sortedPositions[low - 1]) : Infinity;
+      const after = low < sortedPositions.length ? Math.abs(sortedPositions[low] - target) : Infinity;
+      return Math.min(before, after);
+    };
     const riverCost = (current: number[], previous: State, spaceWidth: number) => {
       const tolerance = Math.max(1.5, spaceWidth * 0.72);
       const rivers: number[] = [];
       let cost = 0;
       for (const position of current) {
-        const adjacent = previous.gapPositions.reduce((best, candidate) => Math.min(best, Math.abs(position - candidate)), Infinity);
+        const adjacent = nearestDistance(previous.gapPositions, position);
         if (adjacent < tolerance) {
           rivers.push(position);
           cost += 7 * Math.pow(1 - adjacent / tolerance, 2);
         }
-        const established = previous.riverPositions.reduce((best, candidate) => Math.min(best, Math.abs(position - candidate)), Infinity);
+        const established = nearestDistance(previous.riverPositions, position);
         if (established < tolerance) cost += 95 * Math.pow(1 - established / tolerance, 2);
       }
       return { cost, rivers };
     };
 
     const statsBySection = new WeakMap<HTMLElement, SectionHyphenStats>();
-    for (const paragraph of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
+    const paragraphs = Array.from(document.querySelectorAll<HTMLElement>(selector));
+    const progressEvery = Math.max(1, Math.ceil(paragraphs.length / 20));
+    for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+      if (paragraphIndex % progressEvery === 0) {
+        console.info(`__FOLIO_COMPOSITION_PROGRESS__${paragraphIndex}/${paragraphs.length}`);
+      }
+      lineFitCache.clear();
       if (
         paragraph.closest(".chapter-subtitle,.note,.telegram,.sign,.inscription,.verse,.poem,.msg") ||
         paragraph.querySelector("br,img,svg,code,pre,.math,[data-math]")
@@ -441,7 +452,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               separated = false;
               separatedBreakable = true;
             });
-          });
+            });
         }
         textNode.replaceWith(fragment);
       }
@@ -452,7 +463,6 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       let nextAtomicId = 1;
       let previousAtomic = 0;
       let previousLexeme = "";
-      const englishProse = (document.documentElement.lang || "en").toLowerCase().startsWith("en");
       const words: Word[] = wordNodes.map((node) => {
         const atomic = node.closest(atomicInline);
         let atomicId = 0;
@@ -495,9 +505,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
           canBreakBefore,
           characters: cleanText.length,
           rightProtrusion,
+          lexeme: cleanText.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").toLowerCase(),
         };
         previousAtomic = atomicId;
-        previousLexeme = cleanText.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").toLowerCase();
+        previousLexeme = word.lexeme;
         return word;
       });
 
@@ -523,7 +534,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       const runBreaker = (emergency: boolean, allowNaturalRescue = emergency): Break[] | null => {
       const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());
       const initialFitness = 1;
-      states[0].set(encodeState(0, 0, initialFitness, 1, 0), {
+      states[0].set(encodeState(0, 0, initialFitness, 0), {
         cost: 0,
         from: -1,
         fromKey: -1,
@@ -540,17 +551,21 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
         finalCompressed: false,
         rightProtrusion: 0,
         fitness: initialFitness,
+        lineNo: 0,
         hyphenCount: 0,
+        hyphenStreak: 0,
         gapPositions: [],
         riverPositions: [],
       });
 
       for (let start = 0; start < words.length; start++) {
-        for (const [stateKey, previous] of states[start]) {
-          const decoded = decodeState(stateKey);
-          const lineNo = decoded.line;
-          const previousHyphenStreak = decoded.hyphenStreak;
-          const previousFitness = decoded.fitness;
+        const startStates = states[start];
+        if (startStates.size === 0) continue;
+        const gapPositionsByEnd = new Map<number, Map<number, number[]>>();
+        for (const [stateKey, previous] of startStates) {
+          const lineNo = previous.lineNo;
+          const previousHyphenStreak = previous.hyphenStreak;
+          const previousFitness = previous.fitness;
           const previousHyphenCount = previous.hyphenCount;
           const { offset, available } = lineGeometry(lineNo);
           let wordWidth = 0;
@@ -574,6 +589,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             // composition outcome. Remove that path from the graph instead of merely
             // making it expensive, so the optimiser must choose an earlier clean break.
             if (hyphenStreakOverflow) continue;
+            if (!canBreak) continue;
             const natural = wordWidth + gaps * spaceWidth + (hyphenBreak ? hyphenWidth : 0);
             // Optical margin alignment: a line-ending discretionary hyphen may hang
         // slightly into the margin, just like terminal punctuation. Keeping part
@@ -590,9 +606,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
 
             const adjustment = opticalAvailable - natural;
             const trackingOps = Math.max(0, characters + gaps - 1);
-            const semanticWordsOnLine = 1 + words
-              .slice(start + 1, end + 1)
-              .filter((word) => word.spaceBefore).length;
+            const semanticWordsOnLine = 1 + gaps;
             // folio-final-hyphen-fragment-guard: never strand only the
             // continuation of a discretionary split on the final line.
             // A final fragment such as `de-` / `cyzji.` is a composition
@@ -603,68 +617,31 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const finalCompressionFit = last
               && semanticWordsOnLine >= 2
               && adjustment < -0.75
-                  ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true)
-              : null;
-            const finalCompressionContinuityFit = last
-              && semanticWordsOnLine >= 2
-              && adjustment < -0.75
-                  ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, "continuity")
-              : null;
-            const finalCompressionSpacingFit = last
-              && semanticWordsOnLine >= 2
-              && adjustment < -0.75
-                  ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, true, "spacing-continuity", previous.wordSpacing)
+                  ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, false, true)
               : null;
             const strictFit = !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false)
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural)
               : finalCompressionFit;
-            const strictContinuityFit = !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, "continuity")
-              : finalCompressionContinuityFit;
-            const strictSpacingFit = !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, false, false, "spacing-continuity", previous.wordSpacing)
-              : finalCompressionSpacingFit;
-            const fit = strictFit ?? (emergency && !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true)
-              : null);
-            const continuityFit = strictContinuityFit ?? (emergency && !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, "continuity")
-              : null);
-            const spacingFit = strictSpacingFit ?? (emergency && !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, previous.glyphScale, true, false, "spacing-continuity", previous.wordSpacing)
-              : null);
-            if (!canBreak) continue;
-            if (natural > available + 0.75 && !fit && !continuityFit && !spacingFit && (end > start || last)) {
+            const emergencyFit = emergency && !last
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, true)
+              : null;
+            const fit = strictFit ?? emergencyFit;
+            if (natural > available + 0.75 && !fit && (end > start || last)) {
               break;
             }
             // Mirror the reflow preview: only lines physically beside a drop
             // cap may stay natural in the strict pass. Ordinary prose still
             // has to reach the measure inside the normal spacing bounds.
             const dropcapRescue = false;
-            const emergencyRescue = allowNaturalRescue && !last && !fit && !continuityFit && !spacingFit && natural <= available + 0.75;
+            const emergencyRescue = allowNaturalRescue && !last && !fit && natural <= available + 0.75;
             const rescueNatural = emergencyRescue;
-            const fitOptions: Array<LineFit | null> = [];
-            if (fit) fitOptions.push(fit);
-            if (continuityFit && !fitOptions.some((candidate) =>
-              candidate
-              && Math.abs(candidate.glyphScale - continuityFit.glyphScale) < 0.000001
-              && Math.abs(candidate.wordSpacing - continuityFit.wordSpacing) < 0.000001
-              && Math.abs(candidate.tracking - continuityFit.tracking) < 0.000001
-            )) fitOptions.push(continuityFit);
-            if (spacingFit && !fitOptions.some((candidate) =>
-              candidate
-              && Math.abs(candidate.glyphScale - spacingFit.glyphScale) < 0.000001
-              && Math.abs(candidate.wordSpacing - spacingFit.wordSpacing) < 0.000001
-              && Math.abs(candidate.tracking - spacingFit.tracking) < 0.000001
-            )) fitOptions.push(spacingFit);
-            if (!fitOptions.length && (last || rescueNatural)) fitOptions.push(null);
-            const hasStrictFit = Boolean(strictFit || strictContinuityFit || strictSpacingFit);
-            if (!last && !fitOptions.length && !rescueNatural) continue;
+            const hasStrictFit = Boolean(strictFit);
+            if (!last && !fit && !rescueNatural) continue;
 
-            for (const lineFit of fitOptions) {
-              const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);
-              if (lineFit && !relaxedFit && !previous.relaxed && (previous.justified || previous.finalCompressed)
-                && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.1600001) continue;
+            const lineFit = fit;
+            const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);
+            if (lineFit && !relaxedFit && !previous.relaxed && (previous.justified || previous.finalCompressed)
+              && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.1600001) continue;
             // Hyphenation splits one visible word into several compositor tokens.
             // Widow control must count semantic words, not discretionary pieces,
             // otherwise endings such as `de-` / `cyzji.` evade the rule entirely.
@@ -704,14 +681,10 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               ? 240 + previousHyphenStreak * 950 + cumulativeHyphenPenalty + shortHyphenFragmentPenalty + hyphenDensityPenalty
               : 0;
             const punctuationPenalty = hyphenBreak && /[,:;.!?…»”’)]$/.test(words[end].node.textContent ?? "") ? 80 : 0;
-            const lineEndLexeme = (words[end].node.textContent ?? "")
-              .replace(/\u00ad/g, "")
-              .replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "")
-              .toLowerCase();
             const strandedEnglishArticlePenalty = !last
               && !hyphenBreak
-              && (document.documentElement.lang || "en").toLowerCase().startsWith("en")
-              && /^(?:a|an|the)$/.test(lineEndLexeme)
+              && englishProse
+              && /^(?:a|an|the)$/.test(words[end].lexeme)
               ? 12000
               : 0;
             const rescuePenalty = dropcapRescue
@@ -742,13 +715,22 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
             const fitnessPenalty = lineNo === 0 || !lineFit
               ? 0
               : fitnessDelta > 1 ? 240 * fitnessDelta : fitnessDelta === 1 ? 14 : currentFitness === 3 ? 80 : 0;
-            const currentGaps = lineGapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
+            let gapsByOffset = gapPositionsByEnd.get(end);
+            let currentGaps = gapsByOffset?.get(offset);
+            if (!currentGaps) {
+              currentGaps = lineGapPositions(words, start, end + 1, offset, spaceWidth, lineFit);
+              if (!gapsByOffset) {
+                gapsByOffset = new Map<number, number[]>();
+                gapPositionsByEnd.set(end, gapsByOffset);
+              }
+              gapsByOffset.set(offset, currentGaps);
+            }
             const rivers = riverCost(currentGaps, previous, spaceWidth);
             const cost = previous.cost + (lineFit?.badness ?? 0) + rescuePenalty + relaxedPenalty + finalCompressionPenalty + structuralPenalty + finalHyphenDensityPenalty + hyphenPenalty + punctuationPenalty + strandedEnglishArticlePenalty + shortLastPenalty + fitnessPenalty + rivers.cost;
             const nextLine = lineNo + 1;
             const nextStreak = hyphenBreak ? Math.min(2, previousHyphenStreak + 1) : 0;
             const nextHyphenCount = previousHyphenCount + (hyphenBreak ? 1 : 0);
-            const nextKey = encodeState(nextLine, nextStreak, currentFitness, lineFit?.glyphScale ?? 1, nextHyphenCount);
+            const nextKey = encodeState(nextLine, nextStreak, currentFitness, nextHyphenCount);
             const old = states[end + 1].get(nextKey);
             if (!old || cost < old.cost) states[end + 1].set(nextKey, {
               cost,
@@ -767,11 +749,12 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
               finalCompressed,
               rightProtrusion: lineFit ? appliedRightProtrusion : 0,
               fitness: currentFitness,
+              lineNo: nextLine,
               hyphenCount: nextHyphenCount,
+              hyphenStreak: nextStreak,
               gapPositions: currentGaps,
               riverPositions: rivers.rivers,
             });
-            }
           }
         }
       }
@@ -781,8 +764,7 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       let bestSectionRate = Number.POSITIVE_INFINITY;
       let bestHyphenBudgetPriority = 3;
       for (const [key, state] of states[words.length]) {
-        const decoded = decodeState(key);
-        const paragraphJustifiedLines = Math.max(0, decoded.line - 1);
+        const paragraphJustifiedLines = Math.max(0, state.lineNo - 1);
         const sectionJustifiedLines = sectionStats.justifiedLines + paragraphJustifiedLines;
         const sectionHyphenatedLines = sectionStats.hyphenatedLines + state.hyphenCount;
         const sectionRate = sectionHyphenatedLines / Math.max(1, sectionJustifiedLines);
@@ -898,64 +880,99 @@ export async function composeProfessionalParagraphs(page: Page, book: Book): Pro
       // Verify/calibrate what the reader actually sees. fitLine now rejects
       // candidates below the physical gap floor, so this is only a rasterisation
       // safety net and should need at most a tiny correction.
+      const calibratedLines: Array<{
+        line: HTMLElement;
+        content: HTMLElement;
+        opticalMeasure: number;
+        fontSize: number;
+        gapFloor: number;
+        lineWords: HTMLElement[];
+      }> = [];
+      const semanticGapMinimum = (lineWords: HTMLElement[]) => {
+        let minimum = Number.POSITIVE_INFINITY;
+        let previousRect = lineWords[0]?.getBoundingClientRect();
+        for (let index = 1; index < lineWords.length; index++) {
+          const currentRect = lineWords[index].getBoundingClientRect();
+          if (lineWords[index].dataset.folioSpaceBefore === "true" && previousRect) {
+            minimum = Math.min(minimum, currentRect.left - previousRect.right);
+          }
+          previousRect = currentRect;
+        }
+        return minimum;
+      };
       for (const line of lines) {
         if (!line.classList.contains("folio-line-justified") && !line.classList.contains("folio-line-final-compressed")) {
           continue;
         }
         const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
         if (!content) continue;
-        let rendered = content.getBoundingClientRect().width;
+        const rendered = content.getBoundingClientRect().width;
         const measure = line.getBoundingClientRect().width;
         const protrusion = Number(line.dataset.folioRightProtrusion ?? 0);
         const opticalMeasure = measure + protrusion;
         if (rendered <= 0 || opticalMeasure <= 0) continue;
 
         const lineFontSize = px(getComputedStyle(line).fontSize) || fontSize;
-        const releaseGapFloor = Math.max(1.5, lineFontSize * 0.12);
-        const semanticGapMinimum = () => {
-          const lineWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
-          let minimum = Number.POSITIVE_INFINITY;
-          for (let index = 1; index < lineWords.length; index++) {
-            if (lineWords[index].dataset.folioSpaceBefore !== "true") continue;
-            minimum = Math.min(
-              minimum,
-              lineWords[index].getBoundingClientRect().left - lineWords[index - 1].getBoundingClientRect().right,
-            );
-          }
-          return minimum;
-        };
+        const lineWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+        calibratedLines.push({
+          line,
+          content,
+          opticalMeasure,
+          fontSize: lineFontSize,
+          gapFloor: Math.max(1.5, lineFontSize * 0.12),
+          lineWords,
+        });
+      }
 
-        const minimumGap = semanticGapMinimum();
-        if (Number.isFinite(minimumGap) && minimumGap < releaseGapFloor - 0.005) {
-          // This should be sub-pixel only because fitLine already enforced the
-          // same floor. Do not widen a line by several pixels after breaking.
-          const deficit = releaseGapFloor - minimumGap;
+      const gapAdjustments: Array<{ line: HTMLElement; deficit: number; currentWordSpacing: number }> = [];
+      for (const item of calibratedLines) {
+        const minimumGap = semanticGapMinimum(item.lineWords);
+        if (Number.isFinite(minimumGap) && minimumGap < item.gapFloor - 0.005) {
+          const deficit = item.gapFloor - minimumGap;
           if (deficit > 0.20) {
-            line.dataset.folioGapViolation = "true";
+            item.line.dataset.folioGapViolation = "true";
           } else {
-            const currentWordSpacing = Number(line.dataset.folioWordSpacing ?? 0);
-            line.style.wordSpacing = `${baseWordSpacing + currentWordSpacing + deficit}px`;
-            line.dataset.folioWordSpacing = String(currentWordSpacing + deficit);
+            gapAdjustments.push({
+              line: item.line,
+              deficit,
+              currentWordSpacing: Number(item.line.dataset.folioWordSpacing ?? 0),
+            });
           }
         }
+      }
+      for (const adjustment of gapAdjustments) {
+        adjustment.line.style.wordSpacing = `${baseWordSpacing + adjustment.currentWordSpacing + adjustment.deficit}px`;
+        adjustment.line.dataset.folioWordSpacing = String(adjustment.currentWordSpacing + adjustment.deficit);
+      }
 
-        rendered = content.getBoundingClientRect().width;
+      const trackingAdjustments = calibratedLines.map((item) => {
+        const rendered = item.content.getBoundingClientRect().width;
         if (rendered > 0) {
-          const correction = Math.max(.98, Math.min(1.01, opticalMeasure / rendered));
-          const characters = Math.max(1, [...(content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
+          const correction = Math.max(.98, Math.min(1.01, item.opticalMeasure / rendered));
+          const characters = Math.max(1, [...(item.content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
           const trackingCorrection = (rendered * correction - rendered) / characters;
-          const currentTracking = px(getComputedStyle(line).letterSpacing);
-          line.style.letterSpacing = `${currentTracking + trackingCorrection}px`;
-          line.dataset.folioTracking = String(Number(line.dataset.folioTracking ?? 0) + trackingCorrection);
-          line.dataset.folioGlyphScale = "1";
+          const currentTracking = px(getComputedStyle(item.line).letterSpacing);
+          return { ...item, trackingCorrection, currentTracking };
         }
+        return { ...item, trackingCorrection: 0, currentTracking: 0 };
+      });
+      for (const { line, trackingCorrection, currentTracking } of trackingAdjustments) {
+        line.style.letterSpacing = `${currentTracking + trackingCorrection}px`;
+        line.dataset.folioTracking = String(Number(line.dataset.folioTracking ?? 0) + trackingCorrection);
+        line.dataset.folioGlyphScale = "1";
+      }
 
-        const finalMinimumGap = semanticGapMinimum();
+      for (const item of calibratedLines) {
+        const finalMinimumGap = semanticGapMinimum(item.lineWords);
         if (Number.isFinite(finalMinimumGap)) {
-          line.dataset.folioMinSemanticGap = String(finalMinimumGap);
-          if (finalMinimumGap < releaseGapFloor - 0.005) line.dataset.folioGapViolation = "true";
+          item.line.dataset.folioMinSemanticGap = String(finalMinimumGap);
+          if (finalMinimumGap < item.gapFloor - 0.005) item.line.dataset.folioGapViolation = "true";
         }
       }
     }
+    console.info(`__FOLIO_COMPOSITION_PROGRESS__${paragraphs.length}/${paragraphs.length}`);
   });
+  } finally {
+    if (onProgress) page.off("console", reportProgress);
+  }
 }

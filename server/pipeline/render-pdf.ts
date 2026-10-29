@@ -7,14 +7,19 @@ import { renderHtml } from "./render-html.ts";
 import { alignDropCaps } from "./dropcap.ts";
 import { AppError } from "../errors.ts";
 import { applyProfessionalHyphenation } from "./hyphenation.ts";
-import { composeProfessionalParagraphs } from "./compositor.ts";
+import { composeProfessionalParagraphs, type CompositionProgress } from "./compositor.ts";
 
 let browserPromise: Promise<Browser> | null = null;
 let browserGeneration = 0;
 
 function launchBrowser(): Promise<Browser> {
   const generation = ++browserGeneration;
-  const options: LaunchOptions = { headless: true, args: ["--no-sandbox"] };
+  const options: LaunchOptions = {
+    headless: true,
+    args: ["--no-sandbox"],
+    // Full-book layout includes browser-side typography and pagination work.
+    protocolTimeout: 600_000,
+  };
   if (process.env.PUPPETEER_EXECUTABLE_PATH) options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
 
   const pending = puppeteer.launch(options)
@@ -83,7 +88,7 @@ async function readingCoverDataUrl(book: Book): Promise<string | null> {
 }
 
 /** Render a reading PDF from the book's styled HTML via headless Chromium. */
-export async function renderPdf(book: Book): Promise<Buffer> {
+export async function renderPdf(book: Book, onProgress?: (progress: CompositionProgress) => void): Promise<Buffer> {
   const html = await renderHtml(book, "print");
   const coverDataUrl = await readingCoverDataUrl(book);
   const browser = await getBrowser();
@@ -144,7 +149,9 @@ export async function renderPdf(book: Book): Promise<Buffer> {
     });
     await applyProfessionalHyphenation(page, book);
     await alignDropCaps(page);
-    await composeProfessionalParagraphs(page, book);
+    onProgress?.({ completedParagraphs: 0, totalParagraphs: 1, fraction: 0 });
+    await composeProfessionalParagraphs(page, book, onProgress);
+    onProgress?.({ completedParagraphs: 1, totalParagraphs: 1, fraction: 1 });
     const pdf = await page.pdf(coverDataUrl
       ? {
           printBackground: true,

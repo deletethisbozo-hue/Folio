@@ -254,7 +254,7 @@ export async function buildDocCss(
   const parts: string[] = [];
   const embedFonts = opts.embedFonts ?? true;
 
-  for (const f of embedFonts ? book.fonts : []) {
+  for (const f of embedFonts ? selectedBookFonts(book) : []) {
     let src: string;
     if (target === "epub") {
       // Pandoc embeds fonts under EPUB/fonts/ and writes our CSS to EPUB/styles/,
@@ -278,6 +278,36 @@ export async function buildDocCss(
   parts.push(typographyCss(book));
 
   return parts.filter(Boolean).join("\n");
+}
+
+function primaryFontFamily(stack: string | undefined): string | undefined {
+  if (!stack) return undefined;
+  const first = stack.trim().match(/^(?:"([^"]+)"|'([^']+)'|([^,]+))/);
+  const family = (first?.[1] ?? first?.[2] ?? first?.[3] ?? "").trim();
+  return family || undefined;
+}
+
+/** Families selected in book typography and style overrides that need runtime faces. */
+export function bookFontFamilies(book: Pick<Book, "styles" | "typography">): string[] {
+  const typography = book.typography ?? {};
+  const themeLab = typography.themeLab?.enabled ? typography.themeLab : undefined;
+  const selected = [
+    typography.bodyFont,
+    typography.headingFont,
+    typography.dropcapFont,
+    typography.titlePageFont,
+    ...Object.values(book.styles).map((style) => style.font),
+    themeLab?.bodyFont,
+    themeLab?.headingFont,
+    themeLab?.dropcapFont,
+    themeLab?.titlePageFont,
+  ];
+  return [...new Set(selected.map(primaryFontFamily).filter((family): family is string => Boolean(family)))];
+}
+
+function selectedBookFonts(book: Pick<Book, "fonts" | "styles" | "typography">): Book["fonts"] {
+  const selectedFamilies = new Set(bookFontFamilies(book).map((family) => family.toLowerCase()));
+  return book.fonts.filter((font) => selectedFamilies.has(font.family.trim().toLowerCase()));
 }
 
 /** Per-book typography overrides (body/heading font, chapter-title style). */
@@ -378,5 +408,5 @@ function typographyCss(book: Book): string {
 
 /** The font files to embed into the EPUB (for --epub-embed-font). */
 export function epubFontFiles(book: Book): string[] {
-  return book.fonts.map((f) => f.file);
+  return selectedBookFonts(book).map((f) => f.file);
 }

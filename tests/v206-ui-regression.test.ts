@@ -90,7 +90,7 @@ try {
     Number.parseFloat(typography.manuscriptSize) - Number.parseFloat(typography.previewSize) <= 2 &&
     Number.parseFloat(typography.previewTracking) >= Number.parseFloat(typography.manuscriptTracking),
     JSON.stringify(typography));
-  check("Export is a full desktop control rather than the old tiny CTA", typography.exportHeight >= 34 && typography.exportBackground !== "rgb(164, 113, 72)", `${typography.exportHeight}px / ${typography.exportBackground}`);
+  check("Export uses the compact desktop control styling", typography.exportHeight === 26 && typography.exportBackground !== "rgb(164, 113, 72)", `${typography.exportHeight}px / ${typography.exportBackground}`);
 
   await page.evaluate(() => {
     const cover = [...document.querySelectorAll<HTMLButtonElement>(".contents-row")].find((item) => item.textContent?.trim().startsWith("Cover"));

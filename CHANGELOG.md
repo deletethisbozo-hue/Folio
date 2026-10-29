@@ -5,6 +5,22 @@ All notable changes to Folio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - Unreleased
+
+### Added
+- Theme Library search and automatically grouped Illustrated, Typography-led, Ornamental and Minimal collections.
+- Theme validation for supported settings, color contrast, artwork and font availability, with invalid themes blocked from saving or applying.
+- Typography QA for preview, PDF/PDF/X and EPUB font assets and stylesheet consistency.
+- Custom font selection across body, chapter, drop-cap and title-page typography; theme packages carry every selected custom font.
+- Reading and print PDF exports show live paragraph-composition progress for long manuscripts.
+
+### Fixed
+- Editor autosave reuses the already-ingested section between writes instead of reparsing the complete manuscript before and after each save.
+- Theme export font collection now includes the font families selected by Theme Lab and saved book styles.
+- PDF rendering allows full-book Chromium layout calls to finish, while reducing repeated work in the paragraph compositor.
+- Paragraph composition finds nearest river-alignment gaps with exact binary search, reducing quadratic comparisons without changing the river penalty.
+- Export embeds only custom book fonts referenced by active typography or style rules, avoiding unused font payloads in print HTML and EPUB.
+
 ## [3.3.0] - 2026-10-28
 
 ### Added

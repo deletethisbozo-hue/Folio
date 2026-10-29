@@ -5,7 +5,7 @@ import type { Book, PresetName } from "./types.ts";
 import { assembleMarkdown } from "./build-doc.ts";
 import { THEMES_DIR } from "./paths.ts";
 import { cleanup, commonArgs, makeWorkspace, runPandoc } from "./pandoc.ts";
-import { buildDocCss, epubFontFiles } from "./doc-css.ts";
+import { bookFontFamilies, buildDocCss, epubFontFiles } from "./doc-css.ts";
 import { buildThemeRuntimeCss } from "./theme-fonts.ts";
 import { getPreset } from "../presets.ts";
 import { readEpubEntries, writeEpub, reorderSpineToc } from "./epub-zip.ts";
@@ -85,7 +85,7 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
     const runtimeTheme = await buildThemeRuntimeCss(
       book.meta.theme,
       "epub",
-      [book.typography.bodyFont, book.typography.headingFont, book.typography.dropcapFont, book.typography.titlePageFont].filter((value): value is string => Boolean(value)),
+      bookFontFamilies(book),
       { embedFonts: preset.embedFonts },
     );
     const runtimeThemePath = path.join(ws.dir, "theme-runtime.css");

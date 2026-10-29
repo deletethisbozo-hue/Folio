@@ -118,6 +118,16 @@ export interface ThemeLibraryEntry {
   updatedAt: number;
 }
 
+export interface TypographyQaCheck {
+  target: "Preview" | "PDF / PDF/X" | "EPUB";
+  status: "pass" | "warning";
+  details: string[];
+}
+
+export interface TypographyQaReport {
+  checks: TypographyQaCheck[];
+}
+
 export interface CustomFontRecord {
   id: string;
   family: string;

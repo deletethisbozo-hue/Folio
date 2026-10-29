@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+import type { Book } from "../server/pipeline/types.ts";
+import { bookFontFamilies, buildDocCss, epubFontFiles } from "../server/pipeline/doc-css.ts";
 import { buildThemeRuntimeCss } from "../server/pipeline/theme-fonts.ts";
 
 console.log("\nExport font footprint regression checks");
@@ -26,4 +28,38 @@ const legacy = await buildThemeRuntimeCss("literary", "print", ["Folio EB Garamo
 assert.match(legacy.fontCss, /font-family:"Folio EB Garamond"/);
 console.log("  ✓ Legacy project can still explicitly request the old font alias");
 
-console.log("\n4 passed, 0 failed");
+const themeLabBook = {
+  styles: { letter: { font: '"Bodoni Moda", serif' } },
+  typography: {
+    themeLab: { enabled: true, bodyFont: "Folio EB Garamond", headingFont: "Bodoni Moda" },
+  },
+} satisfies Pick<Book, "styles" | "typography">;
+const selectedFamilies = bookFontFamilies(themeLabBook);
+assert.deepEqual(selectedFamilies, ["Bodoni Moda", "Folio EB Garamond"]);
+const themeLabPrint = await buildThemeRuntimeCss("literary", "print", selectedFamilies);
+assert.match(themeLabPrint.fontCss, /font-family:"Bodoni Moda"/);
+assert.match(themeLabPrint.fontCss, /font-family:"Folio EB Garamond"/);
+const themeLabEpub = await buildThemeRuntimeCss("literary", "epub", selectedFamilies);
+assert(themeLabEpub.fontFiles.some((file) => path.basename(file) === "bodoni-moda.ttf"));
+console.log("  ✓ Theme Lab and per-style font selections are embedded in print and EPUB exports");
+
+const registeredFontsBook: Book = {
+  meta: { title: "Test", author: "Test", language: "en", theme: "literary" },
+  sections: [],
+  baseDir: "",
+  fonts: [
+    { file: "used-body.ttf", family: "Used Body" },
+    { file: "used-heading.ttf", family: "Used Heading" },
+    { file: "unused-large-font.ttf", family: "Unused Large Font" },
+  ],
+  styles: { letter: { font: '"Used Heading", serif' } },
+  typography: { bodyFont: "Used Body" },
+};
+const registeredFontCss = await buildDocCss(registeredFontsBook, "epub");
+assert.match(registeredFontCss, /font-family: "Used Body"/);
+assert.match(registeredFontCss, /font-family: "Used Heading"/);
+assert.doesNotMatch(registeredFontCss, /Unused Large Font/);
+assert.deepEqual(epubFontFiles(registeredFontsBook), ["used-body.ttf", "used-heading.ttf"]);
+console.log("  ✓ Unselected book font assets are excluded from EPUB and print HTML");
+
+console.log("\n6 passed, 0 failed");

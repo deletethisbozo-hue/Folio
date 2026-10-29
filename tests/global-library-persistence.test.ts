@@ -9,6 +9,8 @@ import {
   readThemeLibrary,
   writeThemeLibrary,
 } from "../server/global-library.ts";
+import { bookFontFamilies } from "../server/pipeline/doc-css.ts";
+import { buildThemeRuntimeCss } from "../server/pipeline/theme-fonts.ts";
 
 let pass = 0;
 let fail = 0;
@@ -72,6 +74,23 @@ try {
   const resolved = await customFontByFamily("Folio Test Custom");
   const fontBytes = resolved ? await fs.readFile(customFontPath(resolved)) : Buffer.alloc(0);
   check("custom font bytes are stored under the persistent library", Boolean(resolved) && fontBytes.length > 28);
+
+  const selectedFamilies = bookFontFamilies({
+    styles: {},
+    typography: {
+      themeLab: {
+        enabled: true,
+        bodyFont: installed.family,
+        headingFont: installed.family,
+        dropcapFont: installed.family,
+        titlePageFont: installed.family,
+      },
+    },
+  });
+  const printFonts = await buildThemeRuntimeCss("literary", "print", selectedFamilies);
+  check("Theme Lab custom font is embedded for print export", printFonts.fontCss.includes(`font-family:"${installed.family}";src:url('data:font/ttf;base64,`));
+  const epubFonts = await buildThemeRuntimeCss("literary", "epub", selectedFamilies);
+  check("Theme Lab custom font file is included for EPUB export", epubFonts.fontFiles.includes(customFontPath(installed)));
 
   const index = JSON.parse(await fs.readFile(path.join(root, "library", "fonts.json"), "utf8"));
   check("custom font metadata is durable across renderer-origin changes", Array.isArray(index) && index[0].filename === installed.filename);
