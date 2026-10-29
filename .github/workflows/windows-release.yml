@@ -275,13 +275,27 @@ jobs:
             node scripts\packaged-ui-smoke.mjs
             if ($LASTEXITCODE -ne 0) { throw "Installed Folio UI smoke failed." }
           } finally {
-            Get-Process Folio -ErrorAction SilentlyContinue | Stop-Process -Force
+            $installedProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'Folio.exe'" | Where-Object { $_.ExecutablePath -eq $exe })
+            foreach ($process in $installedProcesses) {
+              Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+            for ($i = 0; $i -lt 40; $i++) {
+              $installedProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'Folio.exe'" | Where-Object { $_.ExecutablePath -eq $exe })
+              if ($installedProcesses.Count -eq 0) { break }
+              Start-Sleep -Milliseconds 250
+            }
+            if ($installedProcesses.Count -gt 0) {
+              throw "Installed Folio processes did not exit before uninstall: $($installedProcesses.ProcessId -join ', ')."
+            }
             $uninstall = Join-Path $installDir "Uninstall Folio.exe"
             if (Test-Path $uninstall) {
               $removed = Start-Process -FilePath $uninstall -ArgumentList "/S" -Wait -PassThru
               if ($removed.ExitCode -ne 0) { throw "NSIS uninstall failed." }
-              for ($i = 0; $i -lt 40 -and (Test-Path $exe); $i++) { Start-Sleep -Milliseconds 250 }
-              if (Test-Path $exe) { throw "NSIS uninstall left the installed Folio executable behind." }
+              for ($i = 0; $i -lt 120 -and (Test-Path $exe); $i++) { Start-Sleep -Milliseconds 500 }
+              if (Test-Path $exe) {
+                $remainingProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'Folio.exe'" | Where-Object { $_.ExecutablePath -eq $exe })
+                throw "NSIS uninstall left the installed Folio executable behind. Remaining process IDs: $($remainingProcesses.ProcessId -join ', '); uninstall exit code: $($removed.ExitCode)."
+              }
             }
           }
 
