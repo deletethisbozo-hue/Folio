@@ -39,7 +39,7 @@ export async function publishPreflight(book: Book, options: PreflightOptions): P
     if (!LAYOUTS.some((layout) => layout.key === print.layout)) add({ code: "PRINT_LAYOUT", severity: "error", text: "The running-head layout is unavailable.", remedy: "Choose a running-head layout in Print Preview." });
     if (print.gutter !== undefined && (!Number.isFinite(print.gutter) || print.gutter < 0.25 || print.gutter > 2)) add({ code: "PRINT_GUTTER", severity: "error", text: "The inner margin is outside the supported range.", remedy: "Use an inner margin from 0.25 to 2 inches, or select Auto." });
   }
-  const runtimeFonts = await buildThemeRuntimeCss(book.meta.theme, "epub", [book.typography.bodyFont, book.typography.headingFont, book.typography.dropcapFont, book.typography.titlePageFont].filter((value): value is string => Boolean(value)), { embedFonts: options.format !== "epub" || options.preset !== "kdp" });
+  const runtimeFonts = await buildThemeRuntimeCss(book.meta.theme, "epub", [book.typography.bodyFont, book.typography.headingFont, book.typography.dropcapFont, book.typography.titlePageFont].filter((value): value is string => Boolean(value)));
   const fonts = [...book.fonts, ...runtimeFonts.fontFiles.map((file) => ({ file, family: path.basename(file) }))];
   for (const font of fonts) {
     try { if (!(await fs.stat(font.file)).isFile()) throw new Error(); }

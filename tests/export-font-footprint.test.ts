@@ -6,15 +6,16 @@ import { buildThemeRuntimeCss } from "../server/pipeline/theme-fonts.ts";
 
 console.log("\nExport font footprint regression checks");
 
-const kdp = await buildThemeRuntimeCss("literary", "epub", [], { embedFonts: false });
-assert.equal(kdp.fontFiles.length, 0, "Kindle preset must not package TTF/OTF binaries");
-assert.doesNotMatch(kdp.css, /@font-face/i, "Kindle preset must not reference unpackaged font files");
-console.log("  ✓ Kindle preset carries no font binaries or dangling @font-face URLs");
+const kdp = await buildThemeRuntimeCss("literary", "epub");
+assert(kdp.fontFiles.length > 0, "Kindle preset must package the selected theme fonts");
+assert.match(kdp.css, /@font-face/i, "Kindle preset must reference its packaged font files");
+console.log("  ✓ Kindle preset embeds selected theme fonts and matching @font-face rules");
 
 const universal = await buildThemeRuntimeCss("literary", "epub");
 const filenames = universal.fontFiles.map((file) => path.basename(file));
 assert(filenames.includes("eb-garamond.ttf"), "Primary body font must remain embedded");
 assert(filenames.includes("source-sans-3.ttf"), "Primary font: shorthand for CHAPTER must remain embedded");
+assert.deepEqual(kdp.fontFiles.map((file) => path.basename(file)).sort(), filenames.sort(), "Both EPUB presets must embed the active theme's required fonts");
 assert(!filenames.includes("vollkorn.ttf"), "Unused body fallback must not be embedded");
 assert(!filenames.includes("gelasio.ttf"), "Unused body fallback must not be embedded");
 console.log("  ✓ Universal EPUB retains actual body/display fonts without fallback binaries");

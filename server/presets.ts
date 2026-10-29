@@ -15,8 +15,8 @@ export const PRESETS: Record<PresetName, EpubPreset> = {
     name: "kdp",
     label: "Amazon KDP",
     description:
-      "Reader-controlled fonts and relative sizing. No embedded body fonts to keep the converted file (and per-MB delivery fee) small.",
-    embedFonts: false,
+      "KDP-ready EPUB with the selected theme fonts embedded for consistent appearance. Readers can still override the font in Kindle.",
+    embedFonts: true,
     sizeWarnBytes: 50 * 1024 * 1024,
   },
   universal: {

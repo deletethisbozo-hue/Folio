@@ -58,7 +58,7 @@ export async function runThemeTypographyQa(book: Book): Promise<{ checks: Typogr
           ? `These families are not in the portable library: ${unavailable.join(", ")}.`
           : epubFacesExist ? "Selected Folio font files are scheduled for EPUB embedding." : "A selected typeface has no EPUB font face.",
         epubFilesExist
-          ? `${epubFonts.fontFiles.length} selected font asset(s) are available; the KDP preset intentionally excludes font binaries.`
+          ? `${epubFonts.fontFiles.length} selected font asset(s) are available for embedding in EPUB exports.`
           : "One or more selected font files are missing; fix this before publishing.",
       ],
     },

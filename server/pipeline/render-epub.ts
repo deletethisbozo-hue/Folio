@@ -114,9 +114,7 @@ export async function renderEpub(book: Book, presetName: PresetName): Promise<Ep
     if (epubMetaPath) args.push(`--epub-metadata=${epubMetaPath}`);
     if (book.coverPath) args.push(`--epub-cover-image=${book.coverPath}`);
 
-    // Universal EPUB packages the fonts actively selected by its design.
-    // The lightweight KDP preset intentionally leaves typography to the reader
-    // and must not accidentally bundle several megabytes of built-in TTFs.
+    // Both presets package only the font files selected by the active design.
     for (const file of runtimeTheme.fontFiles) args.push(`--epub-embed-font=${file}`);
     if (preset.embedFonts) {
       for (const f of epubFontFiles(book)) args.push(`--epub-embed-font=${f}`);
