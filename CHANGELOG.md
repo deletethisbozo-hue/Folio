@@ -5,7 +5,13 @@ All notable changes to Folio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.4.1] - Unreleased
+## [3.4.2] - Unreleased
+
+### Fixed
+- PDF, Print PDF and PDF/X exports no longer fail the print layout quality gate on italic or bold paragraphs.
+- Every PDF export now asks for a filename instead of using a default one.
+
+## [3.4.1] - 2026-10-29
 
 ### Fixed
 - Kindle EPUB exports now embed the selected theme fonts while preserving reader font overrides.
