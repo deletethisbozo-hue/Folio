@@ -826,7 +826,17 @@ export async function composeProfessionalParagraphs(
         const range = document.createRange();
         range.setStartBefore(words[start].node);
         range.setEndAfter(words[lineBreak.end - 1].node);
-        fragments.push(range.cloneContents());
+        let fragment = range.cloneContents();
+        // cloneContents() omits ancestors shared by both range ends, so a line
+        // fully inside <em>/<strong> would silently lose its styling.
+        for (let ancestor = range.commonAncestorContainer as Node | null; ancestor && ancestor !== paragraph; ancestor = ancestor.parentNode) {
+          if (ancestor.nodeType !== Node.ELEMENT_NODE) continue;
+          const wrapper = (ancestor as Element).cloneNode(false);
+          wrapper.appendChild(fragment);
+          fragment = document.createDocumentFragment();
+          fragment.appendChild(wrapper);
+        }
+        fragments.push(fragment);
         start = lineBreak.end;
       }
 

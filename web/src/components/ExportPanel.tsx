@@ -47,6 +47,8 @@ export default function ExportPanel({
   const [last, setLast] = useState<ExportResult | null>(null);
   const [pageCap, setPageCap] = useState("50");
   const [newRound, setNewRound] = useState(false);
+  const [customFilename, setCustomFilename] = useState<string | null>(null);
+  const [filenamePromptJob, setFilenamePromptJob] = useState<Job | null>(null);
 
   const remembered = typeof localStorage !== "undefined" ? localStorage.getItem(LAST_REVIEW_FOLDER) : null;
 
@@ -82,25 +84,30 @@ export default function ExportPanel({
     { key: "pdf", label: "Reading PDF", format: "pdf" },
   ];
 
-  async function runJob(job: Job, extra: Record<string, unknown> = {}, force = false) {
+  async function runJob(job: Job, extra: Record<string, unknown> = {}, force = false, filename?: string) {
     setBusy(job.key);
     setError(null);
     setLast(null);
     try {
+      const exportExtra = { ...extra };
+      if (filename) {
+        exportExtra.customFilename = filename;
+      }
+      
       const result = await api.export(projectId, job.format, {
         preset: job.preset,
         meta,
         theme,
         typography,
         force,
-        ...extra,
+        ...exportExtra,
       });
 
       // The artifact already exists at this version. Ask, then retry with force —
       // regenerating from an unchanged source is usually a mistake.
       if (result.needsConfirm) {
         if (window.confirm(`${result.message}\n\nRegenerate and overwrite it?`)) {
-          await runJob(job, extra, true);
+          await runJob(job, extra, true, filename);
           return;
         }
         setBusy(null);
@@ -117,6 +124,8 @@ export default function ExportPanel({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
+      setCustomFilename(null);
+      setFilenamePromptJob(null);
     }
   }
 
@@ -144,7 +153,18 @@ export default function ExportPanel({
           <button
             key={job.key}
             disabled={busy !== null}
-            onClick={() => runJob(job)}
+            onClick={() => {
+              if (job.format === "pdf" || job.format === "print" || job.format === "pdfx") {
+                // Prompt for custom filename for PDF exports
+                const defaultName = `${meta.title || "book"}_${job.format === "pdf" ? "reading" : job.format}.pdf`;
+                const filename = window.prompt("Enter PDF filename:", defaultName);
+                if (filename && filename.trim()) {
+                  runJob(job, {}, false, filename.trim());
+                }
+              } else {
+                runJob(job);
+              }
+            }}
             className="flex items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-50"
           >
             <span>{job.label}</span>

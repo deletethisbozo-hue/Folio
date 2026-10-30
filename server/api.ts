@@ -619,7 +619,7 @@ export function registerApi(app: Express): void {
         : undefined;
 
       /** Write to the configured destination, or hand back bytes to download. */
-      const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}) => {
+      const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}, customFilename?: string) => {
         reportProgress(94, "Finishing and saving the export");
         if (!bookDir) {
           // A drag-and-dropped book has no folder in which Folio can save
@@ -637,7 +637,7 @@ export function registerApi(app: Express): void {
             md: `${stem}.md`,
           };
           res.json({
-            filename: filenameByType[type],
+            filename: customFilename || filenameByType[type],
             mime,
             dataBase64: data.toString("base64"),
             bytes: data.length,
@@ -652,6 +652,7 @@ export function registerApi(app: Express): void {
           force: Boolean(req.body?.force),
           note: typeof req.body?.note === "string" ? req.body.note : undefined,
           confirm: async () => false, // the UI asks, then retries with force
+          customFilename,
         });
         if (!result.written) {
           res.json({ needsConfirm: true, message: result.conflictMessage, bytes: data.length, ...extra });
@@ -751,20 +752,22 @@ export function registerApi(app: Express): void {
         case "pdf": {
           const buffer = await renderPdf(book, ({ completedParagraphs, totalParagraphs, fraction }) =>
             reportProgress(15 + 72 * fraction, `Composing reading PDF: ${completedParagraphs}/${totalParagraphs} paragraphs`));
-          await deliver("reading", buffer, "application/pdf");
+          const customFilename = typeof req.body?.customFilename === "string" ? req.body.customFilename.trim() : undefined;
+          await deliver("reading", buffer, "application/pdf", {}, customFilename);
           return;
         }
         case "print":
         case "pdfx": {
           const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
+          const customFilename = typeof req.body?.customFilename === "string" ? req.body.customFilename.trim() : undefined;
           const profile = format === "pdfx" ? print.iccProfile ? Buffer.from(print.iccProfile.dataBase64, "base64") : await defaultPdfXProfile() : null;
           if (profile) validateCmykProfile(profile);
           const { buffer, meta } = await renderPrintPdf(book, print, ({ completedParagraphs, totalParagraphs, fraction }) =>
             reportProgress(15 + 66 * fraction, `Composing print PDF: ${completedParagraphs}/${totalParagraphs} paragraphs`));
           if (profile) {
             const converted = await convertPdfX3(buffer, { profile, name: print.iccProfile?.name ?? "Artifex CMYK SWOP", title: book.meta.title });
-            await deliver("pdfx", converted.buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter, pdfxReport: converted.report });
-          } else await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter });
+            await deliver("pdfx", converted.buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter, pdfxReport: converted.report }, customFilename);
+          } else await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter }, customFilename);
           return;
         }
         default:
