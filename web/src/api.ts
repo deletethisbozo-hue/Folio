@@ -485,6 +485,7 @@ export const api = {
       force?: boolean;
       outputDir?: string;
       progressId?: string;
+      customFilename?: string;
     },
   ) =>
     fetch(`/api/projects/${projectId}/export`, {

@@ -5,12 +5,15 @@
 // page. Splitting also means a failed render leaves nothing behind: version.json
 // and LINEAGE.md are only written once bytes have landed on disk.
 
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import type { Book } from "./pipeline/types.ts";
 import {
   type ArtifactType,
   type DestinationConfig,
   type WritePlan,
   artifactFilename,
+  destinationFor,
   planWrite,
   resolveDestinations,
   writeArtifact,
@@ -73,6 +76,8 @@ export interface FinishOptions {
   confirm?: (message: string) => Promise<boolean>;
   /** Distinguishes immutable packets of one artifact, e.g. blues chapters 6–7. */
   filenameTag?: string;
+  /** Use a custom filename instead of auto-generated one. */
+  customFilename?: string;
 }
 
 export interface FinishResult {
@@ -110,7 +115,28 @@ export async function finishExport(
   opts: FinishOptions = {},
 ): Promise<FinishResult> {
   const { sync, dest, date, bookDir } = prep;
-  const plan: WritePlan = await planWrite(type, dest, sync.version, date, opts.filenameTag);
+  
+  // Use custom filename if provided, otherwise generate one
+  let plan: WritePlan;
+  if (opts.customFilename) {
+    const dir = destinationFor(type, dest);
+    const fullPath = path.join(dir, opts.customFilename);
+    let entries: string[] = [];
+    try {
+      entries = await fs.readdir(dir);
+    } catch {
+      entries = [];
+    }
+    plan = {
+      dir,
+      filename: opts.customFilename,
+      fullPath,
+      exists: entries.includes(opts.customFilename),
+      toArchive: [], // custom files don't auto-archive older versions
+    };
+  } else {
+    plan = await planWrite(type, dest, sync.version, date, opts.filenameTag);
+  }
 
   // Regenerating the same artifact from an unchanged source is usually a
   // mistake, so it is confirmed rather than assumed.
