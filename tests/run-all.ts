@@ -24,7 +24,8 @@ const ORDER = [
   "analysis-job.test.ts",
   "runtime-priority.test.ts",
   "pdfx-profile.test.ts",
-  "print-pagination.test.ts",
+  "pdfx-alpha-ornament.test.ts",
+  "reading-pdf-centering.test.ts",  "print-pagination.test.ts",
   "print-production.test.ts",
   "publish-print-engine.test.ts",
   "publish-preflight-ui.test.ts",
@@ -85,6 +86,8 @@ const suites = [...ORDER.filter((f) => present.includes(f)), ...unknown].filter(
 const DEFAULT_SUITE_TIMEOUT_MS = 90_000;
 const SUITE_TIMEOUTS_MS: Record<string, number> = {
   "pdfx-profile.test.ts": 240_000,
+  "pdfx-alpha-ornament.test.ts": 240_000,
+  "reading-pdf-centering.test.ts": 240_000,
   "publish-print-engine.test.ts": 180_000,
   "print-preview-ui.test.ts": 180_000,
   "illustration-v2-ui.test.ts": 240_000,

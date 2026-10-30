@@ -145,7 +145,10 @@ export async function renderPdf(book: Book, onProgress?: (progress: CompositionP
     // The reading PDF is 6×9 with 0.7in side margins. Compose against its
     // 4.6in text measure before freezing lines into nowrap compositor spans.
     await page.addStyleTag({
-      content: "main.book{width:4.6in!important;max-width:4.6in!important;margin-left:0!important;margin-right:0!important;}",
+      // base.css gives body a 5% side margin and main.book 1.4em side padding. Left
+      // in place they shrink the body while main stays 4.6in wide, which pushes
+      // the whole text block to the right of the page centre.
+      content: "html,body{margin:0!important;padding:0!important;}main.book{box-sizing:border-box!important;width:4.6in!important;max-width:4.6in!important;margin:0!important;padding-left:0!important;padding-right:0!important;}",
     });
     await applyProfessionalHyphenation(page, book);
     await alignDropCaps(page);

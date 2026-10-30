@@ -252,6 +252,16 @@ export const api = {
       body: JSON.stringify({ initial }),
     }).then((r) => json<{ path: string | null }>(r)),
 
+  pickSaveFile: (options: { ext: string; label: string; suggestedName: string; initialDir?: string }) =>
+    fetch("/api/pick-save-file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+    }).then((r) => json<{ path: string | null }>(r)),
+
+  pdfxProfileStatus: () =>
+    fetch("/api/pdfx-profile-status").then((r) => json<{ available: boolean; message?: string }>(r)),
+
   pickProjectFile: (mode: "open" | "save", initial?: string, suggestedName?: string) =>
     fetch("/api/pick-project-file", {
       method: "POST",
@@ -484,6 +494,7 @@ export const api = {
       note?: string;
       force?: boolean;
       outputDir?: string;
+      savePath?: string;
       progressId?: string;
       customFilename?: string;
     },

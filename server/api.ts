@@ -1,3 +1,4 @@
+import { flattenThemeImagesForPdfX } from "./pipeline/pdfx-flatten.ts";
 import { convertPdfX3, defaultPdfXProfile, validateCmykProfile } from "./pipeline/pdfx.ts";
 import type { Express, Request, Response } from "express";
 import multer from "multer";
@@ -30,7 +31,7 @@ import { renderPdf } from "./pipeline/render-pdf.ts";
 import { publishPreflight } from "./validate/preflight.ts";
 import { validateEpub } from "./validate/epubcheck.ts";
 import { slugify } from "./pipeline/util.ts";
-import { pickFolder, pickFolioProjectFile } from "./pick-folder.ts";
+import { pickFolder, pickFolioProjectFile, pickSaveFile } from "./pick-folder.ts";
 import { renderPrintPdf, renderPrintPreviewHtml } from "./pipeline/render-print.ts";
 import { TRIMS, LAYOUTS, DEFAULT_PRINT, type PrintOptions } from "./print.ts";
 import {
@@ -278,6 +279,23 @@ export function registerApi(app: Express): void {
     wrap(res, async () => {
       const initial = typeof req.body?.initial === "string" ? req.body.initial : undefined;
       res.json({ path: await pickFolder(initial) });
+    }),
+  );
+
+  app.post("/api/pick-save-file", (req: Request, res: Response) =>
+    wrap(res, async () => {
+      const ext = typeof req.body?.ext === "string" ? req.body.ext : "pdf";
+      const label = typeof req.body?.label === "string" ? req.body.label : "File";
+      const suggestedName = typeof req.body?.suggestedName === "string" ? req.body.suggestedName : "export";
+      const initialDir = typeof req.body?.initialDir === "string" ? req.body.initialDir : undefined;
+      res.json({ path: await pickSaveFile({ ext, label, suggestedName, initialDir }) });
+    }),
+  );
+
+  app.get("/api/pdfx-profile-status", (_req: Request, res: Response) =>
+    wrap(res, async () => {
+      try { await defaultPdfXProfile(); res.json({ available: true }); }
+      catch (e) { res.json({ available: false, message: e instanceof Error ? e.message : String(e) }); }
     }),
   );
 
@@ -621,6 +639,17 @@ export function registerApi(app: Express): void {
       /** Write to the configured destination, or hand back bytes to download. */
       const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}, rawCustomFilename?: string) => {
         reportProgress(94, "Finishing and saving the export");
+        const savePath = typeof req.body?.savePath === "string" ? req.body.savePath.trim() : "";
+        if (savePath) {
+          const wanted = type.startsWith("epub") ? ".epub" : type === "docx" ? ".docx" : type === "md" ? ".md" : ".pdf";
+          if (!path.isAbsolute(savePath)) throw new Error("Choose a full file path to save the export.");
+          const target = savePath.toLowerCase().endsWith(wanted) ? savePath : savePath + wanted;
+          await fs.mkdir(path.dirname(target), { recursive: true });
+          await fs.writeFile(target, data);
+          res.json({ written: true, filename: path.basename(target), path: target, bytes: data.length, mime, ...extra });
+          reportProgress(100, "Export ready");
+          return;
+        }
         const customFilename = rawCustomFilename
           ? (() => {
               const base = path.basename(rawCustomFilename.replace(/\\/g, "/")).replace(/[<>:"|?*\u0000-\u001f]/g, "").trim().replace(/[. ]+$/, "");
@@ -769,7 +798,8 @@ export function registerApi(app: Express): void {
           const customFilename = typeof req.body?.customFilename === "string" ? req.body.customFilename.trim() : undefined;
           const profile = format === "pdfx" ? print.iccProfile ? Buffer.from(print.iccProfile.dataBase64, "base64") : await defaultPdfXProfile() : null;
           if (profile) validateCmykProfile(profile);
-          const { buffer, meta } = await renderPrintPdf(book, print, ({ completedParagraphs, totalParagraphs, fraction }) =>
+          const printBook = profile ? await flattenThemeImagesForPdfX(book) : book;
+          const { buffer, meta } = await renderPrintPdf(printBook, print, ({ completedParagraphs, totalParagraphs, fraction }) =>
             reportProgress(15 + 66 * fraction, `Composing print PDF: ${completedParagraphs}/${totalParagraphs} paragraphs`));
           if (profile) {
             const converted = await convertPdfX3(buffer, { profile, name: print.iccProfile?.name ?? "Artifex CMYK SWOP", title: book.meta.title });

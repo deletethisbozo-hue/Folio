@@ -5,6 +5,16 @@ All notable changes to Folio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.4] - Unreleased
+
+### Changed
+- Every export now opens the Windows Save dialog (folder and file name). The Export location setting was removed.
+
+### Fixed
+- PDF/X no longer fails with "changed searchable text" on themes using transparent chapter ornaments or scene images.
+- PDF/X reports clearly when no CMYK ICC profile is installed.
+- Reading PDF text is centred on the page instead of shifted right.
+
 ## [3.4.3] - Unreleased
 
 ### Fixed
