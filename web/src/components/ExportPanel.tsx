@@ -154,9 +154,9 @@ export default function ExportPanel({
             key={job.key}
             disabled={busy !== null}
             onClick={() => {
-              if (job.format === "pdf") {
+              if (job.format === "pdf" || job.format === "print" || job.format === "pdfx") {
                 // Prompt for custom filename for PDF exports
-                const defaultName = `${meta.title || "book"}_reading.pdf`;
+                const defaultName = `${meta.title || "book"}_${job.format === "pdf" ? "reading" : job.format}.pdf`;
                 const filename = window.prompt("Enter PDF filename:", defaultName);
                 if (filename && filename.trim()) {
                   runJob(job, {}, false, filename.trim());

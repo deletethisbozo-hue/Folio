@@ -650,24 +650,7 @@ export async function renderPrintPdf(
 ): Promise<{ buffer: Buffer; meta: PrintMeta }> {
   const pdfFn = async (page: Page) => Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }));
 
-  let r: { result: Buffer; meta: PrintMeta };
-  try {
-    // First attempt with strict quality enforcement for export
-    r = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, pdfFn, "strict", undefined, onProgress));
-  } catch (error) {
-    // If strict quality mode fails, retry with preview mode (tolerant) and log the issue.
-    // This ensures exports never crash; quality issues are logged as warnings instead.
-    if (error instanceof Error && error.message.includes("Print layout quality failure")) {
-      console.warn(
-        "Print PDF export layout exceeded strict quality thresholds. Retrying with tolerant mode. " +
-        "This may indicate typography or layout issues that should be reviewed.",
-        error.message,
-      );
-      r = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, pdfFn, "preview", undefined, onProgress));
-    } else {
-      throw error;
-    }
-  }
+  const r = await paginateToFinalGutter(opts, (finalOptions) => withPaginated(book, finalOptions, pdfFn, "strict", undefined, onProgress));
   let buffer = await applyPrintPageBoxes(r.result, opts.trim, opts.bleedMm ?? 0);
   if (opts.spreadMode === "facing" || opts.spreadMode === "booklet") buffer = await createPrintSpreads(buffer, { mode: opts.spreadMode, signaturePages: opts.signaturePages, rtl: opts.rtl });
   return { buffer, meta: r.meta };

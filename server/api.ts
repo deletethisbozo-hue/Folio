@@ -759,14 +759,15 @@ export function registerApi(app: Express): void {
         case "print":
         case "pdfx": {
           const print: PrintOptions = { ...DEFAULT_PRINT, ...(req.body?.print ?? {}) };
+          const customFilename = typeof req.body?.customFilename === "string" ? req.body.customFilename.trim() : undefined;
           const profile = format === "pdfx" ? print.iccProfile ? Buffer.from(print.iccProfile.dataBase64, "base64") : await defaultPdfXProfile() : null;
           if (profile) validateCmykProfile(profile);
           const { buffer, meta } = await renderPrintPdf(book, print, ({ completedParagraphs, totalParagraphs, fraction }) =>
             reportProgress(15 + 66 * fraction, `Composing print PDF: ${completedParagraphs}/${totalParagraphs} paragraphs`));
           if (profile) {
             const converted = await convertPdfX3(buffer, { profile, name: print.iccProfile?.name ?? "Artifex CMYK SWOP", title: book.meta.title });
-            await deliver("pdfx", converted.buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter, pdfxReport: converted.report });
-          } else await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter });
+            await deliver("pdfx", converted.buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter, pdfxReport: converted.report }, customFilename);
+          } else await deliver("print", buffer, "application/pdf", { pages: meta.pages, gutter: meta.gutter }, customFilename);
           return;
         }
         default:
