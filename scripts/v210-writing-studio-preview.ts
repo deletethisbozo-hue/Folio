@@ -198,8 +198,8 @@ try {
     const copy = dialog?.textContent ?? "";
     return { hasChoose: Boolean(choose), hasDefaultExportCopy: copy.includes("Exports folder next to the current .folio project") };
   });
-  if (!settingsContract.hasChoose || !settingsContract.hasDefaultExportCopy) {
-    throw new Error(`Export location setting missing or unclear: ${JSON.stringify(settingsContract)}`);
+  if (settingsContract.hasChoose || settingsContract.hasDefaultExportCopy) {
+    throw new Error(`Export location setting should be gone (exports use the Save dialog): ${JSON.stringify(settingsContract)}`);
   }
   const soundContract = await page.evaluate(() => {
     const toggle = document.querySelector<HTMLInputElement>('input[aria-label="Enable typewriter sound"]');
