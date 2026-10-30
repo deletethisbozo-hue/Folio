@@ -5,6 +5,11 @@ All notable changes to Folio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.3] - Unreleased
+
+### Fixed
+- The filename prompt now appears in the Export menu for Print PDF, PDF/X and Reading PDF (previously it lived in an unused panel).
+
 ## [3.4.2] - Unreleased
 
 ### Fixed

@@ -619,8 +619,15 @@ export function registerApi(app: Express): void {
         : undefined;
 
       /** Write to the configured destination, or hand back bytes to download. */
-      const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}, customFilename?: string) => {
+      const deliver = async (type: ArtifactType, data: Buffer, mime: string, extra: Record<string, unknown> = {}, rawCustomFilename?: string) => {
         reportProgress(94, "Finishing and saving the export");
+        const customFilename = rawCustomFilename
+          ? (() => {
+              const base = path.basename(rawCustomFilename.replace(/\\/g, "/")).replace(/[<>:"|?*\u0000-\u001f]/g, "").trim().replace(/[. ]+$/, "");
+              if (!base) return undefined;
+              return /\.pdf$/i.test(base) ? base : `${base}.pdf`;
+            })()
+          : undefined;
         if (!bookDir) {
           // A drag-and-dropped book has no folder in which Folio can save
           // exports. Give every downloadable artifact a distinct, recognizable

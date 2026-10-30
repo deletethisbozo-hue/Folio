@@ -391,6 +391,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [filenamePrompt, setFilenamePrompt] = useState<{ label: string; format: string; preset?: string; value: string } | null>(null);
   const [showStyle, setShowStyle] = useState(false);
   const [showThemeLab, setShowThemeLab] = useState(false);
   const [showContent, setShowContent] = useState(false);
@@ -2585,7 +2586,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     }
   }
 
-  async function runExport(label: string, format: string, preset?: string, force = false): Promise<void> {
+  function askPdfFilename(label: string, format: string): void {
+    const stem = (meta?.title || "book").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "").trim() || "book";
+    const suffix = format === "pdf" ? "reading" : format;
+    setShowGenerate(false);
+    setFilenamePrompt({ label, format, value: `${stem}_${suffix}` });
+  }
+
+  async function runExport(label: string, format: string, preset?: string, force = false, customFilename?: string): Promise<void> {
     if (!project || !meta || !(await saveCurrent())) return;
     const progressId = crypto.randomUUID();
     setShowGenerate(false);
@@ -2609,9 +2617,9 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     };
     progressTimer = window.setTimeout(pollProgress, 0);
     try {
-      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined, progressId });
+      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined, progressId, customFilename });
       if (result.needsConfirm) {
-        if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) return runExport(label, format, preset, true);
+        if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) return runExport(label, format, preset, true, customFilename);
         setExportState({ busy: null, result: null, error: null, progress: null, progressId: null }); return;
       }
       if (!result.written && !downloadResult(result)) {
@@ -2760,6 +2768,19 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }}
       />}
 
+      {filenamePrompt && (
+        <div className="filename-prompt-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setFilenamePrompt(null); }} style={{ position: "fixed", inset: 0, background: "rgba(10,12,30,.45)", display: "grid", placeItems: "center", zIndex: 10000 }}>
+          <form role="dialog" aria-modal="true" aria-label="Export file name" onSubmit={(e) => { e.preventDefault(); const p = filenamePrompt; if (!p.value.trim()) return; setFilenamePrompt(null); void runExport(p.label, p.format, p.preset, false, p.value.trim()); }} style={{ background: "#fff", color: "#1a1c33", borderRadius: 14, padding: 22, width: 420, boxShadow: "0 24px 70px rgba(0,0,0,.35)", display: "grid", gap: 12, font: "inherit" }}>
+            <strong style={{ fontSize: 16 }}>{filenamePrompt.label}: file name</strong>
+            <input autoFocus value={filenamePrompt.value} onChange={(e) => setFilenamePrompt({ ...filenamePrompt, value: e.target.value })} onFocus={(e) => e.currentTarget.select()} style={{ padding: "9px 11px", border: "1px solid #c9cde0", borderRadius: 8, font: "inherit", color: "#1a1c33", background: "#fff" }}/>
+            <small style={{ color: "#6b7090" }}>.pdf is added automatically.</small>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" onClick={() => setFilenamePrompt(null)}>Cancel</button>
+              <button type="submit" className="generate-button">Export</button>
+            </div>
+          </form>
+        </div>
+      )}
       {showPreflight && <OptionalToolBoundary label="Publish Preflight" onClose={() => setShowPreflight(false)}><PublishPreflight
         onClose={() => setShowPreflight(false)} onSection={(id) => void selectSection(id)}
         onRun={async (format) => {
@@ -2807,7 +2828,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </div>}
 
       <section className="preview-pane">
-        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void runExport("Print PDF", "print")}>Print PDF</button><button onClick={() => void runExport("PDF/X-3 · CMYK", "pdfx")}>PDF/X-3 · CMYK</button><button onClick={() => void runExport("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.validation && <div className="export-validation-status">{exportState.result.validation.complete ? exportState.result.validation.valid ? "EPUBCheck: valid" : "EPUBCheck: invalid" : "Incomplete EPUB validation"}{exportState.result.validation.messages.map((message, index) => <p key={index}>{message.text}</p>)}</div>}{exportState.result.pdfxReport && <div className="export-validation-status"><strong>{exportState.result.pdfxReport.standard} · {exportState.result.pdfxReport.embeddedFonts} embedded fonts</strong><p>{exportState.result.pdfxReport.note}</p></div>}{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div>{exportState.result.optimization && exportState.result.optimization.bytesSaved > 0 && <p>{formatBytes(exportState.result.optimization.bytesSaved)} saved by sharing {exportState.result.optimization.removedAssets} identical assets.</p>}<small>Stored ZIP sizes.</small></details>}</>}</div></div>}</div></div>
+        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => askPdfFilename("Print PDF", "print")}>Print PDF</button><button onClick={() => askPdfFilename("PDF/X-3 · CMYK", "pdfx")}>PDF/X-3 · CMYK</button><button onClick={() => askPdfFilename("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.validation && <div className="export-validation-status">{exportState.result.validation.complete ? exportState.result.validation.valid ? "EPUBCheck: valid" : "EPUBCheck: invalid" : "Incomplete EPUB validation"}{exportState.result.validation.messages.map((message, index) => <p key={index}>{message.text}</p>)}</div>}{exportState.result.pdfxReport && <div className="export-validation-status"><strong>{exportState.result.pdfxReport.standard} · {exportState.result.pdfxReport.embeddedFonts} embedded fonts</strong><p>{exportState.result.pdfxReport.note}</p></div>}{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div>{exportState.result.optimization && exportState.result.optimization.bytesSaved > 0 && <p>{formatBytes(exportState.result.optimization.bytesSaved)} saved by sharing {exportState.result.optimization.removedAssets} identical assets.</p>}<small>Stored ZIP sizes.</small></details>}</>}</div></div>}</div></div>
         <div className="device-toolbar">
           <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <><select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select className="print-scope-select" aria-label="Print preview scope" value={printPreviewScope} onChange={(e) => setPrintPreviewScope(e.target.value as "section" | "book")}><option value="section">Current section</option><option value="book">Entire book</option></select></>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
