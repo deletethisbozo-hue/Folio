@@ -47,7 +47,9 @@ export async function inspectPdfX3(buffer: Buffer, expectedProfile: Buffer): Pro
 }
 
 export async function defaultPdfXProfile(): Promise<Buffer> {
-  return fs.readFile(process.env.FOLIO_GS_PROFILE || resolveAppResource("vendor", "ghostscript", "iccprofiles", "default_cmyk.icc"));
+  const file = process.env.FOLIO_GS_PROFILE || resolveAppResource("vendor", "ghostscript", "iccprofiles", "default_cmyk.icc");
+  try { return await fs.readFile(file); }
+  catch { throw new Error("PDF/X needs a CMYK ICC printer profile, and none is installed with Folio. Add one in the PDF/X export options (your printer's .icc file) and try again."); }
 }
 
 export async function convertPdfX3(source: Buffer, options: { profile: Buffer; name: string; title: string }): Promise<{ buffer: Buffer; report: PdfXReport }> {

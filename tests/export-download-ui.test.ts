@@ -58,7 +58,14 @@ try {
   let releaseFirstExport: (() => void) | null = null;
   const firstExportGate = new Promise<void>((resolve) => { releaseFirstExport = resolve; });
   await page.setRequestInterception(true);
+  const saveDialogs: Array<{ ext: string; suggestedName: string }> = [];
   page.on("request", async (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/pick-save-file") {
+      const body = JSON.parse(request.postData() ?? "{}") as { ext: string; suggestedName: string };
+      saveDialogs.push(body);
+      await request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ path: path.join(downloadDir, body.suggestedName) }) });
+      return;
+    }
     if (holdFirstExport && request.method() === "POST" && new URL(request.url()).pathname.endsWith("/export")) {
       holdFirstExport = false;
       await firstExportGate;
@@ -88,16 +95,10 @@ try {
     }
     if (!target) throw new Error(`Export action missing: ${item.label}`);
     await target.click();
-    if ("customName" in item) {
-      await page.waitForSelector('[role="dialog"] input');
-      check(`${item.label} asks for a file name`, true);
-      await page.focus('[role="dialog"] input');
-      await page.keyboard.down("Control");
-      await page.keyboard.press("a");
-      await page.keyboard.up("Control");
-      await page.keyboard.type(item.customName as string);
-      await page.keyboard.press("Enter");
-    }
+    const dialogCountBefore = saveDialogs.length;
+    while (saveDialogs.length === dialogCountBefore) await new Promise((resolve) => setTimeout(resolve, 50));
+    const asked = saveDialogs[saveDialogs.length - 1];
+    check(`${item.label} opens the save dialog with a suggested name`, asked.ext === item.ext.slice(1) && asked.suggestedName.endsWith(item.ext) && asked.suggestedName.length > item.ext.length, asked.suggestedName);
     if (item.label === "EPUB · Kindle") {
       await page.waitForSelector(".export-progress", { timeout: 10000 });
       const progress = await page.$eval(".export-progress", (element) => {
@@ -128,23 +129,12 @@ try {
       dataBase64?: string;
       sizeReport?: { fontsBytes?: number };
     };
-    const downloadable = response.ok() && !result.written && Boolean(result.dataBase64) && Boolean(result.filename);
-    check(`${item.label} export API returns a non-empty artifact`, downloadable && Number(result.bytes) > 0 && item.filename.test(result.filename ?? ""), `${result.filename ?? "no filename"} · ${result.bytes ?? 0} bytes · written=${Boolean(result.written)} · base64=${Boolean(result.dataBase64)}`);
-    if (!downloadable) continue;
-
-    const deadline = Date.now() + 25_000;
-    let downloaded: string | null = null;
-    while (Date.now() < deadline) {
-      const files = await fs.readdir(downloadDir);
-      const candidate = files.find((name) => !before.has(name) && name.toLowerCase().endsWith(item.ext) && !name.endsWith(".crdownload"));
-      if (candidate) {
-        const stat = await fs.stat(path.join(downloadDir, candidate));
-        if (stat.size > 1000) { downloaded = candidate; break; }
-      }
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-    const bytes = downloaded ? await fs.readFile(path.join(downloadDir, downloaded)) : Buffer.alloc(0);
-    check(`${item.label} is actually downloaded by the UI`, Boolean(downloaded) && downloaded === result.filename && bytes.length > 1000 && bytes.subarray(0, item.magic.length).toString() === item.magic, downloaded ? `${downloaded} · ${bytes.length} bytes · expected ${result.filename}` : `no completed download appeared · expected ${result.filename}`);
+    const saved = response.ok() && Boolean(result.written) && Boolean(result.filename);
+    check(`${item.label} is saved to the chosen path`, saved && Number(result.bytes) > 0 && result.filename === asked.suggestedName, `${result.filename ?? "no filename"} · ${result.bytes ?? 0} bytes`);
+    if (!saved) continue;
+    const bytes = await fs.readFile(path.join(downloadDir, result.filename as string)).catch(() => Buffer.alloc(0));
+    check(`${item.label} file exists at the chosen location`, bytes.length > 1000 && bytes.subarray(0, item.magic.length).toString() === item.magic, `${bytes.length} bytes`);
+    void before;
 
     if (item.label === "EPUB · Kindle") {
       await page.waitForSelector(".export-size-report", { timeout: 10000 });

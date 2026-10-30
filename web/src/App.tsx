@@ -386,12 +386,10 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     return Number.isFinite(stored) ? Math.max(0, Math.min(100, stored)) : 90;
   });
   const [progressHaloEnabled, setProgressHaloEnabled] = useState(() => window.localStorage.getItem("folio-progress-halo-enabled") !== "false");
-  const [exportDirectory, setExportDirectory] = useState(() => window.localStorage.getItem("folio-export-directory") ?? "");
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrint);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
-  const [filenamePrompt, setFilenamePrompt] = useState<{ label: string; format: string; preset?: string; value: string } | null>(null);
   const [showStyle, setShowStyle] = useState(false);
   const [showThemeLab, setShowThemeLab] = useState(false);
   const [showContent, setShowContent] = useState(false);
@@ -516,7 +514,6 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-style", typewriterSoundStyle); }, [typewriterSoundStyle]);
   useEffect(() => { window.localStorage.setItem("folio-typewriter-sound-volume", String(typewriterSoundVolume)); }, [typewriterSoundVolume]);
   useEffect(() => { window.localStorage.setItem("folio-progress-halo-enabled", progressHaloEnabled ? "true" : "false"); }, [progressHaloEnabled]);
-  useEffect(() => { window.localStorage.setItem("folio-export-directory", exportDirectory); }, [exportDirectory]);
   useEffect(() => {
     if (!project) { setWriteStudioState(null); return; }
     let cancelled = false;
@@ -2577,23 +2574,40 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     } catch (e) { setSaveState("error"); setError(e instanceof Error ? e.message : String(e)); }
   }
 
-  async function chooseExportDirectory(): Promise<void> {
-    try {
-      const selected = (await api.pickFolder(exportDirectory || undefined)).path;
-      if (selected) setExportDirectory(selected);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  function askPdfFilename(label: string, format: string): void {
-    const stem = (meta?.title || "book").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "").trim() || "book";
-    const suffix = format === "pdf" ? "reading" : format;
+  async function exportAs(label: string, format: string, preset?: string): Promise<void> {
     setShowGenerate(false);
-    setFilenamePrompt({ label, format, value: `${stem}_${suffix}` });
+    if (!project || !meta) return;
+    if (format === "pdfx" && !printOptions.iccProfile) {
+      try {
+        const status = await api.pdfxProfileStatus();
+        if (!status.available) {
+          setExportState({ busy: null, result: null, error: status.message ?? "PDF/X needs a CMYK ICC printer profile. Add one in the PDF/X options and try again.", progress: null, progressId: null });
+          setShowGenerate(true);
+          return;
+        }
+      } catch { /* the export itself reports any real problem */ }
+    }
+    const stem = (meta.title || "book").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "").trim() || "book";
+    const kind = format === "epub" ? { ext: "epub", name: "EPUB", suffix: preset === "kdp" ? "kindle" : "" }
+      : format === "docx" ? { ext: "docx", name: "Word document", suffix: "" }
+      : { ext: "pdf", name: "PDF", suffix: format === "pdf" ? "reading" : format };
+    let savePath: string | null | undefined;
+    try {
+      savePath = (await api.pickSaveFile({
+        ext: kind.ext,
+        label: kind.name,
+        suggestedName: `${stem}${kind.suffix ? `_${kind.suffix}` : ""}.${kind.ext}`,
+        initialDir: window.localStorage.getItem("folio-last-export-dir") ?? undefined,
+      })).path;
+    } catch {
+      savePath = undefined; // no native dialog on this platform: fall back to a normal download
+    }
+    if (savePath === null) return;
+    if (savePath) window.localStorage.setItem("folio-last-export-dir", savePath.replace(/[\\/][^\\/]*$/, ""));
+    await runExport(label, format, preset, savePath ?? undefined);
   }
 
-  async function runExport(label: string, format: string, preset?: string, force = false, customFilename?: string): Promise<void> {
+  async function runExport(label: string, format: string, preset?: string, savePath?: string): Promise<void> {
     if (!project || !meta || !(await saveCurrent())) return;
     const progressId = crypto.randomUUID();
     setShowGenerate(false);
@@ -2617,9 +2631,14 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
     };
     progressTimer = window.setTimeout(pollProgress, 0);
     try {
-      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force, outputDir: exportDirectory.trim() || undefined, progressId, customFilename });
+      const result = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force: false, savePath, progressId });
       if (result.needsConfirm) {
-        if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) return runExport(label, format, preset, true, customFilename);
+        if (window.confirm(`${result.message ?? "This export already exists."}\n\nReplace it?`)) {
+          const forced = await api.export(project.projectId, format, { preset, meta, theme: meta.theme, typography, print: ["print", "pdfx"].includes(format) ? printOptions : undefined, force: true, savePath, progressId });
+          setExportState({ busy: null, result: forced, error: null, progress: null, progressId: null });
+          setShowGenerate(true);
+          return;
+        }
         setExportState({ busy: null, result: null, error: null, progress: null, progressId: null }); return;
       }
       if (!result.written && !downloadResult(result)) {
@@ -2768,19 +2787,6 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         }}
       />}
 
-      {filenamePrompt && (
-        <div className="filename-prompt-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setFilenamePrompt(null); }} style={{ position: "fixed", inset: 0, background: "rgba(10,12,30,.45)", display: "grid", placeItems: "center", zIndex: 10000 }}>
-          <form role="dialog" aria-modal="true" aria-label="Export file name" onSubmit={(e) => { e.preventDefault(); const p = filenamePrompt; if (!p.value.trim()) return; setFilenamePrompt(null); void runExport(p.label, p.format, p.preset, false, p.value.trim()); }} style={{ background: "#fff", color: "#1a1c33", borderRadius: 14, padding: 22, width: 420, boxShadow: "0 24px 70px rgba(0,0,0,.35)", display: "grid", gap: 12, font: "inherit" }}>
-            <strong style={{ fontSize: 16 }}>{filenamePrompt.label}: file name</strong>
-            <input autoFocus value={filenamePrompt.value} onChange={(e) => setFilenamePrompt({ ...filenamePrompt, value: e.target.value })} onFocus={(e) => e.currentTarget.select()} style={{ padding: "9px 11px", border: "1px solid #c9cde0", borderRadius: 8, font: "inherit", color: "#1a1c33", background: "#fff" }}/>
-            <small style={{ color: "#6b7090" }}>.pdf is added automatically.</small>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button type="button" onClick={() => setFilenamePrompt(null)}>Cancel</button>
-              <button type="submit" className="generate-button">Export</button>
-            </div>
-          </form>
-        </div>
-      )}
       {showPreflight && <OptionalToolBoundary label="Publish Preflight" onClose={() => setShowPreflight(false)}><PublishPreflight
         onClose={() => setShowPreflight(false)} onSection={(id) => void selectSection(id)}
         onRun={async (format) => {
@@ -2828,7 +2834,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       </div>}
 
       <section className="preview-pane">
-        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void runExport("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void runExport("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => askPdfFilename("Print PDF", "print")}>Print PDF</button><button onClick={() => askPdfFilename("PDF/X-3 · CMYK", "pdfx")}>PDF/X-3 · CMYK</button><button onClick={() => askPdfFilename("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void runExport("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.validation && <div className="export-validation-status">{exportState.result.validation.complete ? exportState.result.validation.valid ? "EPUBCheck: valid" : "EPUBCheck: invalid" : "Incomplete EPUB validation"}{exportState.result.validation.messages.map((message, index) => <p key={index}>{message.text}</p>)}</div>}{exportState.result.pdfxReport && <div className="export-validation-status"><strong>{exportState.result.pdfxReport.standard} · {exportState.result.pdfxReport.embeddedFonts} embedded fonts</strong><p>{exportState.result.pdfxReport.note}</p></div>}{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div>{exportState.result.optimization && exportState.result.optimization.bytesSaved > 0 && <p>{formatBytes(exportState.result.optimization.bytesSaved)} saved by sharing {exportState.result.optimization.removedAssets} identical assets.</p>}<small>Stored ZIP sizes.</small></details>}</>}</div></div>}</div></div>
+        <div className="preview-topbar"><span className="preview-pane-title">Page Preview</span><div className="generate-wrap"><button className="generate-button" onClick={() => setShowGenerate((v) => !v)}>Export</button>{showGenerate && <div className="generate-menu"><button onClick={() => { setShowGenerate(false); setShowPreflight(true); }}>Publish Preflight…</button><button onClick={() => void exportAs("EPUB · Kindle", "epub", "kdp")}>EPUB · Kindle</button><button onClick={() => void exportAs("EPUB · Universal", "epub", "universal")}>EPUB · Universal</button><button onClick={() => void exportAs("Print PDF", "print")}>Print PDF</button><button onClick={() => void exportAs("PDF/X-3 · CMYK", "pdfx")}>PDF/X-3 · CMYK</button><button onClick={() => void exportAs("Reading PDF", "pdf")}>Reading PDF</button><button onClick={() => void exportAs("Word", "docx")}>Word (.docx)</button><div className="generate-status">{exportState.busy && "Generating " + exportState.busy + "…"}{exportState.error && <span className="error-text">{exportState.error}</span>}{exportState.result && <><span>✓ {exportState.result.filename ?? "Done"} · {formatBytes(exportState.result.bytes)}</span>{exportState.result.validation && <div className="export-validation-status">{exportState.result.validation.complete ? exportState.result.validation.valid ? "EPUBCheck: valid" : "EPUBCheck: invalid" : "Incomplete EPUB validation"}{exportState.result.validation.messages.map((message, index) => <p key={index}>{message.text}</p>)}</div>}{exportState.result.pdfxReport && <div className="export-validation-status"><strong>{exportState.result.pdfxReport.standard} · {exportState.result.pdfxReport.embeddedFonts} embedded fonts</strong><p>{exportState.result.pdfxReport.note}</p></div>}{exportState.result.sizeReport && <details open className="export-size-report"><summary>File size breakdown</summary><div className="export-size-grid"><span>Images</span><strong>{formatBytes(exportState.result.sizeReport.imagesBytes)}</strong><span>Fonts</span><strong>{formatBytes(exportState.result.sizeReport.fontsBytes)}</strong><span>Book content</span><strong>{formatBytes(exportState.result.sizeReport.contentBytes)}</strong><span>Other assets + ZIP</span><strong>{formatBytes(exportState.result.sizeReport.otherBytes + exportState.result.sizeReport.overheadBytes)}</strong></div><div className="export-size-assets"><strong>Largest EPUB assets</strong>{exportState.result.sizeReport.largestAssets.map((asset) => <div key={asset.name}><span title={asset.name}>{asset.name.split("/").at(-1)}</span><strong>{formatBytes(asset.bytes)}</strong></div>)}</div>{exportState.result.optimization && exportState.result.optimization.bytesSaved > 0 && <p>{formatBytes(exportState.result.optimization.bytesSaved)} saved by sharing {exportState.result.optimization.removedAssets} identical assets.</p>}<small>Stored ZIP sizes.</small></details>}</>}</div></div>}</div></div>
         <div className="device-toolbar">
           <div className="device-label"><select aria-label="Preview device" value={previewMode} onChange={(e) => setPreviewMode(e.target.value as PreviewMode)}>{previewProfileGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.profiles.map((profile) => <option key={profile.value} value={profile.value}>{profile.label}</option>)}</optgroup>)}</select>{previewMode === "print" && <><select className="trim-select" aria-label="Print trim" value={printOptions.trim} onChange={(e) => setPrintOptions({ ...printOptions, trim: e.target.value })}>{trims.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select className="print-scope-select" aria-label="Print preview scope" value={printPreviewScope} onChange={(e) => setPrintPreviewScope(e.target.value as "section" | "book")}><option value="section">Current section</option><option value="book">Entire book</option></select></>}</div>
           <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
@@ -2881,9 +2887,6 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
         setTypewriterSoundVolume={setTypewriterSoundVolume}
         progressHaloEnabled={progressHaloEnabled}
         setProgressHaloEnabled={setProgressHaloEnabled}
-        exportDirectory={exportDirectory}
-        onChooseExportDirectory={() => void chooseExportDirectory()}
-        onResetExportDirectory={() => setExportDirectory("")}
         onClose={() => setShowSettings(false)}
       />}
       {showNewBook && <NewBookDialog value={newBookForm} setValue={setNewBookForm} busy={busy} onCancel={() => setShowNewBook(false)} onCreate={() => void createNewBook()}/>}
@@ -2911,9 +2914,6 @@ function SettingsDialog(props: {
   setTypewriterSoundVolume: (volume: number) => void;
   progressHaloEnabled: boolean;
   setProgressHaloEnabled: (enabled: boolean) => void;
-  exportDirectory: string;
-  onChooseExportDirectory: () => void;
-  onResetExportDirectory: () => void;
   onClose: () => void;
 }) {
   const soundOptions: Array<{ value: TypewriterSoundStyle; label: string; description: string }> = [
@@ -2958,16 +2958,6 @@ function SettingsDialog(props: {
         <span className="settings-copy"><strong>Writing progress halo</strong><small>Show a floating Book / Chapter / Today progress dial in Write. Goals are stored with the current .folio project.</small></span>
         <input type="checkbox" checked={props.progressHaloEnabled} onChange={(event) => props.setProgressHaloEnabled(event.target.checked)} aria-label="Show writing progress halo"/>
       </label>
-      <div className="settings-row export-location-row">
-        <span className="settings-copy">
-          <strong>Export location</strong>
-          <small>{props.exportDirectory || "Default: an Exports folder next to the current .folio project."}</small>
-        </span>
-        <span className="settings-actions">
-          {props.exportDirectory && <button type="button" className="native-button" onClick={props.onResetExportDirectory}>Reset</button>}
-          <button type="button" className="native-button" onClick={props.onChooseExportDirectory}>Choose folder…</button>
-        </span>
-      </div>
     </div>
   </DialogShell>;
 }

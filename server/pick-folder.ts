@@ -82,3 +82,32 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write(
   const out = r.stdout.trim();
   return out || null;
 }
+
+/** Native "Save as" dialog for an exported file; returns the chosen full path or null. */
+export async function pickSaveFile(options: { ext: string; label: string; suggestedName: string; initialDir?: string }): Promise<string | null> {
+  if (process.platform !== "win32") throw new Error("The save dialog is only available on Windows.");
+  const esc = (value: string) => value.replace(/'/g, "''");
+  const ext = options.ext.replace(/^\./, "").replace(/[^a-z0-9]/gi, "");
+  const script = `
+Add-Type -AssemblyName System.Windows.Forms | Out-Null
+$owner = New-Object System.Windows.Forms.Form
+$owner.TopMost = $true
+$owner.ShowInTaskbar = $false
+$owner.Opacity = 0
+$owner.Show()
+$dlg = New-Object System.Windows.Forms.SaveFileDialog
+$dlg.Title = 'Save export'
+$dlg.Filter = '${esc(options.label)} (*.${ext})|*.${ext}'
+$dlg.AddExtension = $true
+$dlg.DefaultExt = '${ext}'
+$dlg.OverwritePrompt = $true
+$dlg.FileName = '${esc(options.suggestedName)}'
+if ('${esc(options.initialDir ?? "")}' -and (Test-Path -LiteralPath '${esc(options.initialDir ?? "")}')) { $dlg.InitialDirectory = '${esc(options.initialDir ?? "")}' }
+$result = $dlg.ShowDialog($owner)
+$owner.Close()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dlg.FileName) }
+`;
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  const r = await run("powershell.exe", ["-STA", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded]);
+  return r.stdout.trim() || null;
+}
