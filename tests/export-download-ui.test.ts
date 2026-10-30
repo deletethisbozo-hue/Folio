@@ -34,9 +34,9 @@ await fs.mkdir(proofDir, { recursive: true });
 const formats = [
   { label: "EPUB · Kindle", format: "epub", ext: ".epub", filename: /_kdp\.epub$/i, magic: "PK" },
   { label: "EPUB · Universal", format: "epub", ext: ".epub", filename: /^(?!.*_kdp\.epub$).+\.epub$/i, magic: "PK" },
-  { label: "Print PDF", format: "print", ext: ".pdf", filename: /_print\.pdf$/i, magic: "%PDF-" },
-  { label: "PDF/X-3 · CMYK", format: "pdfx", ext: ".pdf", filename: /_pdfx\.pdf$/i, magic: "%PDF-" },
-  { label: "Reading PDF", format: "pdf", ext: ".pdf", filename: /_reading\.pdf$/i, magic: "%PDF-" },
+  { label: "Print PDF", format: "print", ext: ".pdf", filename: /^Proof Print\.pdf$/, magic: "%PDF-", customName: "Proof Print" },
+  { label: "PDF/X-3 · CMYK", format: "pdfx", ext: ".pdf", filename: /^Proof PDFX\.pdf$/, magic: "%PDF-", customName: "Proof PDFX" },
+  { label: "Reading PDF", format: "pdf", ext: ".pdf", filename: /^Proof Reading\.pdf$/, magic: "%PDF-", customName: "Proof Reading" },
   { label: "Word (.docx)", format: "docx", ext: ".docx", filename: /\.docx$/i, magic: "PK" },
 ];
 
@@ -88,6 +88,16 @@ try {
     }
     if (!target) throw new Error(`Export action missing: ${item.label}`);
     await target.click();
+    if ("customName" in item) {
+      await page.waitForSelector('[role="dialog"] input');
+      check(`${item.label} asks for a file name`, true);
+      await page.focus('[role="dialog"] input');
+      await page.keyboard.down("Control");
+      await page.keyboard.press("a");
+      await page.keyboard.up("Control");
+      await page.keyboard.type(item.customName as string);
+      await page.keyboard.press("Enter");
+    }
     if (item.label === "EPUB · Kindle") {
       await page.waitForSelector(".export-progress", { timeout: 10000 });
       const progress = await page.$eval(".export-progress", (element) => {
