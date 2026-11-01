@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Browser, LaunchOptions } from "puppeteer";
 import puppeteer from "puppeteer";
+import { PDFDocument } from "pdf-lib";
 import type { Book } from "./types.ts";
 import { renderHtml } from "./render-html.ts";
 import { alignDropCaps } from "./dropcap.ts";
@@ -87,6 +88,34 @@ async function readingCoverDataUrl(book: Book): Promise<string | null> {
   return `data:${coverMime(book.coverPath)};base64,${data.toString("base64")}`;
 }
 
+/** Render the cover as its own full-bleed 6×9 page. Mixing a zero-margin first page with
+ *  margined body pages in one Chromium print makes Chromium shrink the whole document. */
+async function renderCoverPdf(browser: Browser, coverDataUrl: string): Promise<Buffer> {
+  const page = await browser.newPage();
+  try {
+    await page.emulateMediaType("print");
+    await page.setContent(
+      `<!doctype html><html><head><meta charset="utf-8"><style>
+        @page { size: 6in 9in; margin: 0; }
+        html, body { margin: 0; padding: 0; background: #fff; }
+        .cover { width: 6in; height: 9in; display: grid; place-items: center; overflow: hidden; }
+        .cover img { width: 100%; height: 100%; display: block; object-fit: contain; object-position: center; }
+      </style></head><body><div class="cover"><img alt="" src="${coverDataUrl}"></div></body></html>`,
+      { waitUntil: "load" },
+    );
+    const pdf = await page.pdf({
+      printBackground: true,
+      preferCSSPageSize: true,
+      width: "6in",
+      height: "9in",
+      margin: { top: "0", bottom: "0", left: "0", right: "0" },
+    });
+    return Buffer.from(pdf);
+  } finally {
+    await page.close().catch(() => undefined);
+  }
+}
+
 /** Render a reading PDF from the book's styled HTML via headless Chromium. */
 export async function renderPdf(book: Book, onProgress?: (progress: CompositionProgress) => void): Promise<Buffer> {
   const html = await renderHtml(book, "print");
@@ -96,51 +125,6 @@ export async function renderPdf(book: Book, onProgress?: (progress: CompositionP
   try {
     await page.emulateMediaType("print");
     await page.setContent(html, { waitUntil: "load" });
-
-    if (coverDataUrl) {
-      // Reading PDFs are complete reading copies, unlike a print-interior file.
-      // Give them the actual cover as page one. The first page has no print
-      // margins; the remaining pages keep the existing 6×9 reading layout.
-      await page.evaluate((dataUrl) => {
-        const main = document.querySelector("main.book");
-        if (!main?.parentNode) return;
-        const cover = document.createElement("section");
-        cover.className = "folio-reading-cover";
-        cover.setAttribute("aria-label", "Book cover");
-        const image = document.createElement("img");
-        image.src = dataUrl;
-        image.alt = "";
-        cover.appendChild(image);
-        main.parentNode.insertBefore(cover, main);
-
-        const style = document.createElement("style");
-        style.id = "folio-reading-cover-pages";
-        style.textContent = `
-          @page { size: 6in 9in; margin: .75in .7in; }
-          @page :first { margin: 0; }
-          .folio-reading-cover {
-            width: 6in;
-            height: 9in;
-            margin: 0;
-            padding: 0;
-            display: grid;
-            place-items: center;
-            overflow: hidden;
-            background: #fff;
-            break-after: page;
-            page-break-after: always;
-          }
-          .folio-reading-cover img {
-            width: 100%;
-            height: 100%;
-            display: block;
-            object-fit: contain;
-            object-position: center;
-          }
-        `;
-        document.head.appendChild(style);
-      }, coverDataUrl);
-    }
 
     // The reading PDF is 6×9 with 0.7in side margins. Compose against its
     // 4.6in text measure before freezing lines into nowrap compositor spans.
@@ -155,21 +139,21 @@ export async function renderPdf(book: Book, onProgress?: (progress: CompositionP
     onProgress?.({ completedParagraphs: 0, totalParagraphs: 1, fraction: 0 });
     await composeProfessionalParagraphs(page, book, onProgress);
     onProgress?.({ completedParagraphs: 1, totalParagraphs: 1, fraction: 1 });
-    const pdf = await page.pdf(coverDataUrl
-      ? {
-          printBackground: true,
-          preferCSSPageSize: true,
-          width: "6in",
-          height: "9in",
-          margin: { top: "0", bottom: "0", left: "0", right: "0" },
-        }
-      : {
-          printBackground: true,
-          width: "6in",
-          height: "9in",
-          margin: { top: "0.75in", bottom: "0.75in", left: "0.7in", right: "0.7in" },
-        });
-    return Buffer.from(pdf);
+    const body = Buffer.from(await page.pdf({
+      printBackground: true,
+      width: "6in",
+      height: "9in",
+      margin: { top: "0.75in", bottom: "0.75in", left: "0.7in", right: "0.7in" },
+    }));
+    if (!coverDataUrl) return body;
+
+    const merged = await PDFDocument.create();
+    const cover = await PDFDocument.load(await renderCoverPdf(browser, coverDataUrl));
+    const text = await PDFDocument.load(body);
+    for (const source of [cover, text]) {
+      for (const copied of await merged.copyPages(source, source.getPageIndices())) merged.addPage(copied);
+    }
+    return Buffer.from(await merged.save());
   } finally {
     // If Chromium itself disconnected, closing its Page can throw a second
     // "Connection closed" error and hide the operation that actually failed.
