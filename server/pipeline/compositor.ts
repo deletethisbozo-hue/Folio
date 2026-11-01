@@ -67,6 +67,7 @@ export async function composeProfessionalParagraphs(
       spaceBefore: boolean;
       hyphenBefore: boolean;
       canBreakBefore: boolean;
+      looseBreakBefore: boolean;
       characters: number;
       rightProtrusion: number;
       lexeme: string;
@@ -109,15 +110,16 @@ export async function composeProfessionalParagraphs(
       naturalWidth: number,
       emergency = false,
       finalCompression = false,
+      loose = 0,
     ): LineFit | null => {
       if (gaps <= 0) return null;
-      const cacheKey = `${adjustment}:${gaps}:${trackingOps}:${emergency ? 1 : 0}:${finalCompression ? 1 : 0}`;
+      const cacheKey = `${adjustment}:${gaps}:${trackingOps}:${emergency ? 1 : 0}:${finalCompression ? 1 : 0}:${loose}`;
       const cached = lineFitCache.get(cacheKey);
       if (cached !== undefined) return cached;
       // The second pass may stretch inter-word space only slightly beyond
       // strict composition. Tracking and glyph expansion stay at strict limits;
       // this is a controlled justified fallback, not an excuse for loose copy.
-      const maxWordSpacing = fontSize * 0.075;
+      const maxWordSpacing = fontSize * (loose >= 2 ? 0.5 : loose ? 0.2 : 0.075);
       const relaxedCompressionEm = 0.120;
       // Match the live preview cross-platform Polish density rescue. It stays
       // below the 0.101em strict-spacing qualification ceiling and only wins when
@@ -481,6 +483,8 @@ export async function composeProfessionalParagraphs(
         const structuralBreakBefore = (dashBreakBefore || (spaceBefore && breakableSpaceBefore && !articleGlue))
           && !(atomicId && atomicId === previousAtomic);
         const canBreakBefore = hyphenBefore || structuralBreakBefore;
+        // Last-resort breaks may fall inside <em>/<strong> or after a/an/the.
+        const looseBreakBefore = hyphenBefore || dashBreakBefore || (spaceBefore && breakableSpaceBefore);
         const rawText = node.textContent ?? "";
         const cleanText = rawText.replace(/\u00ad/g, "");
         let rightProtrusion = 0;
@@ -503,6 +507,7 @@ export async function composeProfessionalParagraphs(
           spaceBefore,
           hyphenBefore,
           canBreakBefore,
+          looseBreakBefore,
           characters: cleanText.length,
           rightProtrusion,
           lexeme: cleanText.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "").toLowerCase(),
@@ -531,7 +536,7 @@ export async function composeProfessionalParagraphs(
         return { offset, available: Math.max(1, width - offset) };
       };
 
-      const runBreaker = (emergency: boolean, allowNaturalRescue = emergency): Break[] | null => {
+      const runBreaker = (emergency: boolean, allowNaturalRescue = emergency, loose = 0): Break[] | null => {
       const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());
       const initialFitness = 1;
       states[0].set(encodeState(0, 0, initialFitness, 0), {
@@ -579,7 +584,7 @@ export async function composeProfessionalParagraphs(
 
             const last = end === words.length - 1;
             const next = last ? null : words[end + 1];
-            const canBreak = last || next!.canBreakBefore;
+            const canBreak = last || (loose >= 2 ? next!.looseBreakBefore : next!.canBreakBefore);
             const hyphenBreak = !last && next!.hyphenBefore;
             // Professional prose never uses three consecutive discretionary
             // hyphens when a justified/relaxed alternative exists. The final
@@ -623,7 +628,7 @@ export async function composeProfessionalParagraphs(
               ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural)
               : finalCompressionFit;
             const emergencyFit = emergency && !last
-              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, true)
+              ? fitLine(adjustment, gaps, trackingOps, spaceWidth, fontSize, natural, true, false, loose)
               : null;
             const fit = strictFit ?? emergencyFit;
             if (natural > available + 0.75 && !fit && (end > start || last)) {
@@ -640,7 +645,7 @@ export async function composeProfessionalParagraphs(
 
             const lineFit = fit;
             const relaxedFit = !last && emergency && !hasStrictFit && Boolean(lineFit);
-            if (lineFit && !relaxedFit && !previous.relaxed && (previous.justified || previous.finalCompressed)
+            if (lineFit && !relaxedFit && !loose && !previous.relaxed && (previous.justified || previous.finalCompressed)
               && Math.abs(lineFit.wordSpacing - previous.wordSpacing) / Math.max(1, fontSize) > 0.1600001) continue;
             // Hyphenation splits one visible word into several compositor tokens.
             // Widow control must count semantic words, not discretionary pieces,
@@ -814,7 +819,8 @@ export async function composeProfessionalParagraphs(
 
       // Keep rescue out of the cost graph until both strict and relaxed
       // justified composition have failed completely.
-      const breaks = runBreaker(true, false) ?? runBreaker(true, true);
+      // A slightly loose justified line beats a ragged natural one.
+      const breaks = runBreaker(true, false) ?? runBreaker(true, false, 1) ?? runBreaker(true, false, 2) ?? runBreaker(true, true, 2);
       if (!breaks) {
         paragraph.classList.add("folio-compositor-safe-fallback");
         continue;
