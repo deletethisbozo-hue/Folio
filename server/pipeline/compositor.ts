@@ -154,8 +154,8 @@ export async function composeProfessionalParagraphs(
       // book line. Keep a conservative pre-break reserve above the release
       // floor because Chromium/Paged.js can shave roughly 0.4 px from modeled
       // inline-space geometry at 11pt. The final gate still enforces the real
-      // 0.12em floor, so this changes the break instead of lowering quality.
-      const physicalGapFloor = Math.max(1.5, fontSize * 0.12) + Math.min(0.45, fontSize * 0.03);
+      // 0.17em floor, so this changes the break instead of lowering quality.
+      const physicalGapFloor = Math.max(1.5, fontSize * 0.17) + Math.min(0.45, fontSize * 0.03);
       const minimumPhysicalWordSpacing = physicalGapFloor / glyphScale - spaceWidth - tracking;
       if (minimumPhysicalWordSpacing > maxWordSpacing + 0.000001) {
         lineFitCache.set(cacheKey, null);
@@ -935,7 +935,7 @@ export async function composeProfessionalParagraphs(
           content,
           opticalMeasure,
           fontSize: lineFontSize,
-          gapFloor: Math.max(1.5, lineFontSize * 0.12),
+          gapFloor: Math.max(1.5, lineFontSize * 0.17),
           lineWords,
         });
       }
