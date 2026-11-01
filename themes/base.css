@@ -284,6 +284,15 @@ section.epigraph blockquote {
 }
 section.epigraph blockquote p {
   text-indent: 0;
+  text-align: center;
+  hyphens: none;
+}
+section.copyright,
+section.copyright *,
+section.dedication,
+section.dedication * {
+  text-align: center;
+  hyphens: none;
 }
 
 /* --- Blockquotes (in-text notes) --- */
