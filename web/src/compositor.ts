@@ -301,8 +301,8 @@ function fitLine(
   const configuredWordSpacing = fontSize * (emergency || finalCompression ? 0.12 : 0.099);
   const semanticGapHeadroom = Math.max(0, fontSize * 0.3685 / 1.01 - spaceWidth - fontSize * 0.003);
   const maxWordSpacing = Math.min(configuredWordSpacing, semanticGapHeadroom);
-  const relaxedCompressionEm = 0.100;
-  const strictCompressionEm = 0.080;
+  const relaxedCompressionEm = 0.090;
+  const strictCompressionEm = 0.075;
   // Keep the proven 1.0.8 line-breaking range. A model-space clamp here can
   // reject otherwise excellent paragraph breaks because Chromium's final font
   // metrics and the cloned line box do not exactly match the token probes.
@@ -1133,7 +1133,7 @@ function composeParagraph(paragraph: HTMLElement, language: string, sectionStats
     // scaling to do any extra work. This avoids both run-together words and the
     // visibly distorted 3% emergency compression that a naive post-pass needs.
     const lineFontSize = pixels(getComputedStyle(line).fontSize) || fontSize;
-    const releaseGapFloor = Math.max(1.5, lineFontSize * 0.17);
+    const releaseGapFloor = Math.max(1.5, lineFontSize * 0.20);
     const correctionGapTarget = releaseGapFloor + 0.04;
     const semanticGapMinimum = () => {
       const lineWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];

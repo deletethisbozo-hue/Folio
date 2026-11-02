@@ -120,11 +120,11 @@ export async function composeProfessionalParagraphs(
       // strict composition. Tracking and glyph expansion stay at strict limits;
       // this is a controlled justified fallback, not an excuse for loose copy.
       const maxWordSpacing = fontSize * (loose >= 2 ? 0.5 : loose ? 0.2 : 0.075);
-      const relaxedCompressionEm = 0.120;
+      const relaxedCompressionEm = 0.090;
       // Match the live preview cross-platform Polish density rescue. It stays
       // below the 0.101em strict-spacing qualification ceiling and only wins when
       // its badness is cheaper than another discretionary hyphen.
-      const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.099 : 0.06;
+      const strictCompressionEm = normalizedLanguage.startsWith("pl") ? 0.075 : 0.06;
       const minWordSpacing = emergency || finalCompression
         ? -(fontSize * relaxedCompressionEm)
         : -(fontSize * strictCompressionEm);
@@ -154,8 +154,8 @@ export async function composeProfessionalParagraphs(
       // book line. Keep a conservative pre-break reserve above the release
       // floor because Chromium/Paged.js can shave roughly 0.4 px from modeled
       // inline-space geometry at 11pt. The final gate still enforces the real
-      // 0.17em floor, so this changes the break instead of lowering quality.
-      const physicalGapFloor = Math.max(1.5, fontSize * 0.17) + Math.min(0.45, fontSize * 0.03);
+      // 0.20em floor, so this changes the break instead of lowering quality.
+      const physicalGapFloor = Math.max(1.5, fontSize * 0.20) + Math.min(0.45, fontSize * 0.03);
       const minimumPhysicalWordSpacing = physicalGapFloor / glyphScale - spaceWidth - tracking;
       if (minimumPhysicalWordSpacing > maxWordSpacing + 0.000001) {
         lineFitCache.set(cacheKey, null);
@@ -935,7 +935,7 @@ export async function composeProfessionalParagraphs(
           content,
           opticalMeasure,
           fontSize: lineFontSize,
-          gapFloor: Math.max(1.5, lineFontSize * 0.17),
+          gapFloor: Math.max(1.5, lineFontSize * 0.20),
           lineWords,
         });
       }
