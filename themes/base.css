@@ -268,14 +268,14 @@ section.copyright p {
 section.dedication {
   text-align: center;
   font-style: italic;
-  margin-top: 5em;
+  padding-top: 14em;
 }
 section.dedication p {
   text-indent: 0;
   margin: 0.4em 0;
 }
 section.epigraph {
-  margin-top: 4em;
+  padding-top: 12em;
 }
 section.epigraph blockquote {
   font-style: italic;
@@ -290,9 +290,11 @@ section.epigraph blockquote p {
 section.copyright,
 section.copyright *,
 section.dedication,
-section.dedication * {
+section.dedication *,
+section.epigraph blockquote p {
   text-align: center;
   hyphens: none;
+  text-wrap: balance;
 }
 
 /* --- Blockquotes (in-text notes) --- */
