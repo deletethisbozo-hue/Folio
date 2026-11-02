@@ -536,7 +536,7 @@ export async function composeProfessionalParagraphs(
         return { offset, available: Math.max(1, width - offset) };
       };
 
-      const runBreaker = (emergency: boolean, allowNaturalRescue = emergency, loose = 0): Break[] | null => {
+      const runBreaker = (emergency: boolean, allowNaturalRescue = emergency, loose = 0, forbidRunt = false): Break[] | null => {
       const states: Array<Map<number, State>> = Array.from({ length: words.length + 1 }, () => new Map());
       const initialFitness = 1;
       states[0].set(encodeState(0, 0, initialFitness, 0), {
@@ -658,6 +658,7 @@ export async function composeProfessionalParagraphs(
             // when the preceding line was itself hyphenated. Preserve feasible
             // alternatives instead of buying an ugly paragraph ending for a
             // slightly cheaper local line fit.
+            if (forbidRunt && last && lineNo >= 1 && semanticWordsOnLine === 1) continue;
             const shortLastPenalty = last
               ? semanticWordsOnLine === 1
                 ? 1800 + (previous.hyphenated ? 1200 : 0) + 600 * Math.pow(1 - fill, 2)
@@ -820,7 +821,22 @@ export async function composeProfessionalParagraphs(
       // Keep rescue out of the cost graph until both strict and relaxed
       // justified composition have failed completely.
       // A slightly loose justified line beats a ragged natural one.
-      const breaks = runBreaker(true, false) ?? runBreaker(true, false, 1) ?? runBreaker(true, false, 2) ?? runBreaker(true, true, 2);
+      const endsInRunt = (candidate: Break[] | null): boolean => {
+        if (!candidate || candidate.length < 2) return false;
+        const lastStart = candidate[candidate.length - 2].end;
+        let semanticWords = 1;
+        for (let index = lastStart + 1; index < words.length; index++) if (words[index].spaceBefore) semanticWords++;
+        return semanticWords === 1;
+      };
+      let breaks = runBreaker(true, false) ?? runBreaker(true, false, 1) ?? runBreaker(true, false, 2) ?? runBreaker(true, true, 2);
+      // A single word stranded on the last line is the most visible flaw in
+      // justified prose; trade a little extra stretch on earlier lines to avoid it.
+      if (endsInRunt(breaks)) {
+        for (const level of [0, 1, 2]) {
+          const alternative = runBreaker(true, false, level, true);
+          if (alternative) { breaks = alternative; break; }
+        }
+      }
       if (!breaks) {
         paragraph.classList.add("folio-compositor-safe-fallback");
         continue;
