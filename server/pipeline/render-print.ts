@@ -492,7 +492,7 @@ async function withPaginated<T>(
         const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
         if (words.length < 2) continue;
         const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
-        const gapFloor = Math.max(1.5, fontSize * 0.12);
+        const gapFloor = Math.max(1.5, fontSize * 0.20);
         // Leave a little rasterisation reserve; this is still visually tiny and
         // prevents a repaired 1.500px gap from quantising back under the gate.
         const gapTarget = gapFloor + 0.035;
@@ -600,7 +600,7 @@ async function withPaginated<T>(
         }
 
         const fontSize = Number.parseFloat(getComputedStyle(line).fontSize) || 16;
-        const gapFloor = Math.max(1.5, fontSize * 0.12);
+        const gapFloor = Math.max(1.5, fontSize * 0.20);
         const words = [...line.querySelectorAll<HTMLElement>(".folio-word")];
         for (let index = 1; index < words.length; index++) {
           if (words[index].dataset.folioSpaceBefore !== "true") continue;
