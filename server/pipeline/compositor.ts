@@ -987,6 +987,19 @@ export async function composeProfessionalParagraphs(
         adjustment.line.dataset.folioWordSpacing = String(adjustment.currentWordSpacing + adjustment.deficit);
       }
 
+      // Ragged lines (paragraph endings) keep natural spacing, but a font whose
+      // native space is narrower than the 0.20em floor still needs lifting.
+      for (const line of lines) {
+        if (line.classList.contains("folio-line-justified") || line.classList.contains("folio-line-final-compressed")) continue;
+        const lineWords = [...line.querySelectorAll<HTMLElement>(".folio-word")];
+        const lineFontSize = px(getComputedStyle(line).fontSize) || fontSize;
+        const minimumGap = semanticGapMinimum(lineWords);
+        const floor = Math.max(1.5, lineFontSize * 0.20) + 0.035;
+        if (Number.isFinite(minimumGap) && minimumGap < floor) {
+          line.style.wordSpacing = `${px(getComputedStyle(line).wordSpacing) + (floor - minimumGap)}px`;
+        }
+      }
+
       const trackingAdjustments = calibratedLines.map((item) => {
         const rendered = item.content.getBoundingClientRect().width;
         if (rendered > 0) {
