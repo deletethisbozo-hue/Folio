@@ -4,6 +4,7 @@ import english from "hyphenation.en-us";
 import polish from "hyphenation.pl";
 import { conservativeHyphenation, hyphenationLanguage } from "../web/src/hyphenation.ts";
 import { compositionLanguageForText } from "../web/src/compositor.ts";
+import { conservativeHyphenation as serverConservativeHyphenation } from "../server/pipeline/hyphenation.ts";
 import { normalizeThemeFontFamilies } from "../server/pipeline/theme-fonts.ts";
 
 let passed = 0;
@@ -46,11 +47,17 @@ test("Polish locale variants select only the Polish dictionary", () => {
   assert.equal(hyphenationLanguage("en-GB"), "en");
 });
 
-test("Polish dictionary breakpoints respect the 2/2 TeX minima", () => {
+test("Polish dictionary breakpoints avoid short fragments with 3/3 TeX minima", () => {
   const candidates = ["czytanie", "pisanie", "rozdział", "książkami", "wydanie"];
-  const hyphenated = candidates.map((word) => conservativeHyphenation(pl, word, 2, 2, 4));
-  assert.ok(hyphenated.some((word) => validMinima(word, 2, 2)), hyphenated.join(" | "));
-  assert.ok(hyphenated.every((word) => word === word.replace(/\u00ad/g, "") || validMinima(word, 2, 2)));
+  const hyphenated = candidates.map((word) => conservativeHyphenation(pl, word, 3, 3, 6));
+  assert.ok(hyphenated.some((word) => validMinima(word, 3, 3)), hyphenated.join(" | "));
+  assert.ok(hyphenated.every((word) => word === word.replace(/\u00ad/g, "") || validMinima(word, 3, 3)));
+  assert.equal(conservativeHyphenation(pl, "jaki", 3, 3, 6), "jaki");
+  assert.equal(conservativeHyphenation(pl, "kamienicy", 3, 3, 6), "kamie\u00adnicy");
+  assert.deepEqual(
+    candidates.map((word) => serverConservativeHyphenation(pl, word, 3, 3, 6)),
+    hyphenated,
+  );
 });
 
 test("U.S. English dictionary breakpoints respect the standard 2/3 TeX minima", () => {

@@ -837,6 +837,13 @@ export async function composeProfessionalParagraphs(
           if (alternative) { breaks = alternative; break; }
         }
       }
+      if (endsInRunt(breaks)) {
+        // One well-filled ragged line can be preferable to a one-word ending.
+        for (const level of [0, 1, 2]) {
+          const alternative = runBreaker(true, true, level, true);
+          if (alternative) { breaks = alternative; break; }
+        }
+      }
       if (!breaks) {
         paragraph.classList.add("folio-compositor-safe-fallback");
         continue;
@@ -887,7 +894,10 @@ export async function composeProfessionalParagraphs(
           line.dataset.folioTracking = String(lineBreak.tracking);
           line.dataset.folioGlyphScale = String(lineBreak.glyphScale);
         }
-        if (lineNo === 0 || lineNo === breaks.length - 2) line.style.breakAfter = "avoid";
+        // Keep a hyphenated line with its continuation across page breaks.
+        if (lineBreak.hyphenated || lineNo === 0 || lineNo === breaks.length - 2) {
+          line.style.breakAfter = "avoid";
+        }
         lines.push(line);
       }
 
