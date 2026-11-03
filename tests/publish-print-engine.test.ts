@@ -22,11 +22,27 @@ try {
   await fs.mkdir(path.dirname(illustrationPath), { recursive: true });
   await fs.copyFile(path.join(ROOT, "samples", "clockwork-garden", "cover.png"), illustrationPath);
   const illustrationMarkdownPath = path.relative(book.baseDir, illustrationPath).replace(/\\/g, "/");
+  const alphaPath = path.join(fixture.bookDir, "assets", "print-export-alpha.png");
+  const alphaPage = await (await getBrowser()).newPage();
+  try {
+    const dataUrl = await alphaPage.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 240; canvas.height = 240;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(120, 100, 90, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(80, 230); ctx.lineTo(160, 230); ctx.lineTo(120, 170); ctx.fill();
+      return canvas.toDataURL("image/png");
+    });
+    await fs.writeFile(alphaPath, Buffer.from(dataUrl.split(",")[1], "base64"));
+  } finally { await alphaPage.close(); }
+  const alphaMarkdownPath = path.relative(book.baseDir, alphaPath).replace(/\\/g, "/");
   const [openingParagraph, ...remainingParagraphs] = firstChapter.markdown.split(/\n{2,}/);
   firstChapter.markdown = [
     openingParagraph,
     `![Print export regression artwork](${illustrationMarkdownPath}){.folio-illustration .folio-wrap-left width=38%}`,
     "This synthetic regression paragraph checks that text wraps beside the illustration and that the artwork remains visible in exported print files. ".repeat(14),
+    `![Irregular alpha artwork](${alphaMarkdownPath}){.folio-illustration .folio-shape-contour .folio-wrap-left width=38%}`,
+    "This second paragraph wraps around a transparent contour illustration and must stay searchable after PDF/X conversion. ".repeat(14),
     ...remainingParagraphs,
   ].filter(Boolean).join("\n\n");
   firstChapter.markdown += "\n\nFiction official efficient.";

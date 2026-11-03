@@ -5,6 +5,12 @@ All notable changes to Folio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.7] - 2026-11-03
+
+### Fixed
+- PDF/X export no longer fails with "changed searchable text" for books with transparent wrapped illustrations; alpha images are baked onto white so Ghostscript keeps live text, drop caps and text wrap intact.
+- Ragged paragraph-ending lines can no longer overflow the measure after the word-space floor lift.
+
 ## [3.4.6] - 2026-11-02
 
 ### Improved
