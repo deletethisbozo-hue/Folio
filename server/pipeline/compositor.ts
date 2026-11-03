@@ -997,6 +997,15 @@ export async function composeProfessionalParagraphs(
         const floor = Math.max(1.5, lineFontSize * 0.20) + 0.035;
         if (Number.isFinite(minimumGap) && minimumGap < floor) {
           line.style.wordSpacing = `${px(getComputedStyle(line).wordSpacing) + (floor - minimumGap)}px`;
+          // A nearly full ragged line must not be pushed past the measure by the lift.
+          const content = line.querySelector<HTMLElement>(":scope > .folio-line-content");
+          if (content) {
+            const overflow = content.getBoundingClientRect().width - line.getBoundingClientRect().width;
+            if (overflow > 0.01) {
+              const characters = Math.max(1, [...(content.textContent ?? "").replace(/\u00ad/g, "")].length - 1);
+              line.style.letterSpacing = `${px(getComputedStyle(line).letterSpacing) - overflow / characters}px`;
+            }
+          }
         }
       }
 

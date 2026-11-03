@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { PDFDocument, PDFArray, PDFDict, PDFName, PDFNumber, PDFRawStream, PDFString, PDFHexString, decodePDFRawStream } from "pdf-lib";
 import { run } from "./exec.ts";
 import { makeTempDir, resolveAppResource } from "./paths.ts";
@@ -52,8 +53,58 @@ export async function defaultPdfXProfile(): Promise<Buffer> {
   catch { throw new Error("PDF/X needs a CMYK ICC printer profile, and none is installed with Folio. Add one in the PDF/X export options (your printer's .icc file) and try again."); }
 }
 
-export async function convertPdfX3(source: Buffer, options: { profile: Buffer; name: string; title: string }): Promise<{ buffer: Buffer; report: PdfXReport }> {
+/**
+ * Ghostscript flattens every page holding an image soft mask for PDF/X-3 and
+ * turns all text on that page into outlines. Bake each alpha image onto white
+ * (the paper) so wrapped, irregularly shaped illustrations keep live text.
+ */
+export async function bakeImageAlphaOnWhite(source: Buffer): Promise<Buffer> {
+  try {
+    const document = await PDFDocument.load(source, { updateMetadata: false });
+    const context = document.context;
+    let baked = 0;
+    const eightBit = (stream: PDFRawStream) => stream.dict.lookup(PDFName.of("BitsPerComponent"));
+    for (const [ref, object] of context.enumerateIndirectObjects()) {
+      if (!(object instanceof PDFRawStream) || object.dict.get(PDFName.of("Subtype"))?.toString() !== "/Image") continue;
+      const mask = object.dict.lookup(PDFName.of("SMask"));
+      if (!(mask instanceof PDFRawStream) || object.dict.get(PDFName.of("Matte")) || mask.dict.get(PDFName.of("Matte"))) continue;
+      const width = (object.dict.lookup(PDFName.of("Width")) as PDFNumber | undefined)?.asNumber();
+      const height = (object.dict.lookup(PDFName.of("Height")) as PDFNumber | undefined)?.asNumber();
+      const maskWidth = (mask.dict.lookup(PDFName.of("Width")) as PDFNumber | undefined)?.asNumber();
+      const maskHeight = (mask.dict.lookup(PDFName.of("Height")) as PDFNumber | undefined)?.asNumber();
+      if (!width || !height || width !== maskWidth || height !== maskHeight) continue;
+      if ((eightBit(object) as PDFNumber | undefined)?.asNumber() !== 8 || (eightBit(mask) as PDFNumber | undefined)?.asNumber() !== 8) continue;
+      const filter = (stream: PDFRawStream) => stream.dict.lookup(PDFName.of("Filter"));
+      if (filter(object)?.toString() !== "/FlateDecode" || filter(mask)?.toString() !== "/FlateDecode") continue;
+      const pixels = decodePDFRawStream(object).decode(), alpha = decodePDFRawStream(mask).decode();
+      const count = width * height;
+      const components = pixels.length / count;
+      if (alpha.length !== count || (components !== 1 && components !== 3 && components !== 4)) continue;
+      const white = components === 4 ? 0 : 255;
+      const out = Buffer.alloc(pixels.length);
+      for (let i = 0; i < count; i++) {
+        const a = alpha[i] / 255;
+        for (let c = 0; c < components; c++) out[i * components + c] = Math.round(pixels[i * components + c] * a + white * (1 - a));
+      }
+      const dict = context.obj({});
+      for (const [key, value] of object.dict.entries()) {
+        const name = key.toString();
+        if (name === "/SMask" || name === "/DecodeParms" || name === "/Length") continue;
+        dict.set(key, value);
+      }
+      const compressed = zlib.deflateSync(out);
+      dict.set(PDFName.of("Filter"), PDFName.of("FlateDecode"));
+      dict.set(PDFName.of("Length"), PDFNumber.of(compressed.length));
+      context.assign(ref, PDFRawStream.of(dict, compressed));
+      baked++;
+    }
+    return baked ? Buffer.from(await document.save({ useObjectStreams: false })) : source;
+  } catch { return source; }
+}
+
+export async function convertPdfX3(rawSource: Buffer, options: { profile: Buffer; name: string; title: string }): Promise<{ buffer: Buffer; report: PdfXReport }> {
   validateCmykProfile(options.profile);
+  const source = await bakeImageAlphaOnWhite(rawSource);
   const executable = process.env.FOLIO_GS_BIN || resolveAppResource("vendor", "ghostscript", "bin", process.platform === "win32" ? "gswin64c.exe" : "gs");
   const version = await run(executable, ["--version"], { timeoutMs: 10_000, maxOutputBytes: 100_000 });
   if (version.code !== 0 || version.stdout.trim() !== "10.08.0") throw new Error("The pinned Ghostscript 10.08.0 publishing runtime is unavailable. Repair Folio's publishing tools.");
