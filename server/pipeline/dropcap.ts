@@ -20,6 +20,7 @@ export async function alignDropCaps(page: Page): Promise<number> {
     for (const cap of caps) {
       cap.style.removeProperty("margin-top");
       cap.style.removeProperty("margin-bottom");
+      cap.style.removeProperty("font-size");
       delete cap.dataset.folioDropcapLines;
       delete cap.dataset.folioDropcapWrappedLines;
       delete cap.dataset.folioDropcapSeated;
@@ -59,7 +60,7 @@ export async function alignDropCaps(page: Page): Promise<number> {
 
       const bodyStyle = getComputedStyle(para);
       canvas.font = `${bodyStyle.fontStyle} ${bodyStyle.fontWeight} ${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
-      const bodyMetrics = canvas.measureText("Hh");
+      const bodyMetrics = canvas.measureText("H");
       const bodyAsc = bodyMetrics.fontBoundingBoxAscent || bodyMetrics.actualBoundingBoxAscent;
       const bodyDesc = bodyMetrics.fontBoundingBoxDescent || bodyMetrics.actualBoundingBoxDescent;
       const bodyLineHeight = bodyStyle.lineHeight === "normal"
@@ -73,6 +74,23 @@ export async function alignDropCaps(page: Page): Promise<number> {
 
       let capStyle = getComputedStyle(cap);
       canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+      // Fit the initial to a whole number of body lines: its ink runs from the
+      // first line's cap height down to the baseline of line N. Each face has a
+      // different cap-height ratio, so the em size must come from its own ink.
+      {
+        const inkAscent = canvas.measureText(cap.textContent || "H").actualBoundingBoxAscent;
+        const bodyCap = bodyMetrics.actualBoundingBoxAscent;
+        if (inkAscent > 0 && bodyCap > 0 && bodyLineHeight > 0) {
+          const lines = Math.max(2, Math.min(4, Math.round((inkAscent - bodyCap) / bodyLineHeight + 1)));
+          const scale = Math.max(0.7, Math.min(1.4, ((lines - 1) * bodyLineHeight + bodyCap) / inkAscent));
+          if (Math.abs(scale - 1) > 0.004) {
+            cap.style.setProperty("font-size", `${Number.parseFloat(capStyle.fontSize) * scale}px`, "important");
+            void para.offsetHeight;
+            capStyle = getComputedStyle(cap);
+            canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+          }
+        }
+      }
       const capMetrics = canvas.measureText(cap.textContent || "H");
       const capAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent;
       const capDesc = capMetrics.fontBoundingBoxDescent || capMetrics.actualBoundingBoxDescent;
