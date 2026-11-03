@@ -40,11 +40,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Folio 3.4.7 version consistency
+      - name: Verify Folio 3.4.8 version consistency
         shell: pwsh
         run: |
           $version = (node -p "require('./package.json').version").Trim()
-          if ($version -ne "3.4.7") { throw "Windows release is scoped to Folio 3.4.7, found $version." }
+          if ($version -ne "3.4.8") { throw "Windows release is scoped to Folio 3.4.8, found $version." }
           node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.version!==l.version||p.version!==l.packages[''].version) throw new Error('package.json/package-lock.json version mismatch')"
           if ($LASTEXITCODE -ne 0) { throw "Version consistency check failed." }
           node -e "const p=require('./package.json'); if(p.build.win.icon!=='build/folio.ico' || !p.build.files.includes('build/folio.ico') || p.build.fileAssociations.some(a=>a.icon!=='folio.ico')) throw new Error('Windows icon wiring is not using the generated Folio ICO')"
@@ -354,7 +354,7 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --target "$env:GITHUB_SHA" `
             --title "Folio $env:FOLIO_VERSION for Windows" `
-            --notes "Folio 3.4.7 fixes PDF/X export losing searchable text when a book contains transparent (irregularly shaped) wrapped illustrations, which also restores clean drop caps and text wrap in PDF/X. It includes the Windows installer and portable app, with validated print trim matrix, export checks, and SHA-256 verification."
+            --notes "Folio 3.4.8 fits every drop cap to its typeface (small = 3 lines, large = 4) and offers a curated drop-cap typeface list in Design (full list in Theme Lab). It includes the Windows installer and portable app, with validated print trim matrix, export checks, and SHA-256 verification."
 
       - name: Upload publishing diagnostics
         if: always()

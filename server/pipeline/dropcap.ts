@@ -81,7 +81,8 @@ export async function alignDropCaps(page: Page): Promise<number> {
         const inkAscent = canvas.measureText(cap.textContent || "H").actualBoundingBoxAscent;
         const bodyCap = bodyMetrics.actualBoundingBoxAscent;
         if (inkAscent > 0 && bodyCap > 0 && bodyLineHeight > 0) {
-          const lines = Math.max(2, Math.min(4, Math.round((inkAscent - bodyCap) / bodyLineHeight + 1)));
+          const nominalEm = Number.parseFloat(capStyle.fontSize) / Number.parseFloat(bodyStyle.fontSize);
+          const lines = nominalEm >= 6 ? 4 : 3;
           const scale = Math.max(0.7, Math.min(1.4, ((lines - 1) * bodyLineHeight + bodyCap) / inkAscent));
           if (Math.abs(scale - 1) > 0.004) {
             cap.style.setProperty("font-size", `${Number.parseFloat(capStyle.fontSize) * scale}px`, "important");
