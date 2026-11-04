@@ -1,7 +1,7 @@
 import { printFitScale, seekPrintSection } from "./preview-fit";
 import { PAPER_PROFILES } from "../../shared/paper-profiles";
 import { seatPreviewDropCap, seatPreviewDropCaps } from "./dropcap-seat";
-import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
+import FontPicker, { BODY_FONT_FAMILIES, DISPLAY_FONT_FAMILIES, DESIGN_DROPCAP_FONT_FAMILIES } from "./components/FontPicker";
 import { lazy, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api, downloadResult, formatBytes } from "./api";
 import {
@@ -271,10 +271,13 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
   const screenSizes: Record<NonNullable<Typography["dropcapSize"]>, string> = {
     small: "3em",
     large: "4.5em",
+    xlarge: "6em",
   };
   const selectedSize = size ? screenSizes[size] : undefined;
   if (selectedSize) (section as HTMLElement).style.setProperty("--folio-dropcap-user-size", selectedSize);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-size");
+  if (size) (section as HTMLElement).style.setProperty("--folio-dropcap-lines", size === "xlarge" ? "4" : size === "large" ? "3" : "2");
+  else (section as HTMLElement).style.removeProperty("--folio-dropcap-lines");
   if (font) (section as HTMLElement).style.setProperty("--folio-dropcap-user-font", font);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-font");
   if (!enabled || !section.classList.contains("chapter")) return;
@@ -3168,7 +3171,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
   const fontRow = (label: string, current: string | undefined, onChange:(value:string)=>void, options:readonly string[]=BODY_FONT_FAMILIES, disabled=false) =>
     <div className="customize-row customize-font-row"><span>{label}</span><FontPicker label={label} value={current} allowDefault disabled={disabled} families={options} onChange={onChange}/></div>;
   const displayFamilies = DISPLAY_FONT_FAMILIES;
-  const dropcapFamilies = DROPCAP_FONT_FAMILIES;
+  const dropcapFamilies = DESIGN_DROPCAP_FONT_FAMILIES;
   const clearTypographyKeys = (...keys: Array<keyof Typography>) => {
     const next = { ...ty };
     for (const key of keys) delete next[key];
@@ -3222,7 +3225,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     </>}
     {category === "First Paragraph" && <>
       {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
-      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small</option><option value="large">Large</option></select>)}
+      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small · 2 lines</option><option value="large">Large · 3 lines</option><option value="xlarge">Extra large · 4 lines</option></select>)}
       {fontRow("Drop cap typeface", ty.dropcapFont, (value) => setTy({ ...ty, dropcapFont: value || undefined }), dropcapFamilies, !(ty.dropcap ?? props.themeDropcap))}
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}

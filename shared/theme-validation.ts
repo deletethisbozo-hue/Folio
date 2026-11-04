@@ -35,7 +35,7 @@ const enums: Record<string, readonly string[]> = {
   headingStyle: ["normal", "italic"],
   subtitleAlign: ["left", "center", "right"],
   subtitleStyle: ["normal", "italic"],
-  dropcapSize: ["small", "large"],
+  dropcapSize: ["small", "large", "xlarge"],
   chapterRule: ["none", "top", "bottom", "top-bottom", "left", "right", "box", "double", "dashed", "dotted", "shadow", "corners"],
   titlePageAlign: ["left", "center", "right"],
 };

@@ -196,6 +196,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [sourceDoc, setSourceDoc] = useState<SectionDocument | null>(null);
   const [selection, setSelection] = useState<SourceSelection | null>(null);
   const [targetSelection, setTargetSelection] = useState<TextSelection | null>(null);
+  const [sourceCaret, setSourceCaret] = useState<number | null>(null);
+  const [targetCaretPos, setTargetCaretPos] = useState<number | null>(null);
   const [memoryMode, setMemoryMode] = useState(false);
   const [memoryPeek, setMemoryPeek] = useState(false);
   const [syncScroll, setSyncScroll] = useState(false);
@@ -269,6 +271,37 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const unreviewedCursorRef = useRef(0);
   const issueCursorRef = useRef(0);
   const changedCursorRef = useRef(0);
+  // The target editor remounts (chapter reload, restore) without remounting this
+  // pane, so listeners must follow the live element instead of a stale one.
+  const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    let host: Element | null = null;
+    let observer: MutationObserver | null = null;
+    let frame: number | null = null;
+    const sync = () => {
+      const next = document.querySelector<HTMLElement>(".manuscript-editor");
+      setTargetEl((current) => (current === next ? current : next));
+      const nextHost = next?.parentElement ?? null;
+      if (nextHost !== host) {
+        observer?.disconnect();
+        host = nextHost;
+        if (host) observer?.observe(host, { childList: true });
+      }
+    };
+    const schedule = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => { frame = null; sync(); });
+    };
+    observer = new MutationObserver(schedule);
+    sync();
+    const paper = document.querySelector(".editor-paper");
+    if (paper) observer.observe(paper, { childList: true });
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [props.targetSectionId]);
+
   const viewKey = useMemo(
     () => `folio.second-draft.view.v3:${props.project.projectId}:${props.targetSectionId}:${sourceId || "none"}`,
     [props.project.projectId, props.targetSectionId, sourceId],
@@ -545,13 +578,13 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }, [props.targetSectionId, props.project.meta.language, repetitionHeatmap]);
 
   useEffect(() => {
-    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const targetEditor = targetEl;
     if (!targetEditor) return;
     const rememberTargetSelection = () => {
       const selected = selectedTextOffsets(targetEditor);
       setTargetSelection(selected);
       const offset = caretTextOffset(targetEditor);
-      if (offset !== null) targetCaretRef.current = offset;
+      if (offset !== null) { targetCaretRef.current = offset; setTargetCaretPos(offset); }
     };
     rememberTargetSelection();
     targetEditor.addEventListener("mouseup", rememberTargetSelection);
@@ -564,7 +597,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       targetEditor.removeEventListener("input", rememberTargetSelection);
       targetEditor.removeEventListener("focus", rememberTargetSelection);
     };
-  }, [props.targetSectionId]);
+  }, [props.targetSectionId, targetEl]);
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => { if (event.key === "Alt" && memoryMode) setMemoryPeek(true); };
@@ -583,7 +616,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   useEffect(() => {
     if (!pair || !sourceMatchesPair || sourceChanged) return;
     const sourceEditor = sourceEditorRef.current;
-    const targetEditor = document.querySelector<HTMLElement>(".manuscript-editor");
+    const targetEditor = targetEl;
     if (!sourceEditor || !targetEditor) return;
 
     const scrollPointForOffset = (editor: HTMLElement, offset: number): number | null => {
@@ -722,14 +755,13 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       targetEditor.removeEventListener("input", targetInput);
       resizeObserver?.disconnect();
     };
-  }, [pair?.sourceSectionId, sourceMatchesPair, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey]);
+  }, [pair?.sourceSectionId, sourceMatchesPair, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey, targetEl]);
 
   function linkSelectedLines() {
-    if (!selection || !targetSelection) return;
-    const anchor = {
-      targetOffset: Math.round((targetSelection.start + targetSelection.end) / 2),
-      sourceOffset: Math.round((selection.start + selection.end) / 2),
-    };
+    const sourceOffset = selection ? Math.round((selection.start + selection.end) / 2) : sourceCaret;
+    const targetOffset = targetSelection ? Math.round((targetSelection.start + targetSelection.end) / 2) : targetCaretPos;
+    if (sourceOffset === null || targetOffset === null) return;
+    const anchor = { targetOffset, sourceOffset };
     const next = [...manualAnchors.filter((item) =>
       Math.abs(item.targetOffset - anchor.targetOffset) > 8
       && Math.abs(item.sourceOffset - anchor.sourceOffset) > 8
@@ -738,6 +770,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     setSyncScroll(true);
     setTargetSelection(null);
     setSelection(null);
+    setSourceCaret(null);
+    setTargetCaretPos(null);
     window.getSelection()?.removeAllRanges();
     persistViewState({ manualAnchors: next, syncScroll: true });
   }
@@ -788,7 +822,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   function captureSelection() {
     const editor = sourceEditorRef.current;
-    if (editor) setSelection(selectedTextOffsets(editor));
+    if (!editor) return;
+    setSelection(selectedTextOffsets(editor));
+    const caret = caretTextOffset(editor);
+    if (caret !== null) setSourceCaret(caret);
   }
 
   function currentTargetCaret(): number | undefined {
@@ -1268,8 +1305,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
               persistViewState({ syncScroll: next });
               return next;
             })}>Sync</button>
-          <button type="button" disabled={!selection || !targetSelection}
-            title="Select matching text on the source and target, then link those exact lines"
+          <button type="button" disabled={(!selection && sourceCaret === null) || (!targetSelection && targetCaretPos === null)}
+            title="Click or select a line in the source, then the matching line in your draft, then link them"
             onClick={linkSelectedLines}>Link lines</button>
           {manualAnchors.length > 0 && <button type="button" className={linksPanelOpen ? "active" : ""}
             aria-expanded={linksPanelOpen} title="View, jump to, or remove individual paired-scroll links"

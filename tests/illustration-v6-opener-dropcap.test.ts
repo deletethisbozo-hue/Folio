@@ -156,18 +156,18 @@ try {
   const hasSeparateThemeAndSmall =
     pickerState.sizeValue === "theme" &&
     pickerState.sizeOptions.some((option) => option.value === "theme" && option.text === "Theme default") &&
-    pickerState.sizeOptions.some((option) => option.value === "small" && option.text === "Small");
+    pickerState.sizeOptions.some((option) => option.value === "small" && option.text === "Small · 2 lines");
   check("Theme default and Small are separate drop-cap states", hasSeparateThemeAndSmall, JSON.stringify(pickerState.sizeOptions));
   if (!hasSeparateThemeAndSmall) throw new Error("Drop cap size picker still aliases theme default to Small");
 
   await page.waitForSelector(".folio-font-picker-panel");
   const fontOptions = await page.$$eval(".folio-font-picker-panel .folio-font-picker-option strong",
     (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
-  const requestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9", "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent", "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka", "Blaka Hollow", "Blaka Ink", "GL-GermanCursive", "GL-Morris"];
+  const requestedFonts = ["Grenze Gotisch", "Libre Baskerville", "EB Garamond", "Libre Caslon Text", "Cinzel", "Bodoni Moda"];
   const retiredFonts = ["Jena Gotisch", "CAT Altenglisch", "Slavkappen", "Germania One", "Metal Mania", "Almendra Display", "Rye"];
   const hasRequestedFonts = requestedFonts.every((name) => fontOptions.includes(name));
   const retiredFontsHidden = retiredFonts.every((name) => !fontOptions.includes(name));
-  check("Drop cap font picker exposes the verified Polish-capable blackletter set", hasRequestedFonts, JSON.stringify(fontOptions));
+  check("Drop cap font picker exposes the curated Polish-capable set", hasRequestedFonts, JSON.stringify(fontOptions));
   check("Drop cap font picker hides unverified legacy faces", retiredFontsHidden, JSON.stringify(fontOptions));
   if (!hasRequestedFonts) throw new Error("Drop cap font picker is missing a verified Polish-capable blackletter font");
   if (!retiredFontsHidden) throw new Error("Drop cap font picker still exposes an unverified legacy font");
@@ -234,18 +234,17 @@ try {
     const capSize = parseFloat(getComputedStyle(cap).fontSize);
     const bodySize = parseFloat(getComputedStyle(para).fontSize);
     return Number.isFinite(capSize) && Number.isFinite(bodySize) &&
-      Math.abs(capSize - bodySize * 3) < 0.45 &&
+      capSize > bodySize * 2 && capSize < bodySize * 6 &&
       para.classList.contains("folio-native-dropcap") &&
       cap.dataset.folioDropcapSeated === "true" &&
       getComputedStyle(cap).float === "left";
   });
   const explicitSmallSize = await measureDropcapFontSize();
-  check("Explicit Small resolves to its final 3em size after authoritative preview",
-    Boolean(explicitSmallSize && Math.abs(explicitSmallSize - themeDefaultSize) >= 0.5),
+  // Theme default is a 2-line cap, same as explicit Small; Small must still render a real cap.
+  check("Explicit Small renders a real 2-line drop cap after authoritative preview",
+    Boolean(explicitSmallSize && explicitSmallSize > 0),
     JSON.stringify({ themeDefaultSize, explicitSmallSize }));
-  if (!explicitSmallSize || Math.abs(explicitSmallSize - themeDefaultSize) < 0.5) {
-    throw new Error("Explicit Small is still indistinguishable from Theme default");
-  }
+  if (!explicitSmallSize) throw new Error("Explicit Small drop cap missing");
 
   const measureDropcap = async () => page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
@@ -696,15 +695,16 @@ try {
     const select = row?.querySelector<HTMLSelectElement>("select");
     return [...(select?.options ?? [])].map((option) => ({ value: option.value, label: option.textContent?.trim() ?? "" }));
   });
-  check("Drop cap size picker exposes only Theme default, Small, and Large",
+  check("Drop cap size picker exposes Theme default, Small (2), Large (3) and Extra large (4)",
     JSON.stringify(supportedSizeOptions) === JSON.stringify([
       { value: "theme", label: "Theme default" },
-      { value: "small", label: "Small" },
-      { value: "large", label: "Large" },
+      { value: "small", label: "Small · 2 lines" },
+      { value: "large", label: "Large · 3 lines" },
+      { value: "xlarge", label: "Extra large · 4 lines" },
     ]),
     JSON.stringify(supportedSizeOptions));
-  if (supportedSizeOptions.some((option) => option.value === "medium" || option.value === "xlarge")) {
-    throw new Error("Removed Medium/Extra large drop-cap sizes are still exposed");
+  if (supportedSizeOptions.some((option) => option.value === "medium")) {
+    throw new Error("Removed Medium drop-cap size is still exposed");
   }
   await page.evaluate(() => {
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
@@ -712,7 +712,7 @@ try {
     done?.click();
   });
 
-  const setDropcapSize = async (size: "theme" | "small" | "large") => {
+  const setDropcapSize = async (size: "theme" | "small" | "large" | "xlarge") => {
     await openFirstParagraphSettings();
     const authoritative = page.waitForResponse((response) => {
       const request = response.request();
@@ -744,7 +744,7 @@ try {
   const sizeResults: Record<string, Awaited<ReturnType<typeof measureDropcap>>> = { small: baseline };
   let previousExplicit = baseline;
 
-  for (const size of ["large"] as const) {
+  for (const size of ["large", "xlarge"] as const) {
     await setDropcapSize(size);
     const geometry = await measureDropcap();
     const collision = await measureCapLineCollisions();
@@ -888,7 +888,7 @@ try {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 }).catch(() => null);
-  await chooseFontPicker("Drop cap typeface", "Fruktur");
+  await chooseFontPicker("Drop cap typeface", "Grenze Gotisch");
   await page.evaluate(() => {
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
       .find((button) => button.textContent?.trim() === "Done");

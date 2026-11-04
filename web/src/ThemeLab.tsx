@@ -645,7 +645,7 @@ export default function ThemeLab(props: {
             <div className="theme-lab-subsection"><h4>Drop cap</h4></div>
             {row("Use drop cap", <input type="checkbox" checked={lab.dropcap !== false} onChange={(event) => patch({ dropcap: event.target.checked })}/>)}
             <FontControl label="Drop-cap typeface" value={lab.dropcapFont ?? "Libre Baskerville"} options={dropcapFontOptions} onChange={(value) => patch({ dropcapFont: value })}/>
-            <SelectControl label="Drop-cap size" value={lab.dropcapSize ?? "small"} onChange={(value) => patch({ dropcapSize: value as "small" | "large" })}><option value="small">Small · 2 lines</option><option value="large">Large · 3 lines</option></SelectControl>
+            <SelectControl label="Drop-cap size" value={lab.dropcapSize ?? "small"} onChange={(value) => patch({ dropcapSize: value as "small" | "large" | "xlarge" })}><option value="small">Small · 2 lines</option><option value="large">Large · 3 lines</option><option value="xlarge">Extra large · 4 lines</option></SelectControl>
           </>}
 
           {panel === "Ornaments" && <>

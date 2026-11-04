@@ -1077,3 +1077,13 @@
     padding-inline: 5px;
   }
 }
+
+/* Source toolbar: fixed height keeps both papers aligned; drop the redundant status text and tighten spacing so controls are not clipped. */
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"] .writing-split-toolbar.second-draft-source-toolbar {
+  padding-inline: 12px !important;
+  column-gap: 5px !important;
+}
+.second-draft-source-toolbar .second-draft-sync-status { display: none; }
+.second-draft-source-toolbar .second-draft-source-meta { flex: 0 0 auto; white-space: nowrap; }
+.second-draft-source-toolbar .second-draft-review-controls { margin-left: auto; }
+.second-draft-source-toolbar .second-draft-sync-controls { margin-left: 0; }

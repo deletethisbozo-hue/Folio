@@ -30,6 +30,11 @@ export const DROPCAP_FONT_FAMILIES = [
 ] as const;
 
 export const DISPLAY_FONT_FAMILIES = DROPCAP_FONT_FAMILIES;
+
+/** Short curated set for the Design panel; the full list stays in Theme Lab. */
+export const DESIGN_DROPCAP_FONT_FAMILIES = [
+  "Libre Baskerville", "EB Garamond", "Libre Caslon Text", "Cinzel", "Bodoni Moda", "Grenze Gotisch",
+] as const;
 export const BUNDLED_FONT_FAMILIES = DISPLAY_FONT_FAMILIES;
 
 export const FONT_TEST_SENTENCE = "Write. Format. Publish.";

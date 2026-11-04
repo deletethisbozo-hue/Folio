@@ -77,8 +77,8 @@ function normalizeTypography(raw: RawConfig["typography"]): Typography {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const normalized = { ...raw } as Record<string, unknown>;
   const legacySize = normalized.dropcapSize;
-  if (legacySize === "medium" || legacySize === "xlarge") normalized.dropcapSize = "large";
-  else if (legacySize !== undefined && legacySize !== "small" && legacySize !== "large") delete normalized.dropcapSize;
+  if (legacySize === "medium") normalized.dropcapSize = "large";
+  else if (legacySize !== undefined && legacySize !== "small" && legacySize !== "large" && legacySize !== "xlarge") delete normalized.dropcapSize;
   return normalized as Typography;
 }
 

@@ -141,7 +141,7 @@ export interface ThemeLabConfig {
   labelTracking?: number; // em
   labelColor?: string;
   dropcap?: boolean;
-  dropcapSize?: "small" | "large";
+  dropcapSize?: "small" | "large" | "xlarge";
   dropcapFont?: string;
   sceneOrnament?: string;
   sceneSize?: number; // em
@@ -166,7 +166,7 @@ export interface Typography {
   fontSize?: string; // base size, e.g. "12pt"
   lineHeight?: number | string;
   dropcap?: boolean; // override the theme default
-  dropcapSize?: "small" | "large"; // explicit size override; undefined = theme default
+  dropcapSize?: "small" | "large" | "xlarge"; // explicit size override; undefined = theme default
   dropcapFont?: string; // built-in or custom font family for the opening initial
   sceneOrnament?: string; // override the theme ornament
   chapterTitle?: ChapterTitleStyle;
