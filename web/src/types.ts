@@ -91,7 +91,7 @@ export interface ThemeLabConfig {
   labelTracking?: number; // em
   labelColor?: string;
   dropcap?: boolean;
-  dropcapSize?: "small" | "large";
+  dropcapSize?: "small" | "large" | "xlarge";
   dropcapFont?: string;
   sceneOrnament?: string;
   sceneSize?: number; // em
@@ -144,7 +144,7 @@ export interface Typography {
   fontSize?: string;
   lineHeight?: number | string;
   dropcap?: boolean;
-  dropcapSize?: "small" | "large";
+  dropcapSize?: "small" | "large" | "xlarge";
   dropcapFont?: string;
   sceneOrnament?: string;
   chapterTitle?: ChapterTitleStyle;

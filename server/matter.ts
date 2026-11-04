@@ -295,8 +295,8 @@ export async function saveTypography(bookDir: string, meta: BookMeta, typography
   return withConfigLock(bookDir, async () => {
     const cfg = await ensureConfigUnlocked(bookDir, meta);
     const normalized = { ...typography };
-    if (normalized.dropcapSize === "medium" || normalized.dropcapSize === "xlarge") normalized.dropcapSize = "large";
-    else if (normalized.dropcapSize !== undefined && normalized.dropcapSize !== "small" && normalized.dropcapSize !== "large") {
+    if (normalized.dropcapSize === "medium") normalized.dropcapSize = "large";
+    else if (normalized.dropcapSize !== undefined && normalized.dropcapSize !== "small" && normalized.dropcapSize !== "large" && normalized.dropcapSize !== "xlarge") {
       delete normalized.dropcapSize;
     }
     const pruned = prune(normalized);

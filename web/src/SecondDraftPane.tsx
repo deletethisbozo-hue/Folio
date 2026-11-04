@@ -196,6 +196,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [sourceDoc, setSourceDoc] = useState<SectionDocument | null>(null);
   const [selection, setSelection] = useState<SourceSelection | null>(null);
   const [targetSelection, setTargetSelection] = useState<TextSelection | null>(null);
+  const [sourceCaret, setSourceCaret] = useState<number | null>(null);
+  const [targetCaretPos, setTargetCaretPos] = useState<number | null>(null);
   const [memoryMode, setMemoryMode] = useState(false);
   const [memoryPeek, setMemoryPeek] = useState(false);
   const [syncScroll, setSyncScroll] = useState(false);
@@ -582,7 +584,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       const selected = selectedTextOffsets(targetEditor);
       setTargetSelection(selected);
       const offset = caretTextOffset(targetEditor);
-      if (offset !== null) targetCaretRef.current = offset;
+      if (offset !== null) { targetCaretRef.current = offset; setTargetCaretPos(offset); }
     };
     rememberTargetSelection();
     targetEditor.addEventListener("mouseup", rememberTargetSelection);
@@ -756,11 +758,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }, [pair?.sourceSectionId, sourceMatchesPair, sourceChanged, sourceDoc?.id, syncScroll, manualAnchors, memoryMode, viewKey, targetEl]);
 
   function linkSelectedLines() {
-    if (!selection || !targetSelection) return;
-    const anchor = {
-      targetOffset: Math.round((targetSelection.start + targetSelection.end) / 2),
-      sourceOffset: Math.round((selection.start + selection.end) / 2),
-    };
+    const sourceOffset = selection ? Math.round((selection.start + selection.end) / 2) : sourceCaret;
+    const targetOffset = targetSelection ? Math.round((targetSelection.start + targetSelection.end) / 2) : targetCaretPos;
+    if (sourceOffset === null || targetOffset === null) return;
+    const anchor = { targetOffset, sourceOffset };
     const next = [...manualAnchors.filter((item) =>
       Math.abs(item.targetOffset - anchor.targetOffset) > 8
       && Math.abs(item.sourceOffset - anchor.sourceOffset) > 8
@@ -769,6 +770,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     setSyncScroll(true);
     setTargetSelection(null);
     setSelection(null);
+    setSourceCaret(null);
+    setTargetCaretPos(null);
     window.getSelection()?.removeAllRanges();
     persistViewState({ manualAnchors: next, syncScroll: true });
   }
@@ -819,7 +822,10 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
   function captureSelection() {
     const editor = sourceEditorRef.current;
-    if (editor) setSelection(selectedTextOffsets(editor));
+    if (!editor) return;
+    setSelection(selectedTextOffsets(editor));
+    const caret = caretTextOffset(editor);
+    if (caret !== null) setSourceCaret(caret);
   }
 
   function currentTargetCaret(): number | undefined {
@@ -1299,8 +1305,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
               persistViewState({ syncScroll: next });
               return next;
             })}>Sync</button>
-          <button type="button" disabled={!selection || !targetSelection}
-            title="Select matching text on the source and target, then link those exact lines"
+          <button type="button" disabled={(!selection && sourceCaret === null) || (!targetSelection && targetCaretPos === null)}
+            title="Click or select a line in the source, then the matching line in your draft, then link them"
             onClick={linkSelectedLines}>Link lines</button>
           {manualAnchors.length > 0 && <button type="button" className={linksPanelOpen ? "active" : ""}
             aria-expanded={linksPanelOpen} title="View, jump to, or remove individual paired-scroll links"

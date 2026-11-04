@@ -271,11 +271,12 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
   const screenSizes: Record<NonNullable<Typography["dropcapSize"]>, string> = {
     small: "3em",
     large: "4.5em",
+    xlarge: "6em",
   };
   const selectedSize = size ? screenSizes[size] : undefined;
   if (selectedSize) (section as HTMLElement).style.setProperty("--folio-dropcap-user-size", selectedSize);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-size");
-  if (size) (section as HTMLElement).style.setProperty("--folio-dropcap-lines", size === "large" ? "4" : "3");
+  if (size) (section as HTMLElement).style.setProperty("--folio-dropcap-lines", size === "xlarge" ? "4" : size === "large" ? "3" : "2");
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-lines");
   if (font) (section as HTMLElement).style.setProperty("--folio-dropcap-user-font", font);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-font");
@@ -3224,7 +3225,7 @@ function CustomizePanel(props: { category: StyleCategory; typography: Typography
     </>}
     {category === "First Paragraph" && <>
       {row("Drop cap", <input type="checkbox" checked={ty.dropcap ?? props.themeDropcap} onChange={(e) => setTy({ ...ty, dropcap: e.target.checked })}/>)}
-      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small</option><option value="large">Large</option></select>)}
+      {row("Drop cap size", <select value={ty.dropcapSize ?? "theme"} disabled={!(ty.dropcap ?? props.themeDropcap)} onChange={(e) => setTy({ ...ty, dropcapSize: e.target.value === "theme" ? undefined : e.target.value as NonNullable<Typography["dropcapSize"]> })}><option value="theme">Theme default</option><option value="small">Small · 2 lines</option><option value="large">Large · 3 lines</option><option value="xlarge">Extra large · 4 lines</option></select>)}
       {fontRow("Drop cap typeface", ty.dropcapFont, (value) => setTy({ ...ty, dropcapFont: value || undefined }), dropcapFamilies, !(ty.dropcap ?? props.themeDropcap))}
     </>}
     {category === "Paragraph After Break" && row("First-line indent", <select value={ty.paragraphAfterBreakIndent ?? ""} onChange={(e) => setTy({ ...ty, paragraphAfterBreakIndent: e.target.value || undefined })}><option value="">Theme default</option><option value="0">Flush</option><option value="1em">Compact</option><option value="1.25em">Standard</option><option value="1.6em">Deep</option></select>)}

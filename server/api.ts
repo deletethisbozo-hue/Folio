@@ -140,8 +140,8 @@ function applyTypography(book: { typography: any }, req: Request): void {
   const ty = req.body?.typography;
   if (!ty || typeof ty !== "object" || Array.isArray(ty)) return;
   const normalized = { ...ty };
-  if (normalized.dropcapSize === "medium" || normalized.dropcapSize === "xlarge") normalized.dropcapSize = "large";
-  else if (normalized.dropcapSize !== undefined && normalized.dropcapSize !== "small" && normalized.dropcapSize !== "large") {
+  if (normalized.dropcapSize === "medium") normalized.dropcapSize = "large";
+  else if (normalized.dropcapSize !== undefined && normalized.dropcapSize !== "small" && normalized.dropcapSize !== "large" && normalized.dropcapSize !== "xlarge") {
     delete normalized.dropcapSize;
   }
   book.typography = {

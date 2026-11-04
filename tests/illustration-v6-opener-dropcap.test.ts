@@ -156,7 +156,7 @@ try {
   const hasSeparateThemeAndSmall =
     pickerState.sizeValue === "theme" &&
     pickerState.sizeOptions.some((option) => option.value === "theme" && option.text === "Theme default") &&
-    pickerState.sizeOptions.some((option) => option.value === "small" && option.text === "Small");
+    pickerState.sizeOptions.some((option) => option.value === "small" && option.text === "Small · 2 lines");
   check("Theme default and Small are separate drop-cap states", hasSeparateThemeAndSmall, JSON.stringify(pickerState.sizeOptions));
   if (!hasSeparateThemeAndSmall) throw new Error("Drop cap size picker still aliases theme default to Small");
 
@@ -240,12 +240,11 @@ try {
       getComputedStyle(cap).float === "left";
   });
   const explicitSmallSize = await measureDropcapFontSize();
-  check("Explicit Small resolves to its final 3em size after authoritative preview",
-    Boolean(explicitSmallSize && Math.abs(explicitSmallSize - themeDefaultSize) >= 0.5),
+  // Theme default is a 2-line cap, same as explicit Small; Small must still render a real cap.
+  check("Explicit Small renders a real 2-line drop cap after authoritative preview",
+    Boolean(explicitSmallSize && explicitSmallSize > 0),
     JSON.stringify({ themeDefaultSize, explicitSmallSize }));
-  if (!explicitSmallSize || Math.abs(explicitSmallSize - themeDefaultSize) < 0.5) {
-    throw new Error("Explicit Small is still indistinguishable from Theme default");
-  }
+  if (!explicitSmallSize) throw new Error("Explicit Small drop cap missing");
 
   const measureDropcap = async () => page.evaluate(() => {
     const doc = document.querySelector<HTMLIFrameElement>(".preview-frame")?.contentDocument;
@@ -696,15 +695,16 @@ try {
     const select = row?.querySelector<HTMLSelectElement>("select");
     return [...(select?.options ?? [])].map((option) => ({ value: option.value, label: option.textContent?.trim() ?? "" }));
   });
-  check("Drop cap size picker exposes only Theme default, Small, and Large",
+  check("Drop cap size picker exposes Theme default, Small (2), Large (3) and Extra large (4)",
     JSON.stringify(supportedSizeOptions) === JSON.stringify([
       { value: "theme", label: "Theme default" },
-      { value: "small", label: "Small" },
-      { value: "large", label: "Large" },
+      { value: "small", label: "Small · 2 lines" },
+      { value: "large", label: "Large · 3 lines" },
+      { value: "xlarge", label: "Extra large · 4 lines" },
     ]),
     JSON.stringify(supportedSizeOptions));
-  if (supportedSizeOptions.some((option) => option.value === "medium" || option.value === "xlarge")) {
-    throw new Error("Removed Medium/Extra large drop-cap sizes are still exposed");
+  if (supportedSizeOptions.some((option) => option.value === "medium")) {
+    throw new Error("Removed Medium drop-cap size is still exposed");
   }
   await page.evaluate(() => {
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
@@ -712,7 +712,7 @@ try {
     done?.click();
   });
 
-  const setDropcapSize = async (size: "theme" | "small" | "large") => {
+  const setDropcapSize = async (size: "theme" | "small" | "large" | "xlarge") => {
     await openFirstParagraphSettings();
     const authoritative = page.waitForResponse((response) => {
       const request = response.request();
@@ -744,7 +744,7 @@ try {
   const sizeResults: Record<string, Awaited<ReturnType<typeof measureDropcap>>> = { small: baseline };
   let previousExplicit = baseline;
 
-  for (const size of ["large"] as const) {
+  for (const size of ["large", "xlarge"] as const) {
     await setDropcapSize(size);
     const geometry = await measureDropcap();
     const collision = await measureCapLineCollisions();

@@ -181,8 +181,8 @@ function themeLabCss(book: Book): string {
   if (lab.dropcap === false) {
     out.push(`.folio-native-dropcap { text-indent:${paragraphIndent}em !important; } .folio-native-dropcap .dropcap, .dropcap { float:none !important; display:inline !important; position:static !important; max-width:none !important; font-size:inherit !important; line-height:inherit !important; padding:0 !important; margin:0 !important; font-family:inherit !important; color:inherit !important; transform:none !important; }`);
   } else {
-    const dc = lab.dropcapSize === "large" ? 4.35 : 3.05;
-    out.push(`:root { --folio-dropcap-user-size:${dc}em; --folio-dropcap-lines:${lab.dropcapSize === "large" ? 4 : 3}; }`);
+    const dc = lab.dropcapSize === "xlarge" ? 5.6 : lab.dropcapSize === "large" ? 4.35 : 3.05;
+    out.push(`:root { --folio-dropcap-user-size:${dc}em; --folio-dropcap-lines:${lab.dropcapSize === "xlarge" ? 4 : lab.dropcapSize === "large" ? 3 : 2}; }`);
     out.push(`.folio-native-dropcap { text-indent:0 !important; overflow:visible !important; }`);
     out.push(`.folio-native-dropcap .dropcap, .dropcap { float:left !important; display:block !important; position:relative !important; box-sizing:border-box !important; max-width:38% !important; font-family:${dropcapFont} !important; color:${accent} !important; font-size:var(--folio-dropcap-user-size) !important; line-height:.9 !important; padding:0 .09em 0 0 !important; margin:0 0 0 0 !important; transform:none !important; white-space:nowrap !important; overflow:visible !important; }`);
   }
@@ -317,10 +317,11 @@ function typographyCss(book: Book): string {
   const dropcapSizes = {
     small: { screen: "3em", print: "5em" },
     large: { screen: "4.5em", print: "7em" },
+    xlarge: { screen: "6em", print: "9em" },
   } as const;
   if (ty.dropcapSize) {
     const size = dropcapSizes[ty.dropcapSize];
-    out.push(`:root { --folio-dropcap-user-size: ${size.screen}; --folio-dropcap-print-size: ${size.print}; --folio-dropcap-lines: ${ty.dropcapSize === "large" ? 4 : 3}; }`);
+    out.push(`:root { --folio-dropcap-user-size: ${size.screen}; --folio-dropcap-print-size: ${size.print}; --folio-dropcap-lines: ${ty.dropcapSize === "xlarge" ? 4 : ty.dropcapSize === "large" ? 3 : 2}; }`);
   }
   if (ty.dropcapFont) {
     out.push(`.dropcap { font-family: ${familyValue(ty.dropcapFont)} !important; }`);

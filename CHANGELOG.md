@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.4.8] - 2026-11-03
 
 ### Fixed
-- Drop caps are now sized from each typeface's own cap height: small spans 3 lines, large spans 4, with the ink top on the first line's cap height and the bottom on the last line's baseline, for every font.
+- Drop caps are now sized from each typeface's own cap height: small spans 2 lines, large 3 and extra large 4, with the ink top on the first line's cap height and the bottom on the last line's baseline, for every font.
 
 ### Changed
 - Design panel offers a short curated drop-cap typeface list; the full list stays in Theme Lab.
