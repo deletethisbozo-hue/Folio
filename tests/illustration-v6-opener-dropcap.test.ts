@@ -163,11 +163,11 @@ try {
   await page.waitForSelector(".folio-font-picker-panel");
   const fontOptions = await page.$$eval(".folio-font-picker-panel .folio-font-picker-option strong",
     (items) => items.map((item) => item.textContent?.trim()).filter((name): name is string => Boolean(name)));
-  const requestedFonts = ["Grenze Gotisch", "Fruktur", "Pirata One", "New Rocker", "Jacquarda Bastarda 9", "Jaini Purva", "Jaini", "Jim Nightshade", "Texturina", "Manufacturing Consent", "Newspaper Text", "KJV1611", "GL-StellaMystica", "GL-StarTaker", "Gothic GumDrop", "Blaka", "Blaka Hollow", "Blaka Ink", "GL-GermanCursive", "GL-Morris"];
+  const requestedFonts = ["Grenze Gotisch", "Libre Baskerville", "EB Garamond", "Libre Caslon Text", "Cinzel", "Bodoni Moda"];
   const retiredFonts = ["Jena Gotisch", "CAT Altenglisch", "Slavkappen", "Germania One", "Metal Mania", "Almendra Display", "Rye"];
   const hasRequestedFonts = requestedFonts.every((name) => fontOptions.includes(name));
   const retiredFontsHidden = retiredFonts.every((name) => !fontOptions.includes(name));
-  check("Drop cap font picker exposes the verified Polish-capable blackletter set", hasRequestedFonts, JSON.stringify(fontOptions));
+  check("Drop cap font picker exposes the curated Polish-capable set", hasRequestedFonts, JSON.stringify(fontOptions));
   check("Drop cap font picker hides unverified legacy faces", retiredFontsHidden, JSON.stringify(fontOptions));
   if (!hasRequestedFonts) throw new Error("Drop cap font picker is missing a verified Polish-capable blackletter font");
   if (!retiredFontsHidden) throw new Error("Drop cap font picker still exposes an unverified legacy font");

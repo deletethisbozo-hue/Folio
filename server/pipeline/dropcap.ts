@@ -60,7 +60,7 @@ export async function alignDropCaps(page: Page): Promise<number> {
 
       const bodyStyle = getComputedStyle(para);
       canvas.font = `${bodyStyle.fontStyle} ${bodyStyle.fontWeight} ${bodyStyle.fontSize} ${bodyStyle.fontFamily}`;
-      const bodyMetrics = canvas.measureText("H");
+      const bodyMetrics = canvas.measureText("Hh");
       const bodyAsc = bodyMetrics.fontBoundingBoxAscent || bodyMetrics.actualBoundingBoxAscent;
       const bodyDesc = bodyMetrics.fontBoundingBoxDescent || bodyMetrics.actualBoundingBoxDescent;
       const bodyLineHeight = bodyStyle.lineHeight === "normal"
@@ -73,17 +73,21 @@ export async function alignDropCaps(page: Page): Promise<number> {
       const bodyInkTop = bodyBaseline - bodyMetrics.actualBoundingBoxAscent;
 
       let capStyle = getComputedStyle(cap);
+      let fitLines = 0;
       canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
       // Fit the initial to a whole number of body lines: its ink runs from the
       // first line's cap height down to the baseline of line N. Each face has a
       // different cap-height ratio, so the em size must come from its own ink.
       {
-        const inkAscent = canvas.measureText(cap.textContent || "H").actualBoundingBoxAscent;
+        const glyphMetrics = canvas.measureText(cap.textContent || "H");
+        const inkHeight = glyphMetrics.actualBoundingBoxAscent + Math.max(0, glyphMetrics.actualBoundingBoxDescent);
         const bodyCap = bodyMetrics.actualBoundingBoxAscent;
-        if (inkAscent > 0 && bodyCap > 0 && bodyLineHeight > 0) {
+        if (inkHeight > 0 && bodyCap > 0 && bodyLineHeight > 0) {
           const nominalEm = Number.parseFloat(capStyle.fontSize) / Number.parseFloat(bodyStyle.fontSize);
-          const lines = nominalEm >= 6 ? 4 : 3;
-          const scale = Math.max(0.7, Math.min(1.4, ((lines - 1) * bodyLineHeight + bodyCap) / inkAscent));
+          const requested = Number.parseInt(capStyle.getPropertyValue("--folio-dropcap-lines"), 10);
+          const lines = requested >= 2 && requested <= 6 ? requested : nominalEm >= 4 ? 3 : 2;
+          fitLines = lines;
+          const scale = Math.max(0.3, Math.min(3, ((lines - 1) * bodyLineHeight + bodyCap) / inkHeight));
           if (Math.abs(scale - 1) > 0.004) {
             cap.style.setProperty("font-size", `${Number.parseFloat(capStyle.fontSize) * scale}px`, "important");
             void para.offsetHeight;
@@ -161,7 +165,7 @@ export async function alignDropCaps(page: Page): Promise<number> {
         if (intersectsInk) intersectedInkLines = line + 1;
         else if (row.top >= capInkBottom - 0.5) break;
       }
-      const seatLines = Math.max(2, Math.min(6, intersectedInkLines));
+      const seatLines = fitLines || Math.max(2, Math.min(6, intersectedInkLines));
 
       const paraRect = para.getBoundingClientRect();
       const contentLeft =

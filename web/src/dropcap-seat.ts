@@ -113,8 +113,28 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
   const bodyInkTop = bodyBaseline - (bodyMetrics.actualBoundingBoxAscent || bodyAsc);
 
   let capStyle = view.getComputedStyle(cap);
-  const capFontSize = Number.parseFloat(capStyle.fontSize) || bodySize * 3;
   const glyph = cap.textContent?.trim() || "H";
+  // Fit the initial to a whole number of body lines using its own ink:
+  // cap-height of line 1 down to the baseline of line N, for any typeface.
+  let fitLines = 0;
+  {
+    canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
+    const gm = canvas.measureText(glyph);
+    const inkHeight = gm.actualBoundingBoxAscent + Math.max(0, gm.actualBoundingBoxDescent);
+    const bodyCap = bodyMetrics.actualBoundingBoxAscent;
+    if (inkHeight > 0 && bodyCap > 0 && bodyLineHeight > 0) {
+      const nominalEm = (Number.parseFloat(capStyle.fontSize) || bodySize * 3) / bodySize;
+      const requested = Number.parseInt(capStyle.getPropertyValue("--folio-dropcap-lines"), 10);
+      fitLines = requested >= 2 && requested <= 6 ? requested : nominalEm >= 4 ? 3 : 2;
+      const scale = Math.max(0.3, Math.min(3, ((fitLines - 1) * bodyLineHeight + bodyCap) / inkHeight));
+      if (Math.abs(scale - 1) > 0.004) {
+        cap.style.setProperty("font-size", `${(Number.parseFloat(capStyle.fontSize) || bodySize * 3) * scale}px`, "important");
+        void para.offsetHeight;
+        capStyle = view.getComputedStyle(cap);
+      }
+    }
+  }
+  const capFontSize = Number.parseFloat(capStyle.fontSize) || bodySize * 3;
   canvas.font = `${capStyle.fontStyle} ${capStyle.fontWeight} ${capStyle.fontSize} ${capStyle.fontFamily}`;
   const capMetrics = canvas.measureText(glyph);
   const capAsc = capMetrics.fontBoundingBoxAscent || capMetrics.actualBoundingBoxAscent || capFontSize * .8;
@@ -220,7 +240,7 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
     intersectedInkLines || projectedInkLines || 2,
     projectedInkLines || intersectedInkLines || 2,
   );
-  const seatLines = Math.max(2, Math.min(6, measuredInkLines));
+  const seatLines = fitLines || Math.max(2, Math.min(6, measuredInkLines));
 
   const paraRect = para.getBoundingClientRect();
   const contentLeft =
@@ -295,7 +315,7 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
       if (intersects) count++;
       else if (row.top >= capInkBottom - .5) break;
     }
-    return Math.max(2, Math.min(6, count || 2));
+    return fitLines || Math.max(2, Math.min(6, count || 2));
   };
 
   let finalSeatLines = finalInkLineCount();
@@ -363,7 +383,7 @@ export function seatPreviewDropCap(cap: HTMLElement): void {
       if (intersects) count++;
       else if (row.top >= liveInkBottom - .5) break;
     }
-    return Math.max(2, Math.min(6, count || 2));
+    return fitLines || Math.max(2, Math.min(6, count || 2));
   };
 
   const settleAcrossFrames = (

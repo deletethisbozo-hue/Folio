@@ -275,6 +275,8 @@ function applyDraftDropcap(section: Element, enabled: boolean, size?: Typography
   const selectedSize = size ? screenSizes[size] : undefined;
   if (selectedSize) (section as HTMLElement).style.setProperty("--folio-dropcap-user-size", selectedSize);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-size");
+  if (size) (section as HTMLElement).style.setProperty("--folio-dropcap-lines", size === "large" ? "4" : "3");
+  else (section as HTMLElement).style.removeProperty("--folio-dropcap-lines");
   if (font) (section as HTMLElement).style.setProperty("--folio-dropcap-user-font", font);
   else (section as HTMLElement).style.removeProperty("--folio-dropcap-user-font");
   if (!enabled || !section.classList.contains("chapter")) return;
