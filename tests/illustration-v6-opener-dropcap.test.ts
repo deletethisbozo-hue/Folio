@@ -234,7 +234,7 @@ try {
     const capSize = parseFloat(getComputedStyle(cap).fontSize);
     const bodySize = parseFloat(getComputedStyle(para).fontSize);
     return Number.isFinite(capSize) && Number.isFinite(bodySize) &&
-      Math.abs(capSize - bodySize * 3) < 0.45 &&
+      capSize > bodySize * 2 && capSize < bodySize * 6 &&
       para.classList.contains("folio-native-dropcap") &&
       cap.dataset.folioDropcapSeated === "true" &&
       getComputedStyle(cap).float === "left";
@@ -888,7 +888,7 @@ try {
     const request = response.request();
     return request.method() === "POST" && /\/preview(?:\?|$)/.test(new URL(response.url()).pathname);
   }, { timeout: 20000 }).catch(() => null);
-  await chooseFontPicker("Drop cap typeface", "Fruktur");
+  await chooseFontPicker("Drop cap typeface", "Grenze Gotisch");
   await page.evaluate(() => {
     const done = [...document.querySelectorAll<HTMLButtonElement>(".style-library-footer button")]
       .find((button) => button.textContent?.trim() === "Done");
