@@ -1352,8 +1352,8 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <strong>Later queue · {laterBlocks.length}</strong>
           <span>{laterBlocks[0].sourceText.length > 120 ? laterBlocks[0].sourceText.slice(0, 117) + "…" : laterBlocks[0].sourceText}</span>
         </> : <>
-          <strong>Source Burn</strong>
-          <span>Select source text, then decide what happens to it.</span>
+          <strong>Rewrite source</strong>
+          <span>Select a passage on the old draft, then choose its next step.</span>
         </>}
       </div>
 
@@ -1553,3 +1553,4 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     </div>}
   </section>;
 }
+
