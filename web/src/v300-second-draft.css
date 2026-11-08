@@ -744,11 +744,19 @@
 .second-draft-rewrite-queue {
   display: grid;
   gap: 8px;
-  margin: 8px 10px 0;
+  position: absolute;
+  z-index: 8;
+  left: 10px;
+  right: 10px;
+  bottom: 12px;
+  max-height: min(220px, calc(100% - 150px));
+  overflow: auto;
+  margin: 0;
   padding: 9px 10px;
   border: 1px solid color-mix(in srgb, var(--sd-accent) 19%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--sd-accent) 4%, var(--mockup-paper, var(--studio-paper, #fff)));
+  background: color-mix(in srgb, var(--sd-accent) 7%, var(--mockup-paper, var(--studio-paper, #fff)));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--sd-accent) 12%, transparent);
 }
 .second-draft-queue-head {
   display: flex;
@@ -1128,3 +1136,4 @@
     padding-inline: 5px;
   }
 }
+
