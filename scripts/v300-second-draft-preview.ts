@@ -93,6 +93,21 @@ try {
 
   await page.click(".second-draft-pair");
   await page.waitForFunction(() => document.querySelector(".second-draft-progress")?.textContent?.includes("0%"));
+  await page.waitForSelector(".second-draft-rewrite-queue");
+  const workspaceSides = await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>(".manuscript-editor");
+    const source = document.querySelector<HTMLElement>(".second-draft-source");
+    const queue = document.querySelector<HTMLElement>(".second-draft-rewrite-queue");
+    return {
+      targetLeft: target?.getBoundingClientRect().left ?? -1,
+      sourceLeft: source?.getBoundingClientRect().left ?? -1,
+      sourceEditable: source?.getAttribute("contenteditable"),
+      queueLabel: queue?.getAttribute("aria-label"),
+    };
+  });
+  if (workspaceSides.targetLeft >= workspaceSides.sourceLeft || workspaceSides.sourceEditable !== "false" || workspaceSides.queueLabel !== "Rewrite queue") {
+    throw new Error("Second Draft must keep the new draft left, source right, and queue available: " + JSON.stringify(workspaceSides));
+  }
   await settle();
   await page.screenshot({ path: path.join(qa, "01-main-light.png") });
 

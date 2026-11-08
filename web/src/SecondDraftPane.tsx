@@ -8,8 +8,11 @@ import {
   interpolatePairedScroll,
   placeCaretAtTextOffset,
   rangeForTextOffsets,
+  rewriteQueue,
+  rewriteQueueSummary,
   secondDraftProgress,
   selectedTextOffsets,
+  sourceChangeNotice,
   sourceFingerprint,
 } from "./second-draft";
 import type {
@@ -1161,13 +1164,16 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   }
 
   const progress = secondDraftProgress(pair, blocks);
+  const queue = rewriteQueue(blocks, props.targetSectionId);
+  const queueSummary = rewriteQueueSummary(blocks, props.targetSectionId);
+  const sourceNotice = sourceChangeNotice(pair, sourceDoc?.markdown ?? "");
   const unresolved = relevantBlocks.filter((block) => block.status === "active" || block.status === "later").length;
   const processed = relevantBlocks.filter((block) => ["rewritten", "cut", "keep", "sent"].includes(block.status)).length;
   const sendOptions = props.project.sections.filter(
     (section) => section.kind === "chapter" && section.id !== props.targetSectionId && section.id !== pair?.sourceSectionId,
   );
 
-  return <section className={`writing-split-pane second-draft-pane ${memoryMode ? "memory-mode" : ""} ${memoryPeek ? "memory-peek" : ""}`} aria-label="Second Draft source">
+  return <section className={`writing-split-pane second-draft-pane ${memoryMode ? "memory-mode" : ""} ${memoryPeek ? "memory-peek" : ""}`} aria-label="Second Draft rewrite reference">
     <div className="writing-split-top-strip" aria-hidden="true" />
     <header className="writing-split-header second-draft-header">
       <div className="writing-split-title">
@@ -1232,9 +1238,21 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       </article>)}</div>
     </div>}
 
-    {sourceChanged && sourceMatchesPair && <div className="second-draft-warning">
-      Source changed since it was paired. Re-pair it before continuing so Source Burn and scroll anchors stay exact.
+    {sourceChanged && sourceMatchesPair && <div className="second-draft-warning" role="status">
+      {sourceNotice} Re-pair the source only when you are ready to replace this chapter's existing source decisions.
     </div>}
+
+    {sourceMatchesPair && <aside className="second-draft-rewrite-queue" aria-label="Rewrite queue">
+      <div className="second-draft-queue-head">
+        <div><span>Rewrite queue</span><strong>{queueSummary.outstanding ? `${queueSummary.outstanding} to resolve` : "Clear runway"}</strong></div>
+        <small>{queueSummary.done + queueSummary.sent}/{queueSummary.total || 0} decided</small>
+      </div>
+      <div className="second-draft-queue-groups">
+        {queue.now.length > 0 && <section><strong>Now</strong>{queue.now.map((block) => <button type="button" key={block.id} onClick={() => selectAndRevealSourceRange(block.sourceStart, block.sourceEnd)}><span>{block.intent ?? "general"}</span>{block.sourceText}</button>)}</section>}
+        {queue.later.length > 0 && <section><strong>Later</strong>{queue.later.map((block) => <article key={block.id}><button type="button" onClick={() => selectAndRevealSourceRange(block.sourceStart, block.sourceEnd)}>{block.sourceText}</button><button type="button" className="second-draft-queue-resume" disabled={busy} onClick={() => void resumeLater(block)}>Resume</button></article>)}</section>}
+        {queue.now.length === 0 && queue.later.length === 0 && <p>Choose a passage on the source to make your next rewrite decision.</p>}
+      </div>
+    </aside>}
 
     <div className="writing-split-toolbar second-draft-source-toolbar" aria-label="Second Draft source controls">
       <div className="second-draft-source-meta">

@@ -5,7 +5,10 @@ import {
   changedTextRange,
   interpolatePairedScroll,
   normalizePairedScrollAnchors,
+  rewriteQueue,
+  rewriteQueueSummary,
   secondDraftProgress,
+  sourceChangeNotice,
   sourceFingerprint,
 } from "../web/src/second-draft.ts";
 import type { SecondDraftBlock, SecondDraftPair } from "../web/src/write-studio.ts";
@@ -36,6 +39,24 @@ const blocks: SecondDraftBlock[] = [
 
 check("Source Burn progress merges overlapping completed ranges", Math.abs(secondDraftProgress(pair, blocks) - 0.3) < 0.0001);
 check("Later blocks remain unresolved and do not inflate progress", secondDraftProgress(pair, blocks) < 0.4);
+const rewriteBlocks: SecondDraftBlock[] = [
+  { id: "now", targetSectionId: "draft-2", sourceSectionId: "draft-1", sourceStart: 0, sourceEnd: 10, sourceText: "now", status: "active", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "later", targetSectionId: "draft-2", sourceSectionId: "draft-1", sourceStart: 10, sourceEnd: 20, sourceText: "later", status: "later", createdAt: "2026-01-02T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" },
+  { id: "done", targetSectionId: "draft-2", sourceSectionId: "draft-1", sourceStart: 20, sourceEnd: 30, sourceText: "done", status: "rewritten", createdAt: "2026-01-03T00:00:00.000Z", updatedAt: "2026-01-03T00:00:00.000Z" },
+  { id: "sent", targetSectionId: "draft-2", sourceSectionId: "draft-1", sourceStart: 30, sourceEnd: 40, sourceText: "sent", status: "sent", createdAt: "2026-01-04T00:00:00.000Z", updatedAt: "2026-01-04T00:00:00.000Z" },
+  { id: "other", targetSectionId: "other", sourceSectionId: "draft-1", sourceStart: 0, sourceEnd: 10, sourceText: "other", status: "active", createdAt: "2026-01-05T00:00:00.000Z", updatedAt: "2026-01-05T00:00:00.000Z" },
+];
+const queue = rewriteQueue(rewriteBlocks, "draft-2");
+check("rewrite queue groups only this chapter's decisions by writer intent",
+  queue.now.map((block) => block.id).join(",") === "now"
+  && queue.later.map((block) => block.id).join(",") === "later"
+  && queue.done.map((block) => block.id).join(",") === "done"
+  && queue.sent.map((block) => block.id).join(",") === "sent");
+check("rewrite queue summary exposes outstanding and completed work",
+  JSON.stringify(rewriteQueueSummary(rewriteBlocks, "draft-2")) === JSON.stringify({ now: 1, later: 1, done: 1, sent: 1, outstanding: 2, total: 4 }));
+check("source changes are surfaced without mutating rewrite records",
+  sourceChangeNotice({ ...pair, sourceFingerprint: sourceFingerprint("old source") }, "old source") === null
+  && sourceChangeNotice({ ...pair, sourceFingerprint: sourceFingerprint("old source") }, "changed source")?.includes("changed") === true);
 check("source fingerprint is stable and content-sensitive",
   sourceFingerprint("same text") === sourceFingerprint("same text") && sourceFingerprint("same text") !== sourceFingerprint("same text!"));
 check("target rewrite range follows the explicit rewrite anchor rather than UI focus",

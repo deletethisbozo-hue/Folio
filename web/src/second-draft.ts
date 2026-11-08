@@ -4,6 +4,44 @@ export function secondDraftProcessedStatus(status: SecondDraftBlockStatus): bool
   return status === "rewritten" || status === "cut" || status === "keep" || status === "sent";
 }
 
+export type RewriteQueue = {
+  now: SecondDraftBlock[];
+  later: SecondDraftBlock[];
+  done: SecondDraftBlock[];
+  sent: SecondDraftBlock[];
+};
+
+export function rewriteQueue(blocks: SecondDraftBlock[], targetSectionId: string): RewriteQueue {
+  const queue: RewriteQueue = { now: [], later: [], done: [], sent: [] };
+  for (const block of blocks) {
+    if (block.targetSectionId !== targetSectionId) continue;
+    if (block.status === "active") queue.now.push(block);
+    else if (block.status === "later") queue.later.push(block);
+    else if (block.status === "sent") queue.sent.push(block);
+    else queue.done.push(block);
+  }
+  const bySourcePosition = (left: SecondDraftBlock, right: SecondDraftBlock) => left.sourceStart - right.sourceStart || left.createdAt.localeCompare(right.createdAt);
+  queue.now.sort(bySourcePosition);
+  queue.later.sort(bySourcePosition);
+  queue.done.sort(bySourcePosition);
+  queue.sent.sort(bySourcePosition);
+  return queue;
+}
+
+export function rewriteQueueSummary(blocks: SecondDraftBlock[], targetSectionId: string) {
+  const queue = rewriteQueue(blocks, targetSectionId);
+  const now = queue.now.length;
+  const later = queue.later.length;
+  const done = queue.done.length;
+  const sent = queue.sent.length;
+  return { now, later, done, sent, outstanding: now + later, total: now + later + done + sent };
+}
+
+export function sourceChangeNotice(pair: SecondDraftPair | null | undefined, currentSourceText: string): string | null {
+  if (!pair || pair.sourceFingerprint === sourceFingerprint(currentSourceText)) return null;
+  return "The source draft has changed since this rewrite session began. Your decisions are preserved; review the highlighted passages before sealing this chapter.";
+}
+
 export function mergedSecondDraftRanges(blocks: SecondDraftBlock[], targetSectionId: string): Array<[number, number]> {
   const ranges = blocks
     .filter((block) => block.targetSectionId === targetSectionId && secondDraftProcessedStatus(block.status))
