@@ -61,20 +61,6 @@ try {
   await secondDraftButton.click();
   await page.waitForSelector(".second-draft-pane");
   await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
-  await page.waitForFunction(() => {
-    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
-    const repeats = document.querySelector<HTMLButtonElement>(".second-draft-repeat-toggle");
-    return Boolean(
-      repeats?.getAttribute("aria-pressed") === "true"
-      && registry?.has("folio-repeat-high")
-      && registry?.has("folio-repeat-phrase")
-    );
-  });
-  await page.$eval(".manuscript-editor", (el) => {
-    const editor = el as HTMLElement;
-    editor.querySelector('[data-initial-repeats-qa="true"]')?.remove();
-    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
-  });
 
   const initial = await page.evaluate(() => {
     const source = document.querySelector<HTMLElement>(".second-draft-source");
@@ -94,6 +80,18 @@ try {
   await page.click(".second-draft-pair");
   await page.waitForFunction(() => document.querySelector(".second-draft-progress")?.textContent?.includes("0%"));
   await page.waitForSelector(".second-draft-rewrite-queue");
+  await page.click(".second-draft-session-toggle");
+  await page.waitForSelector(".second-draft-session-drawer");
+  await page.waitForFunction(() => {
+    const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
+    const repeats = document.querySelector<HTMLButtonElement>(".second-draft-repeat-toggle");
+    return Boolean(repeats?.getAttribute("aria-pressed") === "true" && registry?.has("folio-repeat-high") && registry?.has("folio-repeat-phrase"));
+  });
+  await page.$eval(".manuscript-editor", (el) => {
+    const editor = el as HTMLElement;
+    editor.querySelector('[data-initial-repeats-qa="true"]')?.remove();
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+  });
   const workspaceSides = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor");
     const source = document.querySelector<HTMLElement>(".second-draft-source");
@@ -470,7 +468,7 @@ try {
   await page.type(".second-draft-issue-form input", "Tighten this beat before the reveal.");
   await page.click(".second-draft-issue-form button");
   await page.waitForFunction(() =>
-    (document.querySelector(".second-draft-head-actions")?.textContent ?? "").includes("Issues 1"),
+    (document.querySelector(".second-draft-session-drawer")?.textContent ?? "").includes("Issues 1"),
   );
   const issueState = await page.$eval(".second-draft-issues-drawer", (drawer) => drawer.textContent ?? "");
   if (!issueState.includes("Pacing") || !issueState.includes("Tighten this beat before the reveal.")) {
@@ -482,7 +480,7 @@ try {
 
   // Chapter review passes persist independently from source decisions.
   await page.evaluate(() => {
-    const passes = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+    const passes = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-session-drawer button")]
       .find((button) => button.textContent?.startsWith("Passes"));
     if (!passes) throw new Error("Second Draft Passes control missing");
     passes.click();
@@ -512,7 +510,7 @@ try {
 
   // Chapter draft brief is persisted with the Second Draft project state.
   await page.evaluate(() => {
-    const brief = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+    const brief = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-session-drawer button")]
       .find((button) => button.textContent?.startsWith("Brief"));
     if (!brief) throw new Error("Second Draft Brief control missing");
     brief.click();
@@ -522,11 +520,11 @@ try {
   await page.screenshot({ path: path.join(qa, "07-brief-light.png") });
   await page.click(".second-draft-brief-actions button");
   await page.waitForFunction(() =>
-    [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+    [...document.querySelectorAll<HTMLButtonElement>(".second-draft-session-drawer button")]
       .some((button) => button.textContent?.includes("Brief •")),
   );
 
-  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.click(".second-draft-session-drawer button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
   await settle(120);
   await page.screenshot({ path: path.join(qa, "09-memory-light.png") });
@@ -538,7 +536,7 @@ try {
   const peekFilter = await page.$eval(".second-draft-source", (el) => getComputedStyle(el).filter);
   await page.keyboard.up("Alt");
   if (peekFilter !== "none") throw new Error("Hold-Alt Memory peek did not reveal source: " + peekFilter);
-  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.click(".second-draft-session-drawer button[title*='Hide source']");
 
   const secondSelection = await selectSourceText(1);
   if (!secondSelection.trim()) throw new Error("Second source selection failed");
@@ -646,13 +644,13 @@ try {
   });
   await page.waitForFunction(() => {
     const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
-    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-session-drawer button")]
       .find((button) => button.textContent?.startsWith("Repeats"));
     return Boolean(registry?.has("folio-repeat-high") && registry?.has("folio-repeat-phrase") && repeats && /Repeats\s+\d+/.test(repeats.textContent ?? ""));
   });
   const repetitionQa = await page.evaluate(() => {
     const registry = (CSS as unknown as { highlights?: { has(name: string): boolean } }).highlights;
-    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+    const repeats = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-session-drawer button")]
       .find((button) => button.textContent?.startsWith("Repeats"));
     return {
       high: Boolean(registry?.has("folio-repeat-high")),
@@ -964,7 +962,7 @@ try {
   await page.waitForFunction(() => document.querySelector(".second-draft-sync-status")?.textContent?.includes("Synced"));
 
   // Mode remount must restore both scroll positions and Second Draft UI state.
-  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.click(".second-draft-session-drawer button[title*='Hide source']");
   await page.waitForSelector(".second-draft-pane.memory-mode");
   const savedBeforeRemount = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
@@ -987,6 +985,8 @@ try {
   await page.click(".editor-second-draft-toggle");
   await page.waitForSelector(".second-draft-pane.memory-mode");
   await page.waitForFunction(() => (document.querySelector(".second-draft-source")?.textContent?.trim().length ?? 0) > 80);
+  await page.click(".second-draft-session-toggle");
+  await page.waitForSelector(".second-draft-session-drawer");
   await settle(420);
   const restoredAfterRemount = await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>(".manuscript-editor")!;
@@ -1029,7 +1029,7 @@ try {
       },
     };
   });
-  const persistedReviewUi = await page.$eval(".second-draft-head-actions", (head) => head.textContent ?? "");
+  const persistedReviewUi = await page.$eval(".second-draft-session-drawer", (session) => session.textContent ?? "");
   if (!persistedReviewUi.includes("Issues 1") || !persistedReviewUi.includes("Passes 2/7") || !persistedReviewUi.includes("Brief •")) {
     throw new Error("Second Draft issues/review passes/brief did not survive remount: " + persistedReviewUi);
   }
@@ -1040,7 +1040,7 @@ try {
     await page.screenshot({ path: path.join(qa, "debug-remount-geometry.png") });
     throw new Error("Second Draft view state was not restored after mode remount: " + JSON.stringify({ savedBeforeRemount, restoredAfterRemount }));
   }
-  await page.click(".second-draft-head-actions button[title*='Hide source']");
+  await page.click(".second-draft-session-drawer button[title*='Hide source']");
   await page.evaluate(() => document.querySelector("#second-draft-scroll-fixture")?.remove());
   await settle(220);
 
@@ -1086,7 +1086,7 @@ try {
   await page.screenshot({ path: path.join(qa, "12-main-midnight.png") });
 
   await page.evaluate(() => {
-    const issues = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-head-actions button")]
+    const issues = [...document.querySelectorAll<HTMLButtonElement>(".second-draft-session-drawer button")]
       .find((button) => button.textContent?.startsWith("Issues"));
     issues?.click();
   });
@@ -1122,3 +1122,4 @@ try {
   await closeBrowser().catch(() => undefined);
   await new Promise<void>((resolve) => server.close(() => resolve()));
 }
+
