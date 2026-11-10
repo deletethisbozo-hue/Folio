@@ -217,6 +217,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
   const [sendTargetId, setSendTargetId] = useState("");
   const [busy, setBusy] = useState(false);
   const [sealReveal, setSealReveal] = useState<SecondDraftSealReveal | null>(null);
+  const [sessionOpen, setSessionOpen] = useState(false);
   const [sourceChanged, setSourceChanged] = useState(false);
   const [issuePanelOpen, setIssuePanelOpen] = useState(false);
   const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
@@ -1177,7 +1178,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
     <div className="writing-split-top-strip" aria-hidden="true" />
     <header className="writing-split-header second-draft-header">
       <div className="writing-split-title">
-        <strong>Second Draft</strong>
+        <strong>Old draft</strong>
         <select aria-label="Source draft chapter" value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={busy || Boolean(activeBlock)}>
           {candidateSections.map((section) => <option key={section.id} value={section.id}>{section.title}</option>)}
         </select>
@@ -1187,44 +1188,11 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           </button>}
       </div>
       <div className="second-draft-head-actions">
-        {sourceMatchesPair && <span className="second-draft-progress">{Math.round(progress * 100)}% source</span>}
-        {sourceMatchesPair && <button type="button" className={reviewPanelOpen ? "active" : ""} onClick={() => {
-          setReviewPanelOpen((value) => !value);
-          setIssuePanelOpen(false);
-        }}>Passes {reviewPassCount}/{REVIEW_PASSES.length}</button>}
-        {sourceMatchesPair && <button type="button" className={issuePanelOpen ? "active" : ""} onClick={() => {
-          setIssuePanelOpen((value) => !value);
-          setReviewPanelOpen(false);
-        }}>Issues {unresolvedIssues.length}</button>}
-        {sourceMatchesPair && <button type="button" className={briefOpen ? "active" : ""} title={draftBrief || "Set the goal for this chapter rewrite"} onClick={() => {
-          setBriefDraft(draftBrief);
-          setBriefOpen((value) => !value);
-          setIssuePanelOpen(false);
-          setReviewPanelOpen(false);
-        }}>Brief{draftBrief ? " •" : ""}</button>}
-        <button type="button" className={"second-draft-repeat-toggle " + (repetitionHeatmap ? "active" : "")} aria-pressed={repetitionHeatmap}
-          aria-label={repetitionHeatmap ? "Hide repetition highlights" : "Show repetition highlights"}
-          title={repetitionHeatmap
-            ? `Hide repetition highlights · ${repetitionSummary.words} repeated words · ${repetitionSummary.phrases} repeated phrases`
-            : "Show nearby word and phrase repetitions in the new draft"}
-          onClick={() => setRepetitionHeatmap((value) => {
-            const next = !value;
-            repetitionHeatmapStateRef.current = next;
-            persistViewState({ repetitionHeatmap: next });
-            return next;
-          })}>
-          <svg className="second-draft-repeat-eye" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M1.8 10s3.1-5 8.2-5 8.2 5 8.2 5-3.1 5-8.2 5-8.2-5-8.2-5Z" />
-            <circle cx="10" cy="10" r="2.35" />
-            {!repetitionHeatmap && <path className="slash" d="M3.4 3.4 16.6 16.6" />}
-          </svg>
-          <span>Repeats{repetitionHeatmap && (repetitionSummary.words + repetitionSummary.phrases) > 0 ? ` ${repetitionSummary.words + repetitionSummary.phrases}` : ""}</span>
+        {sourceMatchesPair && <span className="second-draft-progress">{Math.round(progress * 100)}% reviewed</span>}
+        <button type="button" className={'second-draft-session-toggle ' + (sessionOpen ? "active" : "")}
+          aria-label="Second Draft session" aria-expanded={sessionOpen} onClick={() => setSessionOpen((value) => !value)}>
+          Session{unresolvedIssues.length ? ` · ${unresolvedIssues.length}` : ""}
         </button>
-        <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => {
-          const next = !value;
-          persistViewState({ memoryMode: next });
-          return next;
-        })}>Memory</button>
         <button type="button" title="Close Second Draft" aria-label="Close Second Draft" onClick={props.onClose}>×</button>
       </div>
     </header>
@@ -1256,7 +1224,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
 
     <div className="writing-split-toolbar second-draft-source-toolbar" aria-label="Second Draft source controls">
       <div className="second-draft-source-meta">
-        <span>Source draft · read only</span>
+        <span>Source draft · read only</span><span className="second-draft-source-status">Reference only</span>
         {memoryMode && <span className="memory-hint">Hold Alt to peek</span>}
       </div>
       {sourceMatchesPair && !sourceChanged && <>
@@ -1265,52 +1233,68 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
           <span>Scene {sceneIndex + 1}/{sceneCount}</span>
           <button type="button" disabled={sceneIndex >= sceneCount - 1} onClick={() => jumpToScene(sceneIndex + 1)} title="Next source scene">›</button>
         </div>
-        <div className="second-draft-review-controls" role="group" aria-label="Second Draft review navigation">
+        <button type="button" className="second-draft-next-button" onClick={jumpToNextUnreviewed}>Next unreviewed</button>
+      </>}
+    </div>
+
+    {sessionOpen && sourceMatchesPair && <aside className="second-draft-session-drawer" aria-label="Second Draft session">
+      <div className="second-draft-session-head">
+        <div><span>Rewrite session</span><strong>{Math.round(progress * 100)}% reviewed</strong></div>
+        <button type="button" aria-label="Close Second Draft session" onClick={() => setSessionOpen(false)}>×</button>
+      </div>
+      <div className="second-draft-session-metrics">
+        <span><b>{queueSummary.outstanding}</b> to resolve</span><span><b>{unresolvedIssues.length}</b> issues</span><span><b>{reviewPassCount}/{REVIEW_PASSES.length}</b> passes</span>
+      </div>
+      <section className="second-draft-session-section">
+        <strong>Chapter direction</strong>
+        <div className="second-draft-session-actions">
+          <button type="button" className={briefOpen ? "active" : ""} onClick={() => { setBriefDraft(draftBrief); setBriefOpen((value) => !value); setIssuePanelOpen(false); setReviewPanelOpen(false); }}>Brief{draftBrief ? " •" : ""}</button>
+          <button type="button" className={reviewPanelOpen ? "active" : ""} onClick={() => { setReviewPanelOpen((value) => !value); setIssuePanelOpen(false); }}>Passes {reviewPassCount}/{REVIEW_PASSES.length}</button>
+          <button type="button" className={issuePanelOpen ? "active" : ""} onClick={() => { setIssuePanelOpen((value) => !value); setReviewPanelOpen(false); }}>Issues {unresolvedIssues.length}</button>
+        </div>
+      </section>
+      <section className="second-draft-session-section">
+        <strong>Writing aids</strong>
+        <div className="second-draft-session-actions">
+          <button type="button" className={"second-draft-repeat-toggle " + (repetitionHeatmap ? "active" : "")} aria-pressed={repetitionHeatmap}
+            aria-label={repetitionHeatmap ? "Hide repetition highlights" : "Show repetition highlights"}
+            title={repetitionHeatmap ? `Hide repetition highlights · ${repetitionSummary.words} repeated words · ${repetitionSummary.phrases} repeated phrases` : "Show nearby word and phrase repetitions in the new draft"}
+            onClick={() => setRepetitionHeatmap((value) => { const next = !value; repetitionHeatmapStateRef.current = next; persistViewState({ repetitionHeatmap: next }); return next; })}>
+            Repeats{repetitionHeatmap && (repetitionSummary.words + repetitionSummary.phrases) > 0 ? ` ${repetitionSummary.words + repetitionSummary.phrases}` : ""}
+          </button>
+          <button type="button" className={memoryMode ? "active" : ""} aria-pressed={memoryMode} title="Hide source while writing; hold Alt to peek" onClick={() => setMemoryMode((value) => { const next = !value; persistViewState({ memoryMode: next }); return next; })}>Memory</button>
+        </div>
+      </section>
+      <section className="second-draft-session-section">
+        <strong>Review navigation</strong>
+        <div className="second-draft-session-actions">
           <button type="button" onClick={jumpToNextUnreviewed}>Next unreviewed</button>
           <button type="button" disabled={!rewrittenBlocks.length} onClick={jumpToNextChanged}>Next changed</button>
           <button type="button" disabled={!unresolvedIssues.length} onClick={jumpToNextIssue}>Next issue</button>
-          <button type="button" disabled={!latestUndoableBlock || busy}
-            title={latestUndoableBlock ? "Undo the most recent Second Draft decision" : "No decision to undo"}
-            onClick={() => latestUndoableBlock && void undoDecision(latestUndoableBlock)}>Undo last</button>
+          <button type="button" disabled={!latestUndoableBlock || busy} onClick={() => latestUndoableBlock && void undoDecision(latestUndoableBlock)}>Undo last</button>
         </div>
-        <div className="second-draft-sync-controls" role="group" aria-label="Paired scroll controls">
-          <span className="second-draft-sync-status">{manualAnchors.length === 0
-            ? "Select matching lines"
-            : syncScroll
-              ? `Synced · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}`
-              : `Paused · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}`}</span>
+      </section>
+      <section className="second-draft-session-section">
+        <strong>Paired scroll</strong>
+        <div className="second-draft-session-actions second-draft-sync-controls" role="group" aria-label="Paired scroll controls">
+          <span className="second-draft-sync-status">{manualAnchors.length === 0 ? "Select matching lines" : syncScroll ? `Synced · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}` : `Paused · ${manualAnchors.length} link${manualAnchors.length === 1 ? "" : "s"}`}</span>
           <button type="button" disabled={manualAnchors.length === 0} className={syncScroll ? "active" : ""} aria-pressed={syncScroll}
-            title={manualAnchors.length === 0 ? "Link one source line to one target line first" : syncScroll ? "Pause paired scrolling" : "Resume paired scrolling"}
-            onClick={() => setSyncScroll((value) => {
-              const next = manualAnchors.length > 0 && !value;
-              persistViewState({ syncScroll: next });
-              return next;
-            })}>Sync</button>
-          <button type="button" disabled={!selection || !targetSelection}
-            title="Select matching text on the source and target, then link those exact lines"
-            onClick={linkSelectedLines}>Link lines</button>
-          {manualAnchors.length > 0 && <button type="button" className={linksPanelOpen ? "active" : ""}
-            aria-expanded={linksPanelOpen} title="View, jump to, or remove individual paired-scroll links"
-            onClick={() => setLinksPanelOpen((value) => !value)}>Links {manualAnchors.length}</button>}
-          {manualAnchors.length > 0 && <button type="button" title="Remove all explicit text links"
-            onClick={clearManualScrollAnchors}>Reset links</button>}
-          {linksPanelOpen && manualAnchors.length > 0 && <div className="second-draft-links-popover" role="dialog" aria-label="Paired scroll links">
-            <div className="second-draft-links-head"><strong>Scroll links</strong><span>{manualAnchors.length}</span></div>
-            <div className="second-draft-links-list">
-              {manualAnchors.map((anchor, index) => <div className="second-draft-link-row" key={`${anchor.targetOffset}:${anchor.sourceOffset}`}>
-                <button type="button" className="second-draft-link-jump" title="Jump both drafts to this link"
-                  onClick={() => jumpToManualScrollAnchor(anchor)}>
-                  <strong>Link {index + 1}</strong>
-                  <span>Target {anchor.targetOffset.toLocaleString()} ↔ Source {anchor.sourceOffset.toLocaleString()}</span>
-                </button>
-                <button type="button" className="second-draft-link-remove" aria-label={`Remove link ${index + 1}`}
-                  title="Remove this link" onClick={() => removeManualScrollAnchor(index)}>×</button>
-              </div>)}
-            </div>
-          </div>}
+            onClick={() => setSyncScroll((value) => { const next = manualAnchors.length > 0 && !value; persistViewState({ syncScroll: next }); return next; })}>Sync</button>
+          <button type="button" disabled={!selection || !targetSelection} onClick={linkSelectedLines}>Link lines</button>
+          {manualAnchors.length > 0 && <button type="button" className={linksPanelOpen ? "active" : ""} aria-expanded={linksPanelOpen} onClick={() => setLinksPanelOpen((value) => !value)}>Links {manualAnchors.length}</button>}
+          {manualAnchors.length > 0 && <button type="button" onClick={clearManualScrollAnchors}>Reset links</button>}
         </div>
-      </>}
-    </div>
+        {linksPanelOpen && manualAnchors.length > 0 && <div className="second-draft-links-popover second-draft-session-links" role="dialog" aria-label="Paired scroll links">
+          <div className="second-draft-links-head"><strong>Scroll links</strong><span>{manualAnchors.length}</span></div>
+          <div className="second-draft-links-list">
+            {manualAnchors.map((anchor, index) => <div className="second-draft-link-row" key={`${anchor.targetOffset}:${anchor.sourceOffset}`}>
+              <button type="button" className="second-draft-link-jump" onClick={() => jumpToManualScrollAnchor(anchor)}><strong>Link {index + 1}</strong><span>Target {anchor.targetOffset.toLocaleString()} ↔ Source {anchor.sourceOffset.toLocaleString()}</span></button>
+              <button type="button" className="second-draft-link-remove" aria-label={`Remove link ${index + 1}`} onClick={() => removeManualScrollAnchor(index)}>×</button>
+            </div>)}
+          </div>
+        </div>}
+      </section>
+    </aside>}
 
     {sourceMatchesPair && !sourceChanged && pair && <div className="second-draft-map" aria-label="Second Draft revision map">
       <div className="second-draft-map-track">
@@ -1337,7 +1321,7 @@ export default function SecondDraftPane(props: SecondDraftPaneProps) {
       <span>{processed} decisions · {unresolvedIssues.length} issues</span>
     </div>}
 
-    {sourceMatchesPair && !sourceChanged && <div className="second-draft-actionbar" aria-label="Second Draft actions">
+    {sourceMatchesPair && !sourceChanged && <div className="second-draft-rewrite-desk second-draft-actionbar" aria-label="Rewrite desk">
       <div className="second-draft-action-copy">
         {activeBlock ? <>
           <strong>Rewriting</strong>
