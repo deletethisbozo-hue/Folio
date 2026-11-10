@@ -99,6 +99,12 @@ check("background progress sync cannot replace newer Second Draft state",
   app.includes("dailyProgress: updated.dailyProgress")
   && app.includes("setWriteStudioState((current) => current"));
 check("Source is explicitly read only", pane.includes("contentEditable={false}") && pane.includes("Source draft · read only"));
+check("Second Draft groups secondary tools into a session and gives rewrite work its own desk",
+  pane.includes("second-draft-session-toggle")
+  && pane.includes('aria-label="Second Draft session"')
+  && pane.includes('aria-label="Rewrite desk"')
+  && css.includes(".second-draft-session-toggle")
+  && css.includes(".second-draft-rewrite-desk"));
 check("Second Draft action bar exposes the source-decision workflow",
   ["Rewrite this", "Cut", "Later", "Keep", "Seal"].every((label) => pane.includes(label))
   && pane.includes("second-draft-actionbar")
@@ -228,3 +234,4 @@ check("Second Draft uses the same text-node coordinate system for pairing and an
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);
+
