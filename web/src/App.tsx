@@ -350,6 +350,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const [pastePreparing, setPastePreparing] = useState(false);
   const [uiTone, setUiTone] = useState<UiTone>(() => window.localStorage.getItem("folio-ui-tone") === "midnight" ? "midnight" : "ivory");
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => window.localStorage.getItem("folio-workspace-mode") === "write" ? "write" : "format");
+  const [pageBoundaryVisible, setPageBoundaryVisible] = useState(() => window.localStorage.getItem("folio-page-boundary-visible") !== "false");
   const [editorSurface, setEditorSurface] = useState<EditorSurface>(() => {
     const stored = window.localStorage.getItem("folio-editor-surface");
     return stored === "light" || stored === "dark" ? stored : "auto";
@@ -506,6 +507,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   }, [selectedId]);
   useEffect(() => { window.localStorage.setItem("folio-ui-tone", uiTone); }, [uiTone]);
   useEffect(() => { window.localStorage.setItem("folio-workspace-mode", workspaceMode); }, [workspaceMode]);
+  useEffect(() => { window.localStorage.setItem("folio-page-boundary-visible", String(pageBoundaryVisible)); }, [pageBoundaryVisible]);
   useEffect(() => { window.localStorage.setItem("folio-editor-surface", editorSurface); }, [editorSurface]);
   useEffect(() => { window.localStorage.setItem("folio-word-count-scope", wordCountScope); }, [wordCountScope]);
   useEffect(() => { window.localStorage.setItem("folio-spellcheck-enabled", spellcheckEnabled ? "true" : "false"); }, [spellcheckEnabled]);
@@ -2667,7 +2669,7 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
   const effectiveEditorSurface: "light" | "dark" = editorSurface === "auto" ? (uiTone === "midnight" ? "dark" : "light") : editorSurface;
 
   return (
-    <div className="folio-shell" data-ui-tone={uiTone} data-save-state={saveState} data-editor-surface={effectiveEditorSurface} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} data-write-studio={writeStudioOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom), "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties}>
+    <div className="folio-shell" data-page-boundary={pageBoundaryVisible ? "visible" : "hidden"} data-ui-tone={uiTone} data-save-state={saveState} data-editor-surface={effectiveEditorSurface} data-workspace-mode={workspaceMode} data-split-view={splitView ? "true" : "false"} data-focus-mode={focusMode ? "true" : "false"} data-typewriter-mode={workspaceMode === "write" && typewriterMode ? "true" : "false"} data-write-sidebar={writeSidebarOpen ? "open" : "closed"} data-write-studio={writeStudioOpen ? "open" : "closed"} style={{ "--folio-write-zoom": String(writeZoom), "--folio-write-font-size": `${16 * writeZoom}px` } as React.CSSProperties}>
       <header className="folio-commandbar">
         <button type="button" className="command-wordmark" aria-label="Back to dashboard" title="Back to dashboard" disabled={busy} onClick={() => void returnToDashboard()}><img src={uiTone === "midnight" ? "/brand/flyph-midnight.svg" : "/brand/flyph.svg"} alt="" aria-hidden="true"/></button>
         <nav aria-label="Application commands">
@@ -2877,6 +2879,8 @@ export default function App({ initialProject = null, onDashboard }: { initialPro
       {showContent && <ContentDialog matterTypes={matterTypes} title={contentTitle} setTitle={setContentTitle} busy={busy} onAddChapter={() => void addChapter()} onAddMatter={(type) => void addMatterSection(type)} onClose={() => setShowContent(false)}/>}
       {showBookDetails && <BookDetailsDialog meta={meta} setMeta={setMeta} projectId={project.projectId} hasCover={project.hasCover} coverVersion={coverVersion} onCover={(file) => void uploadCover(file)} busy={busy} onClose={() => setShowBookDetails(false)} onSave={() => void saveBookDetails()}/>}
       {showSettings && <SettingsDialog
+        pageBoundaryVisible={pageBoundaryVisible}
+        setPageBoundaryVisible={setPageBoundaryVisible}
         spellcheckEnabled={spellcheckEnabled}
         setSpellcheckEnabled={setSpellcheckEnabled}
         typewriterSoundEnabled={typewriterSoundEnabled}
@@ -2904,6 +2908,8 @@ function DialogShell(props: { title: string; children: React.ReactNode; footer: 
 }
 
 function SettingsDialog(props: {
+  pageBoundaryVisible: boolean;
+  setPageBoundaryVisible: (visible: boolean) => void;
   spellcheckEnabled: boolean;
   setSpellcheckEnabled: (enabled: boolean) => void;
   typewriterSoundEnabled: boolean;
@@ -2924,6 +2930,10 @@ function SettingsDialog(props: {
 
   return <DialogShell title="Settings" onClose={props.onClose} footer={<button className="native-button primary" onClick={props.onClose}>Done</button>}>
     <div className="settings-list">
+      <label className="settings-row">
+        <span className="settings-copy"><strong>Page boundary</strong><small>Show the page edges around the manuscript in Write, Split View and Second Draft.</small></span>
+        <input type="checkbox" checked={props.pageBoundaryVisible} onChange={(event) => props.setPageBoundaryVisible(event.target.checked)} aria-label="Show page boundary"/>
+      </label>
       <label className="settings-row">
         <span className="settings-copy"><strong>Spellcheck</strong><small>Underline suspected spelling errors while writing. This setting applies to the main editor and Split View.</small></span>
         <input type="checkbox" checked={props.spellcheckEnabled} onChange={(event) => props.setSpellcheckEnabled(event.target.checked)} aria-label="Enable spellcheck"/>
