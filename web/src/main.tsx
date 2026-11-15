@@ -50,6 +50,7 @@ import "./font-picker.css";
 import "./v311-design-fixes.css";
 import "./v320-design-preview.css";
 import "./v325-release.css";
+import "./page-boundary.css";
 
 installPreviewRuntime();
 installRecentProjectTracking(api);
