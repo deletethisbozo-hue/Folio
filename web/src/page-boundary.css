@@ -1,0 +1,36 @@
+/* Keep the original page appearance unless the writer hides its boundary. */
+.folio-shell[data-ui-tone][data-workspace-mode="format"][data-editor-surface] .manuscript-editor {
+  width: min(860px, calc(100% - 24px)) !important;
+  height: calc(100% - 14px) !important;
+  margin: 6px auto 8px !important;
+}
+.folio-shell[data-ui-tone][data-page-boundary="hidden"][data-workspace-mode="write"][data-editor-surface="light"] .editor-paper {
+  background: #f7f8fc !important;
+}
+.folio-shell[data-ui-tone][data-page-boundary="hidden"][data-workspace-mode="write"][data-editor-surface="dark"] .editor-paper {
+  background: #252936 !important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-editor-surface][data-page-boundary="hidden"] .manuscript-editor {
+  height: 100% !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"][data-editor-surface="light"][data-page-boundary="hidden"] .writing-split-paper {
+  background: #f7f8fc !important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"][data-editor-surface="dark"][data-page-boundary="hidden"] .writing-split-paper {
+  background: #252936 !important;
+}
+.folio-shell[data-ui-tone][data-workspace-mode="write"][data-split-view="true"][data-editor-surface][data-page-boundary="hidden"] .writing-split-editor {
+  height: 100% !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
